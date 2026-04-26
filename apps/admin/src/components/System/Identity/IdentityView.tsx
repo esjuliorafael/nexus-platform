@@ -58,7 +58,7 @@ export const IdentityView = forwardRef<IdentityViewRef, IdentityViewProps>(
           setIsUploading(true);
           try {
             const response = await apiSystem.updateLogo(tempFile);
-            setCurrentLogo(`${ASSET_BASE_URL}${response.path}?t=${new Date().getTime()}`);
+            setCurrentLogo(`${ASSET_BASE_URL}${response.data.path}?t=${new Date().getTime()}`);
             setStatus('preview');
             setTempFile(null);
             setTempLogoUrl(null);

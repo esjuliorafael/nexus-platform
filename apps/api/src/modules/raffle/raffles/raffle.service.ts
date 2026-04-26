@@ -1,4 +1,5 @@
 import { PrismaClient, RaffleStatus, RaffleDistribution } from "@prisma/client-raffle";
+import { ticketService } from "../tickets/ticket.service";
 
 export const raffleService = {
   async getAllActive(prisma: PrismaClient) {
@@ -27,11 +28,18 @@ export const raffleService = {
   },
 
   async create(prisma: PrismaClient, data: any) {
-    return prisma.raffle.create({
+    const raffle = await prisma.raffle.create({
       data: {
         ...data,
         ticketPrice: data.ticketPrice.toString(), // Prisma Decimal
       },
+    });
+
+    const { digits, startFromZero } = await ticketService.generateOpportunities(prisma, raffle);
+
+    return prisma.raffle.update({
+      where: { id: raffle.id },
+      data: { digits, useZero: startFromZero },
     });
   },
 

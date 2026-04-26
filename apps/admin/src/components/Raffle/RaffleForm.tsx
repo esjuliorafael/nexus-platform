@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { 
-  Ticket, Save, X, Info, Calendar, 
+  Ticket, Save, X, Calendar, 
   Hash, Image as ImageIcon, Layout,
-  RefreshCw, Loader2, DollarSign, List
+  Loader2, DollarSign, Info, AlertTriangle
 } from 'lucide-react';
 import { Raffle } from '../../types';
 import { apiRaffles } from '../../api';
@@ -29,18 +29,36 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
   const [ticketPrice, setTicketPrice] = useState(initialData?.ticketPrice?.toString() || '');
   const [ticketQuantity, setTicketQuantity] = useState(initialData?.ticketQuantity?.toString() || '');
   const [opportunities, setOpportunities] = useState(initialData?.opportunities?.toString() || '1');
-  const [digits, setDigits] = useState(initialData?.digits || 3);
-  const [useZero, setUseZero] = useState(initialData?.useZero || false);
   const [distribution, setDistribution] = useState<'LINEAR' | 'RANDOM'>(initialData?.distribution || 'LINEAR');
   const [drawDate, setDrawDate] = useState(initialData?.drawDate ? new Date(initialData.drawDate).toISOString().split('T')[0] : '');
   const [imageUrl, setImageUrl] = useState(initialData?.image || '');
   const [status, setStatus] = useState<Raffle['status']>(initialData?.status || 'ACTIVE');
 
+  // Universe calculation logic (mirrors server)
+  const universePreview = useMemo(() => {
+    const q = parseInt(ticketQuantity) || 0;
+    const o = parseInt(opportunities) || 0;
+    const universo = q * o;
+    if (universo <= 0) return null;
+
+    const isPowerOf10 = Number.isInteger(Math.log10(universo)) && Math.log10(universo) >= 1;
+    const startFromZero = isPowerOf10;
+    const digits = startFromZero ? Math.log10(universo) : String(universo).length;
+    
+    const pad = (n: number) => String(n).padStart(digits, '0');
+    const range = startFromZero 
+      ? `${pad(0)} – ${pad(universo - 1)}`
+      : `${pad(1)} – ${pad(universo)}`;
+
+    return { universo, startFromZero, digits, range };
+  }, [ticketQuantity, opportunities]);
+
   const isFormValid = title.trim() !== '' && 
                       ticketPrice !== '' && 
                       parseFloat(ticketPrice) > 0 &&
                       ticketQuantity !== '' && 
-                      parseInt(ticketQuantity) > 0;
+                      parseInt(ticketQuantity) > 0 &&
+                      (universePreview?.universo || 0) <= 100_000;
 
   useEffect(() => {
     onValidationChange?.(isFormValid);
@@ -58,8 +76,6 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
         ticketPrice: parseFloat(ticketPrice),
         ticketQuantity: parseInt(ticketQuantity),
         opportunities: parseInt(opportunities),
-        digits: parseInt(digits as any),
-        useZero,
         distribution,
         drawDate: drawDate ? new Date(drawDate).toISOString() : null,
         image: imageUrl,
@@ -155,16 +171,16 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                  </h3>
                  <div className="grid grid-cols-2 gap-4">
                    <div className="space-y-1.5">
-                     <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-1">Cifras (2-4)</label>
-                     <select 
-                       value={digits}
-                       onChange={(e) => setDigits(parseInt(e.target.value))}
-                       className="w-full h-14 bg-stone-50 border border-stone-200 rounded-2xl px-5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-bold text-stone-800 appearance-none"
-                     >
-                       <option value={2}>2 Cifras (00-99)</option>
-                       <option value={3}>3 Cifras (000-999)</option>
-                       <option value={4}>4 Cifras (0000-9999)</option>
-                     </select>
+                     <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-1">Oportunidades</label>
+                     <input 
+                       type="number"
+                       required
+                       min="1"
+                       value={opportunities}
+                       onChange={(e) => setOpportunities(e.target.value)}
+                       className="w-full h-14 bg-stone-50 border border-stone-200 rounded-2xl px-5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-bold text-stone-800"
+                       placeholder="1"
+                     />
                    </div>
                    <div className="space-y-1.5">
                       <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-1">Modo Reparto</label>
@@ -181,24 +197,53 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                </div>
             </div>
 
-            <div className="flex items-center justify-between p-4 bg-stone-50 rounded-2xl border border-stone-100">
-               <div className="flex items-center gap-3">
-                 <div className="w-10 h-10 bg-white rounded-xl border border-stone-200 flex items-center justify-center text-stone-400">
-                   <Hash size={20} />
-                 </div>
-                 <div>
-                    <p className="text-sm font-bold text-stone-700">Incluir Cero</p>
-                    <p className="text-[10px] font-medium text-stone-400">Permite números que inicien o sean 0</p>
-                 </div>
-               </div>
-               <button 
-                 type="button"
-                 onClick={() => setUseZero(!useZero)}
-                 className={`w-12 h-6 rounded-full transition-all relative ${useZero ? 'bg-brand-500' : 'bg-stone-300'}`}
-               >
-                 <div className={`absolute top-1 w-4 h-4 bg-white rounded-full transition-all ${useZero ? 'left-7' : 'left-1'}`} />
-               </button>
-            </div>
+            {/* Universe Preview Section */}
+            {universePreview && (
+              <div className="p-6 bg-stone-900 rounded-[2rem] text-white space-y-4 animate-in zoom-in-95 duration-300">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-xs font-black uppercase tracking-[0.2em] text-stone-400 flex items-center gap-2">
+                    <Hash size={14} /> Vista Previa del Universo
+                  </h4>
+                  {universePreview.universo > 10000 && (
+                    <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-500 text-[10px] font-black uppercase border border-amber-500/20">
+                      <AlertTriangle size={12} /> Universo Grande
+                    </span>
+                  )}
+                  {universePreview.universo > 100000 && (
+                    <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 text-rose-500 text-[10px] font-black uppercase border border-rose-500/20">
+                      <AlertTriangle size={12} /> Límite Excedido
+                    </span>
+                  )}
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-4 gap-6">
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Total Números</p>
+                    <p className="text-xl font-black">{universePreview.universo.toLocaleString()}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Inicia en</p>
+                    <p className="text-xl font-black">{universePreview.startFromZero ? '0' : '1'}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Cifras</p>
+                    <p className="text-xl font-black">{universePreview.digits}</p>
+                  </div>
+                  <div className="space-y-1">
+                    <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Rango</p>
+                    <p className="text-xl font-black tabular-nums">{universePreview.range}</p>
+                  </div>
+                </div>
+
+                <div className="pt-4 border-t border-white/5 flex items-start gap-3">
+                   <Info size={16} className="text-brand-400 shrink-0 mt-0.5" />
+                   <p className="text-[10px] text-stone-400 leading-relaxed font-medium italic">
+                     El sistema calcula automáticamente las cifras y el punto de inicio para optimizar la visualización de los boletos. 
+                     Si el total es potencia de 10 (ej. 1,000), el rango será 000-999.
+                   </p>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 

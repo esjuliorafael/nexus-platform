@@ -2,6 +2,7 @@ import { PrismaClient, TicketStatus } from "@prisma/client-raffle";
 import { PrismaClient as StorePrismaClient } from "@prisma/client-store";
 import { ticketReleaseQueue } from "../../../queues/ticket-release.queue";
 import { raffleNotificationService } from "../notifications/raffle-notification.service";
+import { ticketService } from "../tickets/ticket.service";
 
 export const ticketSaleService = {
   async reserveTickets(
@@ -18,6 +19,11 @@ export const ticketSaleService = {
     const { raffleId, tickets, customerName, customerPhone, customerState } = data;
 
     const result = await prisma.$transaction(async (tx) => {
+      // 0. Validate ticket numbers exist in universe
+      const validNumbers = await ticketService.getAllNumbers(tx as any, raffleId);
+      const invalid = tickets.filter(t => !validNumbers.has(t));
+      if (invalid.length > 0) throw new Error('INVALID_TICKET_NUMBERS');
+
       // 1. Get current reservations for these tickets in this raffle
       const existing = await tx.ticketSale.findMany({
         where: {
