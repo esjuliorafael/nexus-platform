@@ -15,7 +15,14 @@ export const Header: React.FC<HeaderProps> = ({ activeTab, setActiveTab, onLogou
   
   useFavicon(logoUrl);
 
-  const navItems = ['Inicio', 'Galería', 'Tienda', 'Órdenes', 'Sistema'];
+  const navItems = [
+    'Inicio',
+    'Galería',
+    'Tienda',
+    'Órdenes',
+    ...(import.meta.env.VITE_RAFFLE_ENABLED === 'true' ? ['Rifas'] : []),
+    'Sistema',
+  ];
 
   useEffect(() => {
     const handleScroll = () => {

@@ -208,7 +208,7 @@ export const MediaForm: React.FC<MediaFormProps> = ({ initialData, onCancel, onS
       }
 
       if (initialData?.id) {
-        await apiGallery.update(formData);
+        await apiGallery.update(initialData.id, formData);
       } else {
         await apiGallery.create(formData);
       }

@@ -2,7 +2,7 @@ import axios from 'axios';
 import { 
   Order, Product, Media, User, Category, StateZone, 
   SalesChannel, WhatsAppChannel, DashboardStats, 
-  AnnualService, ExtraCharge 
+  AnnualService, ExtraCharge, Raffle, TicketSale
 } from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
@@ -39,7 +39,6 @@ export const apiDashboard = {
 export const apiAuth = {
   login: async (credentials: { username: string; password: string }) => {
     const res = await api.post('/auth/login', credentials);
-    // res.data is expected to be { token, user: { id, username, name, role } }
     return res.data;
   },
   me: async () => {
@@ -156,6 +155,9 @@ export const apiOrders = {
   updateStatus: async (id: string, status: string) => {
     return api.patch(`/store/orders/admin/${id}/status`, { status });
   },
+  cancel: async (id: string) => {
+    return api.delete(`/store/orders/admin/${id}`);
+  },
   delete: async (id: string) => {
     return api.delete(`/store/orders/admin/${id}`);
   }
@@ -192,10 +194,12 @@ export const apiBilling = {
   createService: async (data: any) => api.post('/admin/billing/annual-services', data),
   updateService: async (id: string, data: any) => api.put(`/admin/billing/annual-services/${id}`, data),
   deleteService: async (id: string) => api.delete(`/admin/billing/annual-services/${id}`),
+  toggleService: async (id: string, isPaid: boolean) => api.put(`/admin/billing/annual-services/${id}`, { isPaid }),
   
   createCharge: async (data: any) => api.post('/admin/billing/extra-charges', data),
   updateCharge: async (id: string, data: any) => api.put(`/admin/billing/extra-charges/${id}`, data),
-  deleteCharge: async (id: string) => api.delete(`/admin/billing/extra-charges/${id}`)
+  deleteCharge: async (id: string) => api.delete(`/admin/billing/extra-charges/${id}`),
+  toggleCharge: async (id: string, isPaid: boolean) => api.put(`/admin/billing/extra-charges/${id}`, { isPaid })
 };
 
 export const apiPayments = {
@@ -230,7 +234,8 @@ export const apiWhatsApp = {
   },
   create: async (data: any) => api.post('/admin/whatsapp-channels', data),
   update: async (id: string, data: any) => api.put(`/admin/whatsapp-channels/${id}`, data),
-  delete: async (id: string) => api.delete(`/admin/whatsapp-channels/${id}`)
+  delete: async (id: string) => api.delete(`/admin/whatsapp-channels/${id}`),
+  toggleStatus: async (id: string, active: boolean) => api.put(`/admin/whatsapp-channels/${id}`, { active })
 };
 
 export const apiUsers = {
@@ -250,13 +255,25 @@ export const apiUsers = {
   },
   create: async (data: any) => api.post('/admin/users', data),
   update: async (id: string, data: any) => api.put(`/admin/users/${id}`, data),
-  delete: async (id: string) => api.delete(`/admin/users/${id}`)
+  delete: async (id: string) => api.delete(`/admin/users/${id}`),
+  toggleStatus: async (id: string, active: boolean) => api.put(`/admin/users/${id}`, { active }),
+  getCurrentUser: async () => {
+    const res = await api.get('/auth/me');
+    return {
+       ...res.data,
+       id: res.data.id.toString(),
+       isActive: res.data.active,
+       fullName: res.data.name
+    };
+  },
+  updateNotifications: async (id: string, receiveNotifications: boolean, notificationEmail?: string | null) => {
+    return api.put(`/admin/users/${id}`, { receiveNotifications, notificationEmail });
+  }
 };
 
 export const apiSystem = {
   getConfig: async (): Promise<Record<string, string>> => {
     const res = await api.get('/admin/settings');
-    // Flatten grouped settings for the admin UI which expects key-value
     const flat: Record<string, string> = {};
     Object.values(res.data).forEach((group: any) => {
       Object.entries(group).forEach(([k, v]) => {
@@ -287,6 +304,47 @@ export const apiSystem = {
     return api.put(`/admin/shipping-zones/${id}`, { 
       zoneType: zone === 'normal' ? 'NORMAL' : 'EXTENDED' 
     });
+  },
+
+  updateShippingZones: async (zones: any[]) => {
+    const promises = zones.map(z => 
+      api.put(`/admin/shipping-zones/${z.id}`, { 
+        zoneType: z.zone === 'normal' ? 'NORMAL' : 'EXTENDED' 
+      })
+    );
+    return Promise.all(promises);
+  },
+
+  updateLogo: async (file: File) => {
+     // For now, since we haven't implemented multipart in API, we skip or use a placeholder
+     // To satisfy TS:
+     return api.post('/admin/settings/logo', { file });
+  }
+};
+
+export const apiRaffles = {
+  getAll: async (): Promise<Raffle[]> => {
+    const res = await api.get('/raffles');
+    return res.data.map((item: any) => ({
+      ...item,
+      id: item.id.toString(),
+      ticketPrice: parseFloat(item.ticketPrice)
+    }));
+  },
+  create: async (data: any) => api.post('/raffles', data),
+  update: async (id: string, data: any) => api.put(`/raffles/${id}`, data),
+  remove: async (id: string) => api.delete(`/raffles/${id}`),
+  getTickets: async (raffleId: string): Promise<TicketSale[]> => {
+    const res = await api.get(`/raffles/${raffleId}/tickets`);
+    return res.data.map((item: any) => ({
+      ...item,
+      id: item.id.toString(),
+      raffleId: item.raffleId.toString()
+    }));
+  },
+  createTicket: async (raffleId: string, data: any) => api.post(`/raffles/${raffleId}/tickets`, data),
+  updateTicketStatus: async (id: string, status: string) => {
+    return api.patch(`/ticket-sales/${id}/status`, { paymentStatus: status });
   }
 };
 

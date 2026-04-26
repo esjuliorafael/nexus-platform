@@ -1,10 +1,10 @@
 import React from 'react';
-import { LayoutGrid, Image, ShoppingBag, Settings, Package, Truck } from 'lucide-react';
+import { LayoutGrid, Image, ShoppingBag, Settings, Package, Truck, Ticket } from 'lucide-react';
 
 interface BottomNavProps {
-  activeTab: 'Inicio' | 'Galería' | 'Tienda' | 'Órdenes' | 'Envíos' | 'Sistema';
-  onTabChange: (tab: 'Inicio' | 'Galería' | 'Tienda' | 'Órdenes' | 'Envíos' | 'Sistema') => void;
-  tabs: Array<'Inicio' | 'Galería' | 'Tienda' | 'Órdenes' | 'Envíos' | 'Sistema'>;
+  activeTab: 'Inicio' | 'Galería' | 'Tienda' | 'Órdenes' | 'Envíos' | 'Sistema' | 'Rifas';
+  onTabChange: (tab: 'Inicio' | 'Galería' | 'Tienda' | 'Órdenes' | 'Envíos' | 'Sistema' | 'Rifas') => void;
+  tabs: Array<'Inicio' | 'Galería' | 'Tienda' | 'Órdenes' | 'Envíos' | 'Sistema' | 'Rifas'>;
 }
 
 export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange, tabs }) => {
@@ -15,6 +15,7 @@ export const BottomNav: React.FC<BottomNavProps> = ({ activeTab, onTabChange, ta
     { id: 'Órdenes', label: 'Órdenes', icon: <Package size={22} /> },
     { id: 'Envíos', label: 'Envíos', icon: <Truck size={22} /> },
     { id: 'Sistema', label: 'Sistema', icon: <Settings size={22} /> },
+    { id: 'Rifas', label: 'Rifas', icon: <Ticket size={22} /> },
   ];
 
   return (

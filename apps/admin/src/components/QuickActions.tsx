@@ -3,7 +3,8 @@ import {
   Image, PlusCircle, Layers, ShoppingBag, 
   PackagePlus, ListOrdered, ClipboardList, PenTool, 
   Settings, Truck, Users, LayoutGrid, Tags, FolderPlus,
-  ArrowLeft, CreditCard, MessageCircle, Timer, Bell, Receipt
+  ArrowLeft, CreditCard, MessageCircle, Timer, Bell, Receipt,
+  Ticket, TicketPlus
 } from 'lucide-react';
 import { QuickActionGroup } from '../types';
 
@@ -33,6 +34,13 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ className, context, 
       ]
     },
     {
+      group: 'Rifas',
+      items: [
+        { icon: <Ticket size={20} />, label: 'Ver Rifas' },
+        { icon: <TicketPlus size={20} />, label: 'Nueva Rifa' },
+      ]
+    },
+    {
       group: 'Órdenes',
       items: [
         { 
@@ -56,10 +64,13 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ className, context, 
     }
   ];
 
-  // Se actualiza el contexto esperado a 'Inicio'
-  const filteredActions = context && context !== 'Inicio'
+  let filteredActions = context && context !== 'Inicio'
     ? allActions.filter(group => group.group === context)
     : allActions;
+
+  if (import.meta.env.VITE_RAFFLE_ENABLED !== 'true') {
+    filteredActions = filteredActions.filter(group => group.group !== 'Rifas');
+  }
 
   return (
     <div className={`flex flex-col gap-4 ${className}`}>
@@ -71,7 +82,6 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ className, context, 
               <button 
                 key={`${gIndex}-${iIndex}`}
                 onClick={() => onAction?.(action.label)}
-                // ESTÁNDAR APLICADO: rounded-3xl (más suave), border-stone-200 (más visible)
                 className="flex flex-col items-center justify-center bg-white p-2 rounded-3xl shadow-sm border border-stone-200 w-20 h-20 active:scale-95 transition-transform"
                 title={action.label}
               >
@@ -91,13 +101,11 @@ export const QuickActions: React.FC<QuickActionsProps> = ({ className, context, 
       <div className="hidden lg:flex flex-col gap-6 sticky top-24">
         {filteredActions.map((group, idx) => (
           <div key={idx} className="group relative">
-            {/* ESTÁNDAR APLICADO: rounded-3xl y border-stone-200/50 */}
             <div className="flex flex-col gap-3 bg-white/80 backdrop-blur-sm p-3 rounded-3xl shadow-sm border border-stone-200/50">
               {group.items.map((item, itemIdx) => (
                 <button 
                   key={itemIdx}
                   onClick={() => onAction?.(item.label)}
-                  // ESTÁNDAR APLICADO: rounded-2xl para los items internos de la lista vertical
                   className="p-3 rounded-2xl text-stone-500 hover:bg-brand-50 hover:text-brand-600 transition-all duration-200 relative group/btn flex items-center justify-center"
                   aria-label={item.label}
                 >

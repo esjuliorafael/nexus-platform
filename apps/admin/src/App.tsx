@@ -27,6 +27,7 @@ import { WhatsAppView, WhatsAppViewRef } from './components/System/WhatsApp/What
 import { InventorySettingsView, InventorySettingsViewRef } from './components/System/Inventory/InventorySettingsView';
 import { NotificationSettingsView, NotificationSettingsViewRef } from './components/System/Notifications/NotificationSettingsView';
 import { BillingView, BillingViewRef } from './components/System/Billing/BillingView';
+import { RaffleView } from './components/Raffle/RaffleView';
 import { LoginView } from './components/Auth/LoginView'; 
 import { Order, DashboardStats, AnnualService, ExtraCharge } from './types';
 import { apiOrders, apiDashboard, apiBilling, api } from './api';
@@ -161,11 +162,12 @@ function App() {
     }
   });
 
-  const [activeTab, setActiveTab] = useState<'Inicio' | 'Galería' | 'Tienda' | 'Órdenes' | 'Sistema'>('Inicio');
+  const [activeTab, setActiveTab] = useState<'Inicio' | 'Galería' | 'Tienda' | 'Órdenes' | 'Sistema' | 'Rifas'>('Inicio');
   
   const [galleryViewMode, setGalleryViewMode] = useState<'list' | 'create' | 'media_edit' | 'category_create' | 'categories_list' | 'category_edit'>('list');
   const [storeViewMode, setStoreViewMode] = useState<'list' | 'create' | 'edit'>('list');
   const [ordersViewMode, setOrdersViewMode] = useState<'list' | 'detail'>('list');
+  const [raffleViewMode, setRaffleViewMode] = useState<'list' | 'create' | 'edit' | 'detail'>('list');
   
   const [systemViewMode, setSystemViewMode] = useState<SystemViewType>(() => {
     const saved = localStorage.getItem('last_system_view');
@@ -291,6 +293,7 @@ function App() {
   const isStoreMode = activeTab === 'Tienda';
   const isOrdersMode = activeTab === 'Órdenes';
   const isSystemMode = activeTab === 'Sistema';
+  const isRafflesMode = activeTab === 'Rifas';
   
   const isCreatingMedia = isGalleryMode && galleryViewMode === 'create';
   const isEditingMedia = isGalleryMode && galleryViewMode === 'media_edit';
@@ -299,7 +302,10 @@ function App() {
   const isCreatingProduct = isStoreMode && storeViewMode === 'create';
   const isEditingProduct = isStoreMode && storeViewMode === 'edit';
 
-  const isFormMode = isCreatingMedia || isEditingMedia || isCategoryForm || isCreatingProduct || isEditingProduct;
+  const isCreatingRaffle = isRafflesMode && raffleViewMode === 'create';
+  const isEditingRaffle = isRafflesMode && raffleViewMode === 'edit';
+
+  const isFormMode = isCreatingMedia || isEditingMedia || isCategoryForm || isCreatingProduct || isEditingProduct || isCreatingRaffle || isEditingRaffle;
 
   const filteredOrders = orders.filter(order => 
     order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -370,6 +376,14 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const navigateToRaffles = (mode: 'list' | 'create' | 'edit' | 'detail' = 'list') => {
+    setActiveTab('Rifas');
+    setRaffleViewMode(mode);
+    setSearchQuery('');
+    setIsFormValid(false);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
   const navigateToSystem = (mode: SystemViewType = 'billing') => {
     setActiveTab('Sistema');
     setSystemViewMode(mode);
@@ -388,6 +402,8 @@ function App() {
       case 'Ver Categorías': navigateToGallery('categories_list'); break;
       case 'Nuevo Producto': navigateToStore('create'); break;
       case 'Ver Productos': navigateToStore('list'); break;
+      case 'Nueva Rifa': navigateToRaffles('create'); break;
+      case 'Ver Rifas': navigateToRaffles('list'); break;
       case 'Configurar Envíos': navigateToSystem('shipping'); break;
       case 'Config': navigateToSystem('config'); break;
       case 'Usuarios': navigateToSystem('users'); break;
@@ -418,6 +434,8 @@ function App() {
       onConfirm: () => {
         if (isStoreMode) {
           setStoreViewMode('list');
+        } else if (isRafflesMode) {
+          setRaffleViewMode('list');
         } else if (galleryViewMode === 'category_edit') {
           setGalleryViewMode('categories_list');
         } else {
@@ -455,6 +473,7 @@ function App() {
             if (tab === 'Galería') setGalleryViewMode('list');
             if (tab === 'Tienda') setStoreViewMode('list');
             if (tab === 'Órdenes') setOrdersViewMode('list');
+            if (tab === 'Rifas') setRaffleViewMode('list');
           }
         }} 
         onLogout={handleLogout} 
@@ -473,6 +492,10 @@ function App() {
                 <>Nuevo <span className="text-stone-600">Producto</span></>
               ) : isEditingProduct ? (
                 <>Editar <span className="text-stone-600">Producto</span></>
+              ) : isCreatingRaffle ? (
+                <>Nueva <span className="text-stone-600">Rifa</span></>
+              ) : isEditingRaffle ? (
+                <>Editar <span className="text-stone-600">Rifa</span></>
               ) : galleryViewMode === 'category_create' ? (
                 <>Nueva <span className="text-stone-600">Categoría</span></>
               ) : galleryViewMode === 'category_edit' ? (
@@ -483,6 +506,12 @@ function App() {
                 <>Panel de <span className="text-stone-600">Galería</span></>
               ) : isStoreMode ? (
                 <>Gestión de <span className="text-stone-600">Tienda</span></>
+              ) : isRafflesMode ? (
+                raffleViewMode === 'detail' ? (
+                   <>Detalle de <span className="text-stone-600">Rifa</span></>
+                ) : (
+                   <>Gestión de <span className="text-stone-600">Rifas</span></>
+                )
               ) : isOrdersMode ? (
                 ordersViewMode === 'detail' ? (
                   <>Detalle de <span className="text-stone-600">Orden</span></>
@@ -528,6 +557,8 @@ function App() {
             <p className="text-stone-500 mt-2 font-medium">
               {isCreatingProduct || isEditingProduct 
                 ? 'Administra el inventario del rancho. Priorizamos la venta de aves de combate y cría.'
+                : isCreatingRaffle || isEditingRaffle
+                ? 'Configura los parámetros de la rifa, premios y dinámica de boletos.'
                 : isCreatingMedia || isEditingMedia
                 ? 'Completa los detalles para gestionar el contenido visual del catálogo del rancho.'
                 : galleryViewMode === 'category_create'
@@ -538,6 +569,8 @@ function App() {
                       ? 'Explora, organiza y gestiona todos los medios visuales del rancho.' 
                       : isStoreMode
                       ? 'Controla tu inventario de aves y artículos desde un solo lugar.'
+                      : isRafflesMode
+                      ? 'Administra los sorteos activos, boletos vendidos y ganadores.'
                       : isOrdersMode
                       ? 'Administra las ventas, estados de pago y logística de envío.'
                       : isSystemMode
@@ -609,16 +642,25 @@ function App() {
                     <Save size={18} className="text-stone-400" /> Guardar Cambios
                   </button>
                 )}
-                
+                {isCreatingRaffle && (
+                  <button type="submit" form="raffle-form" disabled={!isFormValid} className={`px-6 py-3.5 rounded-full shadow-sm border flex items-center gap-2 text-stone-600 font-bold text-sm transition-all active:scale-95 ${!isFormValid ? 'bg-stone-50 border-stone-100 opacity-50 cursor-not-allowed' : 'bg-white border-stone-200 hover:bg-stone-50'}`}>
+                    <Save size={18} className="text-stone-400" /> Crear Rifa
+                  </button>
+                )}
+                {isEditingRaffle && (
+                  <button type="submit" form="raffle-form" disabled={!isFormValid} className={`px-6 py-3.5 rounded-full shadow-sm border flex items-center gap-2 text-stone-600 font-bold text-sm transition-all active:scale-95 ${!isFormValid ? 'bg-stone-50 border-stone-100 opacity-50 cursor-not-allowed' : 'bg-white border-stone-200 hover:bg-stone-50'}`}>
+                    <Save size={18} className="text-stone-400" /> Guardar Cambios
+                  </button>
+                )}
               </div>
-            ) : (isGalleryMode || isStoreMode || (isOrdersMode && ordersViewMode === 'list')) ? (
+            ) : (isGalleryMode || isStoreMode || isRafflesMode || (isOrdersMode && ordersViewMode === 'list')) ? (
               <div className="relative group w-full sm:w-auto min-w-[300px]">
                 <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-stone-400 group-focus-within:text-brand-500 transition-colors">
                   <Search size={18} />
                 </div>
                 <input 
                   type="text" 
-                  placeholder={isStoreMode ? "Busca productos, anillos..." : isOrdersMode ? "Busca por ID, cliente, estado..." : "Busca por título, categoría..."}
+                  placeholder={isStoreMode ? "Busca productos, anillos..." : isOrdersMode ? "Busca por ID, cliente, estado..." : isRafflesMode ? "Busca rifas..." : "Busca por título, categoría..."}
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   className="w-full bg-white pl-12 pr-6 py-3.5 rounded-full shadow-sm border border-stone-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all text-sm font-medium placeholder:text-stone-400"
@@ -872,6 +914,17 @@ function App() {
                   onCancelOrder={handleCancelOrder}
                 />
               )
+            ) : isRafflesMode ? (
+              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <RaffleView
+                  searchQuery={searchQuery}
+                  viewMode={raffleViewMode}
+                  onSetViewMode={setRaffleViewMode}
+                  showToast={showToast}
+                  setConfirmDialog={setConfirmDialog}
+                  onValidationChange={setIsFormValid}
+                />
+              </div>
             ) : isSystemMode ? (
               <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
                 {systemViewMode === 'shipping' ? (
@@ -1066,7 +1119,11 @@ function App() {
       <BottomNav 
         activeTab={activeTab as any} 
         onTabChange={setActiveTab as any}
-        tabs={['Inicio', 'Galería', 'Tienda', 'Órdenes', 'Sistema']}
+        tabs={
+          import.meta.env.VITE_RAFFLE_ENABLED === 'true' 
+            ? ['Inicio', 'Galería', 'Tienda', 'Órdenes', 'Rifas', 'Sistema'] 
+            : ['Inicio', 'Galería', 'Tienda', 'Órdenes', 'Sistema']
+        }
       />
 
       {toast && (

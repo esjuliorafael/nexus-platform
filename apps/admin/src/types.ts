@@ -90,7 +90,7 @@ export interface StatCardProps {
   className?: string;
 }
 
-export type QuickActionGroup = 'Galería' | 'Tienda' | 'Órdenes' | 'Diseño' | 'Sistema';
+export type QuickActionGroup = 'Galería' | 'Tienda' | 'Órdenes' | 'Diseño' | 'Sistema' | 'Rifas';
 
 export interface QuickActionItem {
   id: string;
@@ -176,4 +176,40 @@ export interface DashboardStats {
   latestMedia: any[];
   latestProducts: any[];
   sales7Days: Record<string, number>;
+}
+
+// --- NUEVOS TIPOS: RIFAS ---
+
+export interface Raffle {
+  id: string;
+  title: string;
+  description: string;
+  ticketPrice: number;
+  ticketQuantity: number;
+  opportunities: number;
+  distribution: 'LINEAR' | 'RANDOM';
+  useZero: boolean;
+  digits: number;
+  drawDate?: string;
+  image?: string;
+  status: 'ACTIVE' | 'FINISHED' | 'CANCELLED';
+  createdAt: string;
+  ticketStats?: {
+    total: number;
+    paid: number;
+    pending: number;
+    available: number;
+  };
+}
+
+export interface TicketSale {
+  id: string;
+  raffleId: string;
+  ticketNumber: string;
+  customerName: string;
+  customerPhone: string;
+  customerState?: string;
+  paymentStatus: 'PENDING' | 'PAID' | 'CANCELLED';
+  paymentMethod?: string;
+  createdAt: string;
 }
