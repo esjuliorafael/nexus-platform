@@ -4,11 +4,19 @@ export const ticketService = {
   // Calculates universe metadata from raffle config
   computeUniverse(ticketQuantity: number, opportunities: number) {
     const universo = ticketQuantity * opportunities;
-    const isPowerOf10 = Number.isInteger(Math.log10(universo)) && Math.log10(universo) >= 1;
+    
+    // Check if power of 10 using integer arithmetic to avoid floating point issues
+    const isPowerOf10 = (() => {
+      let n = universo;
+      if (n < 10) return false;
+      while (n % 10 === 0) n /= 10;
+      return n === 1;
+    })();
+
     const startFromZero = isPowerOf10;
     const digits = startFromZero
-      ? Math.log10(universo)          // 100 → 2 digits (00-99)
-      : String(universo).length;      // 99  → 2 digits (01-99)
+      ? Math.round(Math.log10(universo))  // 100 -> 2 (00-99)
+      : String(universo).length;          // 99 -> 2 (01-99)
     return { universo, startFromZero, digits };
   },
 
