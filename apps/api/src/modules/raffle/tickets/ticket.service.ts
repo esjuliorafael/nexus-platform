@@ -30,9 +30,14 @@ export const ticketService = {
     const pad = (n: number) => String(n).padStart(digits, '0');
 
     // Full number pool
-    const pool = Array.from({ length: universo }, (_, i) =>
-      pad(startFromZero ? i : i + 1)
-    );
+    const pool = Array.from({ length: universo }, (_, i) => {
+      // In OPPORTUNITIES raffles, tickets ALWAYS start at 1 (01, 001...). 
+      // The 00 belongs to the extra opportunities pool.
+      if (raffle.opportunities > 1 && startFromZero) {
+        return pad((i + 1) % universo); // Sequence: 01, 02, ..., 99, 00
+      }
+      return pad(startFromZero ? i : i + 1);
+    });
 
     const primary = pool.slice(0, raffle.ticketQuantity);
     let extras = pool.slice(raffle.ticketQuantity);

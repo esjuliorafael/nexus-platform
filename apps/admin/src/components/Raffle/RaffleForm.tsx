@@ -68,10 +68,11 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
     // Assignment Example
     let example = "";
     if (opps > 1 && qty > 0) {
-        const mainNum = pad(startFromZero ? 0 : 1);
+        const ticketStart = 1; // tickets always start at 1 in OPPORTUNITIES
+        const mainNum = pad(ticketStart);
         const extras: string[] = [];
         for (let k = 1; k < Math.min(opps, 4); k++) {
-            extras.push(pad((startFromZero ? 0 : 1) + k * qty));
+            extras.push(pad((ticketStart + k * qty) % universo));
         }
         example = `Boleto ${mainNum} → ${extras.join(', ')}${opps > 4 ? '...' : ''}`;
     }
