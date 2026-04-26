@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+  output   = "../../../../node_modules/@prisma/client-raffle"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("RAFFLE_DATABASE_URL")
+}
+
+// Unified Settings Table (Raffle Context)
+model Setting {
+  id          Int      @id @default(autoincrement())
+  key         String   @unique
+  value       String?
+  description String?
+  group       String   @default("general")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("settings")
+}
+
+// Raffle Specific Models
+model Raffle {
+  id              Int                 @id @default(autoincrement())
+  title           String              @map("titulo")
+  description     String?             @map("descripcion")
+  ticketPrice     Decimal             @map("precio_boleto")
+  ticketQuantity  Int                 @map("cantidad_boletos")
+  opportunities   Int                 @default(1)
+  distribution    RaffleDistribution  @default(LINEAR) @map("modo_reparto")
+  useZero         Boolean             @default(false) @map("usa_cero")
+  digits          Int                 @default(3) @map("cifras")
+  drawDate        DateTime?           @map("fecha_sorteo")
+  image           String?             @map("imagen")
+  status          RaffleStatus        @default(ACTIVE) @map("estado")
+  createdAt       DateTime            @default(now()) @map("fecha_creacion")
+  gallery         RaffleGallery[]
+  extraOpportunities RaffleOpportunity[]
+  ticketSales     TicketSale[]
+
+  @@map("raffles")
+}
+
+enum RaffleDistribution {
+  LINEAR @map("lineal")
+  RANDOM @map("aleatorio")
+}
+
+enum RaffleStatus {
+  ACTIVE @map("activa")
+  FINISHED @map("finalizada")
+  CANCELLED @map("cancelada")
+}
+
+model RaffleGallery {
+  id        Int       @id @default(autoincrement())
+  raffleId  Int       @map("rifa_id")
+  filePath  String    @map("ruta_archivo")
+  fileType  MediaType @default(PHOTO) @map("tipo_archivo")
+  createdAt DateTime  @default(now()) @map("fecha_subida")
+  raffle    Raffle    @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+
+  @@map("raffle_gallery")
+}
+
+enum MediaType {
+  PHOTO @map("foto")
+  VIDEO @map("video")
+}
+
+model RaffleOpportunity {
+  id                 Int      @id @default(autoincrement())
+  raffleId           Int      @map("rifa_id")
+  mainTicketNumber   String   @map("numero_boleto")
+  extraOpportunities Json     @map("oportunidades_extra")
+  raffle             Raffle   @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+
+  @@map("raffle_opportunities")
+}
+
+model TicketSale {
+  id              Int         @id @default(autoincrement())
+  raffleId        Int         @map("rifa_id")
+  ticketNumber    String      @map("numero_boleto")
+  customerName    String      @map("cliente_nombre")
+  customerPhone   String      @map("cliente_telefono")
+  customerState   String?     @map("cliente_estado")
+  paymentStatus   TicketStatus @default(PENDING) @map("estado_pago")
+  paymentMethod   String?     @map("metodo_pago")
+  createdAt       DateTime    @default(now()) @map("fecha")
+  raffle          Raffle      @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+
+  @@map("ticket_sales")
+}
+
+enum TicketStatus {
+  PENDING @map("pendiente")
+  PAID @map("pagado")
+  CANCELLED @map("cancelado")
+}

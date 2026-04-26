@@ -1,0 +1,7 @@
+{
+  "name": "Rancho Dashboard",
+  "description": "A responsive, mobile-first admin dashboard for project management featuring data visualization, quick actions, modular widgets, and advanced shipping configuration with territorial zoning.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}

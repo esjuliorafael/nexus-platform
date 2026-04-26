@@ -1,0 +1,30 @@
+version: '3.9'
+
+services:
+  postgres-store:
+    image: postgres:16-alpine
+    container_name: nexus-store-db
+    environment:
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: nexus_dev_password
+      POSTGRES_DB: nexus_store_db
+    ports:
+      - "5434:5432"
+    volumes:
+      - postgres_store_data:/var/lib/postgresql/data
+
+  postgres-raffle:
+    image: postgres:16-alpine
+    container_name: nexus-raffle-db
+    environment:
+      POSTGRES_USER: nexus
+      POSTGRES_PASSWORD: nexus_dev_password
+      POSTGRES_DB: nexus_raffle_db
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_raffle_data:/var/lib/postgresql/data
+
+volumes:
+  postgres_store_data:
+  postgres_raffle_data:
