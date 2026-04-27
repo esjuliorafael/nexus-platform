@@ -1,6 +1,7 @@
 import fastify from "fastify";
 import cors from "@fastify/cors";
 import dotenv from "dotenv";
+import path from "path";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 
@@ -14,7 +15,7 @@ import { rafflePlugin } from "./modules/raffle/raffle.plugin";
 import { orderReleaseWorker } from "./queues/order-release.queue";
 import { ticketReleaseWorker } from "./queues/ticket-release.queue";
 
-dotenv.config();
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
 
 const server = fastify({
   logger: true,
@@ -77,15 +78,15 @@ async function bootstrap() {
 
     // Register Optional Raffle Module
     if (process.env.RAFFLE_ENABLED === "true") {
-      await server.register(rafflePlugin, { prefix: "/api/v1/raffle" });
+      await server.register(rafflePlugin, { prefix: "/api/v1" });
     }
 
     // Error Handler for Zod
     server.setErrorHandler((error, request, reply) => {
-      if (error instanceof z.ZodError) {
+      if (error.name === "ZodError" || error instanceof z.ZodError) {
         return reply.status(400).send({
           message: "Validation error",
-          errors: error.errors,
+          errors: (error as z.ZodError).errors,
         });
       }
       

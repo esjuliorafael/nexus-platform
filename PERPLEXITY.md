@@ -158,3 +158,45 @@ After each working session with Perplexity, ask Gemini CLI to append a new
 - Any open questions
 
 Then push to GitHub so Perplexity can review it in the next session.
+
+---
+
+## Status as of April 26, 2026 — Phase 5 complete
+
+### Permanent fixes implemented
+- `apps/api/src/server.ts`: dotenv now loads with an absolute path:
+  `dotenv.config({ path: path.resolve(__dirname, '../.env') })`
+  Required because Turbo runs all processes from the monorepo root,
+  not from `apps/api/`. Without this fix, RAFFLE_ENABLED and any
+  other variable in apps/api/.env never reaches the process.
+
+### Raffle module — operational state
+- `RAFFLE_ENABLED=true` in `apps/api/.env` activates the raffle plugin
+- `GET /api/v1/raffles` returns `200 []` — verified via curl
+- Plugin registers in `apps/api/src/modules/raffle/raffle.plugin.ts`
+- Raffle Prisma client generated from `packages/db/prisma/raffle/schema.prisma`
+
+### packages/db — final structure
+- Two independent schemas:
+  - `prisma/store/schema.prisma` → client at `src/store.ts`
+  - `prisma/raffle/schema.prisma` → client at `src/raffle.ts`
+- `package.json` exports map:
+  - `"./store"` → `./src/store.ts`
+  - `"./raffle"` → `./src/raffle.ts`
+- API imports: `import { rafflePrisma } from '@nexus/db/raffle'`
+
+### Pending — Phase 6
+- Phase 6 in progress: raffle creation route fixed.
+  POST /api/v1/raffles is now active and JWT-protected.
+  Route was previously registered as POST /raffles/admin — corrected to POST /.
+- Nested tickets route added: GET /api/v1/raffles/:id/tickets is now active
+  and JWT-protected. Corrects 404 when the frontend attempts to fetch tickets
+  for a specific raffle.
+- All raffle admin route mismatches resolved:
+  - PUT /api/v1/raffles/:id and DELETE /api/v1/raffles/:id (removed /admin sub-prefix)
+  - PATCH /api/v1/ticket-sales/:id/status (removed /admin sub-prefix)
+- POST /api/v1/raffles/:id/tickets added for public ticket reservation.
+  - Returns 400 with structured Zod validation errors.
+  - Local try/catch used instead of global error handler due to Fastify plugin encapsulation.
+- POST /api/v1/admin/settings/logo added for admin logo management.
+- Phase 6 complete. All raffle admin routes operational.

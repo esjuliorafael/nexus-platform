@@ -1,6 +1,15 @@
 import { FastifyInstance } from "fastify";
+import { z } from "zod";
 import { raffleService } from "./raffle.service";
+import { ticketSaleService } from "../ticket-sales/ticket-sale.service";
 import { createRaffleSchema, updateRaffleSchema, updateRaffleStatusSchema } from "./raffle.schema";
+
+const reserveTicketsBodySchema = z.object({
+  tickets: z.array(z.string()).min(1, "At least one ticket is required"),
+  customerName: z.string().min(1),
+  customerPhone: z.string().min(1),
+  customerState: z.string().optional(),
+});
 
 export async function raffleRoutes(server: FastifyInstance) {
   const prisma = server.rafflePrisma;
@@ -17,29 +26,66 @@ export async function raffleRoutes(server: FastifyInstance) {
     return raffle;
   });
 
+  server.get("/:id/tickets", { preHandler: [server.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const raffleId = parseInt(id);
+    const raffle = await raffleService.getById(prisma, raffleId);
+    if (!raffle) return reply.status(404).send({ message: "Raffle not found" });
+    return server.rafflePrisma.ticketSale.findMany({
+      where: { raffleId },
+      orderBy: { createdAt: "desc" },
+    });
+  });
+
+  server.post("/:id/tickets", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const raffleId = parseInt(id);
+    const raffle = await raffleService.getById(prisma, raffleId);
+    if (!raffle) return reply.status(404).send({ message: "Raffle not found" });
+
+    try {
+      const body = reserveTicketsBodySchema.parse(request.body);
+      return await ticketSaleService.reserveTickets(server.rafflePrisma, server.storePrisma, {
+        ...body,
+        raffleId,
+      });
+    } catch (error: any) {
+      if (error?.issues) {
+        return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      }
+      if (error.message === "ALL_TICKETS_REJECTED") {
+        return reply.status(400).send({ message: "All selected tickets are already taken" });
+      }
+      if (error.message === "INVALID_TICKET_NUMBERS") {
+        return reply.status(400).send({ message: "One or more ticket numbers are invalid for this raffle" });
+      }
+      throw error;
+    }
+  });
+
   // Admin Routes
   server.get("/admin", { preHandler: [server.authenticate] }, async () => {
     return raffleService.getAllAdmin(prisma);
   });
 
-  server.post("/admin", { preHandler: [server.authenticate] }, async (request) => {
+  server.post("/", { preHandler: [server.authenticate] }, async (request) => {
     const validated = createRaffleSchema.parse(request.body);
     return raffleService.create(prisma, validated);
   });
 
-  server.put("/admin/:id", { preHandler: [server.authenticate] }, async (request) => {
+  server.put("/:id", { preHandler: [server.authenticate] }, async (request) => {
     const { id } = request.params as { id: string };
     const validated = updateRaffleSchema.parse(request.body);
     return raffleService.update(prisma, parseInt(id), validated);
   });
 
-  server.patch("/admin/:id/status", { preHandler: [server.authenticate] }, async (request) => {
+  server.patch("/:id/status", { preHandler: [server.authenticate] }, async (request) => {
     const { id } = request.params as { id: string };
     const validated = updateRaffleStatusSchema.parse(request.body);
     return raffleService.update(prisma, parseInt(id), validated);
   });
 
-  server.delete("/admin/:id", { preHandler: [server.authenticate] }, async (request) => {
+  server.delete("/:id", { preHandler: [server.authenticate] }, async (request) => {
     const { id } = request.params as { id: string };
     await raffleService.delete(prisma, parseInt(id));
     return { success: true };

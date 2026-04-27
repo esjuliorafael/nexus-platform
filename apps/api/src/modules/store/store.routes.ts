@@ -28,4 +28,16 @@ export async function storeRoutes(server: FastifyInstance) {
   await server.register(paymentChannelRoutes, { prefix: "/admin/payment-channels" });
   await server.register(whatsappChannelRoutes, { prefix: "/admin/whatsapp-channels" });
   await server.register(shippingZoneRoutes, { prefix: "/admin/shipping-zones" });
+
+  // Settings Logo Upload
+  server.post("/admin/settings/logo", { preHandler: [server.authenticate] }, async (request, reply) => {
+    const { logoUrl } = request.body as { logoUrl: string };
+    if (!logoUrl) return reply.status(400).send({ message: "logoUrl is required" });
+    await server.storePrisma.setting.upsert({
+      where: { key: "logoUrl" },
+      update: { value: logoUrl },
+      create: { key: "logoUrl", value: logoUrl, group: "branding" },
+    });
+    return { success: true };
+  });
 }

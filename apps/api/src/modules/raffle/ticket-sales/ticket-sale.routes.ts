@@ -37,7 +37,7 @@ export async function ticketSaleRoutes(server: FastifyInstance) {
     return sale;
   });
 
-  server.patch("/admin/:id/status", { preHandler: [server.authenticate] }, async (request) => {
+  server.patch("/:id/status", { preHandler: [server.authenticate] }, async (request) => {
     const { id } = request.params as { id: string };
     const { paymentStatus } = updateTicketStatusSchema.parse(request.body);
     return ticketSaleService.updateStatus(rafflePrisma, parseInt(id), paymentStatus);
