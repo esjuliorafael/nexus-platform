@@ -200,3 +200,15 @@ Then push to GitHub so Perplexity can review it in the next session.
   - Local try/catch used instead of global error handler due to Fastify plugin encapsulation.
 - POST /api/v1/admin/settings/logo added for admin logo management.
 - Phase 6 complete. All raffle admin routes operational.
+
+---
+
+## Post-Claude Review Fixes
+
+- Fix 1: apiRaffles.getAll now uses /raffles/admin to fetch all statuses
+- Fix 2: RaffleDetail.tsx — isSettingsFormValid state added, Guardar Cambios
+  button disabled when form invalid
+- Fix 3: Removed duplicate POST /ticket-sales/ reservation route and
+  unused reserveTicketsSchema from ticket-sale.schema.ts
+- Fix 4+5: ticketQuantity and opportunities locked in backend (409 UNIVERSE_LOCKED)
+  and disabled in frontend when raffle has PAID or PENDING ticket sales
