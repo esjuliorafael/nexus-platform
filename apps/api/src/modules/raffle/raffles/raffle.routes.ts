@@ -73,10 +73,31 @@ export async function raffleRoutes(server: FastifyInstance) {
     return raffleService.create(prisma, validated);
   });
 
-  server.put("/:id", { preHandler: [server.authenticate] }, async (request) => {
+  server.put("/:id", { preHandler: [server.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string };
+    const raffleId = parseInt(id);
     const validated = updateRaffleSchema.parse(request.body);
-    return raffleService.update(prisma, parseInt(id), validated);
+
+    const universeFieldsChanged =
+      validated.ticketQuantity !== undefined ||
+      validated.opportunities !== undefined;
+
+    if (universeFieldsChanged) {
+      const activeSalesCount = await prisma.ticketSale.count({
+        where: {
+          raffleId,
+          paymentStatus: { in: ["PAID", "PENDING"] },
+        },
+      });
+      if (activeSalesCount > 0) {
+        return reply.status(409).send({
+          message: "Cannot modify universe fields while active ticket sales exist",
+          code: "UNIVERSE_LOCKED",
+        });
+      }
+    }
+
+    return raffleService.update(prisma, raffleId, validated);
   });
 
   server.patch("/:id/status", { preHandler: [server.authenticate] }, async (request) => {

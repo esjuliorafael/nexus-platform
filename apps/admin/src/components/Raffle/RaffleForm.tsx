@@ -24,6 +24,10 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
   showToast
 }) => {
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const hasActiveSales = !!initialData && 
+    ((initialData.ticketStats?.paid ?? 0) > 0 || 
+     (initialData.ticketStats?.pending ?? 0) > 0);
   
   // Section 1: Type
   const [raffleType, setRaffleType] = useState<'SIMPLE' | 'OPPORTUNITIES'>(
@@ -195,12 +199,16 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                  <input 
                    type="number"
                    required
+                   disabled={!!initialData && hasActiveSales}
                    value={ticketQuantity}
                    onChange={(e) => setTicketQuantity(e.target.value)}
-                   className="w-full h-14 bg-stone-50 border border-stone-200 rounded-2xl px-5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-bold text-stone-800"
+                   className="w-full h-14 bg-stone-50 border border-stone-200 rounded-2xl px-5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-bold text-stone-800 disabled:opacity-50 disabled:cursor-not-allowed"
                    placeholder="Ej: 100"
                  />
                  <p className="text-[10px] text-stone-400 font-medium italic">Cantidad de personas diferentes que pueden comprar.</p>
+                 {hasActiveSales && <p className="text-xs text-amber-500 mt-1">
+                    No editable: hay boletos activos
+                 </p>}
               </div>
 
               {raffleType === 'OPPORTUNITIES' && (
@@ -211,12 +219,16 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                       type="number"
                       required
                       min="2"
+                      disabled={!!initialData && hasActiveSales}
                       value={opportunities}
                       onChange={(e) => setOpportunities(e.target.value)}
-                      className="w-full h-14 bg-stone-50 border border-stone-200 rounded-2xl px-5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-bold text-stone-800"
+                      className="w-full h-14 bg-stone-50 border border-stone-200 rounded-2xl px-5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-bold text-stone-800 disabled:opacity-50 disabled:cursor-not-allowed"
                       placeholder="Mínimo 2"
                     />
                     <p className="text-[10px] text-stone-400 font-medium italic">Números asignados a cada comprador.</p>
+                    {hasActiveSales && <p className="text-xs text-amber-500 mt-1">
+                        No editable: hay boletos activos
+                    </p>}
                   </div>
 
                   <div className="space-y-2">
