@@ -1,24 +1,11 @@
 import { FastifyInstance } from "fastify";
 import { ticketSaleService } from "./ticket-sale.service";
-import { reserveTicketsSchema, updateTicketStatusSchema } from "./ticket-sale.schema";
+import { updateTicketStatusSchema } from "./ticket-sale.schema";
 import { TicketStatus } from "@prisma/client-raffle";
 
 export async function ticketSaleRoutes(server: FastifyInstance) {
   const rafflePrisma = server.rafflePrisma;
   const storePrisma = server.storePrisma;
-
-  // POST / - reserve tickets. Public.
-  server.post("/", async (request, reply) => {
-    try {
-      const validated = reserveTicketsSchema.parse(request.body);
-      return await ticketSaleService.reserveTickets(rafflePrisma, storePrisma, validated);
-    } catch (error: any) {
-      if (error.message === "ALL_TICKETS_REJECTED") {
-        return reply.status(400).send({ message: "All selected tickets are already taken" });
-      }
-      throw error;
-    }
-  });
 
   // Admin Routes
   server.get("/admin", { preHandler: [server.authenticate] }, async (request) => {
