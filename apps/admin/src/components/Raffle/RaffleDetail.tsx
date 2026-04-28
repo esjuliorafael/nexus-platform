@@ -27,6 +27,7 @@ export const RaffleDetail: React.FC<RaffleDetailProps> = ({
   const [activeTab, setActiveTab] = useState<'tickets' | 'settings'>('tickets');
   const [tickets, setTickets] = useState<TicketSale[]>([]);
   const [isLoadingTickets, setIsLoadingTickets] = useState(false);
+  const [isSettingsFormValid, setIsSettingsFormValid] = useState(false);
 
   const loadTickets = async () => {
     setIsLoadingTickets(true);
@@ -134,7 +135,8 @@ export const RaffleDetail: React.FC<RaffleDetailProps> = ({
               <button 
                 type="submit" 
                 form="raffle-form"
-                className="bg-brand-500 hover:bg-brand-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-brand-500/20 transition-all active:scale-95 flex items-center gap-2"
+                disabled={!isSettingsFormValid}
+                className="bg-brand-500 hover:bg-brand-600 text-white px-8 py-3 rounded-2xl font-black text-xs uppercase tracking-widest shadow-lg shadow-brand-500/20 transition-all active:scale-95 flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed disabled:active:scale-100"
               >
                 <RefreshCw size={16} /> Guardar Cambios
               </button>
@@ -148,6 +150,7 @@ export const RaffleDetail: React.FC<RaffleDetailProps> = ({
                 setActiveTab('tickets');
              }}
              showToast={showToast}
+             onValidationChange={setIsSettingsFormValid}
            />
         </div>
       )}
