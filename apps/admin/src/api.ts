@@ -324,7 +324,7 @@ export const apiSystem = {
 
 export const apiRaffles = {
   getAll: async (): Promise<Raffle[]> => {
-    const res = await api.get('/raffles');
+    const res = await api.get('/raffles/admin');
     return res.data.map((item: any) => ({
       ...item,
       id: item.id.toString(),
