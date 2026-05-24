@@ -6,10 +6,8 @@ WORKDIR /app
 # Instalar pnpm
 RUN npm install -g pnpm
 
-# Copiar archivos de configuración de la raíz (necesarios para el workspace)
-COPY package.json pnpm-lock.yaml pnpm-workspace.yaml turbo.json ./
-COPY packages ./packages
-COPY apps/api ./apps/api
+# Copiar TODO el proyecto (excepto lo ignorado por .dockerignore)
+COPY . .
 
 # Instalar dependencias
 RUN pnpm install --frozen-lockfile
@@ -28,14 +26,16 @@ WORKDIR /app
 # Instalar pnpm para ejecutar migraciones si es necesario
 RUN npm install -g pnpm
 
+# Copiar solo lo necesario para ejecución
 COPY --from=builder /app/package.json ./
 COPY --from=builder /app/pnpm-lock.yaml ./
 COPY --from=builder /app/pnpm-workspace.yaml ./
+COPY --from=builder /app/turbo.json ./
 COPY --from=builder /app/apps/api/package.json ./apps/api/
 COPY --from=builder /app/apps/api/dist ./apps/api/dist
 COPY --from=builder /app/packages ./packages
 
-# Instalar solo dependencias de producción
+# Instalar solo dependencias de producción para el workspace
 RUN pnpm install --prod --frozen-lockfile
 
 EXPOSE 8080
