@@ -16,8 +16,8 @@ RUN pnpm install --frozen-lockfile
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 
-# Construir el Storefront
-RUN pnpm --filter @nexus/storefront build
+# Construir el Storefront usando turbo
+RUN pnpm turbo run build --filter=@nexus/storefront...
 
 # Stage 2: Production
 FROM node:20-slim AS runner

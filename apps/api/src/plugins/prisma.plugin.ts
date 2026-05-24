@@ -26,6 +26,6 @@ export const prismaPlugin = fp(async (server) => {
 declare module "fastify" {
   interface FastifyInstance {
     storePrisma: typeof storePrisma;
-    rafflePrisma?: any; // any because it might not be loaded
+    rafflePrisma: any; // changed from optional to allow direct access without undefined checks
   }
 }

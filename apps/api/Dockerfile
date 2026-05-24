@@ -15,8 +15,8 @@ RUN pnpm install --frozen-lockfile
 # Generar el cliente de Prisma
 RUN pnpm --filter @nexus/db generate
 
-# Construir el proyecto
-RUN pnpm --filter @nexus/api build
+# Construir el proyecto usando turbo para asegurar el orden de dependencias
+RUN pnpm turbo run build --filter=@nexus/api...
 
 # Stage 2: Production
 FROM node:20-slim AS runner
