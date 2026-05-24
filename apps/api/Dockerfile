@@ -14,6 +14,9 @@ COPY apps/api ./apps/api
 # Instalar dependencias
 RUN pnpm install --frozen-lockfile
 
+# Generar el cliente de Prisma (Necesario para los tipos de la DB)
+RUN pnpm --filter @nexus/db generate
+
 # Construir el proyecto (específicamente el API)
 RUN pnpm --filter @nexus/api build
 
