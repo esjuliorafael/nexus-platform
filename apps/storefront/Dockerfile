@@ -1,12 +1,12 @@
 # Stage 1: Build
-FROM node:20-alpine AS builder
+FROM node:20 AS builder
 
 WORKDIR /app
 
 # Instalar pnpm
 RUN npm install -g pnpm
 
-# Copiar TODO el proyecto
+# Copiar el proyecto
 COPY . .
 
 # Instalar dependencias
@@ -20,13 +20,11 @@ ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
 RUN pnpm --filter @nexus/storefront build
 
 # Stage 2: Production
-FROM node:20-alpine AS runner
+FROM node:20-slim AS runner
 
 WORKDIR /app
 
 # Copiar archivos necesarios para ejecutar Next.js
-# Nota: Si usas output: 'standalone' en next.config.js es más eficiente,
-# por ahora copiaremos lo básico.
 COPY --from=builder /app/apps/storefront/next.config.js ./
 COPY --from=builder /app/apps/storefront/public ./public
 COPY --from=builder /app/apps/storefront/.next ./.next
