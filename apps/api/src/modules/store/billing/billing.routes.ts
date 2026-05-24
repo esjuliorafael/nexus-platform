@@ -4,7 +4,9 @@ import {
   createExtraChargeSchema, 
   updateExtraChargeSchema, 
   createAnnualServiceSchema, 
-  updateAnnualServiceSchema 
+  updateAnnualServiceSchema,
+  createBillingPaymentSchema,
+  updateBillingPaymentSchema
 } from "./billing.schema";
 
 export async function billingRoutes(server: FastifyInstance) {
@@ -40,5 +42,21 @@ export async function billingRoutes(server: FastifyInstance) {
   server.delete("/annual-services/:id", async (request) => {
     const { id } = request.params as { id: string };
     return billingService.deleteAnnualService(parseInt(id));
+  });
+
+  // Payments
+  server.get("/payments", async () => billingService.getPayments());
+  server.post("/payments", async (request) => {
+    const validated = createBillingPaymentSchema.parse(request.body);
+    return billingService.createPayment(validated);
+  });
+  server.put("/payments/:id", async (request) => {
+    const { id } = request.params as { id: string };
+    const validated = updateBillingPaymentSchema.parse(request.body);
+    return billingService.updatePayment(parseInt(id), validated);
+  });
+  server.delete("/payments/:id", async (request) => {
+    const { id } = request.params as { id: string };
+    return billingService.deletePayment(parseInt(id));
   });
 }

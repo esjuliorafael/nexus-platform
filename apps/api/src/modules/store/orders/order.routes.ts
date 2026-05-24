@@ -13,11 +13,16 @@ export async function orderRoutes(server: FastifyInstance) {
 
   // POST /store/orders (Public)
   server.post("/", async (request, reply) => {
-    const validated = createOrderSchema.parse(request.body);
+    console.log('[Order] Incoming request body:', JSON.stringify(request.body, null, 2));
     try {
+      const validated = createOrderSchema.parse(request.body);
       const order = await orderService.create(validated);
       return order;
     } catch (err: any) {
+      console.error('[Order] Creation failed:', err);
+      if (err.name === "ZodError") {
+        return reply.status(400).send({ message: "Validation error", errors: err.errors });
+      }
       return reply.status(400).send({ message: err.message });
     }
   });

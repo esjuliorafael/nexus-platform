@@ -1,5 +1,6 @@
 import { PrismaClient, RaffleStatus, RaffleDistribution } from "@prisma/client-raffle";
 import { ticketService } from "../tickets/ticket.service";
+import { storageService } from "../../../services/storage.service";
 
 export const raffleService = {
   async getAllActive(prisma: PrismaClient) {
@@ -47,6 +48,14 @@ export const raffleService = {
     const updateData = { ...data };
     if (data.ticketPrice) updateData.ticketPrice = data.ticketPrice.toString();
 
+    // 1. Gestionar borrado de imagen anterior en R2
+    if (data.image) {
+      const current = await prisma.raffle.findUnique({ where: { id } });
+      if (current?.image && current.image !== data.image) {
+        await storageService.deleteFile(current.image);
+      }
+    }
+
     return prisma.raffle.update({
       where: { id },
       data: updateData,
@@ -54,7 +63,24 @@ export const raffleService = {
   },
 
   async delete(prisma: PrismaClient, id: number) {
-    // Gallery is Cascade deleted in schema
+    // 1. Buscar para obtener la imagen de portada y galería
+    const raffle = await prisma.raffle.findUnique({
+      where: { id },
+      include: { gallery: true }
+    });
+
+    if (raffle) {
+      // 2. Borrar portada de R2
+      if (raffle.image) {
+        await storageService.deleteFile(raffle.image);
+      }
+      // 3. Borrar galería de R2
+      for (const item of raffle.gallery) {
+        await storageService.deleteFile(item.filePath);
+      }
+    }
+
+    // 4. Borrado físico de la base de datos (Cascade borrará RaffleGallery en DB)
     return prisma.raffle.delete({
       where: { id },
     });

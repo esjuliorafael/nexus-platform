@@ -1,6 +1,6 @@
 import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
 import { Upload, Image as ImageIcon, RefreshCw, Loader2 } from 'lucide-react';
-import { apiSystem, ASSET_BASE_URL } from '../../../api';
+import { apiSystem, apiUpload } from '../../../api';
 
 export interface IdentityViewRef {
   handleSave: () => void;
@@ -29,8 +29,8 @@ export const IdentityView = forwardRef<IdentityViewRef, IdentityViewProps>(
       setIsLoading(true);
       try {
         const config = await apiSystem.getConfig();
-        if (config['sistema_logo']) {
-          setCurrentLogo(`${ASSET_BASE_URL}${config['sistema_logo']}?t=${new Date().getTime()}`);
+        if (config['branding_logo_url']) {
+          setCurrentLogo(config['branding_logo_url']);
           setStatus('preview');
         } else {
           setStatus('empty');
@@ -57,15 +57,22 @@ export const IdentityView = forwardRef<IdentityViewRef, IdentityViewProps>(
         if (tempFile) {
           setIsUploading(true);
           try {
-            const response = await apiSystem.updateLogo(tempFile);
-            setCurrentLogo(`${ASSET_BASE_URL}${response.data.path}?t=${new Date().getTime()}`);
+            // Fase 1: Subir a Cloudflare R2
+            const uploadRes = await apiUpload.upload(tempFile);
+            const finalUrl = uploadRes.url;
+
+            // Fase 2: Guardar URL en la configuración
+            await apiSystem.updateLogo(finalUrl);
+            
+            setCurrentLogo(finalUrl);
             setStatus('preview');
             setTempFile(null);
             setTempLogoUrl(null);
             showToast('Logo actualizado correctamente', 'success');
             window.dispatchEvent(new Event('logoUpdated'));
           } catch (error) {
-            showToast('Error al guardar el logo', 'error');
+            console.error(error);
+            showToast('Error al guardar el logo. Verifica Cloudflare R2.', 'error');
           } finally {
             setIsUploading(false);
           }
@@ -112,42 +119,48 @@ export const IdentityView = forwardRef<IdentityViewRef, IdentityViewProps>(
 
     if (isLoading) {
       return (
-        <div className="flex flex-col items-center justify-center py-32">
-           <Loader2 className="w-10 h-10 text-brand-500 animate-spin mb-4" />
-           <p className="text-stone-500 font-medium">Cargando identidad visual...</p>
+        <div className="flex flex-col items-center justify-center py-40 animate-in fade-in duration-500">
+           <div className="relative w-16 h-16 mb-6">
+              <div className="absolute inset-0 border-4 border-brand-100 rounded-full" />
+              <div className="absolute inset-0 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
+           </div>
+           <p className="text-stone-400 font-black uppercase tracking-[0.2em] text-[10px]">Cargando Identidad...</p>
         </div>
       );
     }
 
     return (
-      <div className="relative w-full bg-white border border-stone-200 rounded-[2.5rem] shadow-sm p-6 sm:p-12 transition-all duration-300 min-h-[420px] flex flex-col justify-center">
+      <div className="relative w-full bg-bg-card border border-border-main rounded-[2.5rem] shadow-sm dark:shadow-none p-6 sm:p-12 transition-all duration-700 animate-in fade-in min-h-[420px] flex flex-col justify-center">
         
         {isUploading && (
-             <div className="absolute inset-0 bg-white/60 backdrop-blur-sm z-50 flex items-center justify-center rounded-[2.5rem]">
+             <div className="absolute inset-0 bg-bg-card/60 backdrop-blur-sm z-50 flex items-center justify-center rounded-[2.5rem]">
                  <div className="flex flex-col items-center gap-2">
-                     <Loader2 className="w-8 h-8 animate-spin text-brand-500" />
-                     <span className="text-sm font-bold text-brand-700">Subiendo logo...</span>
+                    <div className="relative w-12 h-12 mb-4">
+                        <div className="absolute inset-0 border-4 border-brand-100 rounded-full" />
+                        <div className="absolute inset-0 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
+                    </div>
+                    <span className="text-[10px] font-black uppercase tracking-widest text-brand-700">Subiendo logo...</span>
                  </div>
              </div>
         )}
 
         {status === 'empty' && (
-          <div className="flex flex-col items-center justify-center py-10 text-center">
-            <div className="w-24 h-24 bg-stone-50 border border-stone-200 rounded-[2rem] flex items-center justify-center text-stone-300 mb-6">
-              <ImageIcon size={48} strokeWidth={1.5} />
+          <div className="py-12 text-center animate-in fade-in zoom-in duration-500">
+            <div className="w-24 h-24 bg-stone-100 rounded-[2rem] flex items-center justify-center mx-auto mb-6 text-stone-300 shadow-inner">
+              <ImageIcon size={48} />
             </div>
-            <h3 className="text-xl font-bold text-stone-800 mb-2">No hay ningún logo cargado.</h3>
-            <p className="text-stone-500">Haz clic en 'Subir logo' arriba para comenzar.</p>
+            <h3 className="text-2xl font-black text-text-main tracking-tight mb-2">No hay logo cargado</h3>
+            <p className="text-text-muted font-medium max-w-xs mx-auto">Haz clic en "Subir logo" arriba para comenzar a personalizar tu marca.</p>
           </div>
         )}
 
         {status === 'preview' && currentLogo && (
           <div className="flex flex-col items-center justify-center w-full">
-            <div className="bg-stone-50 py-16 px-8 rounded-[2rem] w-full flex items-center justify-center mb-8 border border-stone-200">
+            <div className="bg-bg-muted py-16 px-8 rounded-[2rem] w-full flex items-center justify-center mb-8 border border-border-main">
               <img 
                 src={currentLogo} 
                 alt="Logo actual del sistema" 
-                className="max-h-[180px] sm:max-h-[220px] w-auto object-contain drop-shadow-sm transition-all duration-300"
+                className="max-h-[180px] sm:max-h-[220px] w-auto object-contain drop-shadow-sm dark:shadow-none transition-all duration-300"
               />
             </div>
             <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 text-sm text-stone-400 font-medium">
@@ -164,7 +177,7 @@ export const IdentityView = forwardRef<IdentityViewRef, IdentityViewProps>(
               onClick={() => fileInputRef.current?.click()}
               onDragOver={handleDragOver}
               onDrop={handleDrop}
-              className="border-2 border-dashed border-stone-200 rounded-[2rem] p-10 sm:p-16 text-center cursor-pointer hover:bg-brand-50/20 hover:border-brand-300 transition-colors w-full flex flex-col items-center justify-center min-h-[320px] group"
+              className="border-2 border-dashed border-border-main rounded-[2rem] p-10 sm:p-16 text-center cursor-pointer hover:bg-brand-50/20 hover:border-brand-300 transition-colors w-full flex flex-col items-center justify-center min-h-[320px] group"
             >
               <input 
                 type="file" 
@@ -180,23 +193,23 @@ export const IdentityView = forwardRef<IdentityViewRef, IdentityViewProps>(
               
               {tempLogoUrl ? (
                 <div className="flex flex-col items-center">
-                  <div className="bg-white p-6 rounded-[2rem] shadow-sm border border-stone-200 mb-6 relative group-hover:shadow-md transition-all">
+                  <div className="bg-bg-card p-6 rounded-[2rem] shadow-sm dark:shadow-none border border-border-main mb-6 relative group-hover:shadow-md transition-all">
                     <img src={tempLogoUrl} alt="Vista previa del nuevo logo" className="max-h-[180px] object-contain" />
-                    <div className="absolute inset-0 bg-white/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-[2rem] backdrop-blur-[1px]">
+                    <div className="absolute inset-0 bg-bg-card/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-[2rem] backdrop-blur-[1px]">
                       <span className="bg-stone-800 text-white px-4 py-2 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-xl">
                         <RefreshCw size={14} /> Cambiar imagen
                       </span>
                     </div>
                   </div>
-                  <p className="text-sm font-medium text-stone-500">Vista previa generada. Recuerda guardar los cambios.</p>
+                  <p className="text-sm font-medium text-text-muted">Vista previa generada. Recuerda guardar los cambios.</p>
                 </div>
               ) : (
                 <div className="flex flex-col items-center justify-center">
-                  <div className="w-20 h-20 bg-white shadow-sm border border-stone-200 rounded-full flex items-center justify-center text-stone-400 mb-6 group-hover:scale-110 group-hover:text-stone-600 transition-all">
+                  <div className="w-20 h-20 bg-bg-card shadow-sm dark:shadow-none border border-border-main rounded-full flex items-center justify-center text-stone-400 mb-6 group-hover:scale-110 group-hover:text-stone-600 transition-all">
                     <Upload size={32} strokeWidth={1.5} />
                   </div>
                   <h4 className="text-xl font-bold text-stone-700 mb-2">Haz clic o arrastra una imagen aquí</h4>
-                  <p className="text-sm font-medium text-stone-400 mt-2 bg-white px-4 py-1.5 rounded-full border border-stone-200 shadow-sm">
+                  <p className="text-sm font-medium text-stone-400 mt-2 bg-bg-card px-4 py-1.5 rounded-full border border-border-main shadow-sm dark:shadow-none">
                     Recomendado: PNG o SVG con fondo transparente. Max 2MB.
                   </p>
                 </div>

@@ -1,21 +1,40 @@
+@import url('https://api.fontshare.com/v2/css?f[]=cabinet-grotesk@800,900,700&f[]=satoshi@900,700,500,400&display=swap');
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --brand-50: #fdf8f6;
-  --brand-100: #f2e8e5;
-  --brand-200: #eaddd7;
-  --brand-300: #e0c2b2;
-  --brand-400: #d1a38c;
-  --brand-500: #8b5e3c; /* Base Brown */
-  --brand-600: #7d5536;
-  --brand-700: #68472d;
-  --brand-800: #543924;
-  --brand-900: #452f1e;
+  --font-cabinet: 'Cabinet Grotesk', sans-serif;
+  --font-satoshi: 'Satoshi', sans-serif;
 }
 
-body {
-  @apply bg-stone-50 text-stone-900;
-  font-family: 'Plus Jakarta Sans', sans-serif;
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    scroll-behavior: smooth;
+  }
+  
+  body {
+    @apply antialiased selection:bg-brand-500/30 selection:text-stone-950;
+  }
+
+  /* Custom perspective for GSAP 3D effects */
+  .perspective-1000 {
+    perspective: 1000px;
+  }
+}
+
+@layer components {
+  .text-balance {
+    text-wrap: balance;
+  }
+  
+  .scrollbar-hide::-webkit-scrollbar {
+    display: none;
+  }
+  .scrollbar-hide {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
 }

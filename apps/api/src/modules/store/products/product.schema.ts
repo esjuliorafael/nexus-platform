@@ -1,7 +1,14 @@
 import { z } from "zod";
 
-export const productTypeEnum = z.enum(["ARTICLE", "BIRD"]);
-export const saleStatusEnum = z.enum(["AVAILABLE", "RESERVED", "SOLD"]);
+export const productTypeEnum = z.preprocess(
+  (val) => (typeof val === "string" ? val.toUpperCase() : val),
+  z.enum(["ITEM", "BIRD"])
+);
+
+export const saleStatusEnum = z.preprocess(
+  (val) => (typeof val === "string" ? val.toUpperCase() : val),
+  z.enum(["AVAILABLE", "RESERVED", "SOLD"])
+);
 
 export const createProductSchema = z.object({
   type: productTypeEnum,
@@ -13,6 +20,7 @@ export const createProductSchema = z.object({
   ringNumber: z.string().optional(),
   age: z.string().optional(),
   purpose: z.string().optional(),
+  gallery: z.array(z.string()).optional(),
 });
 
 export const updateProductSchema = createProductSchema.partial();

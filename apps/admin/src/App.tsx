@@ -1,38 +1,38 @@
-import React, { useState, useCallback, useEffect } from 'react';
-import { Calendar, Search, X, Check, AlertTriangle, CheckCircle2, Settings, Save, UserPlus, Upload, RefreshCw, Plus, Package } from 'lucide-react';
+import React, { useState, useCallback, useEffect, createContext } from 'react';
+import ReactDOM, { flushSync } from 'react-dom';
+import { Calendar, Search, X, Check, AlertTriangle, CheckCircle2, Settings, Save, UserPlus, Upload, RefreshCw, Plus, Package, ArrowRight } from 'lucide-react';
 import { Header } from './components/Header';
 import { QuickActions } from './components/QuickActions';
-import { SalesChart } from './components/Widgets/SalesChart';
-import { OrderWidgetCard, OrderWidgetCardSkeleton } from './components/Widgets/OrderWidgetCard';
-import { OrderStatusChart } from './components/Widgets/OrderStatusChart';
-import { LatestMedia } from './components/Widgets/LatestMedia';
-import { LatestProducts } from './components/Widgets/LatestProducts';
-import { CategoryWidget } from './components/Widgets/CategoryWidget';
-import { GalleryWidget } from './components/Widgets/GalleryWidget';
-import { ActiveProductsWidget } from './components/Widgets/ActiveProductsWidget';
-import { PaidOrdersWidget } from './components/Widgets/PaidOrdersWidget';
-import { PendingOrdersWidget } from './components/Widgets/PendingOrdersWidget';
-import { BillingAlertWidget } from './components/Widgets/BillingAlertWidget';
+import { PageHeader } from './components/Layout/PageHeader';
+import { DashboardView } from './components/Dashboard/DashboardView';
 
 import { BottomNav } from './components/BottomNav';
 import { GalleryView } from './components/Gallery/GalleryView';
 import { StoreView } from './components/Store/StoreView';
-import { OrdersView } from './components/Orders/OrdersView';
-import { OrderDetailView } from './components/Orders/OrderDetailView';
+import { OrdersView } from './components/Store/Orders/OrdersView';
+import { OrderDetailView } from './components/Store/Orders/OrderDetailView';
 import { ShippingView } from './components/System/Shipping/ShippingView';
 import { UsersView, UsersViewRef } from './components/System/Users/UsersView';
 import { IdentityView, IdentityViewRef } from './components/System/Identity/IdentityView';
-import { PaymentMethodView, PaymentMethodViewRef } from './components/System/Payment/PaymentMethodView';
-import { WhatsAppView, WhatsAppViewRef } from './components/System/WhatsApp/WhatsAppView';
+import { ChannelForm } from './components/System/Channels/ChannelForm';
+import { ChannelEditor } from './components/System/Channels/ChannelEditor';
+import { ChannelsHub } from './components/System/Channels/ChannelsHub';
 import { InventorySettingsView, InventorySettingsViewRef } from './components/System/Inventory/InventorySettingsView';
 import { NotificationSettingsView, NotificationSettingsViewRef } from './components/System/Notifications/NotificationSettingsView';
 import { BillingView, BillingViewRef } from './components/System/Billing/BillingView';
 import { RaffleView } from './components/Raffle/RaffleView';
+import { RaffleSettingsView } from './components/System/Raffle/RaffleSettingsView';
 import { LoginView } from './components/Auth/LoginView'; 
-import { Order, DashboardStats, AnnualService, ExtraCharge } from './types';
-import { apiOrders, apiDashboard, apiBilling, api } from './api';
+import { Order, DashboardStats, AnnualService, ExtraCharge, BillingPayment } from './types';
+import { apiOrders, apiDashboard, apiBilling, apiSystem, api } from './api';
+import { NexusSectionButton } from './components/ui/NexusButton';
 
-type SystemViewType = 'shipping' | 'config' | 'users' | 'identity' | 'payment' | 'whatsapp' | 'inventory' | 'notifications' | 'billing';
+export const ThemeContext = createContext<{ theme: 'light' | 'dark'; toggleTheme: () => void }>({
+  theme: 'light',
+  toggleTheme: () => {},
+});
+
+type SystemViewType = 'shipping' | 'config' | 'users' | 'identity' | 'channels' | 'inventory' | 'notifications' | 'billing' | 'raffle';
 
 const Toast = ({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) => {
   React.useEffect(() => {
@@ -74,7 +74,7 @@ const ConfirmModal = ({
 }) => {
   if (!isOpen) return null;
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4 animate-in fade-in duration-300">
+    <div className="fixed inset-0 z-[250] flex items-center justify-center p-4 animate-in fade-in duration-300">
       <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-md" onClick={onCancel} />
       <div className="relative w-full max-w-md bg-white rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
         <div className="p-8 sm:p-10 text-center">
@@ -85,20 +85,12 @@ const ConfirmModal = ({
           <p className="text-stone-500 text-sm font-medium leading-relaxed">{message}</p>
           
           <div className="grid grid-cols-2 gap-4 mt-10">
-            <button 
-              onClick={onCancel}
-              className="py-4 bg-stone-100 hover:bg-stone-200 text-stone-600 rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95"
-            >
+            <NexusSectionButton onClick={onCancel} variant="secondary">
               Cancelar
-            </button>
-            <button 
-              onClick={onConfirm}
-              className={`py-4 text-white rounded-2xl font-black text-xs uppercase tracking-widest transition-all active:scale-95 shadow-lg
-                ${variant === 'danger' ? 'bg-rose-500 hover:bg-rose-600 shadow-rose-500/20' : 'bg-brand-500 hover:bg-brand-600 shadow-brand-500/20'}
-              `}
-            >
+            </NexusSectionButton>
+            <NexusSectionButton onClick={onConfirm} variant={variant === 'danger' ? 'danger' : 'brand'}>
               {confirmLabel}
-            </button>
+            </NexusSectionButton>
           </div>
         </div>
       </div>
@@ -107,6 +99,11 @@ const ConfirmModal = ({
 };
 
 function App() {
+  const [theme, setTheme] = useState<'light' | 'dark'>(() => {
+    const saved = localStorage.getItem('theme');
+    return (saved as 'light' | 'dark') || 'light';
+  });
+
   const [token, setToken] = useState<string | null>(() => {
     try {
       const session = localStorage.getItem('admin_session');
@@ -132,7 +129,30 @@ function App() {
     }
   });
 
-  // Sync axios default header when token changes
+  useEffect(() => {
+    localStorage.setItem('theme', theme);
+    if (theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [theme]);
+
+  const toggleTheme = useCallback(() => {
+    const newTheme = theme === 'light' ? 'dark' : 'light';
+    
+    if (!(document as any).startViewTransition) {
+      setTheme(newTheme);
+      return;
+    }
+
+    (document as any).startViewTransition(() => {
+      flushSync(() => {
+        setTheme(newTheme);
+      });
+    });
+  }, [theme]);
+
   useEffect(() => {
     if (token) {
       api.defaults.headers.common['Authorization'] = `Bearer ${token}`;
@@ -156,25 +176,20 @@ function App() {
     const authString = localStorage.getItem('admin_session');
     if (!authString) return 'staff';
     try {
-      return JSON.parse(authString).role || 'staff';
+      return (JSON.parse(authString).role || 'staff').toLowerCase();
     } catch {
       return 'staff';
     }
   });
 
   const [activeTab, setActiveTab] = useState<'Inicio' | 'Galería' | 'Tienda' | 'Órdenes' | 'Sistema' | 'Rifas'>('Inicio');
-  
   const [galleryViewMode, setGalleryViewMode] = useState<'list' | 'create' | 'media_edit' | 'category_create' | 'categories_list' | 'category_edit'>('list');
-  const [storeViewMode, setStoreViewMode] = useState<'list' | 'create' | 'edit'>('list');
-  const [ordersViewMode, setOrdersViewMode] = useState<'list' | 'detail'>('list');
+  const [storeViewMode, setStoreViewMode] = useState<'list' | 'create' | 'edit' | 'orders' | 'order-detail'>('list');
   const [raffleViewMode, setRaffleViewMode] = useState<'list' | 'create' | 'edit' | 'detail'>('list');
-  
   const [systemViewMode, setSystemViewMode] = useState<SystemViewType>(() => {
     const saved = localStorage.getItem('last_system_view');
-    const validModes: SystemViewType[] = ['shipping', 'config', 'users', 'identity', 'payment', 'whatsapp', 'inventory', 'notifications', 'billing'];
-    if (saved && validModes.includes(saved as SystemViewType)) {
-      return saved as SystemViewType;
-    }
+    const validModes: SystemViewType[] = ['shipping', 'config', 'users', 'identity', 'channels', 'inventory', 'notifications', 'billing', 'raffle'];
+    if (saved && validModes.includes(saved as SystemViewType)) return saved as SystemViewType;
     return 'billing'; 
   });
 
@@ -183,20 +198,21 @@ function App() {
   }, [systemViewMode]);
   
   const [shippingSubView, setShippingSubView] = useState<'config' | 'zones'>('config');
-  const [paymentSubView, setPaymentSubView] = useState<'config' | 'channels'>('config'); 
-  const [whatsappSubView, setWhatsappSubView] = useState<'config' | 'channels'>('config');
+  const [channelsViewMode, setChannelsViewMode] = useState<'hub' | 'create' | 'edit'>('hub');
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [identityStatus, setIdentityStatus] = useState<'empty' | 'preview' | 'editing'>('preview');
   const [hasTempLogo, setHasTempLogo] = useState(false);
   const [isFormValid, setIsFormValid] = useState(false);
+  const [raffleEnabled, setRaffleEnabled] = useState(false);
   
   const shippingRef = React.useRef<{ handleSaveConfig: () => void; handleSaveZones: () => void }>(null);
   const usersRef = React.useRef<UsersViewRef>(null);
   const identityRef = React.useRef<IdentityViewRef>(null);
-  const paymentRef = React.useRef<PaymentMethodViewRef>(null);
-  const whatsappRef = React.useRef<WhatsAppViewRef>(null);
+  const channelFormRef = React.useRef<{ handleSave: () => void }>(null);
   const inventoryRef = React.useRef<InventorySettingsViewRef>(null);
   const notificationsRef = React.useRef<NotificationSettingsViewRef>(null);
   const billingRef = React.useRef<BillingViewRef>(null);
+  const raffleSettingsRef = React.useRef<{ handleSave: () => void }>(null);
   
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -205,6 +221,7 @@ function App() {
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
   const [billingServices, setBillingServices] = useState<AnnualService[]>([]);
   const [billingCharges, setBillingCharges] = useState<ExtraCharge[]>([]);
+  const [billingPayments, setBillingPayments] = useState<BillingPayment[]>([]);
   
   const [toast, setToast] = useState<{ message: string, type: 'success' | 'error' } | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{ 
@@ -213,52 +230,46 @@ function App() {
     message: string, 
     confirmLabel: string, 
     onConfirm: () => void,
+    onCancel?: () => void,
     variant?: 'danger' | 'warning'
   }>({ isOpen: false, title: '', message: '', confirmLabel: '', onConfirm: () => {} });
 
+  const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
+    setToast({ message, type });
+  }, []);
+
   useEffect(() => {
     if (!token) return;
-    
     const fetchInitialData = async () => {
       setIsLoadingDashboard(true);
       try {
-        const [ordersData, statsData, billingData] = await Promise.all([
+        const [ordersData, statsData, billingData, configData] = await Promise.all([
           apiOrders.getAll(),
           apiDashboard.getStats(),
-          apiBilling.getAll()
+          apiBilling.getAll(),
+          apiSystem.getConfig()
         ]);
-        setOrders(ordersData);
-        setDashboardStats(statsData);
-        setBillingServices(billingData.services);
-        setBillingCharges(billingData.charges);
+        
+        flushSync(() => {
+          setOrders(ordersData);
+          setDashboardStats(statsData);
+          setBillingServices(billingData.services);
+          setBillingCharges(billingData.charges);
+          setBillingPayments(billingData.payments);
+          setRaffleEnabled(configData['raffle_enabled'] === '1');
+        });
       } catch (error: any) {
-        console.error("Error cargando datos iniciales:", error);
         if (error.response?.status === 401) {
-           handleLogout();
-        } else {
-           showToast("Error al conectar con la base de datos", "error");
+          handleLogout();
+        } else if (error.response?.status !== 429) {
+          showToast("Error al sincronizar datos con el servidor", "error");
         }
       } finally {
         setIsLoadingDashboard(false);
       }
     };
     fetchInitialData();
-  }, [token]);
-
-  useEffect(() => {
-    if (confirmDialog.isOpen) {
-      document.body.classList.add('overflow-hidden');
-    } else {
-      document.body.classList.remove('overflow-hidden');
-    }
-    return () => {
-      document.body.classList.remove('overflow-hidden');
-    };
-  }, [confirmDialog.isOpen]);
-
-  const showToast = useCallback((message: string, type: 'success' | 'error' = 'success') => {
-    setToast({ message, type });
-  }, []);
+  }, [token, showToast]);
 
   const closeConfirm = () => setConfirmDialog(prev => ({ ...prev, isOpen: false }));
 
@@ -283,114 +294,47 @@ function App() {
     setIsAuthenticated(false);
   };
 
-  const currentDate = new Date().toLocaleDateString('es-ES', { 
-    weekday: 'short', 
-    day: 'numeric', 
-    month: 'short' 
-  });
+  const currentDate = new Date().toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
 
   const isGalleryMode = activeTab === 'Galería';
   const isStoreMode = activeTab === 'Tienda';
-  const isOrdersMode = activeTab === 'Órdenes';
+  const isOrdersTab = activeTab === 'Órdenes';
   const isSystemMode = activeTab === 'Sistema';
   const isRafflesMode = activeTab === 'Rifas';
   
   const isCreatingMedia = isGalleryMode && galleryViewMode === 'create';
   const isEditingMedia = isGalleryMode && galleryViewMode === 'media_edit';
   const isCategoryForm = isGalleryMode && (galleryViewMode === 'category_create' || galleryViewMode === 'category_edit');
-  
   const isCreatingProduct = isStoreMode && storeViewMode === 'create';
   const isEditingProduct = isStoreMode && storeViewMode === 'edit';
-
   const isCreatingRaffle = isRafflesMode && raffleViewMode === 'create';
   const isEditingRaffle = isRafflesMode && raffleViewMode === 'edit';
 
   const isFormMode = isCreatingMedia || isEditingMedia || isCategoryForm || isCreatingProduct || isEditingProduct || isCreatingRaffle || isEditingRaffle;
 
-  const filteredOrders = orders.filter(order => 
-    order.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    order.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    order.customerState.toLowerCase().includes(searchQuery.toLowerCase())
-  );
-
-  const handleMarkAsPaid = (orderId: string) => {
-    setConfirmDialog({
-      isOpen: true,
-      title: '¿Marcar como Pagada?',
-      message: `¿Confirmas que la orden ${orderId} ha sido pagada en su totalidad?`,
-      confirmLabel: 'Sí, Confirmar',
-      variant: 'warning',
-      onConfirm: () => {
-        setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'paid' } : o));
-        if (selectedOrder?.id === orderId) {
-          setSelectedOrder(prev => prev ? { ...prev, status: 'paid' } : null);
-        }
-        showToast(`Orden ${orderId} marcada como pagada`);
-        closeConfirm();
-      }
-    });
-  };
-
-  const handleCancelOrder = (orderId: string) => {
-    setConfirmDialog({
-      isOpen: true,
-      title: '¿Cancelar Orden?',
-      message: `¿Estás seguro de que deseas cancelar la orden ${orderId}? Esta acción devolverá el stock al inventario.`,
-      confirmLabel: 'Sí, Cancelar',
-      variant: 'danger',
-      onConfirm: async () => {
-        try {
-          await apiOrders.cancel(orderId);
-          setOrders(prev => prev.map(o => o.id === orderId ? { ...o, status: 'cancelled' } : o));
-          if (selectedOrder?.id === orderId) {
-            setSelectedOrder(prev => prev ? { ...prev, status: 'cancelled' } : null);
-          }
-          showToast(`Orden ${orderId} cancelada y stock restaurado`, 'success');
-        } catch (error) {
-          showToast("Error al cancelar la orden en el servidor", "error");
-        }
-        closeConfirm();
-      }
-    });
-  };
-
-  const handleViewOrderDetail = (order: Order) => {
-    setSelectedOrder(order);
-    setOrdersViewMode('detail');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const navigateToGallery = (mode: 'list' | 'create' | 'media_edit' | 'category_create' | 'categories_list' | 'category_edit' = 'list') => {
+  const navigateToGallery = (mode: any = 'list') => {
     setActiveTab('Galería');
     setGalleryViewMode(mode);
     setSearchQuery('');
-    setIsFormValid(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const navigateToStore = (mode: 'list' | 'create' | 'edit' = 'list') => {
+  const navigateToStore = (mode: any = 'list') => {
     setActiveTab('Tienda');
     setStoreViewMode(mode);
     setSearchQuery('');
-    setIsFormValid(false);
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
-  const navigateToRaffles = (mode: 'list' | 'create' | 'edit' | 'detail' = 'list') => {
-    setActiveTab('Rifas');
-    setRaffleViewMode(mode);
-    setSearchQuery('');
-    setIsFormValid(false);
+  const navigateToOrders = () => {
+    setActiveTab('Órdenes');
+    setStoreViewMode('orders');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const navigateToSystem = (mode: SystemViewType = 'billing') => {
     setActiveTab('Sistema');
     setSystemViewMode(mode);
-    setShippingSubView('config');
-    setPaymentSubView('config'); 
-    setWhatsappSubView('config');
-    setSearchQuery('');
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
@@ -402,24 +346,16 @@ function App() {
       case 'Ver Categorías': navigateToGallery('categories_list'); break;
       case 'Nuevo Producto': navigateToStore('create'); break;
       case 'Ver Productos': navigateToStore('list'); break;
-      case 'Nueva Rifa': navigateToRaffles('create'); break;
-      case 'Ver Rifas': navigateToRaffles('list'); break;
-      case 'Configurar Envíos': navigateToSystem('shipping'); break;
-      case 'Config': navigateToSystem('config'); break;
-      case 'Usuarios': navigateToSystem('users'); break;
-      case 'Identidad': 
-      case 'Añadir Logo': navigateToSystem('identity'); break;
-      case 'Método de Pago': navigateToSystem('payment'); break;
-      case 'WhatsApp': navigateToSystem('whatsapp'); break;
-      case 'Lib. Inventario': navigateToSystem('inventory'); break;
-      case 'Notificaciones': navigateToSystem('notifications'); break;
+      case 'Ver Órdenes': navigateToOrders(); break;
       case 'Estado de Cuenta': navigateToSystem('billing'); break;
-      case 'Ver Órdenes': 
-      case 'Volver':
-        setActiveTab('Órdenes');
-        setOrdersViewMode('list');
-        setSearchQuery('');
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+      case 'Volver': 
+        if (isOrdersTab || storeViewMode === 'orders' || storeViewMode === 'order-detail') {
+          navigateToOrders();
+        } else if (isStoreMode) {
+          navigateToStore('list');
+        } else if (isGalleryMode) {
+          navigateToGallery('list');
+        }
         break;
     }
   };
@@ -428,709 +364,191 @@ function App() {
     setConfirmDialog({
       isOpen: true,
       title: '¿Descartar cambios?',
-      message: 'Si cancelas ahora, perderás toda la información ingresada en este formulario.',
+      message: 'Si cancelas ahora, perderás toda la información ingresada.',
       confirmLabel: 'Sí, Descartar',
       variant: 'warning',
       onConfirm: () => {
-        if (isStoreMode) {
-          setStoreViewMode('list');
-        } else if (isRafflesMode) {
-          setRaffleViewMode('list');
-        } else if (galleryViewMode === 'category_edit') {
-          setGalleryViewMode('categories_list');
-        } else {
-          setGalleryViewMode('list');
-        }
-        setSearchQuery('');
-        setIsFormValid(false);
+        if (isStoreMode) setStoreViewMode('list');
+        else if (isGalleryMode) setGalleryViewMode('list');
         closeConfirm();
       }
     });
   };
 
-  if (!isAuthenticated) {
-    return (
-      <>
-        <LoginView 
-          onLoginSuccess={handleLoginSuccess} 
-          showToast={showToast} 
-        />
-        {toast && (
-          <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
-        )}
-      </>
-    );
-  }
+  const handleViewOrderDetail = (order: Order) => {
+    setSelectedOrder(order);
+    setStoreViewMode('order-detail');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  if (!isAuthenticated) return <LoginView onLoginSuccess={handleLoginSuccess} showToast={showToast} />;
 
   return (
-    <div className="min-h-screen bg-[#f3f4f6] font-sans pb-32 md:pb-10 text-stone-900">
-      <Header 
-        activeTab={activeTab} 
-        setActiveTab={(tab) => {
-          if (tab !== activeTab) {
-            setActiveTab(tab as any);
-            setSearchQuery('');
-            if (tab === 'Galería') setGalleryViewMode('list');
-            if (tab === 'Tienda') setStoreViewMode('list');
-            if (tab === 'Órdenes') setOrdersViewMode('list');
-            if (tab === 'Rifas') setRaffleViewMode('list');
-          }
-        }} 
-        onLogout={handleLogout} 
-      />
+    <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      <div className="min-h-screen bg-bg-app font-sans pb-32 md:pb-10 text-stone-900 dark:text-stone-100 transition-colors duration-500">
+        <Header activeTab={activeTab} setActiveTab={setActiveTab as any} onLogout={handleLogout} />
 
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
-        
-        <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
-          <div className="animate-in fade-in slide-in-from-left-2 duration-500">
-            <h1 className="text-3xl sm:text-4xl font-bold text-stone-800 tracking-tight">
-              {isCreatingMedia ? (
-                <>Subir <span className="text-stone-600">Nuevo Medio</span></>
-              ) : isEditingMedia ? (
-                <>Editar <span className="text-stone-600">Medio</span></>
-              ) : isCreatingProduct ? (
-                <>Nuevo <span className="text-stone-600">Producto</span></>
-              ) : isEditingProduct ? (
-                <>Editar <span className="text-stone-600">Producto</span></>
-              ) : isCreatingRaffle ? (
-                <>Nueva <span className="text-stone-600">Rifa</span></>
-              ) : isEditingRaffle ? (
-                <>Editar <span className="text-stone-600">Rifa</span></>
-              ) : galleryViewMode === 'category_create' ? (
-                <>Nueva <span className="text-stone-600">Categoría</span></>
-              ) : galleryViewMode === 'category_edit' ? (
-                <>Editar <span className="text-stone-600">Categoría</span></>
-              ) : galleryViewMode === 'categories_list' ? (
-                <>Gestionar <span className="text-stone-600">Categorías</span></>
-              ) : isGalleryMode ? (
-                <>Panel de <span className="text-stone-600">Galería</span></>
-              ) : isStoreMode ? (
-                <>Gestión de <span className="text-stone-600">Tienda</span></>
-              ) : isRafflesMode ? (
-                raffleViewMode === 'detail' ? (
-                   <>Detalle de <span className="text-stone-600">Rifa</span></>
+        <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
+          
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
+            <PageHeader 
+              activeTab={activeTab}
+              userName={userName}
+              galleryViewMode={galleryViewMode}
+              isCreatingMedia={isCreatingMedia}
+              isEditingMedia={isEditingMedia}
+              storeViewMode={storeViewMode}
+              isCreatingProduct={isCreatingProduct}
+              isEditingProduct={isEditingProduct}
+              raffleViewMode={raffleViewMode}
+              isCreatingRaffle={isCreatingRaffle}
+              isEditingRaffle={isEditingRaffle}
+              systemViewMode={systemViewMode}
+              shippingSubView={shippingSubView}
+              channelsViewMode={channelsViewMode}
+            />
+            <div className="bg-white dark:bg-stone-900 px-5 py-3.5 rounded-full shadow-sm border border-stone-200 dark:border-stone-800 flex items-center gap-2 text-stone-600 dark:text-stone-400 font-medium text-sm capitalize">
+              <Calendar size={16} className="text-brand-500" /> {currentDate}
+            </div>
+          </div>
+
+          <div className="flex flex-col lg:flex-row gap-6">
+            <div className="w-full lg:w-20 flex-shrink-0 z-40">
+              <QuickActions 
+                context={isOrdersTab ? 'Tienda' : activeTab} 
+                onAction={handleQuickAction} 
+                isDetail={storeViewMode === 'order-detail'}
+                raffleEnabled={raffleEnabled}
+                userRole={userRole}
+              />
+            </div>
+
+            <div className="flex-1">
+              {isGalleryMode ? (
+                <GalleryView searchQuery={searchQuery} viewMode={galleryViewMode} onSetViewMode={setGalleryViewMode} showToast={showToast} setConfirmDialog={setConfirmDialog} onValidationChange={setIsFormValid} />
+              ) : (isStoreMode || isOrdersTab) ? (
+                (storeViewMode === 'orders' || isOrdersTab) && storeViewMode !== 'order-detail' ? (
+                  <OrdersView 
+                    onViewDetail={handleViewOrderDetail} 
+                    showToast={showToast} 
+                    setConfirmDialog={setConfirmDialog} 
+                  />
+                ) : storeViewMode === 'order-detail' && selectedOrder ? (
+                  <OrderDetailView 
+                    order={selectedOrder} 
+                    onBack={() => isOrdersTab ? setActiveTab('Órdenes') : setStoreViewMode('orders')} 
+                    showToast={showToast} 
+                    setConfirmDialog={setConfirmDialog} 
+                  />
                 ) : (
-                   <>Gestión de <span className="text-stone-600">Rifas</span></>
-                )
-              ) : isOrdersMode ? (
-                ordersViewMode === 'detail' ? (
-                  <>Detalle de <span className="text-stone-600">Orden</span></>
-                ) : (
-                  <>Gestión de <span className="text-stone-600">Órdenes</span></>
+                  <StoreView searchQuery={searchQuery} viewMode={storeViewMode} onSetViewMode={setStoreViewMode} showToast={showToast} setConfirmDialog={setConfirmDialog} onValidationChange={setIsFormValid} />
                 )
               ) : isSystemMode ? (
-                systemViewMode === 'shipping' ? (
-                  shippingSubView === 'zones' ? (
-                    <>Zonas por <span className="text-stone-600">Estado</span></>
-                  ) : (
-                    <>Gestión de <span className="text-stone-600">Envíos</span></>
-                  )
-                ) : systemViewMode === 'users' ? (
-                  <>Gestión de <span className="text-stone-600">Usuarios</span></>
-                ) : systemViewMode === 'identity' ? (
-                  <>Identidad del <span className="text-stone-600">Sistema</span></>
-                ) : systemViewMode === 'payment' ? (
-                  paymentSubView === 'channels' ? (
-                    <>Canales de <span className="text-stone-600">Venta</span></>
-                  ) : (
-                    <>Método de <span className="text-stone-600">Pago</span></>
-                  )
-                ) : systemViewMode === 'whatsapp' ? (
-                  whatsappSubView === 'channels' ? (
-                    <>Mensajería por <span className="text-stone-600">Canal</span></>
-                  ) : (
-                    <>Integración <span className="text-stone-600">WhatsApp</span></>
-                  )
-                ) : systemViewMode === 'inventory' ? (
-                  <>Ajustes de <span className="text-stone-600">Inventario</span></>
-                ) : systemViewMode === 'notifications' ? (
-                  <>Alertas y <span className="text-stone-600">Notificaciones</span></>
-                ) : systemViewMode === 'billing' ? (
-                  <>Estado de Cuenta y <span className="text-stone-600">Servicios</span></>
-                ) : (
-                  <>Configuración del <span className="text-stone-600">Sistema</span></>
-                )
-              ) : (
-                <>¡Bienvenido de Nuevo, <span className="text-stone-600">{userName}!</span></>
-              )}
-            </h1>
-            <p className="text-stone-500 mt-2 font-medium">
-              {isCreatingProduct || isEditingProduct 
-                ? 'Administra el inventario del rancho. Priorizamos la venta de aves de combate y cría.'
-                : isCreatingRaffle || isEditingRaffle
-                ? 'Configura los parámetros de la rifa, premios y dinámica de boletos.'
-                : isCreatingMedia || isEditingMedia
-                ? 'Completa los detalles para gestionar el contenido visual del catálogo del rancho.'
-                : galleryViewMode === 'category_create'
-                  ? 'Define una nueva agrupación para organizar los medios de la galería.'
-                  : galleryViewMode === 'categories_list'
-                    ? 'Revisa y organiza las agrupaciones de contenido de tu galería.'
-                    : isGalleryMode 
-                      ? 'Explora, organiza y gestiona todos los medios visuales del rancho.' 
-                      : isStoreMode
-                      ? 'Controla tu inventario de aves y artículos desde un solo lugar.'
-                      : isRafflesMode
-                      ? 'Administra los sorteos activos, boletos vendidos y ganadores.'
-                      : isOrdersMode
-                      ? 'Administra las ventas, estados de pago y logística de envío.'
-                      : isSystemMode
-                      ? systemViewMode === 'shipping'
-                        ? shippingSubView === 'zones'
-                          ? 'Administra la clasificación territorial de envíos para la República Mexicana.'
-                          : 'Define las reglas financieras para el envío de artículos y aves.'
-                        : systemViewMode === 'users'
-                          ? 'Administra los accesos, roles y estados de los usuarios del sistema.'
-                          : systemViewMode === 'identity'
-                            ? 'Administra el logo global utilizado en el panel y la tienda.'
-                          : systemViewMode === 'payment'
-                            ? paymentSubView === 'channels'
-                                ? 'Configura la información de contacto y cobro específica para cada propósito.'
-                                : 'Configura la cuenta bancaria donde recibirás los pagos de tus clientes.'
-                          : systemViewMode === 'whatsapp'
-                            ? whatsappSubView === 'channels'
-                                ? 'Configura números y plantillas específicas para cada departamento.'
-                                : 'Ajusta el número y mensaje principal de confirmación de órdenes.'
-                          : systemViewMode === 'inventory'
-                            ? 'Configura la cancelación automática de órdenes vencidas para liberar el stock.'
-                          : systemViewMode === 'notifications'
-                            ? 'Administra los avisos por correo electrónico para mantenerte informado de tus ventas.'
-                          : systemViewMode === 'billing'
-                            ? 'Consulta las fechas de vencimiento de tu plataforma y gestiona cargos adicionales.'
-                          : 'Ajusta los parámetros globales, zonificación y usuarios del rancho.'
-                      : 'Gestiona el inventario, ventas y medios desde tu panel central.'}
-            </p>
-          </div>
-          
-          <div className="animate-in fade-in slide-in-from-right-2 duration-500">
-            {isFormMode ? (
-              <div className="flex items-center gap-3">
-                <button 
-                  onClick={handleCancelAction}
-                  className="bg-white px-6 py-3.5 rounded-full shadow-sm border border-stone-200 flex items-center gap-2 text-stone-600 font-bold text-sm hover:bg-stone-50 transition-all active:scale-95"
-                >
-                  <X size={18} className="text-stone-400" />
-                  Cancelar
-                </button>
-                
-                {isCreatingMedia && (
-                  <button type="submit" form="media-form" disabled={!isFormValid} className={`px-6 py-3.5 rounded-full shadow-sm border flex items-center gap-2 text-stone-600 font-bold text-sm transition-all active:scale-95 ${!isFormValid ? 'bg-stone-50 border-stone-100 opacity-50 cursor-not-allowed' : 'bg-white border-stone-200 hover:bg-stone-50'}`}>
-                    <Save size={18} className="text-stone-400" /> Subir Medio
-                  </button>
-                )}
-                {isEditingMedia && (
-                  <button type="submit" form="media-form" disabled={!isFormValid} className={`px-6 py-3.5 rounded-full shadow-sm border flex items-center gap-2 text-stone-600 font-bold text-sm transition-all active:scale-95 ${!isFormValid ? 'bg-stone-50 border-stone-100 opacity-50 cursor-not-allowed' : 'bg-white border-stone-200 hover:bg-stone-50'}`}>
-                    <Save size={18} className="text-stone-400" /> Guardar Cambios
-                  </button>
-                )}
-                {galleryViewMode === 'category_create' && (
-                  <button type="submit" form="category-form" disabled={!isFormValid} className={`px-6 py-3.5 rounded-full shadow-sm border flex items-center gap-2 text-stone-600 font-bold text-sm transition-all active:scale-95 ${!isFormValid ? 'bg-stone-50 border-stone-100 opacity-50 cursor-not-allowed' : 'bg-white border-stone-200 hover:bg-stone-50'}`}>
-                    <Save size={18} className="text-stone-400" /> Crear Categoría
-                  </button>
-                )}
-                {galleryViewMode === 'category_edit' && (
-                  <button type="submit" form="category-form" disabled={!isFormValid} className={`px-6 py-3.5 rounded-full shadow-sm border flex items-center gap-2 text-stone-600 font-bold text-sm transition-all active:scale-95 ${!isFormValid ? 'bg-stone-50 border-stone-100 opacity-50 cursor-not-allowed' : 'bg-white border-stone-200 hover:bg-stone-50'}`}>
-                    <Save size={18} className="text-stone-400" /> Guardar Cambios
-                  </button>
-                )}
-                {isCreatingProduct && (
-                  <button type="submit" form="product-form" disabled={!isFormValid} className={`px-6 py-3.5 rounded-full shadow-sm border flex items-center gap-2 text-stone-600 font-bold text-sm transition-all active:scale-95 ${!isFormValid ? 'bg-stone-50 border-stone-100 opacity-50 cursor-not-allowed' : 'bg-white border-stone-200 hover:bg-stone-50'}`}>
-                    <Save size={18} className="text-stone-400" /> Crear Producto
-                  </button>
-                )}
-                {isEditingProduct && (
-                  <button type="submit" form="product-form" disabled={!isFormValid} className={`px-6 py-3.5 rounded-full shadow-sm border flex items-center gap-2 text-stone-600 font-bold text-sm transition-all active:scale-95 ${!isFormValid ? 'bg-stone-50 border-stone-100 opacity-50 cursor-not-allowed' : 'bg-white border-stone-200 hover:bg-stone-50'}`}>
-                    <Save size={18} className="text-stone-400" /> Guardar Cambios
-                  </button>
-                )}
-                {isCreatingRaffle && (
-                  <button type="submit" form="raffle-form" disabled={!isFormValid} className={`px-6 py-3.5 rounded-full shadow-sm border flex items-center gap-2 text-stone-600 font-bold text-sm transition-all active:scale-95 ${!isFormValid ? 'bg-stone-50 border-stone-100 opacity-50 cursor-not-allowed' : 'bg-white border-stone-200 hover:bg-stone-50'}`}>
-                    <Save size={18} className="text-stone-400" /> Crear Rifa
-                  </button>
-                )}
-                {isEditingRaffle && (
-                  <button type="submit" form="raffle-form" disabled={!isFormValid} className={`px-6 py-3.5 rounded-full shadow-sm border flex items-center gap-2 text-stone-600 font-bold text-sm transition-all active:scale-95 ${!isFormValid ? 'bg-stone-50 border-stone-100 opacity-50 cursor-not-allowed' : 'bg-white border-stone-200 hover:bg-stone-50'}`}>
-                    <Save size={18} className="text-stone-400" /> Guardar Cambios
-                  </button>
-                )}
-              </div>
-            ) : (isGalleryMode || isStoreMode || isRafflesMode || (isOrdersMode && ordersViewMode === 'list')) ? (
-              <div className="relative group w-full sm:w-auto min-w-[300px]">
-                <div className="absolute inset-y-0 left-4 flex items-center pointer-events-none text-stone-400 group-focus-within:text-brand-500 transition-colors">
-                  <Search size={18} />
-                </div>
-                <input 
-                  type="text" 
-                  placeholder={isStoreMode ? "Busca productos, anillos..." : isOrdersMode ? "Busca por ID, cliente, estado..." : isRafflesMode ? "Busca rifas..." : "Busca por título, categoría..."}
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  className="w-full bg-white pl-12 pr-6 py-3.5 rounded-full shadow-sm border border-stone-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all text-sm font-medium placeholder:text-stone-400"
-                />
-              </div>
-            ) : (isOrdersMode && ordersViewMode === 'detail' && selectedOrder) ? (
-              <div className="flex gap-3">
-                {(selectedOrder.status === 'pending' || selectedOrder.status === 'paid') && (
-                  <button 
-                    onClick={() => handleCancelOrder(selectedOrder.id)}
-                    className="bg-white px-6 py-3.5 rounded-full shadow-sm border border-stone-200 flex items-center gap-2 text-stone-600 font-bold text-sm hover:bg-stone-50 transition-all active:scale-95"
-                  >
-                    <X size={18} className="text-stone-400" />
-                    Cancelar Orden
-                  </button>
-                )}
-                {selectedOrder.status === 'pending' && (
-                  <button 
-                    onClick={() => handleMarkAsPaid(selectedOrder.id)}
-                    className="bg-white px-6 py-3.5 rounded-full shadow-sm border border-stone-200 flex items-center gap-2 text-stone-600 font-bold text-sm hover:bg-stone-50 transition-all active:scale-95"
-                  >
-                    <Check size={18} className="text-stone-400" />
-                    Marcar como Pagada
-                  </button>
-                )}
-              </div>
-            ) : (isSystemMode && systemViewMode === 'users') ? (
-              <div className="flex gap-3">
-              {userRole !== 'staff' && (
-                <button 
-                  onClick={() => usersRef.current?.handleCreateUser()}
-                  className="bg-white px-6 py-3.5 rounded-full shadow-sm border border-stone-200 flex items-center gap-2 text-stone-600 font-bold text-sm hover:bg-stone-50 transition-all active:scale-95"
-                >
-                  <UserPlus size={18} className="text-stone-400" />
-                  Nuevo Usuario
-                </button>
-              )}
-              </div>
-            ) : (isSystemMode && systemViewMode === 'shipping') ? (
-              <div className="flex gap-3">
-                {shippingSubView === 'zones' ? (
-                  <>
-                    <button 
-                      onClick={() => setShippingSubView('config')}
-                      className="bg-white px-6 py-3.5 rounded-full shadow-sm border border-stone-200 flex items-center gap-2 text-stone-600 font-bold text-sm hover:bg-stone-50 transition-all active:scale-95"
-                    >
-                      <X size={18} className="text-stone-400" />
-                      Cancelar
-                    </button>
-                    <button 
-                      onClick={() => shippingRef.current?.handleSaveZones()}
-                      className="bg-white px-6 py-3.5 rounded-full shadow-sm border border-stone-200 flex items-center gap-2 text-stone-600 font-bold text-sm hover:bg-stone-50 transition-all active:scale-95"
-                    >
-                      <Save size={18} className="text-stone-400" />
-                      Guardar Cambios
-                    </button>
-                  </>
-                ) : (
-                  <button 
-                    onClick={() => shippingRef.current?.handleSaveConfig()}
-                    className="bg-white px-6 py-3.5 rounded-full shadow-sm border border-stone-200 flex items-center gap-2 text-stone-600 font-bold text-sm hover:bg-stone-50 transition-all active:scale-95"
-                  >
-                    <Save size={18} className="text-stone-400" />
-                    Guardar Configuración
-                  </button>
-                )}
-              </div>
-            ) : (isSystemMode && systemViewMode === 'payment') ? (
-              <div className="flex gap-3">
-                {paymentSubView === 'channels' ? (
-                  <>
-                    <button 
-                      onClick={() => setPaymentSubView('config')}
-                      className="bg-white px-6 py-3.5 rounded-full shadow-sm border border-stone-200 flex items-center gap-2 text-stone-600 font-bold text-sm hover:bg-stone-50 transition-all active:scale-95"
-                    >
-                      <X size={18} className="text-stone-400" />
-                      Cancelar
-                    </button>
-                    <button 
-                      onClick={() => paymentRef.current?.handleCreateChannel()}
-                      className="bg-white px-6 py-3.5 rounded-full shadow-sm border border-stone-200 flex items-center gap-2 text-stone-600 font-bold text-sm hover:bg-stone-50 transition-all active:scale-95"
-                    >
-                      <Plus size={18} className="text-stone-400" />
-                      Añadir Canal
-                    </button>
-                  </>
-                ) : (
-                  <button 
-                    onClick={() => paymentRef.current?.handleSaveConfig()}
-                    className="bg-white px-6 py-3.5 rounded-full shadow-sm border border-stone-200 flex items-center gap-2 text-stone-600 font-bold text-sm hover:bg-stone-50 transition-all active:scale-95"
-                  >
-                    <Save size={18} className="text-stone-400" />
-                    Guardar Configuración
-                  </button>
-                )}
-              </div>
-            ) : (isSystemMode && systemViewMode === 'whatsapp') ? (
-              <div className="flex gap-3">
-                {whatsappSubView === 'channels' ? (
-                  <>
-                    <button 
-                      onClick={() => setWhatsappSubView('config')}
-                      className="bg-white px-6 py-3.5 rounded-full shadow-sm border border-stone-200 flex items-center gap-2 text-stone-600 font-bold text-sm hover:bg-stone-50 transition-all active:scale-95"
-                    >
-                      <X size={18} className="text-stone-400" />
-                      Cancelar
-                    </button>
-                    <button 
-                      onClick={() => whatsappRef.current?.handleCreateChannel()}
-                      className="bg-white px-6 py-3.5 rounded-full shadow-sm border border-stone-200 flex items-center gap-2 text-stone-600 font-bold text-sm hover:bg-stone-50 transition-all active:scale-95"
-                    >
-                      <Plus size={18} className="text-stone-400" />
-                      Añadir Canal
-                    </button>
-                  </>
-                ) : (
-                  <button 
-                    onClick={() => whatsappRef.current?.handleSaveConfig()}
-                    className="bg-white px-6 py-3.5 rounded-full shadow-sm border border-stone-200 flex items-center gap-2 text-stone-600 font-bold text-sm hover:bg-stone-50 transition-all active:scale-95"
-                  >
-                    <Save size={18} className="text-stone-400" />
-                    Guardar Configuración
-                  </button>
-                )}
-              </div>
-            ) : (isSystemMode && systemViewMode === 'inventory') ? (
-              <div className="flex gap-3">
-                <button 
-                  onClick={() => inventoryRef.current?.handleSaveConfig()}
-                  className="bg-white px-6 py-3.5 rounded-full shadow-sm border border-stone-200 flex items-center gap-2 text-stone-600 font-bold text-sm hover:bg-stone-50 transition-all active:scale-95"
-                >
-                  <Save size={18} className="text-stone-400" />
-                  Guardar Configuración
-                </button>
-              </div>
-            ) : (isSystemMode && systemViewMode === 'notifications') ? (
-              <div className="flex gap-3">
-                <button 
-                  onClick={() => notificationsRef.current?.handleSaveConfig()}
-                  className="bg-white px-6 py-3.5 rounded-full shadow-sm border border-stone-200 flex items-center gap-2 text-stone-600 font-bold text-sm hover:bg-stone-50 transition-all active:scale-95"
-                >
-                  <Save size={18} className="text-stone-400" />
-                  Guardar Configuración
-                </button>
-              </div>
-            ) : (isSystemMode && systemViewMode === 'billing') ? (
-              <div className="flex gap-3">
-                <button 
-                  onClick={() => billingRef.current?.handleCreateCharge()}
-                  className="bg-stone-900 px-6 py-3.5 rounded-full shadow-sm border border-stone-800 flex items-center gap-2 text-white font-bold text-sm hover:bg-stone-800 transition-all active:scale-95"
-                >
-                  <Plus size={18} className="text-stone-400" />
-                  Añadir Cargo Extra
-                </button>
-              </div>
-            ) : (isSystemMode && systemViewMode === 'identity') ? (
-              <div className="flex gap-3">
-                {identityStatus === 'empty' && (
-                  <button 
-                    onClick={() => setIdentityStatus('editing')}
-                    className="bg-white px-6 py-3.5 rounded-full shadow-sm border border-stone-200 flex items-center gap-2 text-stone-600 font-bold text-sm hover:bg-stone-50 transition-all active:scale-95"
-                  >
-                    <Upload size={18} className="text-stone-400" />
-                    Subir logo
-                  </button>
-                )}
-                {identityStatus === 'preview' && (
-                  <button 
-                    onClick={() => setIdentityStatus('editing')}
-                    className="bg-white px-6 py-3.5 rounded-full shadow-sm border border-stone-200 flex items-center gap-2 text-stone-600 font-bold text-sm hover:bg-stone-50 transition-all active:scale-95"
-                  >
-                    <RefreshCw size={18} className="text-stone-400" />
-                    Reemplazar logo
-                  </button>
-                )}
-                {identityStatus === 'editing' && (
-                  <>
-                    <button 
-                      onClick={() => identityRef.current?.handleCancel()}
-                      className="bg-white px-6 py-3.5 rounded-full shadow-sm border border-stone-200 flex items-center gap-2 text-stone-600 font-bold text-sm hover:bg-stone-50 transition-all active:scale-95"
-                    >
-                      <X size={18} className="text-stone-400" />
-                      Cancelar
-                    </button>
-                    <button 
-                      onClick={() => identityRef.current?.handleSave()}
-                      disabled={!hasTempLogo}
-                      className={`px-6 py-3.5 rounded-full shadow-sm border flex items-center gap-2 text-stone-600 font-bold text-sm transition-all active:scale-95 ${!hasTempLogo ? 'bg-stone-50 border-stone-100 opacity-50 cursor-not-allowed' : 'bg-white border-stone-200 hover:bg-stone-50'}`}
-                    >
-                      <Save size={18} className="text-stone-400" />
-                      Guardar Nuevo Logo
-                    </button>
-                  </>
-                )}
-              </div>
-            ) : (
-              <div className="self-start sm:self-center bg-white px-5 py-3.5 rounded-full shadow-sm border border-stone-200 flex items-center gap-2 text-stone-600 font-medium text-sm whitespace-nowrap">
-                <Calendar size={16} className="text-brand-500" />
-                <span className="capitalize">{currentDate}</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div className="flex flex-col lg:flex-row gap-6">
-          <div className="w-full lg:w-20 flex-shrink-0 z-40">
-            <QuickActions 
-              context={activeTab} 
-              onAction={handleQuickAction} 
-              isDetail={isOrdersMode && ordersViewMode === 'detail'}
-            />
-          </div>
-
-          <div className="flex-1">
-            {isGalleryMode ? (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <GalleryView 
-                  searchQuery={searchQuery} 
-                  viewMode={galleryViewMode} 
-                  onSetViewMode={setGalleryViewMode} 
-                  showToast={showToast}
-                  setConfirmDialog={setConfirmDialog}
-                  onValidationChange={setIsFormValid}
-                />
-              </div>
-            ) : isStoreMode ? (
-               <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <StoreView 
-                  searchQuery={searchQuery} 
-                  viewMode={storeViewMode} 
-                  onSetViewMode={setStoreViewMode} 
-                  showToast={showToast}
-                  setConfirmDialog={setConfirmDialog}
-                  onValidationChange={setIsFormValid}
-                />
-              </div>
-            ) : isOrdersMode ? (
-              ordersViewMode === 'detail' && selectedOrder ? (
-                <OrderDetailView 
-                  order={selectedOrder} 
-                  onBack={() => setOrdersViewMode('list')}
-                  onMarkAsPaid={handleMarkAsPaid}
-                  onCancelOrder={handleCancelOrder}
-                />
-              ) : (
-                <OrdersView 
-                  orders={filteredOrders}
-                  isLoading={isLoadingDashboard}
-                  onViewDetail={handleViewOrderDetail}
-                  onMarkAsPaid={handleMarkAsPaid}
-                  onCancelOrder={handleCancelOrder}
-                />
-              )
-            ) : isRafflesMode ? (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                <RaffleView
-                  searchQuery={searchQuery}
-                  viewMode={raffleViewMode}
-                  onSetViewMode={setRaffleViewMode}
-                  showToast={showToast}
-                  setConfirmDialog={setConfirmDialog}
-                  onValidationChange={setIsFormValid}
-                />
-              </div>
-            ) : isSystemMode ? (
-              <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-                {systemViewMode === 'shipping' ? (
-                  <ShippingView 
-                    ref={shippingRef}
-                    subView={shippingSubView}
-                    setSubView={setShippingSubView}
-                    showToast={showToast} 
-                  />
-                ) : systemViewMode === 'users' ? (
-                  <UsersView 
-                    ref={usersRef} 
-                    showToast={showToast}
-                    setConfirmDialog={setConfirmDialog}
-                  />
-                ) : systemViewMode === 'identity' ? (
-                  <IdentityView 
-                    ref={identityRef} 
-                    status={identityStatus} 
-                    setStatus={setIdentityStatus} 
-                    onTempLogoChange={setHasTempLogo} 
-                    showToast={showToast} 
-                  />
-                ) : systemViewMode === 'payment' ? (
-                  <PaymentMethodView 
-                    ref={paymentRef} 
-                    subView={paymentSubView}
-                    setSubView={setPaymentSubView}
-                    showToast={showToast}
-                    setConfirmDialog={setConfirmDialog} 
-                  />
-                ) : systemViewMode === 'whatsapp' ? (
-                  <WhatsAppView 
-                    ref={whatsappRef} 
-                    subView={whatsappSubView}
-                    setSubView={setWhatsappSubView}
-                    showToast={showToast}
-                    setConfirmDialog={setConfirmDialog} 
-                  />
-                ) : systemViewMode === 'inventory' ? (
-                  <InventorySettingsView 
-                    ref={inventoryRef} 
-                    showToast={showToast} 
-                  />
-                ) : systemViewMode === 'notifications' ? (
-                  <NotificationSettingsView 
-                    ref={notificationsRef} 
-                    showToast={showToast} 
-                  />
-                ) : systemViewMode === 'billing' ? (
-                  <BillingView 
-                    ref={billingRef} 
-                    showToast={showToast}
-                    setConfirmDialog={setConfirmDialog}
-                  />
-                ) : (
-                  <div className="bg-white p-12 rounded-[3rem] shadow-sm border border-white/60 text-center">
-                    <Settings size={48} className="mx-auto text-stone-300 mb-4" />
-                    <h3 className="text-xl font-bold text-stone-800">Módulo en Desarrollo</h3>
-                    <p className="text-stone-500 mt-2">Esta sección del sistema estará disponible próximamente.</p>
-                  </div>
-                )}
-              </div>
-            ) : (
-              <div className="space-y-8 animate-in fade-in slide-in-from-left-4 duration-500">
-
-                {/* WIDGET DE FACTURACIÓN CON SKELETON */}
-                <BillingAlertWidget 
-                  services={billingServices} 
-                  charges={billingCharges}
-                  isLoading={isLoadingDashboard}
-                  onNavigate={() => navigateToSystem('billing')} 
-                />
-
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                  <div className="xl:col-span-2 min-h-[350px]">
-                    {/* SALESCHART CON SKELETON */}
-                    <SalesChart
-                      data={dashboardStats?.sales7Days}
-                      isLoading={isLoadingDashboard}
+                <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-visible pb-10">
+                  {systemViewMode === 'shipping' ? (
+                    <ShippingView 
+                      ref={shippingRef}
+                      subView={shippingSubView}
+                      setSubView={setShippingSubView}
+                      showToast={showToast} 
                     />
-                  </div>
-                  
-                  <div className="xl:col-span-1 flex flex-col gap-6">
-                    <div className="flex-1">
-                      {/* ACTIVEPRODUCTSWIDGET CON SKELETON */}
-                      <ActiveProductsWidget
-                        count={dashboardStats?.activeProducts || 0}
-                        isLoading={isLoadingDashboard}
-                      />
-                    </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      {/* PAIDORDERSWIDGET CON SKELETON */}
-                      <PaidOrdersWidget 
-                        amount={dashboardStats?.orders?.paid?.amount || 0} 
-                        totalAmount={dashboardStats?.orders?.totalAmount || 1}
-                        isLoading={isLoadingDashboard}
-                      />
-                      {/* PENDINGORDERSWIDGET CON SKELETON */}
-                      <PendingOrdersWidget 
-                        amount={dashboardStats?.orders?.pending?.amount || 0} 
-                        totalAmount={(dashboardStats?.orders?.totalAmount || 0) + (dashboardStats?.orders?.pending?.amount || 0)}
-                        isLoading={isLoadingDashboard}
-                      />
-                    </div>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
-                  <div className="xl:col-span-2 flex flex-col">
-                    <div className="flex items-center justify-between mb-4 px-1">
-                      <h3 className="text-xl font-bold text-stone-800">Últimas Órdenes</h3>
-                      <button 
-                        onClick={() => {
-                          setActiveTab('Órdenes');
-                          setOrdersViewMode('list');
-                          setSearchQuery('');
-                          window.scrollTo({ top: 0, behavior: 'smooth' });
+                  ) : systemViewMode === 'users' ? (
+                    <UsersView 
+                      ref={usersRef} 
+                      showToast={showToast}
+                      setConfirmDialog={setConfirmDialog}
+                    />
+                  ) : systemViewMode === 'identity' ? (
+                    <IdentityView 
+                      ref={identityRef} 
+                      status={identityStatus} 
+                      setStatus={setIdentityStatus} 
+                      onTempLogoChange={setHasTempLogo} 
+                      showToast={showToast} 
+                    />
+                  ) : systemViewMode === 'channels' ? (
+                    channelsViewMode === 'hub' ? (
+                      <ChannelsHub 
+                        onCreateChannel={() => {
+                          setSelectedChannelId(null);
+                          setChannelsViewMode('create');
                         }}
-                        className="text-sm text-brand-600 font-semibold hover:text-brand-700 transition-colors"
-                      >
-                        Ver todas
-                      </button>
+                        onEditChannel={(id) => {
+                          setSelectedChannelId(id);
+                          setChannelsViewMode('edit');
+                        }}
+                        showToast={showToast}
+                        setConfirmDialog={setConfirmDialog}
+                      />
+                    ) : channelsViewMode === 'create' ? (
+                      <ChannelForm 
+                        ref={channelFormRef}
+                        onCancel={() => setChannelsViewMode('hub')}
+                        onSave={() => setChannelsViewMode('hub')}
+                        onValidationChange={setIsFormValid}
+                        showToast={showToast}
+                        setConfirmDialog={setConfirmDialog}
+                      />
+                    ) : (
+                      <ChannelEditor 
+                        id={selectedChannelId!}
+                        onClose={() => setChannelsViewMode('hub')}
+                        onSave={() => setChannelsViewMode('hub')}
+                        showToast={showToast}
+                        setConfirmDialog={setConfirmDialog}
+                      />
+                    )
+                  ) : systemViewMode === 'inventory' ? (
+                    <InventorySettingsView 
+                      ref={inventoryRef} 
+                      showToast={showToast} 
+                    />
+                  ) : systemViewMode === 'notifications' ? (
+                    <NotificationSettingsView 
+                      ref={notificationsRef} 
+                      showToast={showToast} 
+                    />
+                  ) : systemViewMode === 'billing' ? (
+                    <BillingView 
+                      ref={billingRef} 
+                      showToast={showToast}
+                      setConfirmDialog={setConfirmDialog}
+                    />
+                  ) : systemViewMode === 'raffle' ? (
+                    <RaffleSettingsView
+                      ref={raffleSettingsRef}
+                      showToast={showToast}
+                      onStatusChange={(enabled) => setRaffleEnabled(enabled)}
+                    />
+                  ) : (
+                    <div className="bg-bg-card p-12 rounded-[3rem] shadow-sm dark:shadow-none border border-border-main text-center">
+                      <Settings size={48} className="mx-auto text-stone-300 mb-4" />
+                      <h3 className="text-xl font-bold text-text-main">Módulo en Desarrollo</h3>
+                      <p className="text-text-muted mt-2">Esta sección del sistema estará disponible próximamente.</p>
                     </div>
-                    <div className="flex flex-col gap-3 flex-1">
-                      {isLoadingDashboard ? (
-                        Array.from({ length: 5 }).map((_, i) => (
-                          <OrderWidgetCardSkeleton key={i} />
-                        ))
-                      ) : orders.length > 0 ? (
-                        orders.slice(0, 5).map((order) => (
-                          <OrderWidgetCard key={order.id} order={order} />
-                        ))
-                      ) : (
-                        <div className="flex flex-col items-center justify-center p-12 text-center h-full">
-                          <div className="w-20 h-20 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4 text-stone-300">
-                            <Package size={32} />
-                          </div>
-                          <h3 className="text-xl font-black text-stone-800 tracking-tight mb-2">No hay órdenes</h3>
-                          <p className="text-stone-500 text-sm font-medium max-w-sm">
-                            Aún no tienes órdenes registradas en el sistema.
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  <div className="xl:col-span-1">
-                    {/* ORDERSTATUSCHART CON SKELETON */}
-                    <OrderStatusChart
-                      stats={dashboardStats?.orders}
-                      isLoading={isLoadingDashboard}
-                    />
-                  </div>
+                  )}
                 </div>
-                
-                <div className="grid grid-cols-1 xl:grid-cols-3 gap-6 items-stretch">
-                  <div className="xl:col-span-1 flex flex-col gap-4">
-                    {/* GALLERYWIDGET CON SKELETON */}
-                    <GalleryWidget 
-                      count={dashboardStats?.totalMedia || 0} 
-                      onViewGallery={() => navigateToGallery('list')}
-                      isLoading={isLoadingDashboard}
-                    />
-                    {/* CATEGORYWIDGET CON SKELETON */}
-                    <CategoryWidget
-                      count={dashboardStats?.activeCategories || 0}
-                      isLoading={isLoadingDashboard}
-                    />
-                  </div>
-                  <div className="xl:col-span-1">
-                    {/* LATESTMEDIA CON SKELETON */}
-                    <LatestMedia 
-                      items={dashboardStats?.latestMedia || []} 
-                      onViewGallery={() => navigateToGallery('list')}
-                      isLoading={isLoadingDashboard}
-                    />
-                  </div>
-                  <div className="xl:col-span-1">
-                    {/* LATESTPRODUCTS CON SKELETON */}
-                    <LatestProducts
-                      items={dashboardStats?.latestProducts || []}
-                      isLoading={isLoadingDashboard}
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
+              ) : (
+                <DashboardView 
+                  isLoading={isLoadingDashboard}
+                  stats={dashboardStats}
+                  orders={orders}
+                  billingServices={billingServices}
+                  billingCharges={billingCharges}
+                  billingPayments={billingPayments}
+                  onNavigateToSystem={navigateToSystem}
+                  onNavigateToGallery={navigateToGallery}
+                  onTabChange={setActiveTab as any}
+                />
+              )}
+            </div>
           </div>
-        </div>
-      </main>
+        </main>
 
-      <BottomNav 
-        activeTab={activeTab as any} 
-        onTabChange={setActiveTab as any}
-        tabs={
-          import.meta.env.VITE_RAFFLE_ENABLED === 'true' 
-            ? ['Inicio', 'Galería', 'Tienda', 'Órdenes', 'Rifas', 'Sistema'] 
-            : ['Inicio', 'Galería', 'Tienda', 'Órdenes', 'Sistema']
-        }
-      />
-
-      {toast && (
-        <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />
-      )}
-      <ConfirmModal {...confirmDialog} onCancel={closeConfirm} />
-    </div>
+        <BottomNav activeTab={activeTab as any} onTabChange={setActiveTab as any} tabs={['Inicio', 'Galería', 'Tienda', 'Órdenes', 'Sistema']} />
+        <ConfirmModal {...confirmDialog} onCancel={closeConfirm} />
+      </div>
+    </ThemeContext.Provider>
   );
 }
 

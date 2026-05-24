@@ -32,7 +32,7 @@ export const TicketGrid: React.FC<TicketGridProps> = ({
       const matchesSearch = t.ticketNumber.includes(search) || 
                            t.customerName.toLowerCase().includes(search.toLowerCase()) ||
                            t.customerPhone.includes(search);
-      const matchesStatus = statusFilter === 'ALL' || t.paymentStatus === statusFilter;
+      const matchesStatus = statusFilter === 'ALL' || t.status === statusFilter;
       return matchesSearch && matchesStatus;
     });
   }, [tickets, search, statusFilter]);
@@ -76,10 +76,10 @@ export const TicketGrid: React.FC<TicketGridProps> = ({
   };
 
   return (
-    <div className="bg-white rounded-[2.5rem] border border-stone-200 shadow-sm overflow-hidden flex flex-col min-h-[600px]">
+    <div className="bg-bg-card rounded-[2.5rem] border border-border-main shadow-sm dark:shadow-none overflow-hidden flex flex-col min-h-[600px]">
       
       {/* Toolbar */}
-      <div className="p-6 border-b border-stone-100 flex flex-col sm:flex-row gap-4 items-center justify-between bg-stone-50/50">
+      <div className="p-6 border-b border-border-main flex flex-col sm:flex-row gap-4 items-center justify-between bg-bg-muted/50">
         <div className="relative w-full sm:w-80">
           <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
           <input 
@@ -87,16 +87,16 @@ export const TicketGrid: React.FC<TicketGridProps> = ({
             placeholder="Buscar boleto, nombre, tel..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full bg-white pl-12 pr-4 h-12 rounded-2xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-bold text-stone-800 text-sm transition-all"
+            className="w-full bg-bg-card pl-12 pr-4 h-12 rounded-2xl border border-border-main focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-bold text-text-main text-sm transition-all"
           />
         </div>
 
-        <div className="flex items-center gap-2 bg-white p-1.5 rounded-2xl border border-stone-200 shadow-sm overflow-x-auto no-scrollbar max-w-full">
+        <div className="flex items-center gap-2 bg-bg-card p-1.5 rounded-2xl border border-border-main shadow-sm dark:shadow-none overflow-x-auto no-scrollbar max-w-full">
            {(['ALL', 'PENDING', 'PAID', 'CANCELLED'] as const).map(f => (
              <button
                key={f}
                onClick={() => setStatusFilter(f)}
-               className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${statusFilter === f ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'text-stone-400 hover:bg-stone-50 hover:text-stone-600'}`}
+               className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap ${statusFilter === f ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'text-stone-400 hover:bg-bg-muted hover:text-stone-600'}`}
              >
                {f === 'ALL' ? 'Todos' : f === 'PENDING' ? 'Apartados' : f === 'PAID' ? 'Pagados' : 'Cancelados'}
              </button>
@@ -113,11 +113,11 @@ export const TicketGrid: React.FC<TicketGridProps> = ({
            </div>
         ) : filteredTickets.length === 0 ? (
            <div className="h-full flex flex-col items-center justify-center py-20 text-center space-y-4">
-              <div className="w-16 h-16 bg-stone-50 rounded-full flex items-center justify-center text-stone-300">
+              <div className="w-16 h-16 bg-bg-muted rounded-full flex items-center justify-center text-stone-300">
                  <Filter size={32} />
               </div>
               <div>
-                 <h4 className="text-lg font-black text-stone-800 tracking-tight">Sin registros</h4>
+                 <h4 className="text-lg font-black text-text-main tracking-tight">Sin registros</h4>
                  <p className="text-stone-400 text-sm font-medium">No se encontraron boletos con estos criterios.</p>
               </div>
            </div>
@@ -127,22 +127,22 @@ export const TicketGrid: React.FC<TicketGridProps> = ({
               <div 
                 key={ticket.id}
                 className={`p-5 rounded-3xl border transition-all flex flex-col gap-4 group ${
-                  ticket.paymentStatus === 'PAID' ? 'bg-emerald-50/30 border-emerald-100 hover:bg-emerald-50/50' :
-                  ticket.paymentStatus === 'PENDING' ? 'bg-amber-50/30 border-amber-100 hover:bg-amber-50/50' :
-                  'bg-stone-50/50 border-stone-100 opacity-60'
+                  ticket.status === 'PAID' ? 'bg-emerald-50/30 border-emerald-100 hover:bg-emerald-50/50' :
+                  ticket.status === 'PENDING' ? 'bg-amber-50/30 border-amber-100 hover:bg-amber-50/50' :
+                  'bg-bg-muted/50 border-border-main opacity-60'
                 }`}
               >
                 <div className="flex items-center justify-between">
                    <div className="flex items-center gap-3">
                       <div className={`w-12 h-12 rounded-2xl flex items-center justify-center font-black text-lg ${
-                         ticket.paymentStatus === 'PAID' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' :
-                         ticket.paymentStatus === 'PENDING' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' :
-                         'bg-stone-200 text-stone-500'
+                         ticket.status === 'PAID' ? 'bg-emerald-500 text-white shadow-lg shadow-emerald-500/20' :
+                         ticket.status === 'PENDING' ? 'bg-amber-500 text-white shadow-lg shadow-amber-500/20' :
+                         'bg-stone-200 text-text-muted'
                       }`}>
                          {ticket.ticketNumber}
                       </div>
                       <div>
-                         <p className="text-xs font-black text-stone-800 uppercase tracking-tight truncate max-w-[150px]">
+                         <p className="text-xs font-black text-text-main uppercase tracking-tight truncate max-w-[150px]">
                            {ticket.customerName}
                          </p>
                          <p className="text-[10px] font-bold text-stone-400 flex items-center gap-1">
@@ -152,7 +152,7 @@ export const TicketGrid: React.FC<TicketGridProps> = ({
                    </div>
                    
                    <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      {ticket.paymentStatus === 'PENDING' && (
+                      {ticket.status === 'PENDING' && (
                          <button 
                            onClick={() => confirmPaid(ticket)}
                            className="w-8 h-8 bg-emerald-500 text-white rounded-lg flex items-center justify-center hover:bg-emerald-600 transition-all active:scale-90 shadow-md shadow-emerald-500/10"
@@ -161,7 +161,7 @@ export const TicketGrid: React.FC<TicketGridProps> = ({
                            <Check size={14} />
                          </button>
                       )}
-                      {ticket.paymentStatus !== 'CANCELLED' && (
+                      {ticket.status !== 'CANCELLED' && (
                          <button 
                            onClick={() => confirmCancel(ticket)}
                            className="w-8 h-8 bg-rose-500 text-white rounded-lg flex items-center justify-center hover:bg-rose-600 transition-all active:scale-90 shadow-md shadow-rose-500/10"
@@ -176,23 +176,23 @@ export const TicketGrid: React.FC<TicketGridProps> = ({
                 <div className="flex items-center justify-between pt-4 border-t border-black/5 mt-auto">
                    <div className="flex items-center gap-2">
                       <MapPin size={10} className="text-stone-400" />
-                      <span className="text-[9px] font-bold text-stone-500 uppercase tracking-widest">{ticket.customerState || 'Sin Estado'}</span>
+                      <span className="text-[9px] font-bold text-text-muted uppercase tracking-widest">{ticket.customerState || 'Sin Estado'}</span>
                    </div>
                    <div className="flex items-center gap-1.5">
-                      {ticket.paymentStatus === 'PAID' ? (
+                      {ticket.status === 'PAID' ? (
                          <CheckCircle2 size={12} className="text-emerald-500" />
-                      ) : ticket.paymentStatus === 'PENDING' ? (
+                      ) : ticket.status === 'PENDING' ? (
                          <Clock size={12} className="text-amber-500" />
                       ) : (
                          <XCircle size={12} className="text-stone-400" />
                       )}
                       <span className={`text-[10px] font-black uppercase tracking-wider ${
-                         ticket.paymentStatus === 'PAID' ? 'text-emerald-600' :
-                         ticket.paymentStatus === 'PENDING' ? 'text-amber-600' :
-                         'text-stone-500'
+                         ticket.status === 'PAID' ? 'text-emerald-600' :
+                         ticket.status === 'PENDING' ? 'text-amber-600' :
+                         'text-text-muted'
                       }`}>
-                         {ticket.paymentStatus === 'PAID' ? 'Pagado' : 
-                          ticket.paymentStatus === 'PENDING' ? 'Apartado' : 'Cancelado'}
+                         {ticket.status === 'PAID' ? 'Pagado' : 
+                          ticket.status === 'PENDING' ? 'Apartado' : 'Cancelado'}
                       </span>
                    </div>
                 </div>

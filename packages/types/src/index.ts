@@ -23,7 +23,7 @@ export interface User {
 
 export interface Product {
   id: number;
-  type: "ARTICLE" | "BIRD";
+  type: "ITEM" | "BIRD";
   name: string;
   description: string | null;
   price: number;
@@ -57,7 +57,7 @@ export interface OrderItem {
   orderId: number;
   productId: number;
   productName: string | null;
-  productType: "ARTICLE" | "BIRD";
+  productType: "ITEM" | "BIRD";
   quantity: number;
   unitPrice: number;
 }

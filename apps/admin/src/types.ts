@@ -3,7 +3,7 @@ import React from 'react';
 export interface OrderItem {
   id: string;
   name: string;
-  type: 'ave' | 'articulo';
+  type: 'BIRD' | 'ITEM';
   price: number;
   quantity: number;
 }
@@ -27,10 +27,10 @@ export interface Product {
   status: 'available' | 'reserved' | 'sold';
   createdAt: string;
   imageUrl: string;
-  type: 'ave' | 'articulo';
+  type: 'BIRD' | 'ITEM';
   ringNumber?: string;
-  age?: 'gallina' | 'gallo' | 'polla' | 'pollo';
-  purpose?: 'combate' | 'cria';
+  age?: 'COCK' | 'STAG' | 'HEN' | 'PULLET';
+  purpose?: 'COMBAT' | 'BREEDING';
   stock?: number;
   description: string;
   gallery: string[];
@@ -55,8 +55,8 @@ export interface Media {
 
 export interface Subcategory {
   id: string;
-  nombre: string;
-  categoria_id: string;
+  name: string;
+  categoryId: string;
 }
 
 export interface Category {
@@ -65,7 +65,7 @@ export interface Category {
   icon: string;
   count?: number;
   slug?: string;
-  subcategorias?: Subcategory[];
+  subcategories?: Subcategory[];
 }
 
 export interface User {
@@ -99,7 +99,7 @@ export interface QuickActionItem {
   group: QuickActionGroup;
 }
 
-export type ShippingZone = 'normal' | 'extendida';
+export type ShippingZone = 'STANDARD' | 'EXTENDED';
 
 export interface StateZone {
   id: string;
@@ -135,35 +135,64 @@ export interface AnnualService {
   iconType: 'globe' | 'server' | 'wrench' | 'shield' | 'default';
 }
 
+export interface BillingPayment {
+  id: string;
+  amount: number;
+  paymentDate: string;
+  concept: string;
+  notes?: string;
+  createdAt: string;
+}
+
 // --- NUEVOS TIPOS: PAGOS Y WHATSAPP ---
 
 export interface BankDetails {
-  bankName: string;
+  bank: string;
   beneficiary: string;
   clabe: string;
-  cardNumber: string;
+  card: string;
 }
 
 export interface SalesChannel extends BankDetails {
   id: string;
   name: string;
-  purposeKey: string;
+  purpose: string;
+}
+
+export type TemplateType = 'RESERVATION' | 'RELEASE';
+
+export interface WhatsAppTemplate {
+  id: string;
+  channelId?: string;
+  type: TemplateType;
+  content: string;
+  active: boolean;
 }
 
 export interface WhatsAppDetails {
   active: boolean;
-  phoneNumber: string;
-  template: string;
+  phone: string;
+  template: string; // Keep for legacy/backward compatibility if needed, but we'll prefer templates array
 }
 
 export interface WhatsAppChannel extends WhatsAppDetails {
   id: string;
   name: string;
-  purposeKey: string;
+  purpose: string;
+  instanceName?: string;
+  evolutionUrl?: string;
+  evolutionKey?: string;
+  templates?: WhatsAppTemplate[];
 }
 
 export interface DashboardStats {
   activeProducts: number;
+  products?: {
+    total: number;
+    available: number;
+    reserved: number;
+    sold: number;
+  };
   activeCategories: number;
   totalMedia: number;
   orders: {
@@ -172,6 +201,8 @@ export interface DashboardStats {
     cancelled: { count: number; amount: number };
     totalCount: number;
     totalAmount: number;
+    totalGrossAmount?: number;
+    collectionRate?: number;
   };
   latestMedia: any[];
   latestProducts: any[];
@@ -209,7 +240,7 @@ export interface TicketSale {
   customerName: string;
   customerPhone: string;
   customerState?: string;
-  paymentStatus: 'PENDING' | 'PAID' | 'CANCELLED';
+  status: 'PENDING' | 'PAID' | 'CANCELLED';
   paymentMethod?: string;
   createdAt: string;
 }

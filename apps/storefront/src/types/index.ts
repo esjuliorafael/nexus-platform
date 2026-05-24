@@ -1,6 +1,6 @@
 export interface Product {
   id: number;
-  type: 'ARTICLE' | 'BIRD';
+  type: 'ITEM' | 'BIRD';
   name: string;
   description: string | null;
   price: string | number;
@@ -11,6 +11,7 @@ export interface Product {
   purpose: string | null;
   saleStatus: 'AVAILABLE' | 'RESERVED' | 'SOLD';
   active: boolean;
+  expiresAt?: string | null;
   gallery?: ProductGallery[];
 }
 
@@ -50,6 +51,8 @@ export interface Raffle {
   ticketPrice: string | number;
   ticketQuantity: number;
   opportunities: number;
+  useZero: boolean;
+  digits: number;
   drawDate: string | null;
   image: string | null;
   status: 'ACTIVE' | 'FINISHED' | 'CANCELLED';

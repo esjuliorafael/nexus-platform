@@ -1,17 +1,27 @@
 # Dependencies
 node_modules/
 **/node_modules/
+/.pnp
+.pnp.js
 
 # Environment variables
 .env
 .env.local
 .env.*.local
-packages/db/.env
+**/.env
+**/.env.*
 
 # Build outputs
 dist/
+**/dist/
 build/
+**/build/
 .turbo/
+**/.turbo/
+.next/
+**/.next/
+out/
+**/out/
 
 # OS files
 .DS_Store
@@ -22,3 +32,25 @@ Thumbs.db
 .idea/
 *.swp
 *.swo
+*.tsbuildinfo
+
+# Gemini & Agent files
+.gemini/
+.antigravitycli/
+AGENTS.md
+docs/ai/SESSION_LOG.md
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Temporary Utility Scripts (Root)
+check_*.ts
+migrate_*.ts
+reproduce_*.ts
+full_*.ts
+fix_*.ts
+

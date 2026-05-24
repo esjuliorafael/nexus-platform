@@ -1,7 +1,11 @@
-import fastify from "fastify";
-import cors from "@fastify/cors";
 import dotenv from "dotenv";
 import path from "path";
+dotenv.config({ path: path.resolve(__dirname, "../.env") });
+
+import fastify from "fastify";
+import cors from "@fastify/cors";
+import rateLimit from "@fastify/rate-limit";
+import multipart from "@fastify/multipart";
 import bcrypt from "bcrypt";
 import { z } from "zod";
 
@@ -14,8 +18,7 @@ import { rafflePlugin } from "./modules/raffle/raffle.plugin";
 // Queues & Workers
 import { orderReleaseWorker } from "./queues/order-release.queue";
 import { ticketReleaseWorker } from "./queues/ticket-release.queue";
-
-dotenv.config({ path: path.resolve(__dirname, "../.env") });
+import { whatsappWorker } from "./workers/whatsapp.worker";
 
 const server = fastify({
   logger: true,
@@ -30,8 +33,17 @@ async function bootstrap() {
   try {
     // Register Core Plugins
     await server.register(cors, { origin: true });
+    await server.register(rateLimit, {
+      max: 100,
+      timeWindow: '1 minute'
+    });
     await server.register(prismaPlugin);
     await server.register(authPlugin);
+    await server.register(multipart, {
+      limits: {
+        fileSize: 100 * 1024 * 1024, // 100MB
+      },
+    });
 
     // Register Health Check
     server.get("/api/v1/health", async () => {
@@ -86,7 +98,7 @@ async function bootstrap() {
       if (error.name === "ZodError" || error instanceof z.ZodError) {
         return reply.status(400).send({
           message: "Validation error",
-          errors: (error as z.ZodError).errors,
+          errors: (error as unknown as z.ZodError).errors,
         });
       }
       
@@ -105,6 +117,10 @@ async function bootstrap() {
 
     ticketReleaseWorker.on("failed", (job, err) => {
       server.log.error(`Ticket release job ${job?.id} failed: ${err.message}`);
+    });
+
+    whatsappWorker.on("failed", (job, err) => {
+      server.log.error(`WhatsApp notification job ${job?.id} failed: ${err.message}`);
     });
 
     // Start Server

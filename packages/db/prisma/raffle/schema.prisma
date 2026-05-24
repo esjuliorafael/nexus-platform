@@ -23,18 +23,18 @@ model Setting {
 // Raffle Specific Models
 model Raffle {
   id              Int                 @id @default(autoincrement())
-  title           String              @map("titulo")
-  description     String?             @map("descripcion")
-  ticketPrice     Decimal             @map("precio_boleto")
-  ticketQuantity  Int                 @map("cantidad_boletos")
-  opportunities   Int                 @default(1)
-  distribution    RaffleDistribution  @default(LINEAR) @map("modo_reparto")
-  useZero         Boolean             @default(false) @map("usa_cero")
-  digits          Int                 @default(3) @map("cifras")
-  drawDate        DateTime?           @map("fecha_sorteo")
-  image           String?             @map("imagen")
-  status          RaffleStatus        @default(ACTIVE) @map("estado")
-  createdAt       DateTime            @default(now()) @map("fecha_creacion")
+  title           String              @map("title")
+  description     String?             @map("description")
+  ticketPrice     Decimal             @map("ticket_price")
+  ticketQuantity  Int                 @map("ticket_quantity")
+  opportunities   Int                 @default(1) @map("opportunities")
+  distribution    RaffleDistribution  @default(LINEAR) @map("distribution")
+  useZero         Boolean             @default(false) @map("use_zero")
+  digits          Int                 @default(3) @map("digits")
+  drawDate        DateTime?           @map("draw_date")
+  image           String?             @map("image")
+  status          RaffleStatus        @default(ACTIVE) @map("status")
+  createdAt       DateTime            @default(now()) @map("created_at")
   gallery         RaffleGallery[]
   extraOpportunities RaffleOpportunity[]
   ticketSales     TicketSale[]
@@ -43,37 +43,37 @@ model Raffle {
 }
 
 enum RaffleDistribution {
-  LINEAR @map("lineal")
-  RANDOM @map("aleatorio")
+  LINEAR @map("linear")
+  RANDOM @map("random")
 }
 
 enum RaffleStatus {
-  ACTIVE @map("activa")
-  FINISHED @map("finalizada")
-  CANCELLED @map("cancelada")
+  ACTIVE @map("active")
+  FINISHED @map("finished")
+  CANCELLED @map("cancelled")
 }
 
 model RaffleGallery {
   id        Int       @id @default(autoincrement())
-  raffleId  Int       @map("rifa_id")
-  filePath  String    @map("ruta_archivo")
-  fileType  MediaType @default(PHOTO) @map("tipo_archivo")
-  createdAt DateTime  @default(now()) @map("fecha_subida")
+  raffleId  Int       @map("raffle_id")
+  filePath  String    @map("file_path")
+  fileType  MediaType @default(PHOTO) @map("file_type")
+  createdAt DateTime  @default(now()) @map("created_at")
   raffle    Raffle    @relation(fields: [raffleId], references: [id], onDelete: Cascade)
 
   @@map("raffle_gallery")
 }
 
 enum MediaType {
-  PHOTO @map("foto")
+  PHOTO @map("photo")
   VIDEO @map("video")
 }
 
 model RaffleOpportunity {
   id                 Int      @id @default(autoincrement())
-  raffleId           Int      @map("rifa_id")
-  mainTicketNumber   String   @map("numero_boleto")
-  extraOpportunities Json     @map("oportunidades_extra")
+  raffleId           Int      @map("raffle_id")
+  mainTicketNumber   String   @map("main_ticket_number")
+  extraOpportunities Json     @map("extra_opportunities")
   raffle             Raffle   @relation(fields: [raffleId], references: [id], onDelete: Cascade)
 
   @@map("raffle_opportunities")
@@ -81,21 +81,21 @@ model RaffleOpportunity {
 
 model TicketSale {
   id              Int         @id @default(autoincrement())
-  raffleId        Int         @map("rifa_id")
-  ticketNumber    String      @map("numero_boleto")
-  customerName    String      @map("cliente_nombre")
-  customerPhone   String      @map("cliente_telefono")
-  customerState   String?     @map("cliente_estado")
-  paymentStatus   TicketStatus @default(PENDING) @map("estado_pago")
-  paymentMethod   String?     @map("metodo_pago")
-  createdAt       DateTime    @default(now()) @map("fecha")
+  raffleId        Int         @map("raffle_id")
+  ticketNumber    String      @map("ticket_number")
+  customerName    String      @map("customer_name")
+  customerPhone   String      @map("customer_phone")
+  customerState   String?     @map("customer_state")
+  paymentStatus   TicketStatus @default(PENDING) @map("payment_status")
+  paymentMethod   String?     @map("payment_method")
+  createdAt       DateTime    @default(now()) @map("created_at")
   raffle          Raffle      @relation(fields: [raffleId], references: [id], onDelete: Cascade)
 
   @@map("ticket_sales")
 }
 
 enum TicketStatus {
-  PENDING @map("pendiente")
-  PAID @map("pagado")
-  CANCELLED @map("cancelado")
+  PENDING @map("pending")
+  PAID @map("paid")
+  CANCELLED @map("cancelled")
 }

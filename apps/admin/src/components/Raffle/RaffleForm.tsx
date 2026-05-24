@@ -6,7 +6,9 @@ import {
   Trash2, Check
 } from 'lucide-react';
 import { Raffle } from '../../types';
-import { apiRaffles } from '../../api';
+import { apiRaffles, apiUpload } from '../../api';
+import { NexusInput, NexusTextarea, NexusSelect } from '../ui/NexusInputs';
+import { NexusSectionButton } from '../ui/NexusButton';
 
 interface RaffleFormProps {
   initialData?: Raffle;
@@ -23,7 +25,9 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
   onValidationChange,
   showToast
 }) => {
+  const [currentStep, setCurrentStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isProcessing, setIsProcessing] = useState(false);
 
   const hasActiveSales = !!initialData && 
     ((initialData.ticketStats?.paid ?? 0) > 0 || 
@@ -45,7 +49,10 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
   const [ticketPrice, setTicketPrice] = useState(initialData?.ticketPrice?.toString() || '');
   const [drawDate, setDrawDate] = useState(initialData?.drawDate ? new Date(initialData.drawDate).toISOString().split('T')[0] : '');
   const [imageUrl, setImageUrl] = useState(initialData?.image || '');
+  const [imageFile, setImageFile] = useState<File | null>(null);
   const [status, setStatus] = useState<Raffle['status']>(initialData?.status || 'ACTIVE');
+
+  const fileInputRef = React.useRef<HTMLInputElement>(null);
 
   // Universe Calculation Logic
   const universePreview = useMemo(() => {
@@ -84,24 +91,35 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
     return { universo, startFromZero, digits, rangeStart, rangeEnd, example };
   }, [ticketQuantity, opportunities, raffleType]);
 
-  // Validation
-  const isFormValid = useMemo(() => {
+  // Validation by step
+  const isStep1Valid = true; // Always valid since it has default
+  const isStep2Valid = useMemo(() => {
     const qty = parseInt(ticketQuantity) || 0;
     const opps = raffleType === 'SIMPLE' ? 1 : (parseInt(opportunities) || 0);
     const universe = qty * opps;
+    return qty > 0 && (raffleType === 'SIMPLE' || (opps >= 2 && universe > qty)) && universe <= 100000;
+  }, [ticketQuantity, opportunities, raffleType]);
 
-    return title.trim() !== '' && 
-           parseFloat(ticketPrice) > 0 &&
-           qty > 0 &&
-           (raffleType === 'SIMPLE' || opps >= 2) &&
-           universe > 0 &&
-           universe <= 100000 &&
-           (raffleType === 'SIMPLE' || universe > qty);
-  }, [title, ticketPrice, ticketQuantity, opportunities, raffleType]);
+  const isStep3Valid = useMemo(() => {
+    return title.trim() !== '' && parseFloat(ticketPrice) > 0;
+  }, [title, ticketPrice]);
+
+  const isFormValid = isStep1Valid && isStep2Valid && isStep3Valid;
 
   useEffect(() => {
     onValidationChange?.(isFormValid);
   }, [isFormValid, onValidationChange]);
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setIsProcessing(true);
+      setImageFile(file);
+      const url = URL.createObjectURL(file);
+      setImageUrl(url);
+      setIsProcessing(false);
+    }
+  };
 
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -109,6 +127,14 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
 
     setIsSubmitting(true);
     try {
+      let finalImageUrl = imageUrl;
+
+      // Fase 1: Subir a R2 si hay archivo nuevo
+      if (imageFile) {
+        const uploadRes = await apiUpload.upload(imageFile);
+        finalImageUrl = uploadRes.url;
+      }
+
       const payload: any = {
         title,
         description,
@@ -117,7 +143,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
         opportunities: raffleType === 'SIMPLE' ? 1 : parseInt(opportunities),
         distribution,
         drawDate: drawDate ? new Date(drawDate).toISOString() : null,
-        image: imageUrl,
+        image: finalImageUrl,
         status
       };
 
@@ -129,320 +155,379 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
       onSave();
     } catch (error) {
       console.error(error);
-      showToast('Error al guardar la rifa', 'error');
+      showToast('Error al procesar archivos o guardar la rifa. Verifica Cloudflare R2.', 'error');
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  const steps = [
+    { id: 1, name: 'Estructura', icon: Layout },
+    { id: 2, name: 'Universo', icon: Hash },
+    { id: 3, name: 'Escaparate', icon: Ticket }
+  ];
+
   return (
-    <form id="raffle-form" onSubmit={handleSubmit} className="animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20 space-y-12">
+    <form id="raffle-form" onSubmit={handleSubmit} className="pb-32 relative">
       
-      {/* SECTION 1: RAFFLE TYPE */}
-      <section className="space-y-6">
-        <h3 className="text-sm font-black uppercase tracking-[0.2em] text-stone-400 flex items-center gap-2 px-1">
-          <Layout size={16} /> 1. Tipo de Rifa
-        </h3>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-           <button
-             type="button"
-             onClick={() => { setRaffleType('SIMPLE'); setOpportunities('1'); }}
-             className={`p-8 rounded-[2.5rem] border-2 text-left transition-all flex flex-col gap-4 group ${raffleType === 'SIMPLE' ? 'bg-white border-brand-500 shadow-xl shadow-brand-500/5' : 'bg-stone-50 border-stone-200 hover:border-stone-300'}`}
-           >
-             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors ${raffleType === 'SIMPLE' ? 'bg-brand-500 text-white' : 'bg-stone-200 text-stone-400 group-hover:bg-stone-300'}`}>
-                <Ticket size={28} />
-             </div>
-             <div>
-                <h4 className={`text-xl font-black ${raffleType === 'SIMPLE' ? 'text-stone-800' : 'text-stone-500'}`}>Simple</h4>
-                <p className="text-sm font-bold text-stone-400">Un número por boleto</p>
-             </div>
-             <p className="text-xs font-medium text-stone-500 leading-relaxed">
-               Ideal para rifas rápidas y directas donde cada folio comprado representa una sola oportunidad.
-             </p>
-             <div className={`mt-auto pt-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${raffleType === 'SIMPLE' ? 'text-brand-600' : 'text-stone-300'}`}>
-                <Check size={14} strokeWidth={3} /> oportunidades = 1
-             </div>
-           </button>
-
-           <button
-             type="button"
-             onClick={() => setRaffleType('OPPORTUNITIES')}
-             className={`p-8 rounded-[2.5rem] border-2 text-left transition-all flex flex-col gap-4 group ${raffleType === 'OPPORTUNITIES' ? 'bg-white border-brand-500 shadow-xl shadow-brand-500/5' : 'bg-stone-50 border-stone-200 hover:border-stone-300'}`}
-           >
-             <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-colors ${raffleType === 'OPPORTUNITIES' ? 'bg-brand-500 text-white' : 'bg-stone-200 text-stone-400 group-hover:bg-stone-300'}`}>
-                <Layers size={28} />
-             </div>
-             <div>
-                <h4 className={`text-xl font-black ${raffleType === 'OPPORTUNITIES' ? 'text-stone-800' : 'text-stone-500'}`}>Oportunidades</h4>
-                <p className="text-sm font-bold text-stone-400">Múltiples números por boleto</p>
-             </div>
-             <p className="text-xs font-medium text-stone-500 leading-relaxed">
-               Asigna varios números a un mismo comprador. Mayor emoción y probabilidad de ganar.
-             </p>
-             <div className={`mt-auto pt-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${raffleType === 'OPPORTUNITIES' ? 'text-brand-600' : 'text-stone-300'}`}>
-                <Check size={14} strokeWidth={3} /> oportunidades {'>'} 1
-             </div>
-           </button>
-        </div>
-      </section>
-
-      {/* SECTION 2: UNIVERSE CONFIGURATION */}
-      <section className="space-y-6">
-        <h3 className="text-sm font-black uppercase tracking-[0.2em] text-stone-400 flex items-center gap-2 px-1">
-          <Hash size={16} /> 2. Configuración del Universo
-        </h3>
-        
-        <div className="bg-white rounded-[2.5rem] p-8 border border-stone-200 shadow-sm space-y-8">
-           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              <div className="space-y-2">
-                 <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-1">Número de Boletos (Folios)</label>
-                 <input 
-                   type="number"
-                   required
-                   disabled={!!initialData && hasActiveSales}
-                   value={ticketQuantity}
-                   onChange={(e) => setTicketQuantity(e.target.value)}
-                   className="w-full h-14 bg-stone-50 border border-stone-200 rounded-2xl px-5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-bold text-stone-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                   placeholder="Ej: 100"
-                 />
-                 <p className="text-[10px] text-stone-400 font-medium italic">Cantidad de personas diferentes que pueden comprar.</p>
-                 {hasActiveSales && <p className="text-xs text-amber-500 mt-1">
-                    No editable: hay boletos activos
-                 </p>}
-              </div>
-
-              {raffleType === 'OPPORTUNITIES' && (
-                <>
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-1">Oportunidades por boleto</label>
-                    <input 
-                      type="number"
-                      required
-                      min="2"
-                      disabled={!!initialData && hasActiveSales}
-                      value={opportunities}
-                      onChange={(e) => setOpportunities(e.target.value)}
-                      className="w-full h-14 bg-stone-50 border border-stone-200 rounded-2xl px-5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-bold text-stone-800 disabled:opacity-50 disabled:cursor-not-allowed"
-                      placeholder="Mínimo 2"
-                    />
-                    <p className="text-[10px] text-stone-400 font-medium italic">Números asignados a cada comprador.</p>
-                    {hasActiveSales && <p className="text-xs text-amber-500 mt-1">
-                        No editable: hay boletos activos
-                    </p>}
-                  </div>
-
-                  <div className="space-y-2">
-                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-1">Distribución</label>
-                    <div className="flex bg-stone-100 p-1 rounded-2xl h-14">
-                       <button
-                         type="button"
-                         onClick={() => setDistribution('LINEAR')}
-                         className={`flex-1 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${distribution === 'LINEAR' ? 'bg-white text-brand-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
-                       >
-                         Lineal
-                       </button>
-                       <button
-                         type="button"
-                         onClick={() => setDistribution('RANDOM')}
-                         className={`flex-1 rounded-xl font-bold text-xs uppercase tracking-widest transition-all ${distribution === 'RANDOM' ? 'bg-white text-brand-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
-                       >
-                         Aleatoria
-                       </button>
-                    </div>
-                    <p className="text-[10px] text-stone-400 font-medium italic text-center">
-                       {distribution === 'LINEAR' ? 'Predecible y verificable' : 'Opaca hasta publicar listas'}
-                    </p>
-                  </div>
-                </>
-              )}
-           </div>
-
-           {/* UNIVERSE PREVIEW */}
-           {universePreview && (
-              <div className="p-8 bg-stone-900 rounded-[2rem] text-white space-y-6 relative overflow-hidden">
-                <div className="absolute top-0 right-0 w-64 h-64 bg-brand-500/5 rounded-full -mr-20 -mt-20 blur-3xl pointer-events-none" />
-                
-                <div className="flex items-center justify-between relative z-10">
-                  <h4 className="text-xs font-black uppercase tracking-[0.2em] text-stone-500 flex items-center gap-2">
-                    <Hash size={14} className="text-brand-400" /> Vista Previa del Sistema
-                  </h4>
-                  
-                  <div className="flex gap-2">
-                    {universePreview.universo > 10000 && (
-                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-amber-500/10 text-amber-500 text-[9px] font-black uppercase border border-amber-500/20">
-                        <AlertTriangle size={12} /> Universo Grande
-                      </span>
-                    )}
-                    {universePreview.universo > 100000 && (
-                      <span className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-rose-500/10 text-rose-500 text-[9px] font-black uppercase border border-rose-500/20">
-                        <AlertTriangle size={12} /> Límite Excedido
-                      </span>
-                    )}
-                  </div>
+      {/* STEPPER INDICATOR */}
+      <div className="flex items-center justify-between mb-8 md:mb-12 px-2 max-w-xl mx-auto">
+         {steps.map((step, idx) => (
+           <React.Fragment key={step.id}>
+             <button
+               type="button"
+               disabled={step.id > 1 && !isStep1Valid}
+               onClick={() => {
+                 if (step.id === 1) setCurrentStep(1);
+                 if (step.id === 2 && isStep1Valid) setCurrentStep(2);
+                 if (step.id === 3 && isStep1Valid && isStep2Valid) setCurrentStep(3);
+               }}
+               className={`flex flex-col items-center gap-2 md:gap-3 transition-all duration-300 ${currentStep === step.id ? 'opacity-100 scale-105 md:scale-110' : 'opacity-40 hover:opacity-60 scale-100'}`}
+             >
+                <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 ${currentStep === step.id ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'bg-stone-100 text-stone-400'}`}>
+                   <step.icon size={18} className="md:w-5 md:h-5" />
                 </div>
+                <span className={`hidden sm:block text-[9px] font-black uppercase tracking-[0.2em] ${currentStep === step.id ? 'text-text-main' : 'text-stone-400'}`}>
+                   {step.name}
+                </span>
+             </button>
+             {idx < steps.length - 1 && (
+               <div className="flex-1 h-[2px] mx-2 md:mx-4 bg-stone-100 mb-0 sm:mb-8 rounded-full overflow-hidden">
+                  <div 
+                    className="h-full bg-brand-500 transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]" 
+                    style={{ width: currentStep > step.id ? '100%' : '0%' }}
+                  />
+               </div>
+             )}
+           </React.Fragment>
+         ))}
+      </div>
 
-                <div className="grid grid-cols-2 lg:grid-cols-4 gap-8 relative z-10">
-                   <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Universo Total</p>
-                      <p className="text-3xl font-black tabular-nums">{universePreview.universo.toLocaleString()}</p>
-                   </div>
-                   <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Rango</p>
-                      <p className="text-2xl font-black tabular-nums">{universePreview.rangeStart} – {universePreview.rangeEnd}</p>
-                   </div>
-                   <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Cifras</p>
-                      <p className="text-2xl font-black">{universePreview.digits}</p>
-                   </div>
-                   <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Inicia en Cero</p>
-                      <p className="text-2xl font-black uppercase">{universePreview.startFromZero ? 'SÍ' : 'NO'}</p>
-                   </div>
-                </div>
+      <div className="relative min-h-[400px]">
+        {/* STEP 1: RAFFLE TYPE */}
+        {currentStep === 1 && (
+          <section className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]">
+            <div className="flex flex-col gap-2 mb-4">
+              <h3 className="text-2xl font-black tracking-tighter text-text-main">Estructura de la Rifa</h3>
+              <p className="text-sm font-medium text-stone-400">Define cómo se distribuirán las oportunidades entre los boletos.</p>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+               <button
+                 type="button"
+                 onClick={() => { setRaffleType('SIMPLE'); setOpportunities('1'); }}
+                 className={`group relative p-8 rounded-[2rem] border-2 text-left transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] flex flex-col gap-4 ${raffleType === 'SIMPLE' ? 'bg-bg-card border-brand-500 shadow-2xl shadow-brand-500/10' : 'bg-bg-muted border-border-main hover:border-border-main hover:bg-bg-card'}`}
+               >
+                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${raffleType === 'SIMPLE' ? 'bg-brand-500 text-white rotate-0' : 'bg-stone-200 text-stone-400 group-hover:bg-stone-300 -rotate-3'}`}>
+                    <Ticket size={28} />
+                 </div>
+                 <div>
+                    <h4 className={`text-xl font-black tracking-tight ${raffleType === 'SIMPLE' ? 'text-text-main' : 'text-stone-400'}`}>Simple</h4>
+                    <p className="text-sm font-bold text-stone-400/80">Un número por boleto</p>
+                 </div>
+                 <p className="text-xs font-medium text-text-muted/80 leading-relaxed max-w-[90%]">
+                   Ideal para rifas rápidas y directas donde cada folio comprado representa una sola oportunidad.
+                 </p>
+                 <div className={`mt-auto pt-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${raffleType === 'SIMPLE' ? 'text-brand-600' : 'text-stone-300'}`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${raffleType === 'SIMPLE' ? 'bg-brand-500 animate-pulse' : 'bg-stone-200'}`} />
+                    oportunidades = 1
+                 </div>
+               </button>
 
-                {universePreview.example && (
-                  <div className="pt-6 border-t border-white/5 space-y-2 relative z-10">
-                     <p className="text-[10px] font-bold text-stone-500 uppercase tracking-widest">Ejemplo de Asignación</p>
-                     <div className="bg-black/20 p-4 rounded-xl font-mono text-xs text-brand-400">
-                        {universePreview.example}
-                     </div>
-                  </div>
-                )}
+               <button
+                 type="button"
+                 onClick={() => setRaffleType('OPPORTUNITIES')}
+                 className={`group relative p-8 rounded-[2rem] border-2 text-left transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] flex flex-col gap-4 ${raffleType === 'OPPORTUNITIES' ? 'bg-bg-card border-brand-500 shadow-2xl shadow-brand-500/10' : 'bg-bg-muted border-border-main hover:border-border-main hover:bg-bg-card'}`}
+               >
+                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${raffleType === 'OPPORTUNITIES' ? 'bg-brand-500 text-white rotate-0' : 'bg-stone-200 text-stone-400 group-hover:bg-stone-300 rotate-3'}`}>
+                    <Layers size={28} />
+                 </div>
+                 <div>
+                    <h4 className={`text-xl font-black tracking-tight ${raffleType === 'OPPORTUNITIES' ? 'text-text-main' : 'text-stone-400'}`}>Oportunidades</h4>
+                    <p className="text-sm font-bold text-stone-400/80">Múltiples números por boleto</p>
+                 </div>
+                 <p className="text-xs font-medium text-text-muted/80 leading-relaxed max-w-[90%]">
+                   Asigna varios números a un mismo comprador. Mayor emoción y probabilidad de ganar.
+                 </p>
+                 <div className={`mt-auto pt-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${raffleType === 'OPPORTUNITIES' ? 'text-brand-600' : 'text-stone-300'}`}>
+                    <div className={`w-1.5 h-1.5 rounded-full ${raffleType === 'OPPORTUNITIES' ? 'bg-brand-500 animate-pulse' : 'bg-stone-200'}`} />
+                    oportunidades {'>'} 1
+                 </div>
+               </button>
+            </div>
+            <div className="flex justify-end pt-4">
+               <NexusSectionButton
+                 type="button"
+                 onClick={() => setCurrentStep(2)}
+                 className="px-12"
+               >
+                 Configurar Universo
+               </NexusSectionButton>
+            </div>
+          </section>
+        )}
 
-                <div className="pt-2 flex items-start gap-3 relative z-10">
-                   <Info size={16} className="text-stone-600 shrink-0 mt-0.5" />
-                   <p className="text-[10px] text-stone-500 leading-relaxed font-medium">
-                     El sistema calcula automáticamente las cifras y el punto de inicio para optimizar la visualización de los boletos. 
-                     Si el total es potencia de 10 (ej. 1,000), el rango será 000-999.
-                   </p>
-                </div>
-              </div>
-           )}
-        </div>
-      </section>
+        {/* STEP 2: UNIVERSE CONFIGURATION */}
+        {currentStep === 2 && (
+          <section className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]">
+            <div className="flex flex-col gap-2 mb-4">
+              <h3 className="text-2xl font-black tracking-tighter text-text-main">Configuración del Universo</h3>
+              <p className="text-sm font-medium text-stone-400">Establece la cantidad total de números y cómo se generarán.</p>
+            </div>
+            
+            <div className="bg-bg-card rounded-[2.5rem] p-6 md:p-10 border border-border-main/60 shadow-sm dark:shadow-none space-y-10">
+               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
+                  <NexusInput 
+                    label="Número de Boletos (Folios)"
+                    type="number"
+                    inputMode="numeric"
+                    required
+                    disabled={!!initialData && hasActiveSales}
+                    value={ticketQuantity}
+                    onChange={(e) => setTicketQuantity(e.target.value)}
+                    placeholder="Ej: 100"
+                    helperText="Cantidad de personas diferentes que pueden comprar."
+                  />
 
-      {/* SECTION 3: RAFFLE DETAILS */}
-      <section className="space-y-6">
-        <h3 className="text-sm font-black uppercase tracking-[0.2em] text-stone-400 flex items-center gap-2 px-1">
-          <Ticket size={16} /> 3. Detalles de la Rifa
-        </h3>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-           <div className="lg:col-span-2 space-y-6">
-              <div className="bg-white rounded-[2.5rem] p-8 border border-stone-200 shadow-sm space-y-8">
-                 <div className="space-y-6">
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-1">Título Público</label>
-                      <input 
+                  {raffleType === 'OPPORTUNITIES' && (
+                    <>
+                      <NexusInput 
+                        label="Oportunidades por boleto"
+                        type="number"
+                        inputMode="numeric"
                         required
-                        value={title}
-                        onChange={(e) => setTitle(e.target.value)}
-                        className="w-full h-14 bg-stone-50 border border-stone-200 rounded-2xl px-5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-bold text-stone-800"
-                        placeholder="Ej: Gran Rifa Semental Hatch"
+                        min="2"
+                        disabled={!!initialData && hasActiveSales}
+                        value={opportunities}
+                        onChange={(e) => setOpportunities(e.target.value)}
+                        placeholder="Mínimo 2"
+                        helperText="Números asignados a cada comprador."
                       />
-                    </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-1">Descripción y Premios</label>
-                      <textarea 
-                        rows={6}
-                        value={description}
-                        onChange={(e) => setDescription(e.target.value)}
-                        className="w-full bg-stone-50 border border-stone-200 rounded-2xl p-5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-bold text-stone-800 resize-none"
-                        placeholder="Describe el ejemplar, las bases del sorteo y los premios adicionales..."
-                      />
-                    </div>
+                      <div className="space-y-3">
+                        <label className="text-[10px] font-black uppercase text-stone-400 tracking-[0.15em] ml-1">Distribución</label>
+                        <div className="flex bg-stone-100/80 p-1 rounded-2xl h-14">
+                           <button
+                             type="button"
+                             onClick={() => setDistribution('LINEAR')}
+                             className={`flex-1 rounded-xl font-bold text-[10px] uppercase tracking-[0.15em] transition-all duration-200 active:scale-[0.96] ${distribution === 'LINEAR' ? 'bg-bg-card text-brand-600 shadow-sm dark:shadow-none border border-border-main/20' : 'text-stone-400 hover:text-text-muted'}`}
+                           >
+                             Lineal
+                           </button>
+                           <button
+                             type="button"
+                             onClick={() => setDistribution('RANDOM')}
+                             className={`flex-1 rounded-xl font-bold text-[10px] uppercase tracking-[0.15em] transition-all duration-200 active:scale-[0.96] ${distribution === 'RANDOM' ? 'bg-bg-card text-brand-600 shadow-sm dark:shadow-none border border-border-main/20' : 'text-stone-400 hover:text-text-muted'}`}
+                           >
+                             Aleatoria
+                           </button>
+                        </div>
+                      </div>
+                    </>
+                  )}
+               </div>
 
-                    <div className="space-y-1.5">
-                      <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-1">Precio por Boleto</label>
-                      <div className="relative">
-                         <div className="absolute left-5 top-1/2 -translate-y-1/2 text-brand-500">
-                            <DollarSign size={20} />
-                         </div>
-                         <input 
-                           type="number"
-                           required
-                           value={ticketPrice}
-                           onChange={(e) => setTicketPrice(e.target.value)}
-                           className="w-full h-14 bg-stone-50 border border-stone-200 rounded-2xl pl-12 pr-5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-bold text-stone-800"
-                           placeholder="0.00"
-                         />
+               {/* UNIVERSE PREVIEW */}
+               {universePreview && (
+                  <div className="p-10 bg-[#0C0C0C] rounded-[2.5rem] text-white space-y-8 relative overflow-hidden border border-white/5">
+                    <div className="absolute top-0 right-0 w-80 h-80 bg-brand-500/10 rounded-full -mr-32 -mt-32 blur-[100px] pointer-events-none" />
+                    
+                    <div className="flex items-center justify-between relative z-10">
+                      <h4 className="text-[10px] font-black uppercase tracking-[0.25em] text-text-muted flex items-center gap-3">
+                        <div className="w-6 h-[1px] bg-stone-800" />
+                        <Hash size={12} className="text-brand-400" /> Vista Previa del Sistema
+                      </h4>
+                      <div className="flex gap-2">
+                        {universePreview.universo > 10000 && (
+                          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/5 text-amber-500 text-[9px] font-black uppercase border border-amber-500/10 tracking-wider">
+                            <AlertTriangle size={10} /> Universo Grande
+                          </span>
+                        )}
                       </div>
                     </div>
-                 </div>
-              </div>
-           </div>
 
-           <div className="space-y-6">
-              <div className="bg-white rounded-[2.5rem] p-8 border border-stone-200 shadow-sm space-y-6">
-                 <h4 className="text-xs font-black uppercase tracking-widest text-stone-400 flex items-center gap-2">
-                    <Calendar size={14} /> Programación
-                 </h4>
-                 <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-1">Fecha del Sorteo</label>
-                    <input 
-                      type="date"
-                      value={drawDate}
-                      onChange={(e) => setDrawDate(e.target.value)}
-                      className="w-full h-14 bg-stone-50 border border-stone-200 rounded-2xl px-5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-bold text-stone-800"
-                    />
-                 </div>
-                 <div className="space-y-1.5">
-                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-1">Estatus Actual</label>
-                    <select 
-                      value={status}
-                      onChange={(e) => setStatus(e.target.value as any)}
-                      className="w-full h-14 bg-stone-50 border border-stone-200 rounded-2xl px-5 focus:outline-none focus:ring-2 focus:ring-brand-500/20 font-bold text-stone-800 appearance-none"
-                    >
-                      <option value="ACTIVE">Activa</option>
-                      <option value="FINISHED">Finalizada</option>
-                      <option value="CANCELLED">Cancelada</option>
-                    </select>
-                 </div>
-              </div>
+                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-10 relative z-10">
+                       <div className="space-y-2">
+                          <p className="text-[9px] font-black text-stone-600 uppercase tracking-[0.2em]">Universo Total</p>
+                          <p className="text-4xl font-black tabular-nums tracking-tighter">{universePreview.universo.toLocaleString()}</p>
+                       </div>
+                       <div className="space-y-2 border-l border-white/5 pl-8">
+                          <p className="text-[9px] font-black text-stone-600 uppercase tracking-[0.2em]">Rango</p>
+                          <p className="text-2xl font-black tabular-nums text-stone-200">{universePreview.rangeStart} – {universePreview.rangeEnd}</p>
+                       </div>
+                       <div className="space-y-2 border-l border-white/5 pl-8">
+                          <p className="text-[9px] font-black text-stone-600 uppercase tracking-[0.2em]">Cifras</p>
+                          <p className="text-2xl font-black text-stone-200">{universePreview.digits}</p>
+                       </div>
+                       <div className="space-y-2 border-l border-white/5 pl-8">
+                          <p className="text-[9px] font-black text-stone-600 uppercase tracking-[0.2em]">Inicia en Cero</p>
+                          <p className="text-2xl font-black uppercase text-brand-400">{universePreview.startFromZero ? 'SÍ' : 'NO'}</p>
+                       </div>
+                    </div>
 
-              <div className="bg-white rounded-[2.5rem] p-8 border border-stone-200 shadow-sm space-y-6">
-                 <h4 className="text-xs font-black uppercase tracking-widest text-stone-400 flex items-center gap-2">
-                    <ImageIcon size={14} /> Imagen de Portada
-                 </h4>
-                 <div className="space-y-4">
-                    <div className="aspect-video rounded-3xl bg-stone-50 border-2 border-dashed border-stone-200 overflow-hidden flex items-center justify-center group relative">
-                       {imageUrl ? (
-                         <>
-                           <img src={imageUrl} className="w-full h-full object-cover" alt="Portada" />
-                           <button 
-                             type="button"
-                             onClick={() => setImageUrl('')}
-                             className="absolute top-3 right-3 p-2 bg-rose-500 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
-                           >
-                             <Trash2 size={14} />
-                           </button>
-                         </>
-                       ) : (
-                         <ImageIcon size={32} className="text-stone-200" />
-                       )}
-                    </div>
-                    <div className="space-y-1.5">
-                       <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-1">URL de la Imagen</label>
-                       <input 
-                         type="url"
-                         value={imageUrl}
-                         onChange={(e) => setImageUrl(e.target.value)}
-                         placeholder="https://..."
-                         className="w-full h-12 bg-stone-50 border border-stone-200 rounded-xl px-4 text-xs font-bold text-stone-600 focus:outline-none focus:ring-2 focus:ring-brand-500/20"
-                       />
-                    </div>
-                 </div>
-              </div>
-           </div>
-        </div>
-      </section>
+                    {universePreview.example && (
+                      <div className="pt-8 border-t border-white/5 space-y-3 relative z-10">
+                         <p className="text-[9px] font-black text-stone-600 uppercase tracking-[0.2em]">Ejemplo de Asignación</p>
+                         <div className="bg-bg-card/[0.03] border border-white/5 p-5 rounded-2xl font-mono text-[11px] text-brand-400 tracking-tight leading-relaxed">
+                            <span className="text-text-muted mr-2 opacity-50">$</span> {universePreview.example}
+                         </div>
+                      </div>
+                    )}
+                  </div>
+               )}
+            </div>
+            <div className="flex justify-between pt-4">
+               <NexusSectionButton
+                 type="button"
+                 variant="secondary"
+                 onClick={() => setCurrentStep(1)}
+                 className="px-10"
+               >
+                 Atrás
+               </NexusSectionButton>
+               <NexusSectionButton
+                 type="button"
+                 disabled={!isStep2Valid}
+                 onClick={() => setCurrentStep(3)}
+                 className="px-10"
+               >
+                 Siguiente Paso
+               </NexusSectionButton>
+            </div>
+          </section>
+        )}
+
+        {/* STEP 3: RAFFLE DETAILS */}
+        {currentStep === 3 && (
+          <section className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]">
+            <div className="flex flex-col gap-2 mb-4">
+              <h3 className="text-2xl font-black tracking-tighter text-text-main">Escaparate de la Rifa</h3>
+              <p className="text-sm font-medium text-stone-400">Personaliza cómo verán los compradores tu rifa.</p>
+            </div>
+
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
+               <div className="lg:col-span-2 space-y-8">
+                  <div className="bg-bg-card rounded-[2.5rem] p-6 md:p-10 border border-border-main/60 shadow-sm dark:shadow-none space-y-10">
+                     <div className="space-y-8">
+                        <NexusInput 
+                          label="Título Público"
+                          icon={Layout}
+                          required
+                          value={title}
+                          onChange={(e) => setTitle(e.target.value)}
+                          placeholder="Ej: Gran Rifa Semental Hatch"
+                        />
+
+                        <NexusTextarea 
+                          label="Descripción y Premios"
+                          rows={6}
+                          value={description}
+                          onChange={(e) => setDescription(e.target.value)}
+                          placeholder="Describe el ejemplar, las bases del sorteo y los premios adicionales..."
+                        />
+
+                        <NexusInput 
+                          label="Precio por Boleto"
+                          icon={DollarSign}
+                          type="number"
+                          inputMode="decimal"
+                          required
+                          value={ticketPrice}
+                          onChange={(e) => setTicketPrice(e.target.value)}
+                          placeholder="0.00"
+                          className="text-xl font-black"
+                        />
+                     </div>
+                  </div>
+               </div>
+
+               <div className="space-y-8">
+                  <div className="bg-bg-card rounded-[2.5rem] p-6 md:p-10 border border-border-main/60 shadow-sm dark:shadow-none space-y-8">
+                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 flex items-center gap-2 px-1">
+                        <Calendar size={12} className="text-brand-500/50" /> Programación
+                     </h4>
+                     
+                     <NexusInput 
+                       label="Fecha del Sorteo"
+                       icon={Calendar}
+                       type="date"
+                       value={drawDate}
+                       onChange={(e) => setDrawDate(e.target.value)}
+                     />
+
+                     <NexusSelect 
+                       label="Estatus Actual"
+                       icon={Layers}
+                       value={status}
+                       onChange={(e) => setStatus(e.target.value as any)}
+                     >
+                        <option value="ACTIVE">Activa</option>
+                        <option value="FINISHED">Finalizada</option>
+                        <option value="CANCELLED">Cancelada</option>
+                     </NexusSelect>
+                  </div>
+
+                  <div className="bg-bg-card rounded-[2.5rem] p-6 md:p-10 border border-border-main/60 shadow-sm dark:shadow-none space-y-8">
+                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 flex items-center gap-2">
+                        <ImageIcon size={12} className="text-brand-500/50" /> Portada
+                     </h4>
+                     <div className="space-y-4">
+                        <div 
+                          onClick={() => !isProcessing && fileInputRef.current?.click()}
+                          className="aspect-square rounded-[2rem] bg-bg-muted border-2 border-dashed border-border-main/60 overflow-hidden flex items-center justify-center group relative cursor-pointer hover:bg-bg-card hover:border-brand-500/40 transition-all duration-300 active:scale-[0.98]"
+                        >
+                           {imageUrl ? (
+                             <>
+                               <img src={imageUrl} className="w-full h-full object-cover" alt="Portada" />
+                               <div className="absolute inset-0 bg-stone-900/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center text-white backdrop-blur-[2px]">
+                                  <ImageIcon size={24} className="mb-2" />
+                                  <span className="text-[10px] font-black uppercase tracking-widest">Cambiar</span>
+                               </div>
+                             </>
+                           ) : (
+                             <div className="flex flex-col items-center gap-3 text-stone-400 group-hover:text-brand-500 transition-colors">
+                                <ImageIcon size={32} />
+                                <span className="text-[10px] font-black uppercase tracking-widest">Subir Imagen</span>
+                             </div>
+                           )}
+                        </div>
+                        <input 
+                          type="file"
+                          ref={fileInputRef}
+                          className="hidden"
+                          accept="image/*"
+                          onChange={handleFileChange}
+                        />
+                     </div>
+                  </div>
+               </div>
+            </div>
+            <div className="flex justify-between pt-4">
+               <NexusSectionButton
+                 type="button"
+                 variant="secondary"
+                 onClick={() => setCurrentStep(2)}
+                 className="px-10"
+               >
+                 Atrás
+               </NexusSectionButton>
+               <NexusSectionButton
+                 type="submit"
+                 isLoading={isSubmitting}
+                 disabled={!isStep3Valid}
+                 className="px-10"
+               >
+                 {initialData ? 'Actualizar Rifa' : 'Publicar Rifa'}
+               </NexusSectionButton>
+            </div>
+          </section>
+        )}
+      </div>
 
       {isSubmitting && (
-        <div className="fixed inset-0 bg-stone-900/10 backdrop-blur-[2px] z-[300] flex items-center justify-center">
-          <div className="bg-white p-6 rounded-[2rem] shadow-2xl flex items-center gap-4 border border-stone-100">
-            <Loader2 className="w-8 h-8 text-brand-500 animate-spin" />
-            <span className="font-black text-stone-800 uppercase tracking-widest text-xs">Guardando Rifa...</span>
+        <div className="fixed inset-0 bg-stone-900/20 backdrop-blur-[4px] z-[300] flex items-center justify-center animate-in fade-in duration-300">
+          <div className="bg-bg-card p-8 rounded-[2.5rem] shadow-2xl flex flex-col items-center gap-4 border border-border-main animate-in zoom-in-95 duration-300">
+            <Loader2 className="w-10 h-10 text-brand-500 animate-spin" />
+            <span className="font-black text-text-main uppercase tracking-[0.2em] text-[10px]">Guardando Rifa...</span>
           </div>
         </div>
       )}

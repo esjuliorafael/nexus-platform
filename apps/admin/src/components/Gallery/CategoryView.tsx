@@ -101,14 +101,14 @@ export const CategoryView: React.FC<CategoryViewProps> = ({ searchQuery, onEdit,
     setIsSavingSub(true);
 
     try {
-      const currentSubs = activeManagerCat.subcategorias 
-        ? activeManagerCat.subcategorias.map(s => s.nombre) 
+      const currentSubs = activeManagerCat.subcategories 
+        ? activeManagerCat.subcategories.map(s => s.name) 
         : [];
 
       let updatedSubs = [...currentSubs];
 
       if (editingSub) {
-        const index = activeManagerCat.subcategorias?.findIndex(s => s.id === editingSub.id);
+        const index = activeManagerCat.subcategories?.findIndex(s => s.id === editingSub.id);
         if (index !== undefined && index !== -1) {
           updatedSubs[index] = subNameInput.trim();
         }
@@ -117,9 +117,9 @@ export const CategoryView: React.FC<CategoryViewProps> = ({ searchQuery, onEdit,
       }
 
       await apiCategories.update(activeManagerCat.id, {
-        nombre: activeManagerCat.name,
-        icono: activeManagerCat.icon,
-        subcategorias: updatedSubs
+        name: activeManagerCat.name,
+        icon: activeManagerCat.icon,
+        subcategories: updatedSubs
       });
 
       const newCategories = await fetchCategories();
@@ -143,7 +143,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({ searchQuery, onEdit,
 
   const startEditSub = (sub: Subcategory) => {
     setEditingSub(sub);
-    setSubNameInput(sub.nombre);
+    setSubNameInput(sub.name);
     setManagerView('form');
   };
 
@@ -158,14 +158,14 @@ export const CategoryView: React.FC<CategoryViewProps> = ({ searchQuery, onEdit,
         if (!activeManagerCat) return;
         
         try {
-          const updatedSubs = activeManagerCat.subcategorias
+          const updatedSubs = activeManagerCat.subcategories
             ?.filter(s => s.id !== idToDelete)
-            .map(s => s.nombre) || [];
+            .map(s => s.name) || [];
 
           await apiCategories.update(activeManagerCat.id, {
-            nombre: activeManagerCat.name,
-            icono: activeManagerCat.icon,
-            subcategorias: updatedSubs
+            name: activeManagerCat.name,
+            icon: activeManagerCat.icon,
+            subcategories: updatedSubs
           });
 
           const newCategories = await fetchCategories();
@@ -185,7 +185,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({ searchQuery, onEdit,
     return (
       <div className="flex flex-col items-center justify-center py-32">
          <Loader2 className="w-10 h-10 text-brand-500 animate-spin mb-4" />
-         <p className="text-stone-500 font-medium">Cargando categorías...</p>
+         <p className="text-text-muted font-medium">Cargando categorías...</p>
       </div>
     );
   }
@@ -210,12 +210,12 @@ export const CategoryView: React.FC<CategoryViewProps> = ({ searchQuery, onEdit,
           ))}
         </div>
       ) : (
-        <div className="flex flex-col items-center justify-center py-32 bg-white/40 backdrop-blur-sm rounded-[3rem] border-2 border-dashed border-stone-200 animate-in zoom-in-95 duration-500">
-          <div className="w-20 h-20 bg-stone-100 rounded-full flex items-center justify-center text-stone-300 mb-6 border border-stone-200 shadow-inner">
+        <div className="flex flex-col items-center justify-center py-32 bg-bg-card/40 backdrop-blur-sm rounded-[3rem] border-2 border-dashed border-border-main animate-in zoom-in-95 duration-500">
+          <div className="w-20 h-20 bg-stone-100 rounded-full flex items-center justify-center text-stone-300 mb-6 border border-border-main shadow-inner">
             <Search size={32} />
           </div>
-          <h3 className="text-xl font-bold text-stone-800">No hay categorías</h3>
-          <p className="text-stone-500 mt-2 max-w-xs text-center">No se encontraron categorías que coincidan con tu búsqueda.</p>
+          <h3 className="text-xl font-bold text-text-main">No hay categorías</h3>
+          <p className="text-text-muted mt-2 max-w-xs text-center">No se encontraron categorías que coincidan con tu búsqueda.</p>
         </div>
       )}
 
@@ -228,10 +228,10 @@ export const CategoryView: React.FC<CategoryViewProps> = ({ searchQuery, onEdit,
           />
           
           {/* Contenedor Principal: Altura controlada y estructura Flex */}
-          <div className="relative w-full max-w-lg bg-white rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-500 max-h-[92vh] sm:max-h-[85vh]">
+          <div className="relative w-full max-w-lg bg-bg-card rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl flex flex-col overflow-hidden animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-500 max-h-[92vh] sm:max-h-[85vh]">
             
             {/* Header: Fijo en la parte superior */}
-            <div className="p-8 border-b border-stone-100 shrink-0 bg-white z-10">
+            <div className="p-8 border-b border-border-main shrink-0 bg-bg-card z-10">
               <div className="flex items-center justify-between">
                 <div className="flex flex-col">
                   <span className="text-[10px] font-black text-brand-500 uppercase tracking-widest mb-1">
@@ -242,7 +242,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({ searchQuery, onEdit,
                         : 'Nueva Subcategoría'
                     }
                   </span>
-                  <h3 className="text-xl sm:text-2xl font-black text-stone-800 tracking-tight leading-none">
+                  <h3 className="text-xl sm:text-2xl font-black text-text-main tracking-tight leading-none">
                     {managerView === 'list' 
                       ? activeManagerCat.name 
                       : `En ${activeManagerCat.name}`
@@ -251,7 +251,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({ searchQuery, onEdit,
                 </div>
                 <button 
                   onClick={closeManager}
-                  className="p-3 bg-stone-100 hover:bg-stone-200 text-stone-500 rounded-full transition-colors active:scale-90"
+                  className="p-3 bg-stone-100 hover:bg-stone-200 text-text-muted rounded-full transition-colors active:scale-90"
                 >
                   <X size={20} strokeWidth={3} />
                 </button>
@@ -265,19 +265,19 @@ export const CategoryView: React.FC<CategoryViewProps> = ({ searchQuery, onEdit,
             >
               {managerView === 'list' ? (
                 <div className="p-8 space-y-3">
-                  {activeManagerCat.subcategorias && activeManagerCat.subcategorias.length > 0 ? (
-                    activeManagerCat.subcategorias.map((sub, sidx) => (
+                  {activeManagerCat.subcategories && activeManagerCat.subcategories.length > 0 ? (
+                    activeManagerCat.subcategories.map((sub, sidx) => (
                       <div 
                         key={sub.id} 
-                        className="flex items-center justify-between p-4 bg-stone-50 rounded-2xl border border-stone-200 hover:border-brand-200 hover:bg-white transition-all duration-300 animate-in fade-in slide-in-from-left-4 shadow-sm hover:shadow-md"
+                        className="flex items-center justify-between p-4 bg-bg-muted rounded-2xl border border-border-main hover:border-brand-200 hover:bg-bg-card transition-all duration-300 animate-in fade-in slide-in-from-left-4 shadow-sm dark:shadow-none hover:shadow-md"
                         style={{ animationDelay: `${sidx * 40}ms` }}
                       >
                         <div className="flex items-center gap-4">
-                          <div className="p-2 bg-white rounded-xl text-stone-300 border border-stone-100 shadow-sm">
+                          <div className="p-2 bg-bg-card rounded-xl text-stone-300 border border-border-main shadow-sm dark:shadow-none">
                             <CornerDownRight size={14} strokeWidth={3} />
                           </div>
                           <div className="flex flex-col">
-                            <span className="text-sm font-bold text-stone-800">{sub.nombre}</span>
+                            <span className="text-sm font-bold text-text-main">{sub.name}</span>
                             <span className="text-[9px] font-black text-stone-400 uppercase tracking-widest">0 medios asociados</span>
                           </div>
                         </div>
@@ -299,7 +299,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({ searchQuery, onEdit,
                     ))
                   ) : (
                     <div className="flex flex-col items-center justify-center py-10 text-center">
-                      <div className="w-20 h-20 bg-stone-50 rounded-full flex items-center justify-center text-stone-200 mb-6 border border-stone-100/50">
+                      <div className="w-20 h-20 bg-bg-muted rounded-full flex items-center justify-center text-stone-200 mb-6 border border-border-main/50">
                         <Layers size={32} />
                       </div>
                       <p className="text-stone-400 text-sm font-black uppercase tracking-widest">No hay subgrupos definidos</p>
@@ -323,7 +323,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({ searchQuery, onEdit,
                       value={subNameInput}
                       autoFocus
                       onChange={(e) => setSubNameInput(e.target.value)}
-                      className="w-full bg-stone-50 border border-stone-200 p-4 rounded-2xl text-stone-800 font-bold placeholder:text-stone-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+                      className="w-full bg-bg-muted border border-border-main p-4 rounded-2xl text-text-main font-bold placeholder:text-stone-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
                     />
                   </div>
 
@@ -331,7 +331,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({ searchQuery, onEdit,
                     <button 
                       type="button"
                       onClick={() => setManagerView('list')}
-                      className="flex-1 py-4 bg-stone-50 text-stone-600 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-stone-100 transition-all active:scale-[0.98] border border-stone-200"
+                      className="flex-1 py-4 bg-bg-muted text-stone-600 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-stone-100 transition-all active:scale-[0.98] border border-border-main"
                     >
                       Cancelar
                     </button>
@@ -359,7 +359,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({ searchQuery, onEdit,
 
             {/* Footer: Botón "Nueva Subcategoría" fijo (solo en modo list) */}
             {managerView === 'list' && (
-              <div className="p-8 border-t border-stone-100 shrink-0 bg-white z-10">
+              <div className="p-8 border-t border-border-main shrink-0 bg-bg-card z-10">
                 <button 
                   onClick={() => { setManagerView('form'); setEditingSub(null); setSubNameInput(''); }}
                   className="w-full py-4 bg-brand-500 text-white rounded-2xl font-black text-sm uppercase tracking-widest shadow-lg shadow-brand-500/20 hover:bg-brand-600 transition-all active:scale-[0.98] flex items-center justify-center gap-2"

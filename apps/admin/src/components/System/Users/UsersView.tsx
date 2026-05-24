@@ -1,8 +1,14 @@
-import React, { useState, useImperativeHandle, forwardRef, useEffect } from 'react';
+import React, { useState, useImperativeHandle, forwardRef, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
-import { Pencil, Trash2, X, Save, Check, User as UserIcon, Mail, Shield, Loader2 } from 'lucide-react';
+import { Pencil, Trash2, X, Save, Check, User as UserIcon, Mail, Shield, Search, Users, AlertCircle, Edit2, ShieldCheck, UserPlus } from 'lucide-react';
 import { User } from '../../../types';
 import { apiUsers } from '../../../api';
+import { NexusSectionButton, NexusCardButton } from '../../ui/NexusButton';
+import { NexusInput, NexusSelect } from '../../ui/NexusInputs';
+import { EmptyState } from '../../ui/EmptyState';
+import { NexusHero } from '../../ui/NexusHero';
+import { NexusSection } from '../../ui/NexusSection';
+import { NexusSectionCard } from '../../ui/NexusCard';
 
 interface UsersViewProps {
   showToast: (message: string, type?: 'success' | 'error') => void;
@@ -118,7 +124,7 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
         await apiUsers.create(formData);
         showToast('Usuario creado correctamente');
       }
-      fetchUsers(); // Recargar datos reales
+      fetchUsers();
       setIsModalOpen(false);
     } catch (error) {
       showToast('Error al guardar el usuario', 'error');
@@ -127,164 +133,207 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
 
   if (isLoading && users.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-32">
-         <Loader2 className="w-10 h-10 text-brand-500 animate-spin mb-4" />
-         <p className="text-stone-500 font-medium">Cargando usuarios...</p>
+      <div className="flex flex-col items-center justify-center py-40 animate-in fade-in duration-500">
+         <div className="relative w-20 h-20 mb-8">
+            <div className="absolute inset-0 border-4 border-brand-100 rounded-[2rem]" />
+            <div className="absolute inset-0 border-4 border-brand-500 border-t-transparent rounded-[2rem] animate-spin" style={{ animationDuration: '1s', animationTimingFunction: 'var(--ease-emil)' }} />
+         </div>
+         <p className="text-label text-text-muted">Sincronizando Equipo...</p>
       </div>
     );
   }
 
-  // --- REGLA: Cero animaciones in/fade de tailwind-animate en contenedores estáticos
   return (
-    <div className="space-y-6">
-      <div className="flex flex-col gap-4">
-        {users.map((user, idx) => (
-          // --- REGLA: Animación card-enter con stagger para tarjetas múltiples ---
-          // --- REGLA 1: Tarjetas base con diseño estricto (padding ajustado por jerarquía) ---
-          <div 
-            key={user.id} 
-            className="animate-card-enter bg-white p-6 rounded-[2.5rem] shadow-sm border border-stone-200 flex flex-col sm:flex-row items-center justify-between gap-6 hover:shadow-md transition-all duration-300"
-            style={{ animationDelay: `${idx * 70}ms` }}
-          >
-            <div className="flex items-center gap-5 w-full sm:w-auto">
-              {/* REGLA 3: Icono interno rounded-2xl */}
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center border ${user.isActive ? 'bg-stone-50 text-stone-400 border-stone-200' : 'bg-stone-100 text-stone-300 border-stone-100'}`}>
-                <UserIcon size={28} />
-              </div>
-              <div className="flex-1">
-                <div className="flex items-center gap-3">
-                  {/* REGLA 4: Título font-black text-stone-800 tracking-tight */}
-                  <h4 className="text-lg font-black text-stone-800 tracking-tight">{user.fullName}</h4>
-                  <span className="px-3 py-1 bg-stone-100 text-stone-600 rounded-full text-[10px] font-black uppercase tracking-widest">@{user.username}</span>
-                  {/* NUEVO: BADGE DE ROL */}
-                  <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest ${
-                    user.role === 'superadmin' ? 'bg-purple-100 text-purple-700' :
-                    user.role === 'admin' ? 'bg-blue-100 text-blue-700' :
-                    'bg-stone-100 text-stone-500'
-                  }`}>
-                    {user.role}
-                  </span>
-                </div>
-                <p className="text-stone-500 text-sm font-medium mt-0.5">{user.email}</p>
-              </div>
-            </div>
+    <div key="users-view-content" className="space-y-8 pb-12 animate-in fade-in duration-300">
+      
+      <NexusHero
+        title="Miembros"
+        subtitle="Control de Equipo"
+        icon={Users}
+        variant="dark"
+        badge="Total Activos"
+        badgeValue={users.filter(u => u.isActive).length.toString()}
+      />
 
-            <div className="flex items-center justify-between sm:justify-end gap-6 w-full sm:w-auto pt-4 sm:pt-0 border-t sm:border-t-0 border-stone-100">
-              <div className="flex items-center gap-4">
-                <span className={`px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-widest ${user.isActive ? 'bg-green-100 text-green-700' : 'bg-stone-200 text-stone-500'}`}>
-                  {user.isActive ? 'Activo' : 'Inactivo'}
-                </span>
-                
-                {/* RESTricción: No puedes desactivar a un superadmin si no eres uno, y no puedes desactivarte a ti mismo */}
-                {(currentUser?.role === 'superadmin' || user.role !== 'superadmin') && user.email !== currentUser?.email && (
-                  <button 
-                    onClick={() => toggleStatus(user.id)}
-                    className={`w-12 h-6 rounded-full transition-all relative ${user.isActive ? 'bg-brand-500' : 'bg-stone-200'}`}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-all ${user.isActive ? 'left-7' : 'left-1'}`} />
-                  </button>
-                )}
-              </div>
-
-              <div className="flex items-center gap-2">
-                {/* RESTricción: Un admin no puede editar a un superadmin */}
-                {(currentUser?.role === 'superadmin' || user.role !== 'superadmin' || user.email === currentUser?.email) && (
-                  <button onClick={() => handleEdit(user)} className="p-3 bg-stone-50 text-stone-400 border border-transparent hover:border-stone-200 hover:text-brand-500 hover:bg-brand-50 rounded-2xl transition-all active:scale-95" title="Editar Usuario">
-                    <Pencil size={18} />
-                  </button>
-                )}
-                
-                {/* RESTricción: No puedes eliminar a un superadmin si no eres uno, y no puedes eliminarte a ti mismo */}
-                {(currentUser?.role === 'superadmin' || user.role !== 'superadmin') && user.email !== currentUser?.email && (
-                  <button onClick={() => handleDeleteClick(user)} className="p-3 bg-stone-50 text-stone-400 border border-transparent hover:border-stone-200 hover:text-rose-500 hover:bg-rose-50 rounded-2xl transition-all active:scale-95" title="Eliminar Usuario">
-                    <Trash2 size={18} />
-                  </button>
-                )}
-              </div>
-            </div>
-          </div>
-        ))}
-      </div>
+      <NexusSection
+        title="Miembros del Equipo"
+        subtitle="Administradores y Staff con acceso al sistema"
+        icon={Users}
+        delay="300ms"
+      >
+        <div className="flex flex-col gap-5">
+          {users.length === 0 ? (
+            <EmptyState 
+              icon={Users}
+              title="No hay usuarios"
+              description="Comienza creando tu primer usuario para gestionar el sistema."
+              action={currentUser?.role !== 'staff' && (
+                <NexusSectionButton 
+                  onClick={() => {
+                    setEditingUser(null);
+                    setFormData({ fullName: '', email: '', username: '', password: '', role: 'staff' });
+                    setIsModalOpen(true);
+                  }}
+                  icon={UserPlus}
+                >
+                  Añadir Usuario
+                </NexusSectionButton>
+              )}
+            />
+          ) : (
+            users.map((user, idx) => (
+              <NexusSectionCard
+                key={user.id}
+                delay={`${idx * 70}ms`}
+                icon={UserIcon}
+                iconVariant="muted"
+                title={user.fullName}
+                isMuted={!user.isActive}
+                subtitle={
+                  <div className="flex items-center gap-3">
+                    <span className="px-3 py-1 bg-bg-muted text-text-muted/60 rounded-full text-label">
+                      @{user.username}
+                    </span>
+                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest transition-all duration-500 ${
+                      !user.isActive ? 'bg-stone-100 text-stone-400' :
+                      user.role === 'superadmin' ? 'bg-purple-100 text-purple-700' :
+                      user.role === 'admin' ? 'bg-blue-100 text-blue-700' :
+                      'bg-stone-100 text-text-muted'
+                    }`}>
+                      {user.role}
+                    </span>
+                  </div>
+                }
+                rightContent={
+                  <p className={`text-secondary transition-colors duration-500 ${user.isActive ? 'text-text-muted' : 'text-text-muted/40'}`}>
+                    {user.email}
+                  </p>
+                }
+                actions={
+                  <div className="flex items-center gap-4">
+                    <span className={`px-3 py-1 rounded-full text-label transition-all duration-500 ${
+                      user.isActive ? 'bg-emerald-100 text-emerald-700 border border-emerald-200/50' : 'bg-stone-100 text-text-muted/40 border border-stone-200/50'
+                    }`}>
+                      {user.isActive ? 'Activo' : 'Inactivo'}
+                    </span>
+                    
+                    {(currentUser?.role === 'superadmin' || user.role !== 'superadmin') && user.email !== currentUser?.email && (
+                      <button 
+                        onClick={() => toggleStatus(user.id)}
+                        className={`w-12 h-6 rounded-full transition-all relative active:scale-90 ${
+                          user.isActive ? 'bg-brand-500 shadow-lg shadow-brand-500/20' : 'bg-stone-200'
+                        }`}
+                        style={{ transitionTimingFunction: 'var(--ease-emil)' }}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-bg-card shadow-sm dark:shadow-none transition-all ${user.isActive ? 'left-7' : 'left-1'}`} />
+                      </button>
+                    )}
+                  </div>
+                }
+                onEdit={(currentUser?.role === 'superadmin' || user.role !== 'superadmin' || user.email === currentUser?.email) ? () => handleEdit(user) : undefined}
+                onDelete={(currentUser?.role === 'superadmin' || user.role !== 'superadmin') && user.email !== currentUser?.email ? () => handleDeleteClick(user) : undefined}
+                swipeable={true}
+              />
+            ))
+          )}
+        </div>
+      </NexusSection>
 
       {isModalOpen && createPortal(
         <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in fade-in duration-300">
-          <div className="absolute inset-0 bg-stone-900/40 backdrop-blur-sm" onClick={() => setIsModalOpen(false)} />
-          {/* Modal contenedor */}
-          <div className="relative w-full max-w-lg bg-white rounded-t-[2.5rem] sm:rounded-[2.5rem] shadow-2xl overflow-hidden animate-in slide-in-from-bottom-10 sm:zoom-in-95 duration-300">
-            <div className="p-8 sm:p-10">
-              <div className="flex items-center justify-between mb-8">
-                {/* REGLA 4 */}
-                <h3 className="text-2xl font-black text-stone-800 tracking-tight">
-                  {editingUser ? 'Editar Usuario' : 'Nuevo Usuario'}
+          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-md" onClick={() => setIsModalOpen(false)} />
+          <div className="relative w-full max-w-lg bg-bg-card rounded-t-[3rem] sm:rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+            <div className="p-8 sm:p-12">
+              <div className="flex items-center justify-between mb-10">
+                <h3 className="text-display text-text-main">
+                  {editingUser ? 'Editar Usuario' : 'Nuevo Miembro'}
                 </h3>
                 <button 
                   onClick={() => setIsModalOpen(false)} 
-                  className="p-3 bg-stone-100 hover:bg-stone-200 text-stone-500 rounded-full transition-colors active:scale-90"
+                  className="p-3 bg-bg-muted hover:bg-stone-200 text-text-muted rounded-2xl transition-all active:scale-90"
                 >
                   <X size={20} strokeWidth={3} />
                 </button>
               </div>
 
-              <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="space-y-4">
-                  <div className="group">
-                    {/* REGLA 4: Labels */}
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 ml-1">Nombre Completo *</label>
-                    <div className="relative">
-                      <span className="absolute left-5 inset-y-0 flex items-center justify-center text-stone-400 pointer-events-none group-focus-within:text-brand-500 transition-colors"><UserIcon size={18} /></span>
-                      {/* REGLA 5: Inputs Burbuja */}
-                      <input type="text" required value={formData.fullName} onChange={(e) => setFormData({ ...formData, fullName: e.target.value })} placeholder="Ej. Ricardo Montes" 
-                        className="w-full bg-stone-50 border border-stone-200 p-4 pl-12 rounded-2xl text-stone-800 font-bold placeholder:text-stone-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm" />
-                    </div>
+              <form onSubmit={handleSubmit} className="space-y-8">
+                <div className="space-y-6">
+                  <div className="grid grid-cols-1 gap-4">
+                    <NexusInput 
+                      label="Nombre Completo *"
+                      value={formData.fullName}
+                      onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                      placeholder="Ej. Ricardo Montes"
+                      icon={UserIcon}
+                      required
+                    />
+                    
+                    <NexusInput 
+                      label="Correo Electrónico *"
+                      type="email"
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+                      placeholder="ejemplo@rancho.com"
+                      icon={Mail}
+                      required
+                    />
                   </div>
-                  <div className="group">
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 ml-1">Correo Electrónico *</label>
-                    <div className="relative">
-                      <span className="absolute left-5 inset-y-0 flex items-center justify-center text-stone-400 pointer-events-none group-focus-within:text-brand-500 transition-colors"><Mail size={18} /></span>
-                      <input type="email" required value={formData.email} onChange={(e) => setFormData({ ...formData, email: e.target.value })} placeholder="ejemplo@rancho.com" 
-                        className="w-full bg-stone-50 border border-stone-200 p-4 pl-12 rounded-2xl text-stone-800 font-bold placeholder:text-stone-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm" />
-                    </div>
-                  </div>
-                  <div className="group">
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 ml-1">Rol de Usuario *</label>
-                    <div className="relative">
-                      <span className="absolute left-5 inset-y-0 flex items-center justify-center text-stone-400 pointer-events-none group-focus-within:text-brand-500 transition-colors"><Shield size={18} /></span>
-                      <select required value={formData.role} onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
-                        className="w-full bg-stone-50 border border-stone-200 p-4 pl-12 rounded-2xl text-stone-800 font-bold focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm appearance-none cursor-pointer">
+
+                  <div className="p-6 bg-bg-muted rounded-[2rem] border border-border-main space-y-6">
+                    <NexusSelect 
+                      label="Rol de Seguridad *"
+                      value={formData.role}
+                      onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
+                      icon={Shield}
+                      required
+                    >
                       {currentUser?.role === 'superadmin' && (
                         <option value="superadmin">Super Administrador</option>
                       )}
-                        <option value="admin">Administrador</option>
-                        <option value="staff">Staff</option>
-                      </select>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                    <div className="group">
-                      <label className="block text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 ml-1">Nombre de Usuario *</label>
-                      <div className="relative">
-                        <span className="absolute left-5 inset-y-0 flex items-center justify-center text-stone-400 font-bold text-sm pointer-events-none group-focus-within:text-brand-500 transition-colors">@</span>
-                        <input type="text" required value={formData.username} onChange={(e) => setFormData({ ...formData, username: e.target.value })} placeholder="usuario" 
-                          className="w-full bg-stone-50 border border-stone-200 p-4 pl-10 rounded-2xl text-stone-800 font-bold placeholder:text-stone-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm" />
-                      </div>
-                    </div>
-                    <div className="group">
-                      <label className="block text-[10px] font-black uppercase tracking-widest text-stone-400 mb-2 ml-1">Contraseña {editingUser ? '' : '*'}</label>
-                      <div className="relative">
-                        <span className="absolute left-5 inset-y-0 flex items-center justify-center text-stone-400 pointer-events-none group-focus-within:text-brand-500 transition-colors"><Shield size={18} /></span>
-                        <input type="password" required={!editingUser} value={formData.password} onChange={(e) => setFormData({ ...formData, password: e.target.value })} placeholder={editingUser ? "••••••••" : "Contraseña"} 
-                          className="w-full bg-stone-50 border border-stone-200 p-4 pl-12 rounded-2xl text-stone-800 font-bold placeholder:text-stone-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all shadow-sm" />
-                      </div>
+                      <option value="admin">Administrador de Tienda</option>
+                      <option value="staff">Personal de Apoyo (Staff)</option>
+                    </NexusSelect>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                      <NexusInput 
+                        label="Username *"
+                        value={formData.username}
+                        onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+                        placeholder="usuario"
+                        icon={() => <span className="font-bold text-sm">@</span>}
+                        required
+                      />
+                      
+                      <NexusInput 
+                        label={editingUser ? "Nueva Clave (opcional)" : "Contraseña *"}
+                        type="password"
+                        value={formData.password}
+                        onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                        placeholder={editingUser ? "••••••••" : "Clave segura"}
+                        icon={ShieldCheck}
+                        required={!editingUser}
+                      />
                     </div>
                   </div>
                 </div>
+                
                 <div className="flex gap-4 pt-4">
-                  {/* REGLA 6: Botones */}
-                  <button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 py-4 bg-stone-50 text-stone-600 rounded-2xl font-black text-[11px] uppercase tracking-widest hover:bg-stone-100 transition-all active:scale-95 border border-stone-200">Cancelar</button>
-                  <button type="submit" disabled={!(formData.fullName.trim() && formData.email.trim() && formData.username.trim() && (editingUser || formData.password.trim()))} className={`flex-[2] py-4 rounded-2xl font-black text-[11px] uppercase tracking-widest transition-all active:scale-95 flex items-center justify-center gap-2 ${!(formData.fullName.trim() && formData.email.trim() && formData.username.trim() && (editingUser || formData.password.trim())) ? 'bg-stone-100 text-stone-400 cursor-not-allowed' : 'bg-brand-500 text-white shadow-lg shadow-brand-500/20 hover:bg-brand-600'}`}>
-                    {editingUser ? <Save size={16} strokeWidth={3} /> : <Check size={16} strokeWidth={3} />}
-                    {editingUser ? 'Guardar Cambios' : 'Crear Usuario'}
-                  </button>
+                  <NexusSectionButton 
+                    type="button" 
+                    variant="ghost"
+                    onClick={() => setIsModalOpen(false)} 
+                    className="flex-1 bg-bg-muted border-border-main rounded-2xl"
+                  >
+                    Cerrar
+                  </NexusSectionButton>
+                  <NexusSectionButton 
+                    type="submit" 
+                    disabled={!(formData.fullName.trim() && formData.email.trim() && formData.username.trim() && (editingUser || formData.password.trim()))} 
+                    className="flex-[2] rounded-2xl shadow-lg shadow-brand-500/20"
+                    icon={editingUser ? Save : Check}
+                  >
+                    {editingUser ? 'Guardar Cambios' : 'Confirmar Registro'}
+                  </NexusSectionButton>
                 </div>
               </form>
             </div>

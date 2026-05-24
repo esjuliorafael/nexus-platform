@@ -152,8 +152,8 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
     const loadSystemData = async () => {
       try {
         const cfg = await apiSystem.getConfig();
-        if (cfg['sistema_logo']) {
-          setLogoUrl(`${ASSET_BASE_URL}${cfg['sistema_logo']}?t=${Date.now()}`);
+        if (cfg['branding_logo_url']) {
+          setLogoUrl(cfg['branding_logo_url']);
         }
 
         const media = await apiGallery.getAll();

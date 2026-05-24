@@ -118,9 +118,12 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
   return (
     <div className="w-full">
       {isLoading ? (
-        <div className="flex flex-col items-center justify-center py-32">
-           <Loader2 className="w-10 h-10 text-brand-500 animate-spin mb-4" />
-           <p className="text-stone-500 font-medium">Cargando rifas...</p>
+        <div className="flex flex-col items-center justify-center py-40 animate-in fade-in duration-500">
+           <div className="relative w-16 h-16 mb-6">
+              <div className="absolute inset-0 border-4 border-brand-100 rounded-full" />
+              <div className="absolute inset-0 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
+           </div>
+           <p className="text-stone-400 font-black uppercase tracking-[0.2em] text-[10px]">Cargando Rifas...</p>
         </div>
       ) : (
         <RaffleList 

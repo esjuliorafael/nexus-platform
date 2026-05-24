@@ -4,50 +4,280 @@
 @theme {
   --font-sans: "Inter", ui-sans-serif, system-ui, sans-serif;
 
-  --color-brand-50: #fbf7f6;
-  --color-brand-100: #f5edeb;
-  --color-brand-200: #eadad6;
-  --color-brand-300: #dac2bc;
-  --color-brand-400: #c59d95;
-  --color-brand-500: #b47e74;
-  --color-brand-600: #9d635a;
-  --color-brand-700: #835049;
-  --color-brand-800: #6e443f;
-  --color-brand-900: #5c3a37;
+  /* Theme Variables */
+  --color-bg-app: var(--bg-app);
+  --color-bg-card: var(--bg-card);
+  --color-bg-muted: var(--bg-muted);
+  --color-text-main: var(--text-main);
+  --color-text-muted: var(--text-muted);
+  --color-border-main: var(--border-main);
+
+  --color-brand-50: var(--brand-50);
+  --color-brand-100: var(--brand-100);
+  --color-brand-200: var(--brand-200);
+  --color-brand-300: var(--brand-300);
+  --color-brand-400: var(--brand-400);
+  --color-brand-500: var(--brand-500);
+  --color-brand-600: var(--brand-600);
+  --color-brand-700: var(--brand-700);
+  --color-brand-800: var(--brand-800);
+  --color-brand-900: var(--brand-900);
+
+  /* Global Layout System - Recursive Geometry */
+  /* Level 1: Main Containers (Hero, Section, Page Shells) */
+  --radius-outer: clamp(2rem, 6vw, 3rem);
+  --padding-outer: clamp(1.5rem, 5vw, 2.5rem);
+
+  /* Level 2: Primary Children (Cards, Badges, Section Icons) */
+  /* Formula Visual: inner = outer - (padding * 0.75) */
+  --radius-inner-visual: calc(var(--radius-outer) - (var(--padding-outer) * 0.75));
+  
+  /* Level 3: Nested Elements (Icons inside Cards) */
+  /* Formula Simple: inner-nested = radius-inner-visual - padding-inner */
+  --radius-nested-simple: max(0.5rem, calc(var(--radius-inner-visual) - var(--padding-inner)));
+  --padding-inner: clamp(1rem, 3vw, 1.5rem);
+
+  /* Autonomous Cards Geometry (Level 1 containers using padding-inner) */
+  --radius-card-inner: calc(var(--radius-outer) - (var(--padding-inner) * 0.75));
+  --radius-card-nested: max(0.5rem, calc(var(--radius-card-inner) - var(--padding-inner)));
+  --size-card-thumb: clamp(5rem, 8vw, 7rem); /* 80px to 112px */
+
+  /* Fluid UI Components Heights & Semantic Sizes */
+  --h-input: clamp(3rem, 4vw, 3.5rem); /* 48px to 56px */
+  --h-button-section: clamp(3rem, 4vw, 3.5rem); /* Main CTAs: 48px to 56px */
+  --h-button-card: clamp(2.5rem, 3vw, 3rem); /* Secondary CTAs: 40px to 48px */
+
+  /* Semantic Component Sizes - Level Scale */
+  --size-button-section: var(--h-button-section);
+  --size-button-card: var(--h-button-card);
+  --size-button-autonomous: var(--h-button-section); /* Inherits from section level weight */
+
+  /* Icon Sizes - Linked to Component Scales */
+  --size-icon-section: var(--h-button-section);
+  --size-icon-card: var(--h-button-card);
+  --size-icon-autonomous: var(--h-button-section); /* Inherits from section level weight */
+
+  /* Internal Icon Sizes - For Buttons and technical UI elements */
+  --size-inner-icon-section: 1.5rem;     /* 24px */
+  --size-inner-icon-autonomous: 1.5rem;  /* 24px */
+  --size-inner-icon-card: 1.25rem;       /* 20px */
+
+  /* Space Tokens - Relational Hierarchy (Base 4) */
+  --space-xs: 0.25rem;  /* 4px: Intimate (Label -> Value) */
+  --space-sm: 0.5rem;   /* 8px: Close (Button -> Button) */
+  --space-md: clamp(1rem, 2vw, 1.5rem);  /* 16px-24px: Module (Icon -> Text) */
+  --space-lg: clamp(1.5rem, 4vw, 2.5rem); /* 24px-40px: Boundary (Group -> Group) */
+
+  /* Emil's Easing */
+  --ease-emil: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-reveal: cubic-bezier(0.77, 0, 0.175, 1);
+
+  /* Typography Scale - Modular Scale (Major Third 1.25x) - Base 16px */
+  /* Fluid Clamps - Refined for Desktop Balance */
+  --text-hero:      clamp(1.875rem, 5vw,  2.5rem);    /* 30px -> 40px */
+  --text-display:   clamp(1.5rem,   4vw,  2rem);       /* 24px -> 32px */
+  --text-h1:        clamp(1.2rem,   2.5vw, 1.5rem);   /* 19px -> 24px */
+  --text-h2:        clamp(1.05rem,  2vw,  1.25rem);   /* 16.8px -> 20px */
+  --text-body:      clamp(0.9375rem, 1.2vw, 1rem);    /* 15px -> 16px */
+  --text-secondary: clamp(0.8rem,   1vw,  0.875rem);  /* 12.8px -> 14px */
+  --text-label:     clamp(0.6rem,   0.7vw, 0.6875rem);/* 9.6px -> 11px */
+
+  /* Button Typography - Derived from button heights */
+  --text-button-section:    clamp(0.875rem, 1.2vw, 1rem);     /* 14px -> 16px */
+  --text-button-autonomous: clamp(0.875rem, 1.2vw, 1rem);     /* 14px -> 16px */
+  --text-button-card:       clamp(0.75rem,  0.9vw, 0.8125rem);/* 12px -> 13px */
+
+  --size-widget-kpi-min: 9rem; /* 144px */
 }
 
+@utility text-hero {
+  font-size: var(--text-hero);
+  font-weight: 900;
+  letter-spacing: -0.05em;
+  line-height: clamp(0.85, 1vw, 0.95);
+}
+
+@utility text-display {
+  font-size: var(--text-display);
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  line-height: 1.0;
+}
+
+@utility text-h1 {
+  font-size: var(--text-h1);
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.15;
+}
+
+@utility text-h2 {
+  font-size: var(--text-h2);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.3;
+}
+
+@utility text-label {
+  font-size: var(--text-label);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+}
+
+@utility text-secondary {
+  font-size: var(--text-secondary);
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+@utility text-body {
+  font-size: var(--text-body);
+  font-weight: 400;
+  line-height: 1.6;
+}
+
+@utility text-button-section {
+  font-size: var(--text-button-section);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+@utility text-button-autonomous {
+  font-size: var(--text-button-autonomous);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1;
+}
+
+@utility text-button-card {
+  font-size: var(--text-button-card);
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  line-height: 1;
+}
+
+:root {
+  --bg-app: #f3f4f6;
+  --bg-card: #ffffff;
+  --bg-muted: #f5f5f4; /* stone-100 */
+  --text-main: #0f172a;
+  --text-muted: #78716c; /* stone-500 */
+  --border-main: #e7e5e4; /* stone-200 */
+
+  --brand-50: #fbf7f6;
+  --brand-100: #f5edeb;
+  --brand-200: #eadad6;
+  --brand-300: #dac2bc;
+  --brand-400: #c59d95;
+  --brand-500: #b47e74;
+  --brand-600: #9d635a;
+  --brand-700: #835049;
+  --brand-800: #6e443f;
+  --brand-900: #5c3a37;
+}
+
+.dark {
+  --bg-app: #0A0A0B;      /* Midnight profundo */
+  --bg-card: #161618;     /* Superficie elevada */
+  --bg-muted: #1E1E20;    /* Elementos secundarios */
+  --text-main: #ECEDEE;   /* Blanco suave */
+  --text-muted: #88888E;  /* Gris neutro */
+  --border-main: #1F1F22; /* Borde oscuro y sutil, NUNCA blanco */
+
+  /* Desaturated brand for dark mode to avoid "vibration" */
+  --brand-50: #1A1614;
+  --brand-100: #261F1D;
+  --brand-200: #3D2D2A;
+  --brand-300: #5C433F;
+  --brand-400: #835E57;
+  --brand-500: #B47E74; 
+  --brand-600: #C48F85; 
+  --brand-700: #D4A096;
+  --brand-800: #E4B1A7;
+  --brand-900: #F4C2B8;
+}
+
+/* 🛑 GLOBAL FORCED DARK MODE BORDERS */
+.dark * {
+  border-color: var(--border-main) !important;
+}
+
+/* Excepciones necesarias (colores de marca y estados) */
+.dark .border-brand-500, .dark .border-brand-400, .dark .border-brand-600 {
+  border-color: var(--brand-500) !important;
+}
+.dark .border-emerald-500, .dark .border-emerald-200, .dark .border-emerald-100 {
+  border-color: rgba(16, 185, 129, 0.2) !important;
+}
+.dark .border-rose-500, .dark .border-rose-200, .dark .border-rose-100 {
+  border-color: rgba(244, 63, 94, 0.2) !important;
+}
+.dark .border-amber-500, .dark .border-amber-200, .dark .border-amber-100 {
+  border-color: rgba(245, 158, 11, 0.2) !important;
+}
+.dark .border-transparent {
+  border-color: transparent !important;
+}
+
+
+
+
 body {
-  @apply bg-slate-50 text-slate-900 font-sans;
+  @apply bg-bg-app text-text-main font-sans transition-colors duration-300;
 }
 
 .card {
-  @apply bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden;
+  @apply bg-bg-card rounded-2xl border border-border-main shadow-sm overflow-hidden;
 }
 
 .input-field {
-  @apply w-full px-4 py-2 rounded-xl border border-slate-200 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:border-transparent transition-all;
+  @apply w-full px-4 py-2 rounded-xl border border-border-main bg-bg-card text-text-main focus:outline-none focus:ring-2 focus:ring-brand-500 transition-all;
 }
 
+/* 🪄 View Transitions Magic (Emil Kowalski Pattern) */
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation: none;
+  mix-blend-mode: normal;
+}
+
+/* El nuevo tema siempre arriba para revelarlo */
+::view-transition-new(root) {
+  z-index: 9999;
+}
+
+::view-transition-old(root) {
+  z-index: 1;
+}
+
+/* Reveal Animation (Consistent direction for both) */
+@keyframes reveal-theme {
+  from { clip-path: inset(0 0 100% 0); }
+  to { clip-path: inset(0 0 0 0); }
+}
+
+::view-transition-new(root) {
+  animation: reveal-theme 1s var(--ease-reveal);
+}
+
+
+/* Rest of existing components updated for themes */
 .btn-primary {
-  @apply px-6 py-2 bg-brand-600 text-white rounded-xl font-medium hover:bg-brand-700 transition-colors shadow-sm;
+  @apply px-6 py-2 bg-brand-600 text-white rounded-xl font-medium hover:bg-brand-700 active:scale-95 transition-all duration-200 shadow-sm;
+  transition-timing-function: var(--ease-emil);
 }
 
 .btn-secondary {
-  @apply px-6 py-2 bg-white text-slate-700 border border-slate-200 rounded-xl font-medium hover:bg-slate-50 transition-colors;
-}
-
-.badge-normal {
-  @apply px-2.5 py-0.5 rounded-full text-xs font-medium bg-slate-100 text-slate-600;
-}
-
-.badge-extended {
-  @apply px-2.5 py-0.5 rounded-full text-xs font-medium bg-amber-100 text-amber-700;
+  @apply px-6 py-2 bg-bg-card text-text-main border border-border-main rounded-xl font-medium hover:bg-bg-muted active:scale-95 transition-all duration-200;
+  transition-timing-function: var(--ease-emil);
 }
 
 @keyframes card-enter {
   from {
     opacity: 0;
-    transform: translateY(28px) scale(0.97);
+    transform: translateY(12px) scale(0.98);
   }
   to {
     opacity: 1;
@@ -56,5 +286,152 @@ body {
 }
 
 .animate-card-enter {
-  animation: card-enter 0.55s cubic-bezier(0.16, 1, 0.3, 1) both;
+  animation: card-enter 0.3s var(--ease-emil) both;
+}
+
+/* Animations and Stagger Effects */
+@keyframes fadeInSlideUp {
+  from {
+    opacity: 0;
+    transform: translateY(32px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInSlideUpSubtle {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes zoomIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInLeft {
+  from {
+    opacity: 0;
+    transform: translateX(-20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-in {
+  animation-duration: 300ms;
+  animation-timing-function: var(--ease-emil);
+  animation-fill-mode: both !important;
+  will-change: transform, opacity;
+}
+
+.fade-in {
+  animation-name: fadeInSlideUpSubtle;
+}
+
+.slide-in-from-bottom-6 {
+  animation-name: fadeInSlideUp;
+}
+
+.slide-in-from-bottom-4 {
+  animation-name: fadeInSlideUpSubtle;
+  animation-duration: 250ms;
+}
+
+.slide-in-from-bottom-2 {
+  animation-name: fadeInSlideUpSubtle;
+  animation-duration: 200ms;
+}
+
+.zoom-in-75 {
+  animation-name: zoomIn;
+  animation-duration: 250ms;
+}
+
+.zoom-in-95 {
+  animation-name: zoomIn;
+  animation-duration: 200ms;
+}
+
+.slide-in-from-left-4 {
+  animation-name: slideInLeft;
+}
+
+.slide-in-from-right-4 {
+  animation-name: slideInRight;
+}
+
+.duration-200 { animation-duration: 200ms; }
+.duration-300 { animation-duration: 300ms; }
+.duration-500 { animation-duration: 300ms; } /* Capped at 300ms for responsiveness */
+.duration-600 { animation-duration: 300ms; }
+.duration-700 { animation-duration: 300ms; }
+
+.delay-70 { animation-delay: 70ms; }
+.delay-100 { animation-delay: 100ms; }
+.delay-150 { animation-delay: 150ms; }
+.delay-200 { animation-delay: 200ms; }
+.delay-300 { animation-delay: 300ms; }
+.delay-400 { animation-delay: 300ms; } /* Delays also compressed */
+.delay-500 { animation-delay: 300ms; }
+.delay-600 { animation-delay: 300ms; }
+.delay-700 { animation-delay: 300ms; }
+.delay-800 { animation-delay: 300ms; }
+
+.active\:scale-\[0\.99\]:active {
+  transform: scale(0.99);
+}
+
+.active\:scale-95:active {
+  transform: scale(0.95);
+}
+
+.active\:scale-90:active {
+  transform: scale(0.90);
+}
+
+/* Scrollbar styling - Homogenized for all themes */
+::-webkit-scrollbar {
+  width: 10px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-app);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--bg-muted);
+  border-radius: 10px;
+  border: 3px solid var(--bg-app);
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--border-main);
 }

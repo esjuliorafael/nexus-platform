@@ -1,77 +1,72 @@
 import React from 'react';
-import { Tag, MoreHorizontal } from 'lucide-react';
-import { ASSET_BASE_URL } from '../../api';
+import { Tag, Package } from 'lucide-react';
+import { NexusAutonomousButton } from '../ui/NexusButton';
+import { NexusWidgetCard, NexusAutonomousCard } from '../ui/NexusCard';
+import { NexusHeader } from '../ui/NexusHeader';
 
 interface LatestProductsProps {
   items?: any[];
   isLoading?: boolean;
+  onViewGallery?: () => void;
 }
 
-// Skeleton de un row individual de producto
 const ProductRowSkeleton: React.FC = () => (
-  <div className="flex items-center gap-4 p-2.5 rounded-2xl">
-    {/* Thumbnail */}
-    <div className="w-12 h-12 rounded-2xl bg-stone-200 shrink-0" />
+  <div className="flex items-center gap-4 p-2 bg-bg-card rounded-xl border border-border-main/50 animate-pulse">
+    <div className="w-10 h-10 rounded-lg bg-stone-100 shrink-0" />
     <div className="flex-1 min-w-0 flex flex-col gap-2">
       <div className="flex justify-between items-center">
-        <div className="h-3 w-28 bg-stone-200 rounded-full" />
-        <div className="h-3 w-12 bg-stone-200 rounded-full ml-2" />
+        <div className="h-3 w-28 bg-stone-100 rounded-full" />
+        <div className="h-3 w-12 bg-stone-100 rounded-full" />
       </div>
-      <div className="flex justify-between items-center">
-        <div className="h-2.5 w-14 bg-stone-100 rounded-full" />
-        <div className="h-2.5 w-16 bg-stone-100 rounded-full" />
-      </div>
+      <div className="h-2.5 w-20 bg-stone-50 rounded-full" />
     </div>
   </div>
 );
 
 const LatestProductsSkeleton: React.FC = () => (
-  <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-stone-200 h-full flex flex-col animate-pulse">
-    {/* Header */}
-    <div className="flex items-center justify-between mb-6">
-      <div className="flex flex-col gap-2">
-        <div className="h-4 w-32 bg-stone-200 rounded-full" />
-        <div className="h-2.5 w-24 bg-stone-100 rounded-full" />
-      </div>
-      <div className="w-8 h-8 bg-stone-100 rounded-2xl" />
-    </div>
-    {/* 4 rows de producto */}
-    <div className="flex flex-col gap-3 flex-grow">
-      {Array.from({ length: 4 }).map((_, i) => (
+  <NexusAutonomousCard className="h-full animate-pulse">
+    <NexusHeader
+      title="Últimos Productos"
+      subtitle="Estado de Inventario"
+      icon={Package}
+    />
+    <div className="flex flex-col gap-2">
+      {Array.from({ length: 3 }).map((_, i) => (
         <ProductRowSkeleton key={i} />
       ))}
     </div>
-    {/* Botón inferior */}
-    <div className="w-full mt-6 h-10 bg-stone-100 rounded-2xl" />
-  </div>
+  </NexusAutonomousCard>
 );
 
-export const LatestProducts: React.FC<LatestProductsProps> = ({ items = [], isLoading = false }) => {
+export const LatestProducts: React.FC<LatestProductsProps> = ({ items = [], isLoading = false, onViewGallery }) => {
 
   const getStatusFront = (item: any) => {
-    if (item.tipo === 'ave') {
-      if (item.estado_venta === 'vendido') return 'sold';
-      if (item.estado_venta === 'reservado') return 'reserved';
+    if (item.type === 'BIRD') {
+      if (item.saleStatus === 'SOLD') return 'sold';
+      if (item.saleStatus === 'RESERVED') return 'reserved';
       return 'available';
     }
     return Number(item.stock) > 0 ? 'available' : 'sold';
   };
 
-  const getStatusStyle = (status: string) => {
+  const getStatusConfig = (status: string) => {
     switch (status) {
-      case 'available': return 'text-green-600 bg-green-50 border-green-200';
-      case 'reserved': return 'text-amber-600 bg-amber-50 border-amber-200';
-      case 'sold': return 'text-rose-600 bg-rose-50 border-rose-200';
-      default: return 'text-stone-500 bg-stone-50 border-stone-200';
-    }
-  };
-
-  const getStatusLabel = (status: string) => {
-    switch (status) {
-      case 'available': return 'Disponible';
-      case 'reserved': return 'Reservado';
-      case 'sold': return 'Vendido';
-      default: return status;
+      case 'available': return { 
+        pillStyle: 'text-emerald-600 bg-emerald-50 border-emerald-100',
+        label: 'Disponible'
+      };
+      case 'reserved': return { 
+        pillStyle: 'text-amber-600 bg-amber-50 border-amber-100',
+        label: 'Reservado'
+      };
+      case 'sold': return { 
+        pillStyle: 'text-rose-600 bg-rose-50 border-rose-100',
+        label: 'Vendido'
+      };
+      default: return { 
+        pillStyle: 'text-text-muted bg-bg-muted border-border-main',
+        label: status
+      };
     }
   };
 
@@ -82,53 +77,61 @@ export const LatestProducts: React.FC<LatestProductsProps> = ({ items = [], isLo
   if (isLoading) return <LatestProductsSkeleton />;
 
   return (
-    <div className="bg-white rounded-[2.5rem] p-6 shadow-sm border border-stone-200 h-full flex flex-col">
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <h3 className="text-stone-800 text-base font-black tracking-tight">Últimos Productos</h3>
-          <p className="text-stone-400 text-[10px] font-bold uppercase tracking-widest mt-0.5">Añadidos a la tienda</p>
-        </div>
-        <button className="text-stone-300 hover:text-brand-600 transition-colors p-2 hover:bg-stone-50 rounded-2xl">
-          <MoreHorizontal size={20} />
-        </button>
-      </div>
+    <NexusAutonomousCard className="h-full flex flex-col">
+      <NexusHeader
+        title="Últimos Productos"
+        subtitle="Estado de Inventario"
+        icon={Package}
+        iconVariant="brand"
+      />
       
-      <div className="flex flex-col gap-3 flex-grow">
+      <div className="flex flex-col gap-2 flex-grow">
         {items.length === 0 ? (
-          <p className="text-sm font-medium text-stone-400 text-center py-6">No hay productos recientes.</p>
+          <div className="flex flex-col items-center justify-center py-10 opacity-40">
+            <Package size={32} strokeWidth={1} />
+            <p className="text-label uppercase tracking-[0.15em] mt-4">Sin productos recientes</p>
+          </div>
         ) : (
-          items.map((product) => {
-            const statusFront = getStatusFront(product);
-            const imageUrl = product.portada ? `${ASSET_BASE_URL}${product.portada}` : 'https://via.placeholder.com/100';
+          items.slice(0, 3).map((product, idx) => {
+            const statusConfig = getStatusConfig(getStatusFront(product));
+            const imageUrl = product.imageUrl || product.thumbnail || '';
+            
             return (
-              <div key={product.id} className="flex items-center gap-4 p-2.5 hover:bg-stone-50 rounded-2xl transition-all duration-200 cursor-pointer group border border-transparent hover:border-stone-200">
-                <div className="w-12 h-12 rounded-2xl overflow-hidden shrink-0 bg-stone-100 border border-stone-200">
-                  <img src={imageUrl} alt={product.nombre} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-300" />
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex justify-between items-start">
-                    <h4 className="text-xs font-bold text-stone-700 truncate">{product.nombre}</h4>
-                    <span className="text-xs font-black text-stone-800 ml-2">
-                      ${parseFloat(product.precio).toLocaleString()}
+              <NexusWidgetCard
+                key={product.id}
+                delay={`${idx * 70}ms`}
+                thumbnail={imageUrl}
+                title={product.name}
+                onClick={onViewGallery}
+                subtitle={
+                  <div className="flex items-center gap-1.5 uppercase font-bold tracking-widest text-[9px]">
+                    <span>{formatDate(product.createdAt)}</span>
+                    <span className="opacity-30">•</span>
+                    <span className={statusConfig.pillStyle + " px-1 rounded-sm border-[0.5px]"}>
+                      {statusConfig.label}
                     </span>
                   </div>
-                  <div className="flex items-center justify-between mt-1.5">
-                    <span className="text-[9px] text-stone-400 font-bold uppercase tracking-wider">{formatDate(product.fecha_creacion)}</span>
-                    <span className={`text-[8px] font-black px-2 py-0.5 rounded-lg border uppercase tracking-wider ${getStatusStyle(statusFront)}`}>
-                      {getStatusLabel(statusFront)}
-                    </span>
+                }
+                rightContent={
+                  <div className="flex items-baseline text-h2 font-bold text-brand-700">
+                    <span className="text-[10px] mr-0.5 opacity-50 font-bold">$</span>
+                    {parseFloat(product.price).toLocaleString()}
                   </div>
-                </div>
-              </div>
+                }
+              />
             );
           })
         )}
       </div>
       
-      <button className="w-full mt-6 py-3 text-[10px] font-black text-brand-600 bg-brand-50/50 rounded-2xl hover:bg-brand-50 transition-colors border border-brand-100/50 uppercase tracking-widest flex items-center justify-center gap-2">
-        <Tag size={14} />
-        Ver Cat\u00e1logo
-      </button>
-    </div>
+      <NexusAutonomousButton 
+        variant="secondary" 
+        className="w-full mt-6"
+        onClick={onViewGallery}
+        icon={Tag}
+      >
+        Ver Catálogo
+      </NexusAutonomousButton>
+    </NexusAutonomousCard>
   );
 };

@@ -1,6 +1,7 @@
 import { PrismaClient, TicketStatus } from "@prisma/client-raffle";
 import { PrismaClient as StorePrismaClient } from "@prisma/client-store";
 import { ticketReleaseQueue } from "../../../queues/ticket-release.queue";
+import { whatsappQueue } from "../../../queues/whatsapp.queue";
 import { raffleNotificationService } from "../notifications/raffle-notification.service";
 import { ticketService } from "../tickets/ticket.service";
 
@@ -66,21 +67,52 @@ export const ticketSaleService = {
     });
 
     // 3. Post-transaction actions
-    // Enqueue release job
-    const setting = await prisma.setting.findUnique({ where: { key: "ticket_release_hours" } });
-    const releaseHours = parseInt(setting?.value || "24", 10);
-
-    await ticketReleaseQueue.add(
-      "release",
-      { raffleId, releaseHours },
-      { delay: releaseHours * 3600 * 1000 }
-    );
+    const settings = await prisma.setting.findMany({
+      where: { 
+        key: { in: ["raffle_release_active", "raffle_release_hours"] }
+      }
+    });
+    
+    const settingsMap = settings.reduce((acc, s) => ({ ...acc, [s.key]: s.value }), {} as any);
+    
+    const isReleaseActive = settingsMap["raffle_release_active"] === "1";
+    const releaseHours = parseInt(settingsMap["raffle_release_hours"] || "24", 10);
 
     // Send notification
     const raffle = await prisma.raffle.findUnique({ where: { id: raffleId } });
     if (raffle) {
       const totalAmount = (parseFloat(raffle.ticketPrice.toString()) * result.reserved.length).toFixed(2);
-      // Fire and forget notification
+      
+      // Fetch the created sales to get IDs
+      const sales = await prisma.ticketSale.findMany({
+        where: {
+          raffleId,
+          ticketNumber: { in: result.reserved },
+          paymentStatus: TicketStatus.PENDING,
+          createdAt: { gte: new Date(Date.now() - 5000) } // Safety check for recent ones
+        },
+      });
+
+      if (sales.length > 0) {
+        // Enqueue release job if active
+        if (isReleaseActive) {
+          await ticketReleaseQueue.add(
+            "release",
+            { ticketSaleIds: sales.map(s => s.id) },
+            { delay: releaseHours * 3600 * 1000 }
+          );
+        }
+
+        // Enqueue WhatsApp notifications (Consolidated)
+        await whatsappQueue.add("reservation-notification", {
+          kind: "reservation",
+          ticketSaleIds: sales.map(s => s.id),
+          recipientPhone: sales[0].customerPhone,
+          timeLimit: `${releaseHours} horas`
+        });
+      }
+
+      // Fire and forget email notification
       raffleNotificationService.sendTicketReservationEmail(storePrisma, prisma, {
         raffleTitle: raffle.title,
         customerName,

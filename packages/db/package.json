@@ -4,8 +4,20 @@
   "private": true,
   "main": "src/index.ts",
   "exports": {
-    "./store": "./src/store.ts",
-    "./raffle": "./src/raffle.ts"
+    "./store": {
+      "types": "./src/store.ts",
+      "default": "./src/store.ts"
+    },
+    "./raffle": {
+      "types": "./src/raffle.ts",
+      "default": "./src/raffle.ts"
+    }
+  },
+  "typesVersions": {
+    "*": {
+      "store": ["./src/store.ts"],
+      "raffle": ["./src/raffle.ts"]
+    }
   },
   "scripts": {
     "generate": "pnpm generate:store && pnpm generate:raffle",

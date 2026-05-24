@@ -1,95 +1,64 @@
 import React from 'react';
-import { AlertCircle, ChevronRight } from 'lucide-react';
-import { AnnualService, ExtraCharge } from '../../types';
+import { AlertCircle, CheckCircle2 } from 'lucide-react';
+import { AnnualService, ExtraCharge, BillingPayment } from '../../types';
+import { NexusHero } from '../ui/NexusHero';
 
 interface BillingAlertWidgetProps {
   services: AnnualService[];
   charges: ExtraCharge[];
+  payments: BillingPayment[];
   isLoading?: boolean;
   onNavigate: () => void;
 }
 
-const BillingAlertSkeleton = () => (
-  <div className="bg-stone-900 p-8 rounded-[2.5rem] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 shadow-xl">
-    <div className="flex items-center gap-6">
-      {/* Skeleton del ícono */}
-      <div className="w-16 h-16 rounded-[1.5rem] bg-stone-700 animate-pulse shrink-0" />
-      <div className="flex flex-col gap-3">
-        {/* Skeleton del label "Saldo Total Pendiente" */}
-        <div className="h-3 w-44 bg-stone-700 rounded-full animate-pulse" />
-        {/* Skeleton del monto grande */}
-        <div className="h-10 w-52 bg-stone-700 rounded-full animate-pulse" />
-      </div>
-    </div>
-    {/* Skeleton de la caja "Próximo Vencimiento" + flecha */}
-    <div className="flex items-center gap-4 w-full sm:w-auto">
-      <div className="bg-stone-800 px-6 py-4 rounded-2xl flex flex-col gap-2 w-full sm:w-auto">
-        <div className="h-3 w-32 bg-stone-700 rounded-full animate-pulse" />
-        <div className="h-5 w-24 bg-stone-700 rounded-full animate-pulse mt-1" />
-      </div>
-      <div className="w-12 h-12 rounded-full bg-stone-800 animate-pulse shrink-0" />
-    </div>
-  </div>
+const BillingAlertSkeleton: React.FC = () => (
+  <div className="w-full h-[180px] bg-stone-100 dark:bg-stone-900 animate-pulse" style={{ borderRadius: 'var(--radius-outer)' }} />
 );
 
-export const BillingAlertWidget: React.FC<BillingAlertWidgetProps> = ({ services, charges, isLoading = false, onNavigate }) => {
-  // Mientras los datos cargan, mostramos el skeleton
-  if (isLoading) {
-    return <BillingAlertSkeleton />;
-  }
+export const BillingAlertWidget: React.FC<BillingAlertWidgetProps> = ({ 
+  services, 
+  charges, 
+  payments,
+  isLoading = false, 
+  onNavigate 
+}) => {
+  if (isLoading) return <BillingAlertSkeleton />;
 
-  const totalPendingFixed = services.filter(s => !s.isPaid).reduce((acc, curr) => acc + curr.amount, 0);
-  const totalPendingExtra = charges.filter(c => c.status === 'pending').reduce((acc, curr) => acc + curr.amount, 0);
-  const granTotalPending = totalPendingFixed + totalPendingExtra;
+  // --- LÓGICA CONTABLE UNIFICADA ---
+  const totalObligations = services.filter(s => !s.isPaid).reduce((acc, s) => acc + s.amount, 0) +
+                           charges.filter(c => c.status === 'pending').reduce((acc, c) => acc + c.amount, 0);
+  
+  const totalAbonado = payments.reduce((acc, p) => acc + p.amount, 0);
+  const netBalance = Math.max(0, totalObligations - totalAbonado);
 
+  if (netBalance === 0) return null;
+
+  const hasPending = netBalance > 0;
+  
   const unpaidServices = services.filter(s => !s.isPaid && s.dueDate);
   const nextDueDate = unpaidServices.length > 0 
     ? unpaidServices.sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0].dueDate 
     : null;
 
-  // Formato: YYYY-MM-DD -> DD/MM/YYYY
   const formatDate = (dateStr: string) => {
-    if (!dateStr) return '';
-    const [year, month, day] = dateStr.split('-');
-    return `${day}/${month}/${year}`;
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('es-ES', { day: 'numeric', month: 'short' });
   };
 
-  // Si cargó y no hay deuda pendiente, no mostramos nada
-  if (granTotalPending === 0) {
-    return null;
-  }
-
-  // Homologado exactamente con el banner de BillingView.tsx
   return (
     <div 
-      onClick={onNavigate}
-      className="bg-stone-900 p-8 rounded-[2.5rem] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6 shadow-xl text-white transition-all duration-500 cursor-pointer hover:bg-stone-800 hover:shadow-2xl group active:scale-[0.98]"
+      onClick={onNavigate} 
+      className="cursor-pointer active:scale-[0.99] transition-all duration-500 group relative z-10"
     >
-      <div className="flex items-center gap-6">
-        <div className="w-16 h-16 rounded-[1.5rem] flex items-center justify-center shrink-0 bg-stone-800 text-brand-400 group-hover:bg-stone-700 transition-colors">
-          <AlertCircle size={32} />
-        </div>
-        <div>
-          <h4 className="text-[10px] font-black uppercase tracking-widest text-stone-400">
-            Saldo Total Pendiente
-          </h4>
-          <p className="text-4xl sm:text-5xl font-black mt-1 tracking-tighter">
-            ${granTotalPending.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
-          </p>
-        </div>
-      </div>
-      
-      <div className="flex items-center justify-between w-full sm:w-auto gap-4">
-        {nextDueDate && (
-          <div className="bg-white/10 backdrop-blur-md px-6 py-4 rounded-2xl border border-white/10 text-left sm:text-right w-full sm:w-auto">
-            <p className="text-[10px] font-black uppercase tracking-widest text-stone-400">Próximo Vencimiento</p>
-            <p className="text-lg font-bold text-white mt-1">{formatDate(nextDueDate)}</p>
-          </div>
-        )}
-        <div className="w-12 h-12 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-brand-500 group-hover:text-white transition-colors shrink-0">
-          <ChevronRight size={24} className="text-stone-400 group-hover:text-white" />
-        </div>
-      </div>
+      <NexusHero
+        title={`$${netBalance.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`}
+        subtitle="Saldo Total Pendiente"
+        icon={AlertCircle}
+        variant="dark"
+        badge={nextDueDate ? "Próximo Vencimiento" : undefined}
+        badgeValue={nextDueDate ? formatDate(nextDueDate) : undefined}
+        className="hover:shadow-2xl hover:shadow-brand-500/10 transition-shadow duration-700"
+      />
     </div>
   );
 };

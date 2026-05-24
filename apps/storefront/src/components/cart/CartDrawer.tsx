@@ -1,11 +1,12 @@
 import { X, Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
 import { useCartStore } from '../../store/cart.store';
 import { Button } from '../ui/Button';
-import { useNavigate } from 'react-router-dom';
+import { useRouter } from 'next/navigation';
+import { formatPrice } from '../../utils/formatters';
 
 export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { items, removeItem, updateQuantity, getTotalPrice } = useCartStore();
-  const navigate = useNavigate();
+  const router = useRouter();
 
   if (!isOpen) return null;
 
@@ -40,7 +41,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
                 </div>
                 <div className="flex-1 min-w-0">
                   <h4 className="font-bold text-stone-800 truncate">{item.name}</h4>
-                  <p className="text-brand-500 font-black mb-2">${item.price.toLocaleString()}</p>
+                  <p className="text-brand-500 font-black mb-2">${formatPrice(item.price)}</p>
                   
                   <div className="flex items-center gap-3">
                     <div className="flex items-center bg-stone-100 rounded-lg p-1">
@@ -75,13 +76,13 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
           <div className="p-6 border-t border-stone-100 bg-stone-50/50 space-y-4">
             <div className="flex items-center justify-between text-lg font-black text-stone-800">
               <span>Total</span>
-              <span>${getTotalPrice().toLocaleString()}</span>
+              <span>${formatPrice(getTotalPrice())}</span>
             </div>
             <Button 
               className="w-full h-14 text-lg" 
               onClick={() => {
                 onClose();
-                navigate('/checkout');
+                router.push('/checkout');
               }}
             >
               Finalizar Pedido
@@ -92,3 +93,4 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
     </div>
   );
 }
+

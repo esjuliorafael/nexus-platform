@@ -39,21 +39,21 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({ initialData, onCance
       if (initialData) {
         // MODO EDICIÓN:
         // CRUCIAL: Rescatar las subcategorías existentes para no borrarlas al editar el nombre
-        const existingSubNames = initialData.subcategorias 
-          ? initialData.subcategorias.map(s => s.nombre) 
+        const existingSubNames = initialData.subcategories 
+          ? initialData.subcategories.map(s => s.name) 
           : [];
 
         await apiCategories.update(initialData.id, {
-          nombre: name.trim(),
-          icono: initialData.icon || 'folder', // Mantenemos el icono o default
-          subcategorias: existingSubNames // Enviamos las subs existentes para preservarlas
+          name: name.trim(),
+          icon: initialData.icon || 'folder', // Mantenemos el icono o default
+          subcategories: existingSubNames // Enviamos las subs existentes para preservarlas
         });
       } else {
         // MODO CREACIÓN:
         await apiCategories.create({
-          nombre: name.trim(),
-          icono: 'folder', // Icono por defecto
-          subcategorias: [] // Array vacío al crear
+          name: name.trim(),
+          icon: 'folder', // Icono por defecto
+          subcategories: [] // Array vacío al crear
         });
       }
       
@@ -68,8 +68,8 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({ initialData, onCance
 
   return (
     <div className="w-full animate-in fade-in slide-in-from-bottom-6 duration-700">
-      {/* ESTÁNDAR: rounded-[2.5rem], border-stone-200 */}
-      <div className="bg-white rounded-[2.5rem] shadow-sm border border-stone-200 overflow-hidden">
+      {/* ESTÁNDAR: rounded-[2.5rem], border-border-main */}
+      <div className="bg-bg-card rounded-[2.5rem] shadow-sm dark:shadow-none border border-border-main overflow-hidden">
         <div className="p-8 sm:p-10">
           
           <form id="category-form" onSubmit={handleSubmit} className="space-y-8">
@@ -84,8 +84,8 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({ initialData, onCance
                 value={name}
                 autoFocus
                 onChange={(e) => setName(e.target.value)}
-                // ESTÁNDAR: rounded-2xl, border-stone-200
-                className="w-full bg-stone-50 border border-stone-200 p-4 rounded-2xl text-stone-800 font-bold placeholder:text-stone-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
+                // ESTÁNDAR: rounded-2xl, border-border-main
+                className="w-full bg-bg-muted border border-border-main p-4 rounded-2xl text-text-main font-bold placeholder:text-stone-300 focus:outline-none focus:ring-2 focus:ring-brand-500/20 focus:border-brand-500 transition-all"
               />
               {!name.trim() && (
                 <p className="text-[10px] text-stone-300 font-bold uppercase ml-1 tracking-tighter">Este campo es obligatorio para continuar</p>
@@ -93,14 +93,14 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({ initialData, onCance
             </div>
 
             {!initialData && (
-              // ESTÁNDAR: rounded-[2rem], border-stone-200
-              <div className="bg-stone-50/80 p-6 rounded-[2rem] border border-stone-200 flex items-start gap-5">
-                <div className="p-3 bg-white rounded-2xl text-stone-400 shadow-sm shrink-0">
+              // ESTÁNDAR: rounded-[2rem], border-border-main
+              <div className="bg-bg-muted/80 p-6 rounded-[2rem] border border-border-main flex items-start gap-5">
+                <div className="p-3 bg-bg-card rounded-2xl text-stone-400 shadow-sm dark:shadow-none shrink-0">
                   <Info size={20} />
                 </div>
                 <div className="space-y-1">
-                  <h5 className="text-stone-800 font-black text-xs uppercase tracking-tight">Estructura y Organización</h5>
-                  <p className="text-stone-500 text-[13px] font-medium leading-relaxed max-w-4xl">
+                  <h5 className="text-text-main font-black text-xs uppercase tracking-tight">Estructura y Organización</h5>
+                  <p className="text-text-muted text-[13px] font-medium leading-relaxed max-w-4xl">
                     La categoría que crees aquí estará disponible inmediatamente al subir nuevos medios en la Galería. Organiza tu contenido de forma clara para facilitar la gestión y el filtrado del catálogo del rancho.
                   </p>
                 </div>

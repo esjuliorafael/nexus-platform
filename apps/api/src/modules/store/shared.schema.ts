@@ -13,10 +13,13 @@ export const whatsappChannelSchema = z.object({
   name: z.string().min(1),
   purpose: z.string().min(1),
   phone: z.string().min(1),
-  template: z.string().min(1),
+  template: z.string().optional(),
   active: z.boolean().optional(),
+  instanceName: z.string().optional().nullable(),
+  evolutionUrl: z.string().optional().nullable(),
+  evolutionKey: z.string().optional().nullable(),
 });
 
 export const updateShippingZoneSchema = z.object({
-  zoneType: z.enum(["NORMAL", "EXTENDED"]),
+  zoneType: z.enum(["STANDARD", "EXTENDED"]),
 });

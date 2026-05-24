@@ -8,7 +8,6 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
-// Decision #7: Unified Settings Table
 model Setting {
   id          Int      @id @default(autoincrement())
   key         String   @unique
@@ -21,18 +20,229 @@ model Setting {
 }
 
 model User {
-  id                    Int      @id @default(autoincrement())
-  username              String   @unique
-  passwordHash          String   @map("password_hash")
-  name                  String
-  email                 String?
-  role                  Role     @default(STAFF)
-  receiveNotifications  Boolean  @default(true) @map("recibir_notificaciones")
-  notificationEmail     String?  @map("email_notificaciones")
-  createdAt             DateTime @default(now()) @map("fecha_creacion")
-  active                Boolean  @default(true) @map("activo")
+  id                   Int      @id @default(autoincrement())
+  username             String   @unique
+  passwordHash         String   @map("password_hash")
+  name                 String
+  email                String?
+  role                 Role     @default(STAFF)
+  active               Boolean  @default(true)
+  createdAt            DateTime @default(now()) @map("created_at")
+  notificationEmail    String?  @map("notification_email")
+  receiveNotifications Boolean  @default(true) @map("receive_notifications")
 
   @@map("users")
+}
+
+model Category {
+  id            Int           @id @default(autoincrement())
+  active        Boolean       @default(true) @map("active")
+  createdAt     DateTime      @default(now()) @map("created_at")
+  icon          String?       @map("icon")
+  name          String        @map("name")
+  media         Media[]
+  subcategories Subcategory[]
+
+  @@map("categories")
+}
+
+model Subcategory {
+  id         Int      @id @default(autoincrement())
+  active     Boolean  @default(true) @map("active")
+  categoryId Int      @map("category_id")
+  name       String   @map("name")
+  media      Media[]
+  category   Category @relation(fields: [categoryId], references: [id])
+
+  @@map("subcategories")
+}
+
+model Product {
+  id          Int              @id @default(autoincrement())
+  stock       Int              @default(1)
+  active      Boolean          @default(true) @map("active")
+  createdAt   DateTime         @default(now()) @map("created_at")
+  description String?          @map("description")
+  name        String           @map("name")
+  price       Decimal          @default(0.00) @map("price")
+  ringNumber  String?          @map("ring_number")
+  saleStatus  SaleStatus       @default(AVAILABLE) @map("sale_status")
+  thumbnail   String?          @map("thumbnail")
+  type        ProductType      @map("type")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+  age         BirdAge?         @map("age")
+  purpose     BirdPurpose?     @map("purpose")
+  orderItems  OrderItem[]
+  gallery     ProductGallery[]
+
+  @@map("products")
+}
+
+model ProductGallery {
+  id        Int       @id @default(autoincrement())
+  createdAt DateTime  @default(now()) @map("created_at")
+  filePath  String    @map("file_path")
+  fileType  MediaType @default(PHOTO) @map("file_type")
+  productId Int       @map("product_id")
+  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("product_gallery")
+}
+
+model Order {
+  id              Int          @id @default(autoincrement())
+  subtotal        Decimal      @map("subtotal")
+  total           Decimal      @map("total")
+  createdAt       DateTime     @default(now()) @map("created_at")
+  customerName    String       @map("customer_name")
+  customerPhone   String       @map("customer_phone")
+  deliveryType    DeliveryType @default(SHIPPING) @map("delivery_type")
+  shippingAddress String?      @map("shipping_address")
+  shippingCost    Decimal      @map("shipping_cost")
+  shippingState   String?      @map("shipping_state")
+  status          OrderStatus  @default(PENDING) @map("status")
+  customerEmail   String?      @map("customer_email")
+  expiresAt       DateTime?    @map("expires_at")
+  items           OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id          Int         @id @default(autoincrement())
+  orderId     Int         @map("order_id")
+  productId   Int         @map("product_id")
+  productName String?     @map("product_name")
+  productType ProductType @map("product_type")
+  quantity    Int         @map("quantity")
+  unitPrice   Decimal     @map("unit_price")
+  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product     Product     @relation(fields: [productId], references: [id])
+
+  @@map("order_items")
+}
+
+model Media {
+  id            Int          @id @default(autoincrement())
+  likes         Int          @default(0) @map("likes")
+  active        Boolean      @default(true) @map("active")
+  categoryId    Int?         @map("category_id")
+  createdAt     DateTime     @default(now()) @map("created_at")
+  description   String?      @map("description")
+  filePath      String       @map("file_path")
+  location      String?      @map("location")
+  mediaDate     DateTime?    @map("media_date")
+  subcategoryId Int?         @map("subcategory_id")
+  title         String       @map("title")
+  type          MediaType    @map("type")
+  category      Category?    @relation(fields: [categoryId], references: [id])
+  subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id])
+
+  @@map("media")
+}
+
+model PaymentChannel {
+  id             Int      @id @default(autoincrement())
+  clabe          String?  @map("clabe")
+  bank           String   @map("bank")
+  beneficiary    String   @map("beneficiary")
+  card           String?  @map("card")
+  createdAt      DateTime @default(now()) @map("created_at")
+  name           String   @map("name")
+  purpose        String   @map("purpose")
+  mpAccessToken  String?  @map("mp_access_token")
+  mpRefreshToken String?  @map("mp_refresh_token")
+  mpUserId       String?  @map("mp_user_id")
+
+  @@map("payment_channels")
+}
+
+model WhatsappChannel {
+  id           Int                @id @default(autoincrement())
+  evolutionKey String?            @map("evolution_key")
+  evolutionUrl String?            @map("evolution_url")
+  active       Boolean            @default(true) @map("active")
+  createdAt    DateTime           @default(now()) @map("created_at")
+  instanceName String?            @map("instance_name")
+  name         String             @map("name")
+  phone        String             @map("phone")
+  purpose      String             @map("purpose")
+  template     String             @map("template")
+  templates    WhatsappTemplate[]
+
+  @@map("whatsapp_channels")
+}
+
+model WhatsappTemplate {
+  id        Int              @id @default(autoincrement())
+  channelId Int?             @map("channel_id")
+  type      TemplateType     @map("type")
+  content   String           @map("content")
+  active    Boolean          @default(true) @map("active")
+  createdAt DateTime         @default(now()) @map("created_at")
+  updatedAt DateTime         @updatedAt @map("updated_at")
+  channel   WhatsappChannel? @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([channelId, type])
+  @@map("whatsapp_templates")
+}
+
+model ShippingZone {
+  id       Int          @id @default(autoincrement())
+  state    String       @map("state")
+  zoneType ShippingType @default(STANDARD) @map("zone_type")
+
+  @@map("shipping_zones")
+}
+
+model ExtraCharge {
+  id         Int      @id @default(autoincrement())
+  amount     Decimal  @map("amount")
+  chargeDate DateTime @map("charge_date")
+  concept    String   @map("concept")
+  createdAt  DateTime @default(now()) @map("created_at")
+  isPaid     Boolean  @default(false) @map("is_paid")
+
+  @@map("extra_charges")
+}
+
+model AnnualService {
+  id             Int       @id @default(autoincrement())
+  amount         Decimal   @map("amount")
+  concept        String    @map("concept")
+  contractDate   DateTime? @map("contract_date")
+  createdAt      DateTime  @default(now()) @map("created_at")
+  description    String?   @map("description")
+  expirationDate DateTime? @map("expiration_date")
+  iconType       String    @default("default") @map("icon_type")
+  isPaid         Boolean   @default(false) @map("is_paid")
+
+  @@map("annual_services")
+}
+
+model BillingPayment {
+  id          Int      @id @default(autoincrement())
+  amount      Decimal  @map("amount")
+  paymentDate DateTime @default(now()) @map("payment_date")
+  concept     String   @map("concept")
+  notes       String?  @map("notes")
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@map("billing_payments")
+}
+
+model WhatsappMessageLog {
+  id             Int      @id @default(autoincrement())
+  status         String   @map("status")
+  errorMessage   String?  @map("error_message")
+  instanceName   String   @map("instance_name")
+  orderId        String?  @map("order_id")
+  recipientPhone String   @map("recipient_phone")
+  sentAt         DateTime @default(now()) @map("sent_at")
+  templateUsed   String   @map("template_used")
+  ticketSaleId   Int?     @map("ticket_sale_id")
+
+  @@map("whatsapp_message_logs")
 }
 
 enum Role {
@@ -41,201 +251,54 @@ enum Role {
   STAFF
 }
 
-// Storefront & Core Models
-model Category {
-  id            Int           @id @default(autoincrement())
-  name          String        @map("nombre")
-  icon          String?       @map("icono")
-  createdAt     DateTime      @default(now()) @map("fecha_creacion")
-  active        Boolean       @default(true) @map("activo")
-  subcategories Subcategory[]
-  media         Media[]
-
-  @@map("categories")
-}
-
-model Subcategory {
-  id         Int      @id @default(autoincrement())
-  categoryId Int      @map("categoria_id")
-  name       String   @map("nombre")
-  active     Boolean  @default(true) @map("activo")
-  category   Category @relation(fields: [categoryId], references: [id])
-  media      Media[]
-
-  @@map("subcategories")
-}
-
-model Product {
-  id            Int              @id @default(autoincrement())
-  type          ProductType      @map("tipo")
-  name          String           @map("nombre")
-  description   String?          @map("descripcion")
-  price         Decimal          @default(0.00) @map("precio")
-  thumbnail     String?          @map("portada")
-  stock         Int              @default(1)
-  ringNumber    String?          @map("anillo")
-  age           String?          @map("edad")
-  purpose       String?          @map("proposito")
-  saleStatus    SaleStatus       @default(AVAILABLE) @map("estado_venta")
-  active        Boolean          @default(true) @map("activo")
-  createdAt     DateTime         @default(now()) @map("fecha_creacion")
-  updatedAt     DateTime         @updatedAt @map("fecha_actualizacion")
-  gallery       ProductGallery[]
-  orderItems    OrderItem[]
-
-  @@map("products")
-}
-
 enum ProductType {
-  ARTICLE @map("articulo")
-  BIRD    @map("ave")
+  ITEM @map("item")
+  BIRD @map("bird")
+}
+
+enum BirdAge {
+  COCK   @map("cock")
+  STAG   @map("stag")
+  HEN    @map("hen")
+  PULLET @map("pullet")
+}
+
+enum BirdPurpose {
+  COMBAT   @map("combat")
+  BREEDING @map("breeding")
 }
 
 enum SaleStatus {
-  AVAILABLE @map("disponible")
-  RESERVED  @map("reservado")
-  SOLD      @map("vendido")
-}
-
-model ProductGallery {
-  id        Int       @id @default(autoincrement())
-  productId Int       @map("producto_id")
-  filePath  String    @map("ruta_archivo")
-  fileType  MediaType @default(PHOTO) @map("tipo_archivo")
-  createdAt DateTime  @default(now()) @map("fecha_subida")
-  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
-
-  @@map("product_gallery")
-}
-
-model Order {
-  id              Int           @id @default(autoincrement())
-  customerName    String        @map("cliente_nombre")
-  customerPhone   String        @map("cliente_telefono")
-  shippingAddress String?       @map("direccion_envio")
-  shippingState   String?       @map("estado_envio")
-  deliveryType    DeliveryType  @default(SHIPPING) @map("tipo_entrega")
-  subtotal        Decimal
-  shippingCost    Decimal       @map("costo_envio")
-  total           Decimal
-  status          OrderStatus   @default(PENDING) @map("estatus")
-  createdAt       DateTime      @default(now()) @map("fecha_creacion")
-  items           OrderItem[]
-
-  @@map("orders")
+  AVAILABLE @map("available")
+  RESERVED  @map("reserved")
+  SOLD      @map("sold")
 }
 
 enum DeliveryType {
-  SHIPPING @map("envio")
-  PICKUP   @map("recoger")
+  SHIPPING @map("shipping")
+  PICKUP   @map("pickup")
 }
 
 enum OrderStatus {
-  PENDING   @map("pendiente")
-  PAID      @map("pagado")
-  SHIPPED   @map("enviado")
-  DELIVERED @map("entregado")
-  CANCELLED @map("cancelado")
-}
-
-model OrderItem {
-  id            Int         @id @default(autoincrement())
-  orderId       Int         @map("orden_id")
-  productId     Int         @map("producto_id")
-  productName   String?     @map("nombre_producto")
-  productType   ProductType @map("tipo_producto")
-  quantity      Int         @map("cantidad")
-  unitPrice     Decimal     @map("precio_unitario")
-  order         Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product       Product     @relation(fields: [productId], references: [id])
-
-  @@map("order_items")
-}
-
-// Media & Utils
-model Media {
-  id             Int          @id @default(autoincrement())
-  title          String       @map("titulo")
-  description    String?      @map("descripcion")
-  type           MediaType    @map("tipo")
-  filePath       String       @map("ruta_archivo")
-  categoryId     Int?         @map("categoria_id")
-  subcategoryId  Int?         @map("subcategoria_id")
-  location       String?      @map("ubicacion")
-  mediaDate      DateTime?    @map("fecha_media")
-  likes          Int          @default(0)
-  active         Boolean      @default(true) @map("activo")
-  createdAt      DateTime     @default(now()) @map("fecha_creacion")
-  category       Category?    @relation(fields: [categoryId], references: [id])
-  subcategory    Subcategory? @relation(fields: [subcategoryId], references: [id])
-
-  @@map("media")
+  PENDING   @map("pending")
+  PAID      @map("paid")
+  SHIPPED   @map("shipped")
+  DELIVERED @map("delivered")
+  CANCELLED @map("cancelled")
 }
 
 enum MediaType {
-  PHOTO @map("foto")
+  PHOTO @map("photo")
   VIDEO @map("video")
 }
 
-model PaymentChannel {
-  id           Int      @id @default(autoincrement())
-  name         String   @map("nombre")
-  purpose      String   @map("proposito")
-  bank         String   @map("banco")
-  beneficiary  String   @map("beneficiario")
-  clabe        String?
-  card         String?  @map("tarjeta")
-  createdAt    DateTime @default(now()) @map("fecha_creacion")
-
-  @@map("payment_channels")
-}
-
-model WhatsappChannel {
-  id           Int      @id @default(autoincrement())
-  name         String   @map("nombre")
-  purpose      String   @map("proposito")
-  phone        String   @map("telefono")
-  template     String   @map("plantilla")
-  active       Boolean  @default(true) @map("activo")
-  createdAt    DateTime @default(now()) @map("fecha_creacion")
-
-  @@map("whatsapp_channels")
-}
-
-model ShippingZone {
-  id       Int          @id @default(autoincrement())
-  state    String       @map("estado")
-  zoneType ShippingType @default(NORMAL) @map("tipo_zona")
-
-  @@map("shipping_zones")
+enum TemplateType {
+  RESERVATION       @map("reservation")
+  RELEASE           @map("release")
+  PAYMENT_CONFIRMED @map("payment_confirmed")
 }
 
 enum ShippingType {
-  NORMAL    @map("normal")
-  EXTENDED  @map("extendida")
-}
-
-model ExtraCharge {
-  id          Int      @id @default(autoincrement())
-  concept     String   @map("concepto")
-  amount      Decimal  @map("monto")
-  isPaid      Boolean  @default(false) @map("pagado")
-  chargeDate  DateTime @map("fecha_cargo")
-  createdAt   DateTime @default(now()) @map("fecha_creacion")
-
-  @@map("extra_charges")
-}
-
-model AnnualService {
-  id             Int       @id @default(autoincrement())
-  concept        String    @map("concepto")
-  description    String?   @map("descripcion")
-  amount         Decimal   @map("monto")
-  isPaid         Boolean   @default(false) @map("pagado")
-  contractDate   DateTime? @map("fecha_contrato")
-  expirationDate DateTime? @map("fecha_vencimiento")
-  iconType       String    @default("default") @map("tipo_icono")
-  createdAt      DateTime  @default(now()) @map("fecha_creacion")
-
-  @@map("annual_services")
+  STANDARD @map("standard")
+  EXTENDED @map("extended")
 }

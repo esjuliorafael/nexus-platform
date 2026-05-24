@@ -2,7 +2,8 @@ import axios from 'axios';
 import { 
   Order, Product, Media, User, Category, StateZone, 
   SalesChannel, WhatsAppChannel, DashboardStats, 
-  AnnualService, ExtraCharge, Raffle, TicketSale
+  AnnualService, ExtraCharge, Raffle, TicketSale,
+  BillingPayment, TemplateType
 } from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
@@ -28,6 +29,19 @@ api.interceptors.request.use((config) => {
   }
   return config;
 });
+
+export const apiUpload = {
+  upload: async (file: File): Promise<{ url: string }> => {
+    const formData = new FormData();
+    formData.append('file', file);
+    const res = await api.post('/admin/uploads', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    });
+    return res.data;
+  }
+};
 
 export const apiDashboard = {
   getStats: async (): Promise<DashboardStats> => {
@@ -117,10 +131,10 @@ export const apiCategories = {
       id: item.id.toString(),
       name: item.name,
       icon: item.icon || 'folder',
-      subcategorias: item.subcategories ? item.subcategories.map((s: any) => ({
+      subcategories: item.subcategories ? item.subcategories.map((s: any) => ({
         id: s.id.toString(),
-        nombre: s.name,
-        categoria_id: s.categoryId.toString()
+        name: s.name,
+        categoryId: s.categoryId.toString()
       })) : [],
       count: 0 
     }));
@@ -164,10 +178,11 @@ export const apiOrders = {
 };
 
 export const apiBilling = {
-  getAll: async (): Promise<{services: AnnualService[], charges: ExtraCharge[]}> => {
-    const [services, charges] = await Promise.all([
+  getAll: async (): Promise<{services: AnnualService[], charges: ExtraCharge[], payments: BillingPayment[]}> => {
+    const [services, charges, payments] = await Promise.all([
       api.get('/admin/billing/annual-services'),
-      api.get('/admin/billing/extra-charges')
+      api.get('/admin/billing/extra-charges'),
+      api.get('/admin/billing/payments')
     ]);
     
     return {
@@ -187,6 +202,14 @@ export const apiBilling = {
         amount: parseFloat(c.amount),
         status: c.isPaid ? 'paid' : 'pending',
         date: c.chargeDate
+      })),
+      payments: payments.data.map((p: any) => ({
+        id: p.id.toString(),
+        amount: parseFloat(p.amount),
+        paymentDate: p.paymentDate,
+        concept: p.concept,
+        notes: p.notes || '',
+        createdAt: p.createdAt
       }))
     };
   },
@@ -199,7 +222,11 @@ export const apiBilling = {
   createCharge: async (data: any) => api.post('/admin/billing/extra-charges', data),
   updateCharge: async (id: string, data: any) => api.put(`/admin/billing/extra-charges/${id}`, data),
   deleteCharge: async (id: string) => api.delete(`/admin/billing/extra-charges/${id}`),
-  toggleCharge: async (id: string, isPaid: boolean) => api.put(`/admin/billing/extra-charges/${id}`, { isPaid })
+  toggleCharge: async (id: string, isPaid: boolean) => api.put(`/admin/billing/extra-charges/${id}`, { isPaid }),
+
+  createPayment: async (data: any) => api.post('/admin/billing/payments', data),
+  updatePayment: async (id: string, data: any) => api.put(`/admin/billing/payments/${id}`, data),
+  deletePayment: async (id: string) => api.delete(`/admin/billing/payments/${id}`)
 };
 
 export const apiPayments = {
@@ -208,11 +235,11 @@ export const apiPayments = {
     return res.data.map((item: any) => ({
       id: item.id.toString(),
       name: item.name,
-      purposeKey: item.purpose,
-      bankName: item.bank,
+      purpose: item.purpose,
+      bank: item.bank,
       beneficiary: item.beneficiary,
       clabe: item.clabe || '',
-      cardNumber: item.card || ''
+      card: item.card || ''
     }));
   },
   create: async (data: any) => api.post('/admin/payment-channels', data),
@@ -226,16 +253,28 @@ export const apiWhatsApp = {
     return res.data.map((item: any) => ({
       id: item.id.toString(),
       name: item.name,
-      purposeKey: item.purpose,
-      phoneNumber: item.phone,
+      purpose: item.purpose,
+      phone: item.phone,
       template: item.template,
-      active: item.active
+      active: item.active,
+      instanceName: item.instanceName,
+      templates: item.templates || []
     }));
   },
   create: async (data: any) => api.post('/admin/whatsapp-channels', data),
   update: async (id: string, data: any) => api.put(`/admin/whatsapp-channels/${id}`, data),
   delete: async (id: string) => api.delete(`/admin/whatsapp-channels/${id}`),
-  toggleStatus: async (id: string, active: boolean) => api.put(`/admin/whatsapp-channels/${id}`, { active })
+  toggleStatus: async (id: string, active: boolean) => api.put(`/admin/whatsapp-channels/${id}`, { active }),
+  
+  // New method for templates
+  saveTemplate: async (channelId: string, data: { type: TemplateType, content: string }) => {
+    return api.post(`/admin/whatsapp-channels/${channelId}/templates`, data);
+  },
+  
+  // Evolution Proxy
+  getStatus: async (instanceName: string) => api.get(`/admin/whatsapp/status/${instanceName}`),
+  getQR: async (instanceName: string) => api.post(`/admin/whatsapp/connect/${instanceName}`),
+  disconnect: async (instanceName: string) => api.post(`/admin/whatsapp/disconnect/${instanceName}`)
 };
 
 export const apiUsers = {
@@ -296,31 +335,28 @@ export const apiSystem = {
     return res.data.map((item: any) => ({
         id: item.id.toString(),
         name: item.state,
-        zone: item.zoneType === 'NORMAL' ? 'normal' : 'extendida'
+        zone: item.zoneType
     }));
   },
 
   updateShippingZone: async (id: string, zone: string) => {
     return api.put(`/admin/shipping-zones/${id}`, { 
-      zoneType: zone === 'normal' ? 'NORMAL' : 'EXTENDED' 
+      zoneType: zone 
     });
   },
 
   updateShippingZones: async (zones: any[]) => {
     const promises = zones.map(z => 
       api.put(`/admin/shipping-zones/${z.id}`, { 
-        zoneType: z.zone === 'normal' ? 'NORMAL' : 'EXTENDED' 
+        zoneType: z.zone 
       })
     );
     return Promise.all(promises);
   },
 
-  updateLogo: async (file: File) => {
-     // For now, since we haven't implemented multipart in API, we skip or use a placeholder
-     // To satisfy TS:
-     return api.post('/admin/settings/logo', { file });
-  }
-};
+  updateLogo: async (logoUrl: string) => {
+     return api.post('/admin/settings/logo', { logoUrl });
+  }};
 
 export const apiRaffles = {
   getAll: async (): Promise<Raffle[]> => {

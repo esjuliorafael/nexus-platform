@@ -1,6 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Edit2, Trash2, Box, Package, Hash, CircleCheck, Clock, CircleX } from 'lucide-react';
 import { Product } from '../../types';
+import { NexusButton, NexusAutonomousButton } from '../ui/NexusButton';
+import { ASSET_BASE_URL } from '../../api';
 
 interface ProductCardProps {
   product: Product;
@@ -10,81 +12,102 @@ interface ProductCardProps {
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDelete, style }) => {
-  // Swipe State
+  // --- STATE & REFS ---
   const [translateX, setTranslateX] = useState(0);
   const [isSwiping, setIsSwiping] = useState(false);
   const [activeSide, setActiveSide] = useState<'none' | 'left' | 'right'>('none');
   
   const touchStart = useRef(0);
   const touchX = useRef(0);
-  const cardRef = useRef<HTMLDivElement>(null);
-  
-  // NUEVO: Referencia para controlar el video
   const videoRef = useRef<HTMLVideoElement>(null);
   
   const SWIPE_THRESHOLD = 80;
   const ACTION_WIDTH = 100;
 
-  // Detectar si es video (.mp4)
-  const isVideo = product.imageUrl?.toLowerCase().endsWith('.mp4');
+  // Utilidad para asegurar que la URL sea absoluta
+  const getFullUrl = (path?: string) => {
+    if (!path) return '';
+    if (path.startsWith('http') || path.startsWith('blob:') || path.startsWith('data:')) return path;
+    const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+    return `${ASSET_BASE_URL}${cleanPath}`;
+  };
 
-  // Lógica de reproducción al pasar el mouse (Hover)
+  const imageUrl = getFullUrl(product.imageUrl || (product as any).thumbnail);
+  const isVideo = imageUrl.toLowerCase().split('?')[0].endsWith('.mp4') || 
+                  imageUrl.toLowerCase().split('?')[0].endsWith('.mov') || 
+                  imageUrl.toLowerCase().split('?')[0].endsWith('.webm');
+
+  // --- HANDLERS ---
   const handleMouseEnter = () => {
     if (isVideo && videoRef.current) {
-      // Promesa para evitar errores si el usuario pasa el mouse muy rápido
       const playPromise = videoRef.current.play();
-      if (playPromise !== undefined) {
-        playPromise.catch(() => {
-          // Auto-play fue prevenido (silencioso)
-        });
-      }
+      if (playPromise !== undefined) playPromise.catch(() => {});
     }
   };
 
   const handleMouseLeave = () => {
     if (isVideo && videoRef.current) {
       videoRef.current.pause();
-      videoRef.current.currentTime = 0; // Reinicia al primer frame (foto)
+      videoRef.current.currentTime = 0;
     }
   };
 
-  // Configuración de Estados (Móvil vs Escritorio)
-  const getStatusConfig = (status: Product['status']) => {
-    switch (status) {
+  const getStatusConfig = (status?: string) => {
+    const s = (status || 'available').toLowerCase();
+    switch (s) {
       case 'available': 
         return { 
-          mobileStyle: 'bg-white border-stone-200',
-          pillStyle: 'bg-green-500/10 text-green-600 border-green-500/20', 
+          mobileBorder: 'border-border-main',
+          mobileAccent: '',
+          thumbOverlay: '',
+          thumbFilter: '',
+          cardOpacity: '',
+          pillStyle: 'bg-emerald-50 text-emerald-600 border-emerald-100', 
           label: 'Disponible',
-          icon: <CircleCheck size={12} strokeWidth={2.5} />
+          icon: <CircleCheck size={14} strokeWidth={2.5} />,
+          showStatusPill: false
         };
       case 'reserved': 
         return { 
-          mobileStyle: 'bg-amber-50/60 border-amber-200',
-          pillStyle: 'bg-amber-500/10 text-amber-600 border-amber-500/20', 
+          mobileBorder: 'border-amber-100',
+          mobileAccent: 'border-l-[3px] border-l-amber-400',
+          thumbOverlay: 'bg-amber-400/[0.18]',
+          thumbFilter: '',
+          cardOpacity: '',
+          pillStyle: 'bg-amber-50 text-amber-600 border-amber-100', 
           label: 'Reservado',
-          icon: <Clock size={12} strokeWidth={2.5} />
+          icon: <Clock size={14} strokeWidth={2.5} />,
+          showStatusPill: true
         };
       case 'sold': 
         return { 
-          mobileStyle: 'bg-rose-50/60 border-rose-200',
-          pillStyle: 'bg-rose-500/10 text-rose-600 border-rose-500/20', 
+          mobileBorder: 'border-rose-100',
+          mobileAccent: 'border-l-[3px] border-l-rose-400',
+          thumbOverlay: 'bg-stone-500/[0.22]',
+          thumbFilter: 'grayscale',
+          cardOpacity: 'opacity-75',
+          pillStyle: 'bg-rose-50 text-rose-600 border-rose-100', 
           label: 'Vendido',
-          icon: <CircleX size={12} strokeWidth={2.5} />
+          icon: <CircleX size={14} strokeWidth={2.5} />,
+          showStatusPill: true
         };
       default: 
         return { 
-          mobileStyle: 'bg-white border-stone-200',
-          pillStyle: 'bg-stone-100 text-stone-500 border-stone-200', 
+          mobileBorder: 'border-border-main',
+          mobileAccent: '',
+          thumbOverlay: '',
+          thumbFilter: '',
+          cardOpacity: '',
+          pillStyle: 'bg-bg-muted text-text-muted border-border-main', 
           label: status,
-          icon: <CircleCheck size={12} strokeWidth={2.5} />
+          icon: <CircleCheck size={14} strokeWidth={2.5} />,
+          showStatusPill: false
         };
     }
   };
 
-  const statusConfig = getStatusConfig(product.status);
+  const statusConfig = getStatusConfig(product.saleStatus);
 
-  // Touch Handlers
   const handleTouchStart = (e: React.TouchEvent) => {
     touchStart.current = e.touches[0].clientX;
     touchX.current = touchStart.current;
@@ -127,150 +150,175 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
 
   return (
     <div 
-      style={style}
-      // Agregamos los eventos de mouse aquí al contenedor principal
+      style={{ 
+        ...style,
+        borderRadius: 'var(--radius-outer)'
+      }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={handleMouseLeave}
-      className={`group relative rounded-[2.5rem] shadow-sm hover:shadow-md overflow-hidden transition-all duration-300 animate-in fade-in zoom-in-95 border ${statusConfig.mobileStyle} sm:bg-white sm:border-stone-200`}
+      className={`group relative shadow-sm dark:shadow-none hover:shadow-xl hover:shadow-stone-200/40 overflow-hidden transition-all duration-700 border bg-bg-card ${statusConfig.mobileBorder} ${statusConfig.mobileAccent} ${statusConfig.cardOpacity} sm:border-border-main active:scale-[0.995] animate-in fade-in duration-500`}
     >
-      {/* Background Actions (Mobile) */}
+      {/* Mobile Swipe Actions */}
       <div className="absolute inset-0 flex sm:hidden">
-        <button 
+        <NexusButton 
           onClick={() => { onEdit(); resetSwipe(); }}
-          className={`absolute inset-y-0 left-0 w-[100px] bg-brand-500 text-white flex flex-col items-center justify-center gap-1 transition-opacity ${translateX > 0 ? 'opacity-100' : 'opacity-0'}`}
+          variant="brand"
+          className="absolute inset-y-0 left-0 w-[100px] h-full rounded-none"
+          isIconOnly
+          icon={Edit2}
         >
-          <Edit2 size={20} strokeWidth={2.5} />
-          <span className="text-[10px] font-black uppercase tracking-widest">Editar</span>
-        </button>
+          Editar
+        </NexusButton>
 
-        <button 
+        <NexusButton 
           onClick={() => { onDelete(); resetSwipe(); }}
-          className={`absolute inset-y-0 right-0 w-[100px] bg-rose-500 text-white flex flex-col items-center justify-center gap-1 transition-opacity ${translateX < 0 ? 'opacity-100' : 'opacity-0'}`}
+          variant="danger"
+          className="absolute inset-y-0 right-0 w-[100px] h-full rounded-none"
+          isIconOnly
+          icon={Trash2}
         >
-          <Trash2 size={20} strokeWidth={2.5} />
-          <span className="text-[10px] font-black uppercase tracking-widest">Eliminar</span>
-        </button>
+          Eliminar
+        </NexusButton>
       </div>
 
-      {/* Main Content Layer */}
       <div 
-        ref={cardRef}
         onTouchStart={handleTouchStart}
         onTouchMove={handleTouchMove}
         onTouchEnd={handleTouchEnd}
         style={{ 
           transform: `translateX(${translateX}px)`,
-          transition: isSwiping ? 'none' : 'transform 0.4s cubic-bezier(0.2, 0.8, 0.2, 1)'
+          transition: isSwiping ? 'none' : 'transform 0.4s var(--ease-emil)',
+          padding: 'var(--padding-inner)',
+          gap: 'var(--space-md)'
         }}
-        className="relative z-10 bg-transparent sm:bg-white p-4 flex flex-row items-center gap-3 sm:gap-6 w-full"
+        className="relative z-10 bg-bg-card flex flex-row items-center w-full"
       >
-        
-        {/* Thumbnail */}
-        <div className="w-20 h-20 sm:w-28 sm:h-28 shrink-0 rounded-[1.5rem] overflow-hidden bg-stone-100 border border-stone-200 shadow-inner relative">
-          {isVideo ? (
-            <video
-              ref={videoRef} // Conectamos la referencia
-              src={product.imageUrl}
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-              muted
-              loop
-              playsInline
-              preload="metadata" // Carga el primer frame sin descargar todo el video
-              // IMPORTANTE: Hemos quitado 'autoPlay'
-            />
-          ) : (
-            <img 
-              src={product.imageUrl} 
-              className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
-              alt={product.name} 
-            />
+        {/* Thumbnail: Level 2 Card Radius */}
+        <div 
+          className="shrink-0 overflow-hidden bg-stone-100 border border-border-main relative group/thumb shadow-inner"
+          style={{ 
+            width: 'var(--size-card-thumb)',
+            height: 'var(--size-card-thumb)',
+            borderRadius: 'var(--radius-card-inner)' 
+          }}
+        >
+          <div className={`absolute inset-0 ${statusConfig.thumbFilter}`}>
+            {isVideo ? (
+              <video
+                ref={videoRef}
+                src={imageUrl}
+                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                muted
+                loop
+                playsInline
+                preload="metadata"
+              />
+            ) : (
+              <img 
+                src={imageUrl} 
+                className="w-full h-full object-cover transition-transform duration-700 group-hover/thumb:scale-110" 
+                alt={product.name} 
+              />
+            )}
+          </div>
+          
+          {/* Overlay de estado */}
+          {statusConfig.thumbOverlay && (
+            <div className={`absolute inset-0 ${statusConfig.thumbOverlay} pointer-events-none`} />
           )}
+          
           <div className="absolute inset-0 bg-black/5" />
         </div>
 
-        {/* Content Section */}
-        <div className="flex-1 min-w-0 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-6">
+        {/* Content Area */}
+        <div className="flex-1 min-w-0 flex flex-col lg:flex-row lg:items-center" style={{ gap: 'var(--space-md)' }}>
           
-          {/* Block 1: Main Info */}
-          <div className="flex-1 min-w-0 flex flex-col justify-center">
-            <div className="flex items-center justify-between gap-2 mb-1">
-              <div className="flex items-center gap-1.5">
-                <div className="flex items-center gap-1 px-1.5 py-0.5 bg-stone-50/80 text-stone-400 rounded-md border border-stone-200/50 backdrop-blur-sm">
-                  {product.type === 'ave' ? <Box size={9} /> : <Package size={9} />}
-                  <span className="text-[7px] font-black uppercase tracking-widest leading-none">
-                    {product.type === 'ave' ? 'Ave' : 'Art.'}
-                  </span>
-                </div>
-                {product.type === 'ave' && product.ringNumber && (
-                  <div className="flex items-center gap-1 px-1.5 py-0.5 bg-brand-50/80 text-brand-600 rounded-md border border-brand-100/50 backdrop-blur-sm">
-                    <Hash size={9} />
-                    <span className="text-[7px] font-black uppercase tracking-widest leading-none">{product.ringNumber}</span>
-                  </div>
-                )}
+          {/* Main Info */}
+          <div className="flex-1 min-w-0 flex flex-col justify-center" style={{ gap: 'var(--space-xs)' }}>
+            <div className="flex items-center" style={{ gap: 'var(--space-sm)' }}>
+              <div 
+                className="flex items-center gap-1.5 px-2 py-1 bg-bg-muted/80 text-text-muted border border-border-main/50 backdrop-blur-sm"
+                style={{ borderRadius: 'var(--radius-card-nested)' }}
+              >
+                {product.type === 'BIRD' ? <Box size={10} strokeWidth={2.5} /> : <Package size={10} strokeWidth={2.5} />}
+                <span className="text-label uppercase tracking-[0.15em]">
+                  {product.type === 'BIRD' ? 'Ave' : 'Art.'}
+                </span>
               </div>
+              {product.type === 'BIRD' && product.ringNumber && (
+                <div 
+                  className="flex items-center gap-1.5 px-2 py-1 bg-brand-50/80 text-brand-600 border border-brand-100/50 backdrop-blur-sm"
+                  style={{ borderRadius: 'var(--radius-card-nested)' }}
+                >
+                  <Hash size={10} strokeWidth={2.5} />
+                  <span className="text-label uppercase tracking-[0.15em]">{product.ringNumber}</span>
+                </div>
+              )}
             </div>
             
-            <h3 className="text-sm sm:text-base font-black text-stone-800 tracking-tight leading-tight truncate">
+            <h3 className="text-h2 text-text-main truncate">
               {product.name}
             </h3>
           </div>
 
-          {/* Block 2: Metadata */}
-          <div className="flex flex-row items-center gap-4 sm:gap-6 shrink-0 sm:border-l sm:border-stone-200 sm:pl-6">
-            {product.type === 'ave' ? (
-              <div className="flex items-center gap-4 sm:gap-6">
-                <div className="flex flex-col">
-                  <span className="text-[7px] font-black uppercase text-stone-400 tracking-widest mb-0.5">Etapa</span>
-                  <span className="text-[10px] font-bold text-stone-700 capitalize leading-none">{product.age}</span>
+          {/* Secondary Info: Stats */}
+          <div className="flex flex-row items-center shrink-0 lg:border-l lg:border-border-main lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-lg)' }}>
+            {product.type === 'BIRD' ? (
+              <div className="flex items-center" style={{ gap: 'var(--space-lg)' }}>
+                <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
+                  <span className="text-label uppercase tracking-[0.15em] text-stone-400">Etapa</span>
+                  <span className="text-secondary text-text-main">{product.age}</span>
                 </div>
-                <div className="flex flex-col">
-                  <span className="text-[7px] font-black uppercase text-stone-400 tracking-widest mb-0.5">Propósito</span>
-                  <span className="text-[10px] font-bold text-stone-700 capitalize leading-none">{product.purpose}</span>
+                <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
+                  <span className="text-label uppercase tracking-[0.15em] text-stone-400">Propósito</span>
+                  <span className="text-secondary text-text-main">{product.purpose}</span>
                 </div>
               </div>
             ) : (
-              <div className="flex flex-col">
-                <span className="text-[7px] font-black uppercase text-stone-400 tracking-widest mb-0.5">Stock</span>
-                <span className="text-[10px] font-bold text-stone-700 leading-none">{product.stock} u.</span>
+              <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
+                <span className="text-label uppercase tracking-[0.15em] text-stone-400">Stock</span>
+                <span className="text-secondary text-text-main">{product.stock} u.</span>
               </div>
             )}
 
-            {/* Price */}
-            <div className="flex flex-col items-end sm:border-l sm:border-stone-200 sm:pl-6 sm:min-w-[90px]">
-              <span className="text-[7px] font-black uppercase text-stone-400 tracking-widest mb-0.5">Precio</span>
-              <div className="flex items-baseline text-base sm:text-lg font-black text-brand-700 tracking-tighter leading-none">
-                <span className="text-[10px] mr-0.5 opacity-50">$</span>
-                {product.price.toLocaleString()}
+            {/* Price: Highlighted */}
+            <div className="flex flex-col items-end lg:border-l lg:border-border-main lg:pl-[var(--space-md)] lg:min-w-[120px]" style={{ gap: 'var(--space-xs)' }}>
+              <span className="text-label uppercase tracking-[0.15em] text-stone-400">Precio</span>
+              <div className="flex items-baseline text-h1 text-brand-700">
+                <span className="text-secondary mr-0.5 opacity-50">$</span>
+                {parseFloat(product.price.toString()).toLocaleString('es-MX', { minimumFractionDigits: 0 })}
               </div>
             </div>
           </div>
 
-          {/* Block 3: Desktop Status & Actions */}
-          <div className="flex items-center justify-between sm:justify-end gap-3 sm:gap-6 shrink-0 sm:border-l sm:border-stone-200 sm:pl-6">
-            {/* Desktop-only status badge */}
-            <div className={`hidden sm:flex px-3 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest items-center gap-2 shadow-sm ${statusConfig.pillStyle}`}>
-              {statusConfig.icon}
-              {statusConfig.label}
-            </div>
+          {/* Status & Actions */}
+          <div className="flex items-center justify-between lg:justify-end shrink-0 lg:border-l lg:border-border-main lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-sm)' }}>
+            {statusConfig.showStatusPill && (
+              <div 
+                className={`hidden sm:flex px-4 py-2 border items-center shadow-sm dark:shadow-none transition-colors duration-500 ${statusConfig.pillStyle}`}
+                style={{ borderRadius: 'var(--radius-card-inner)', gap: 'var(--space-sm)' }}
+              >
+                {statusConfig.icon}
+                <span className="text-label uppercase tracking-[0.15em]">{statusConfig.label}</span>
+              </div>
+            )}
 
-            {/* Desktop Actions */}
-            <div className="hidden sm:flex items-center gap-1.5 ml-auto sm:ml-0">
-              <button 
+            <div className="hidden sm:flex items-center ml-auto sm:ml-0" style={{ gap: 'var(--space-sm)' }}>
+              <NexusAutonomousButton 
+                variant="secondary" 
+                isIconOnly
                 onClick={(e) => { e.stopPropagation(); onEdit(); }}
-                className="p-2 sm:p-2.5 bg-stone-50 text-stone-400 rounded-lg sm:rounded-xl hover:bg-brand-500 hover:text-white transition-all active:scale-90"
-                title="Editar"
-              >
-                <Edit2 size={14} strokeWidth={2.5} />
-              </button>
-              <button 
+                icon={Edit2}
+                className="hover:bg-brand-50 hover:text-brand-600 hover:border-brand-100"
+              />
+              <NexusAutonomousButton 
+                variant="secondary" 
+                isIconOnly
                 onClick={(e) => { e.stopPropagation(); onDelete(); }}
-                className="p-2 sm:p-2.5 bg-stone-50 text-stone-400 rounded-lg sm:rounded-xl hover:bg-rose-500 hover:text-white transition-all active:scale-90"
-                title="Eliminar"
-              >
-                <Trash2 size={14} strokeWidth={2.5} />
-              </button>
-            </div>
-          </div>
+                icon={Trash2}
+                className="hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100"
+              />
+            </div>          </div>
         </div>
       </div>
     </div>

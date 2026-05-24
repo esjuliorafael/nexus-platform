@@ -221,7 +221,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ searchQuery, viewMode 
       {isLoading ? (
         <div className="flex flex-col items-center justify-center py-32">
            <Loader2 className="w-10 h-10 text-brand-500 animate-spin mb-4" />
-           <p className="text-stone-500 font-medium">Cargando galería...</p>
+           <p className="text-text-muted font-medium">Cargando galería...</p>
         </div>
       ) : filteredMedia.length > 0 ? (
         <div className="w-full">
@@ -249,7 +249,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ searchQuery, viewMode 
 
             {totalPages > 1 && (
               <div className="flex items-center justify-center pt-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                <div className="flex items-center gap-2 bg-white/90 backdrop-blur-xl p-2.5 rounded-full border border-white/80 shadow-xl shadow-stone-200/50">
+                <div className="flex items-center gap-2 bg-bg-card/90 backdrop-blur-xl p-2.5 rounded-full border border-white/80 shadow-xl shadow-stone-200/50">
                   <button
                     onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
                     disabled={currentPage === 1}
@@ -269,7 +269,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ searchQuery, viewMode 
                         className={`w-11 h-11 flex items-center justify-center rounded-full text-sm font-black transition-all duration-300 ${
                           currentPage === pageNum
                             ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/30 scale-110 z-10'
-                            : 'text-stone-400 hover:bg-stone-50 hover:text-stone-800'
+                            : 'text-stone-400 hover:bg-bg-muted hover:text-text-main'
                         }`}
                       >
                         {pageNum}
@@ -296,8 +296,8 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ searchQuery, viewMode 
           <div className="w-20 h-20 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4 text-stone-300">
             <Search size={40} />
           </div>
-          <h3 className="text-xl font-black text-stone-800">No hay medios</h3>
-          <p className="text-stone-500">No se encontraron medios que coincidan con tu búsqueda.</p>
+          <h3 className="text-xl font-black text-text-main">No hay medios</h3>
+          <p className="text-text-muted">No se encontraron medios que coincidan con tu búsqueda.</p>
         </div>
       )}
     </div>

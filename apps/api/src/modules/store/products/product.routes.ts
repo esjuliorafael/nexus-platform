@@ -33,7 +33,7 @@ export async function productAdminRoutes(server: FastifyInstance) {
       type: type as ProductType,
       status: status as SaleStatus,
       search,
-      onlyActive: false,
+      onlyActive: true,
     });
   });
 

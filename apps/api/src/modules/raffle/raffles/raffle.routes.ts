@@ -5,7 +5,7 @@ import { ticketSaleService } from "../ticket-sales/ticket-sale.service";
 import { createRaffleSchema, updateRaffleSchema, updateRaffleStatusSchema } from "./raffle.schema";
 
 const reserveTicketsBodySchema = z.object({
-  tickets: z.array(z.string()).min(1, "At least one ticket is required"),
+  tickets: z.array(z.string().regex(/^\d+$/, "Ticket numbers must be numeric")).min(1, "At least one ticket is required"),
   customerName: z.string().min(1),
   customerPhone: z.string().min(1),
   customerState: z.string().optional(),
@@ -26,6 +26,23 @@ export async function raffleRoutes(server: FastifyInstance) {
     return raffle;
   });
 
+  server.get("/:id/occupied-tickets", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const raffleId = parseInt(id);
+    const raffle = await raffleService.getById(prisma, raffleId);
+    if (!raffle) return reply.status(404).send({ message: "Raffle not found" });
+
+    const occupied = await server.rafflePrisma.ticketSale.findMany({
+      where: {
+        raffleId,
+        paymentStatus: { in: ["PAID", "PENDING"] },
+      },
+      select: { ticketNumber: true },
+    });
+
+    return occupied.map((s: { ticketNumber: string }) => s.ticketNumber);
+  });
+
   server.get("/:id/tickets", { preHandler: [server.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const raffleId = parseInt(id);
@@ -37,7 +54,14 @@ export async function raffleRoutes(server: FastifyInstance) {
     });
   });
 
-  server.post("/:id/tickets", async (request, reply) => {
+  server.post("/:id/tickets", {
+    config: {
+      rateLimit: {
+        max: 5,
+        timeWindow: '1 minute'
+      }
+    }
+  }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const raffleId = parseInt(id);
     const raffle = await raffleService.getById(prisma, raffleId);
