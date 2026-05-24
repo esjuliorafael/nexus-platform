@@ -16,6 +16,7 @@
     "@fastify/rate-limit": "^9.1.0",
     "@nexus/db": "workspace:*",
     "@nexus/types": "workspace:*",
+    "axios": "^1.6.8",
     "bcrypt": "^6.0.0",
     "bullmq": "^5.76.2",
     "date-fns": "^4.1.0",

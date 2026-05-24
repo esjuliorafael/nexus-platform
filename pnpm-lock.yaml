@@ -81,6 +81,9 @@ importers:
       '@nexus/types':
         specifier: workspace:*
         version: link:../../packages/types
+      axios:
+        specifier: ^1.6.8
+        version: 1.15.2
       bcrypt:
         specifier: ^6.0.0
         version: 6.0.0
