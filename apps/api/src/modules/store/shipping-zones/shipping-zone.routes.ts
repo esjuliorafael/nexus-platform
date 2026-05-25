@@ -3,7 +3,15 @@ import { storePrisma } from "@nexus/db/store";
 import { updateShippingZoneSchema } from "../shared.schema";
 
 export async function shippingZoneRoutes(server: FastifyInstance) {
-  server.get("/", async () => {
+  // Public Route for Checkout
+  server.get("/public", async () => {
+    return storePrisma.shippingZone.findMany({
+      where: { active: true },
+      orderBy: { name: 'asc' }
+    });
+  });
+
+  server.get("/", { preHandler: [server.authenticate] }, async () => {
     return storePrisma.shippingZone.findMany();
   });
 
