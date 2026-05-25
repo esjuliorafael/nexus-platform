@@ -36,4 +36,4 @@ COPY --from=builder /app/node_modules ./node_modules
 EXPOSE 8080
 
 # Comando para correr migraciones y arrancar
-CMD ["sh", "-c", "pnpm --filter @nexus/db prisma migrate deploy --schema=prisma/store/schema.prisma && ( [ \"$RAFFLE_ENABLED\" = \"true\" ] && pnpm --filter @nexus/db prisma migrate deploy --schema=prisma/raffle/schema.prisma || echo 'Raffle module disabled, skipping migrations' ) && node apps/api/dist/server.js"]
+CMD ["sh", "-c", "pnpm --filter @nexus/db prisma migrate deploy --schema=prisma/store/schema.prisma && ( [ \"$RAFFLE_ENABLED\" = \"true\" ] && DATABASE_URL=\"$RAFFLE_DATABASE_URL\" pnpm --filter @nexus/db prisma migrate deploy --schema=prisma/raffle/schema.prisma || echo 'Raffle module disabled, skipping migrations' ) && node apps/api/dist/server.js"]
