@@ -9,7 +9,7 @@ interface PageProps {
 }
 
 async function fetchProduct(id: string): Promise<Product | null> {
-  const apiUrl = process.env.VITE_API_URL || 'http://localhost:3001/api/v1';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.VITE_API_URL || 'http://localhost:3001/api/v1';
   try {
     const res = await fetch(`${apiUrl}/store/products/${id}`, {
       cache: 'no-store' // Always fetch fresh product details

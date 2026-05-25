@@ -10,7 +10,7 @@ interface PageProps {
 }
 
 async function fetchRaffle(id: string): Promise<Raffle | null> {
-  const apiUrl = process.env.VITE_API_URL || 'http://localhost:3001/api/v1';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.VITE_API_URL || 'http://localhost:3001/api/v1';
   try {
     const res = await fetch(`${apiUrl}/raffles/${id}`, {
       cache: 'no-store'
@@ -26,7 +26,7 @@ async function fetchRaffle(id: string): Promise<Raffle | null> {
 }
 
 async function fetchOccupiedTickets(id: string): Promise<string[]> {
-  const apiUrl = process.env.VITE_API_URL || 'http://localhost:3001/api/v1';
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || process.env.VITE_API_URL || 'http://localhost:3001/api/v1';
   try {
     const res = await fetch(`${apiUrl}/raffles/${id}/occupied-tickets`, {
       cache: 'no-store'
