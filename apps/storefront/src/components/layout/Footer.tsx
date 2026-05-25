@@ -10,6 +10,8 @@ export function Footer() {
   const contact = getContact();
 
   const brandName = branding.brand_name || 'Granja La Manzana';
+  const { getSetting } = useSettings();
+  const showRaffles = getSetting('general', 'raffle_enabled') === '1';
 
   return (
     <footer className="bg-stone-950 text-stone-400 border-t border-stone-900 pb-32 md:pb-20 pt-20 px-6 font-medium">

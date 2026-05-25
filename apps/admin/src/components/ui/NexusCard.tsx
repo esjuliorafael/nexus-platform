@@ -148,14 +148,14 @@ export const NexusSectionCard: React.FC<LegacyCardProps> = ({
   title, subtitle, icon, thumbnail, iconVariant, isMuted, delay, rightContent, actions, onEdit, onDelete, onClick, className, swipeable 
 }) => (
   <NexusCardBase level={2} swipeable={swipeable} onEdit={onEdit} onDelete={onDelete} isMuted={isMuted} delay={delay} className={`${className} ${onClick ? 'cursor-pointer active:scale-[0.99] transition-transform' : ''}`}>
-    <div onClick={onClick} className="flex flex-col md:flex-row md:items-center justify-between" style={{ gap: 'var(--space-lg)' }}>
-      <div className="flex items-center min-w-0" style={{ gap: 'var(--space-md)' }}>
+    <div onClick={onClick} className="flex flex-col md:flex-row md:items-center justify-between h-full" style={{ gap: 'var(--space-lg)' }}>
+      <div className="flex items-center min-w-0 flex-1" style={{ gap: 'var(--space-md)' }}>
         {thumbnail ? (
           <NexusCardThumbnailIcon src={thumbnail} alt={typeof title === 'string' ? title : ''} isMuted={isMuted} hoverGroup="group/card" />
         ) : icon ? (
           <NexusCardIcon icon={icon} variant={iconVariant} isMuted={isMuted} hoverGroup="group/card" />
         ) : null}
-        <div className="flex flex-col min-w-0" style={{ gap: 'var(--space-xs)' }}>
+        <div className="flex flex-col min-w-0 flex-1" style={{ gap: 'var(--space-xs)' }}>
           {typeof title === 'string' ? (
             <h4 className={`text-h2 transition-colors duration-500 truncate ${isMuted ? 'text-text-muted' : 'text-text-main'} ${onClick ? 'group-hover/card:text-brand-600' : ''}`}>{title}</h4>
           ) : (
@@ -164,7 +164,7 @@ export const NexusSectionCard: React.FC<LegacyCardProps> = ({
           {subtitle && <div className="text-secondary text-text-muted/60 flex items-center gap-2 truncate">{subtitle}</div>}
         </div>
       </div>
-      <div className="flex items-center justify-between md:justify-end border-t md:border-t-0 border-border-main pt-[var(--space-md)] md:pt-0" style={{ gap: 'var(--space-lg)' }}>
+      <div className="flex items-center justify-between md:justify-end shrink-0 border-t md:border-t-0 border-border-main pt-[var(--space-md)] md:pt-0" style={{ gap: 'var(--space-lg)' }}>
         {rightContent && <div className="text-left md:text-right flex flex-col items-start md:items-end" style={{ gap: 'var(--space-xs)' }}>{rightContent}</div>}
         <div className="flex items-center" style={{ gap: 'var(--space-sm)' }}>
           {actions}

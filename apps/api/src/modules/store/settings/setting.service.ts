@@ -52,15 +52,18 @@ export const settingService = {
 
     });
 
-    // Save Raffle settings if module is enabled
-    if (raffleSettings.length > 0 && process.env.RAFFLE_ENABLED === "true") {
+    // Save Raffle settings if module is enabled or it's the master toggle
+    if (raffleSettings.length > 0) {
       raffleSettings.forEach(s => {
-        promises.push(storePrisma.setting.upsert({
-          where: { key: s.key },
-          update: { value: s.value, updated_at: new Date() },
-          create: { key: s.key, value: s.value, group: s.group || "general", updated_at: new Date() },
-        }));
-
+        // raffle_enabled is the master toggle and should always be saved in storePrisma
+        // to allow the UI to react even if the plugin isn't loaded yet.
+        if (s.key === 'raffle_enabled' || process.env.RAFFLE_ENABLED === "true") {
+          promises.push(storePrisma.setting.upsert({
+            where: { key: s.key },
+            update: { value: s.value, updated_at: new Date() },
+            create: { key: s.key, value: s.value, group: s.group || "general", updated_at: new Date() },
+          }));
+        }
       });
     }
 

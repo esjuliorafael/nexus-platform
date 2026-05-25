@@ -179,7 +179,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                   icon={MapPin}
                   iconVariant={!state.active ? 'muted' : state.zone === 'STANDARD' ? 'emerald' : 'orange'}
                   isMuted={!state.active}
-                  title={state.name}
+                  title={state.name || `Estado #${state.id}`}
                   subtitle={
                     <span className={`text-secondary font-bold ${!state.active ? 'text-text-muted' : state.zone === 'STANDARD' ? 'text-emerald-600' : 'text-orange-600'}`}>
                       {!state.active ? 'Sin Cobertura' : state.zone === 'STANDARD' ? 'Zona Normal' : 'Zona Extendida'}
@@ -193,7 +193,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                           onClick={() => toggleStateZone(state.id)}
                           variant={state.zone === 'STANDARD' ? 'secondary' : 'brand'}
                         >
-                          {state.zone === 'STANDARD' ? 'Cambiar a Extendida' : 'Cambiar a Normal'}
+                          {state.zone === 'STANDARD' ? 'Normal' : 'Extendida'}
                         </NexusCardButton>
                       )}
                       

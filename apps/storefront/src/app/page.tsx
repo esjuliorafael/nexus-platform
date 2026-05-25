@@ -14,16 +14,18 @@ import { ArticleShelf } from '../components/layout/ArticleShelf';
 import { BirdShowcase } from '../components/layout/BirdShowcase';
 import { RaffleSection } from '../components/layout/RaffleSection';
 import { SectionReveal, SkeletonBento } from '../components/ui/LayoutUtils';
+import { useSettings } from '../hooks/useSettings';
 import { mediaApi } from '../api/settings';
 import { Media } from '../types';
 
 export default function HomePage() {
   const { products, loading } = useProducts();
+  const { getSetting } = useSettings();
   const [media, setMedia] = useState<Media[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(true);
 
   // Feature Flag for Raffles
-  const showRaffles = process.env.NEXT_PUBLIC_RAFFLE_ENABLED === 'true';
+  const showRaffles = getSetting('general', 'raffle_enabled') === '1' || process.env.NEXT_PUBLIC_RAFFLE_ENABLED === 'true';
 
   // Filter products for dynamic sections
   const recentProducts = Array.isArray(products)

@@ -11,13 +11,16 @@ import { formatPrice } from '../../utils/formatters';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { motion } from 'framer-motion';
 import { Badge } from '../../components/ui/Badge';
+import { useSettings } from '../../hooks/useSettings';
 
-export default function RafflePage() {
+export default function RafflesPage() {
+  const { getSetting } = useSettings();
   const [raffles, setRaffles] = useState<Raffle[]>([]);
   const [loading, setLoading] = useState(true);
+  
+  const isRaffleEnabled = getSetting('general', 'raffle_enabled') === '1' || process.env.NEXT_PUBLIC_RAFFLE_ENABLED === 'true';
 
   useEffect(() => {
-    const isRaffleEnabled = process.env.NEXT_PUBLIC_RAFFLE_ENABLED === 'true' || process.env.VITE_RAFFLE_ENABLED === 'true';
     if (isRaffleEnabled) {
       raffleApi.getAll()
         .then(data => {
@@ -28,24 +31,27 @@ export default function RafflePage() {
     } else {
       setLoading(false);
     }
-  }, []);
+  }, [isRaffleEnabled]);
 
-  const isRaffleEnabled = process.env.NEXT_PUBLIC_RAFFLE_ENABLED === 'true' || process.env.VITE_RAFFLE_ENABLED === 'true';
-  
   if (!isRaffleEnabled) {
     return (
-      <div className="h-[60vh] flex items-center justify-center">
-        <EmptyState 
-          icon={Ticket} 
-          title="Módulo Inactivo" 
-          description="El módulo de sorteos y rifas no está activo en este momento en Granja La Manzana." 
-        />
-      </div>
+      <main className="pt-32 pb-20 px-6 min-h-[60vh] flex items-center justify-center">
+        <div className="max-w-7xl mx-auto text-center space-y-6">
+          <div className="w-20 h-20 bg-stone-100 rounded-full flex items-center justify-center mx-auto text-stone-300">
+            <Ticket size={40} />
+          </div>
+          <h1 className="text-4xl font-display font-black text-stone-900 uppercase">Módulo Desactivado</h1>
+          <p className="text-stone-500 max-w-md mx-auto">El módulo de rifas no está activo en este momento. Vuelve pronto para participar en nuestros próximos sorteos.</p>
+          <Button asChild variant="outline" className="rounded-full px-8 border-stone-200">
+            <Link href="/">Volver al Inicio</Link>
+          </Button>
+        </div>
+      </main>
     );
   }
 
   return (
-    <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">
+    <div className="max-w-7xl mx-auto px-6 py-12 space-y-12 pt-32">
       <div className="text-center max-w-2xl mx-auto space-y-4">
         <div className="inline-flex items-center gap-2 px-3 py-1 bg-brand-500/10 border border-brand-500/20 rounded-full text-brand-400 text-[10px] font-black uppercase tracking-widest">
           <Sparkles size={12} /> Sorteos Exclusivos
