@@ -15,7 +15,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 
 export default function CheckoutPage() {
   const { items, getTotalPrice, clearCart } = useCartStore();
-  const { getSetting, isModuleEnabled, loading: settingsLoading } = useSettings();
+  const { settings, getSetting, isModuleEnabled, loading: settingsLoading } = useSettings();
   const [loading, setLoading] = useState(false);
   const [orderComplete, setOrderComplete] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState<'TRANSFER' | 'MERCADOPAGO'>('TRANSFER');
