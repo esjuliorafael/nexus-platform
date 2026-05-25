@@ -408,4 +408,4 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
       </div>
     </form>
   );
-};
+});
