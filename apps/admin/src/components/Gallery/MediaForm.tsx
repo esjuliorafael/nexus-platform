@@ -1,4 +1,4 @@
-import React, { useState, useRef, useMemo, useEffect } from 'react';
+import React, { useState, useRef, useMemo, useEffect, useImperativeHandle, forwardRef } from 'react';
 import { createPortal } from 'react-dom';
 import { Upload, X, MapPin, ImageIcon, Film, PlayCircle, Image as ImageIconLucide, Plus, Check, Save } from 'lucide-react';
 import { Media, Category } from '../../types';
@@ -15,23 +15,30 @@ interface MediaFormProps {
   onValidationChange?: (isValid: boolean) => void;
 }
 
-export const MediaForm: React.FC<MediaFormProps> = ({ initialData, onCancel, onSave, onValidationChange }) => {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false); 
-  const [isLoadingCategories, setIsLoadingCategories] = useState(false);
+export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
+  ({ initialData, onCancel, onSave, onValidationChange }, ref) => {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false); 
+    const [isLoadingCategories, setIsLoadingCategories] = useState(false);
 
-  // Estados del Formulario
-  const [title, setTitle] = useState(initialData?.title || '');
-  const [description, setDescription] = useState(initialData?.description || '');
-  const [category, setCategory] = useState(initialData?.categoryId?.toString() || '');
-  const [subcategory, setSubcategory] = useState(initialData?.subcategoryId?.toString() || ''); 
-  const [location, setLocation] = useState(initialData?.location || '');
-  
-  const [file, setFile] = useState<File | null>(null);
-  const [previewUrl, setPreviewUrl] = useState<string | null>(initialData?.url || null);
+    // Estados del Formulario
+    const [title, setTitle] = useState(initialData?.title || '');
+    const [description, setDescription] = useState(initialData?.description || '');
+    const [category, setCategory] = useState(initialData?.categoryId?.toString() || '');
+    const [subcategory, setSubcategory] = useState(initialData?.subcategoryId?.toString() || ''); 
+    const [location, setLocation] = useState(initialData?.location || '');
+    
+    const [file, setFile] = useState<File | null>(null);
+    const [previewUrl, setPreviewUrl] = useState<string | null>(initialData?.url || null);
 
-  const [categories, setCategories] = useState<Category[]>([]);
-  const fileInputRef = useRef<HTMLInputElement>(null);
+    const [categories, setCategories] = useState<Category[]>([]);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+
+    useImperativeHandle(ref, () => ({
+      handleSave: () => {
+        handleSubmit();
+      }
+    }));
 
   // --- MODAL CREACIÓN RÁPIDA ---
   const [isSubModalOpen, setIsSubModalOpen] = useState(false);
