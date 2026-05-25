@@ -158,7 +158,7 @@ const RaffleCard: React.FC<{
               <h3 className="text-lg font-black text-text-main tracking-tight leading-tight line-clamp-1 group-hover:text-brand-600 transition-colors">
                 {raffle.title}
               </h3>
-              <p className="text-[11px] text-stone-400 font-bold uppercase tracking-widest mt-1">ID: #{raffle.id.split('-')[0]}</p>
+              <p className="text-[11px] text-stone-400 font-bold uppercase tracking-widest mt-1">ID: #{String(raffle.id).split('-')[0]}</p>
             </div>
             
             <p className="text-xs text-text-muted line-clamp-2 font-medium leading-relaxed">
@@ -224,8 +224,12 @@ export const RaffleList: React.FC<RaffleListProps> = ({
 
   const filtered = useMemo(() => {
     return raffles.filter(r => 
-      r.title.toLowerCase().includes(searchQuery.toLowerCase())
-    ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+      (r.title || '').toLowerCase().includes((searchQuery || '').toLowerCase())
+    ).sort((a, b) => {
+      const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    });
   }, [raffles, searchQuery]);
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
@@ -310,6 +314,15 @@ export const RaffleList: React.FC<RaffleListProps> = ({
               size="icon"
               onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
               disabled={currentPage === totalPages}
+              icon={ChevronRight}
+            />
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+ages}
               icon={ChevronRight}
             />
           </div>
