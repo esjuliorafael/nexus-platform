@@ -53,6 +53,7 @@ All Admin components must follow the **Editorial Tech** aesthetic: technical pre
 - **ORM:** Prisma (Store + Raffle schemas)
 - **Database:** PostgreSQL (Independent instances)
 - **Queues:** BullMQ + Redis
+- **Production Architecture:** See [docs/ai/INFRASTRUCTURE.md](docs/ai/INFRASTRUCTURE.md) for Contabo VPS details.
 
 ## Infrastructure & Setup
 Refer to [docs/ai/STRATEGY.md](docs/ai/STRATEGY.md) for detailed setup instructions and architectural decisions.

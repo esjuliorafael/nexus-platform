@@ -1,43 +1,61 @@
-# Infraestructura de Despliegue - Nexus Platform
+# Nexus Platform - Infraestructura de Producción (Contabo)
 
-Este documento sirve como la **Fuente de Verdad** para el despliegue de la plataforma en un modelo Multi-tenant (una instancia por cliente) compartiendo recursos globales para optimizar costos y rendimiento.
+Este documento describe la arquitectura real de despliegue en el VPS de Contabo y los procedimientos operativos para mantener la plataforma.
 
-## 1. Servidor Recomendado
-- **Proveedor:** Contabo (o similar)
-- **Plan:** Cloud VPS 20 (6 vCPU, 12GB RAM, 100GB NVMe)
-- **Capacidad estimada:** 5-8 clientes (dependiendo del uso de WhatsApp).
+## 1. Arquitectura de Contenedores
 
-## 2. Arquitectura Global (Compartida)
-Para ahorrar RAM, se centralizan los servicios pesados en la carpeta `/home/nexus/infra-global/`.
+La plataforma opera bajo un modelo de **Infraestructura Compartida con Servicios Aislados**.
 
-| Servicio | Tecnología | Rol |
+### Servicios Globales (Nexus Core)
+Estos contenedores son compartidos por todos los clientes/tenants en el VPS:
+- **nexus-postgres-global:** Motor de base de datos PostgreSQL (Puerto 5432 interno).
+- **nexus-redis-global:** Motor de caché y colas BullMQ.
+- **nexus-nginx:** Proxy inverso que maneja el tráfico SSL y redirección de dominios.
+- **nexus-evolution-global:** Instancia única de Evolution API para gestión de WhatsApp.
+
+### Servicios por Cliente (Tenant: Granja La Manzana)
+Ubicación: `/home/nexus/manzana`
+- **manzana-api:** Backend Fastify.
+- **manzana-front:** Frontend Next.js (Storefront).
+- **manzana-admin:** Panel Administrativo (Vite).
+
+## 2. Estrategia de Base de Datos
+
+Cada cliente utiliza múltiples bases de datos físicas dentro del motor global para garantizar integridad modular:
+
+| Módulo | Base de Datos (Física) | Variable de Entorno |
 | :--- | :--- | :--- |
-| **Reverse Proxy** | Nginx Proxy Manager | Gestiona dominios y certificados SSL (HTTPS). |
-| **Base de Datos** | PostgreSQL 16 (Alpine) | Un solo contenedor. Cada cliente tiene su propia DB y Usuario. |
-| **Cache / Queues** | Redis 7 (Alpine) | Un solo contenedor para todos los clientes. |
-| **WhatsApp** | Evolution API | Una sola instalación. Se crean "Instancias" por cada cliente. |
+| **Tienda (Core)** | `manzana_store` | `DATABASE_URL` |
+| **Rifas (Opcional)** | `manzana_raffle` | `RAFFLE_DATABASE_URL` |
 
-## 3. Aislamiento por Cliente
-Cada cliente vive en su propia carpeta: `/home/nexus/<nombre>/`.
-- **Nexus API:** Contenedor independiente con su propio `.env`.
-- **Storefront:** Contenedor independiente (Next.js).
-- **Red:** Se comunican a través de una Docker Network llamada `nexus-network`.
+### Protocolo de Migraciones
+Prisma no detecta automáticamente cambios en múltiples esquemas durante el build de Docker. Si se añaden tablas a las Rifas, se debe ejecutar manualmente en el VPS:
+```bash
+docker exec -it manzana-api sh -c "DATABASE_URL=\$RAFFLE_DATABASE_URL pnpm --filter @nexus/db exec prisma migrate deploy --schema=prisma/raffle/schema.prisma"
+```
 
-## 4. Convenciones de Nomenclatura (Ejemplo: 'manzana')
-- **Usuario DB:** `manzana`
-- **DB Tienda:** `manzana_store`
-- **DB Rifas:** `manzana_raffle`
-- **Instancia WA:** `manzana-wa`
-- **Contenedores:** `manzana-api`, `manzana-front`
+## 3. Flujo de CI/CD
 
-## 5. Estrategia de CI/CD
-1. **GitHub Actions:** Construye las imágenes de Docker al hacer push a `main`.
-2. **Docker Hub:** Almacena las imágenes (versión estable).
-3. **Watchtower:** Servicio en el VPS que detecta nuevas imágenes y reinicia los contenedores de los clientes automáticamente.
-4. **Migraciones:** El contenedor de la API ejecuta `npx prisma migrate deploy` antes de iniciar para asegurar que la DB esté actualizada.
+El despliegue sigue este camino:
+1. **GitHub:** Push a la rama `master`.
+2. **GitHub Actions:** Construye imágenes Docker y las sube a Docker Hub (`esjuliorafael/nexus-*`).
+3. **VPS (Manual):**
+   ```bash
+   cd /home/nexus/manzana
+   docker compose pull
+   docker compose up -d
+   ```
 
-## 6. Requisitos para nuevos Clientes
-1. Ejecutar script `create_tenant.sh <nombre>` para crear DB y Usuario.
-2. Clonar carpeta de configuración del cliente en `/home/nexus/<nombre>/`.
-3. Configurar `.env` con las credenciales generadas.
-4. Apuntar dominio en Nginx Proxy Manager.
+## 4. Variables de Entorno Críticas (.env)
+
+El archivo `.env` en el servidor debe contener al menos:
+- `RAFFLE_ENABLED=true` (Para cargar el plugin en el API).
+- `DATABASE_URL` y `RAFFLE_DATABASE_URL` apuntando a `nexus-postgres-global`.
+- Configuración de Cloudflare R2 (Access Key, Secret, Bucket).
+- Configuración de Evolution API (URL y API Key global).
+
+## 5. Reglas de Mantenimiento
+
+- **No usar `localhost`:** Dentro de los contenedores, siempre referenciar a los servicios globales por su nombre de red (`nexus-postgres-global`, `nexus-redis-global`).
+- **Reseteo de Esquemas:** Si una base de datos modular entra en conflicto de tipos, usar `npx prisma db push --force-reset` solo en la base de datos afectada.
+- **Sincronización Admin:** La pestaña de Rifas en el Admin es 100% dinámica; depende del valor `raffle_enabled` en la tabla `settings` de la DB de la tienda.
