@@ -6,11 +6,11 @@ import sharp from "sharp";
 export const storageService = {
   async getS3Client() {
     const settings = await settingService.getAllGrouped();
-    const general = settings.general || {};
+    const storage = settings.storage || {};
 
-    const accountId = general['r2_account_id'];
-    const accessKeyId = general['r2_access_key'];
-    const secretAccessKey = general['r2_secret_key'];
+    const accountId = storage['storage_r2_account_id'];
+    const accessKeyId = storage['storage_r2_access_key'];
+    const secretAccessKey = storage['storage_r2_secret_key'];
 
     if (!accountId || !accessKeyId || !secretAccessKey) {
       throw new Error("Configuración de Cloudflare R2 incompleta");
@@ -28,10 +28,10 @@ export const storageService = {
 
   async uploadFile(file: Buffer, fileName: string, contentType: string) {
     const settings = await settingService.getAllGrouped();
-    const general = settings.general || {};
+    const storage = settings.storage || {};
     
-    const bucketName = general['r2_bucket_name'];
-    const publicDomain = general['r2_public_domain'];
+    const bucketName = storage['storage_r2_bucket_name'];
+    const publicDomain = storage['storage_r2_public_domain'];
 
     if (!bucketName) {
       throw new Error("Nombre del Bucket R2 no configurado");
@@ -101,9 +101,9 @@ export const storageService = {
 
     try {
       const settings = await settingService.getAllGrouped();
-      const general = settings.general || {};
-      const bucketName = general['r2_bucket_name'];
-      const publicDomain = general['r2_public_domain'];
+      const storage = settings.storage || {};
+      const bucketName = storage['storage_r2_bucket_name'];
+      const publicDomain = storage['storage_r2_public_domain'];
 
       if (!bucketName || !publicDomain) return;
 

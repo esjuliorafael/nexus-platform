@@ -325,7 +325,8 @@ export const apiSystem = {
   updateConfig: async (configData: Record<string, string | number | boolean>) => {
     const settings = Object.entries(configData).map(([key, value]) => ({
       key,
-      value: String(value)
+      value: String(value),
+      group: key.startsWith('storage_r2_') ? 'storage' : 'general'
     }));
     return api.put('/admin/settings', { settings });
   },
