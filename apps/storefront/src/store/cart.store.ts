@@ -7,6 +7,7 @@ export interface CartItem {
   price: number;
   quantity: number;
   thumbnail: string | null;
+  type: 'bird' | 'item';
 }
 
 interface CartState {

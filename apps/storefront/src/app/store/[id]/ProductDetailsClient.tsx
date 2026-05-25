@@ -107,7 +107,8 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
                   name: product.name,
                   price: Number(product.price),
                   quantity: 1,
-                  thumbnail: product.thumbnail
+                  thumbnail: product.thumbnail,
+                  type: product.type.toLowerCase() as 'bird' | 'item'
                 })}
               >
                 <ShoppingCart className="mr-2" size={24} /> Agregar al Carrito

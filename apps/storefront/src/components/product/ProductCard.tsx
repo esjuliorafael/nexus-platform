@@ -26,6 +26,7 @@ export function ProductCard({ product }: { product: Product }) {
       price: Number(product.price),
       quantity: 1,
       thumbnail: product.thumbnail,
+      type: product.type.toLowerCase() as 'bird' | 'item',
     });
   };
 
