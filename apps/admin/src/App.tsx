@@ -348,6 +348,14 @@ function App() {
       case 'Ver Productos': navigateToStore('list'); break;
       case 'Ver Órdenes': navigateToOrders(); break;
       case 'Estado de Cuenta': navigateToSystem('billing'); break;
+      case 'Plataforma': navigateToSystem('config'); break;
+      case 'Usuarios': navigateToSystem('users'); break;
+      case 'Departamentos': navigateToSystem('channels'); break;
+      case 'Configurar Envíos': navigateToSystem('shipping'); break;
+      case 'Activar Rifas': navigateToSystem('raffle'); break;
+      case 'Notificaciones': navigateToSystem('notifications'); break;
+      case 'Lib. Inventario': navigateToSystem('inventory'); break;
+      case 'Añadir Logo': navigateToSystem('identity'); break;
       case 'Volver': 
         if (isOrdersTab || storeViewMode === 'orders' || storeViewMode === 'order-detail') {
           navigateToOrders();
