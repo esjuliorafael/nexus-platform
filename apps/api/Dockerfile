@@ -21,7 +21,8 @@ FROM node:20-bookworm-slim AS runner
 
 WORKDIR /app
 
-RUN npm install -g pnpm
+# Instalar pnpm y OpenSSL (Necesario para Prisma)
+RUN apt-get update -y && apt-get install -y openssl && npm install -g pnpm
 
 # Copiar solo lo necesario
 COPY --from=builder /app/package.json ./
