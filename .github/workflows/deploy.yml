@@ -45,3 +45,14 @@ jobs:
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/nexus-storefront:latest
           cache-from: type=gha
           cache-to: type=inline
+
+      # Build & Push Nexus Admin
+      - name: Build and push Admin
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./apps/admin/Dockerfile
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/nexus-admin:latest
+          cache-from: type=gha
+          cache-to: type=inline
