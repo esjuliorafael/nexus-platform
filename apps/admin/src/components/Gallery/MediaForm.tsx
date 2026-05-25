@@ -386,4 +386,4 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
       , document.body)}
     </>
   );
-};
+});
