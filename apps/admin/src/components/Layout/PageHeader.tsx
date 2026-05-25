@@ -19,6 +19,8 @@ interface PageHeaderProps {
   systemViewMode: string;
   shippingSubView: string;
   channelsViewMode: string;
+  // Dynamic Actions
+  actionAddon?: React.ReactNode;
 }
 
 export const PageHeader: React.FC<PageHeaderProps> = ({
@@ -35,7 +37,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   isEditingRaffle,
   systemViewMode,
   shippingSubView,
-  channelsViewMode
+  channelsViewMode,
+  actionAddon
 }) => {
   const isGalleryMode = activeTab === 'Galería';
   const isStoreMode = activeTab === 'Tienda';
@@ -81,6 +84,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       if (systemViewMode === 'inventory') return <>Ajustes de <span className="text-stone-600">Inventario</span></>;
       if (systemViewMode === 'notifications') return <>Alertas y <span className="text-stone-600">Notificaciones</span></>;
       if (systemViewMode === 'billing') return <>Estado de <span className="text-stone-600">Cuenta</span></>;
+      if (systemViewMode === 'config') return <>Ajustes de <span className="text-stone-600">Plataforma</span></>;
       return <>Ajustes del <span className="text-stone-600">Sistema</span></>;
     }
 
@@ -92,6 +96,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     if (isCreatingRaffle || isEditingRaffle) return 'Configura los parámetros de la rifa, premios y dinámica de boletos.';
     if (isCreatingMedia || isEditingMedia) return 'Completa los detalles para gestionar el contenido visual del catálogo del rancho.';
     if (galleryViewMode === 'category_create') return 'Define una nueva agrupación para organizar los medios de la galería.';
+    if (galleryViewMode === 'category_edit') return 'Define una nueva agrupación para organizar los medios de la galería.';
     if (galleryViewMode === 'categories_list') return 'Revisa y organiza las agrupaciones de contenido de tu galería.';
     if (isGalleryMode) return 'Explora, organiza y gestiona todos los medios visuales del rancho.';
     if (isStoreMode) {
@@ -114,19 +119,28 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       if (systemViewMode === 'inventory') return 'Configura la cancelación automática de órdenes vencidas para liberar el stock.';
       if (systemViewMode === 'notifications') return 'Administra los avisos por correo electrónico para mantenerte informado de tus ventas.';
       if (systemViewMode === 'billing') return 'Monitorea la vigencia de tu licenciamiento y gestiona los cargos por servicios adicionales.';
+      if (systemViewMode === 'config') return 'Administra los parámetros globales de infraestructura, zonificación y staff.';
       return 'Controla los parámetros globales de infraestructura, zonificación y staff.';
     }
     return 'Gestiona el inventario, ventas y medios desde tu panel central.';
   };
 
   return (
-    <div className="animate-in fade-in slide-in-from-left-2 duration-500">
-      <h1 className="text-display text-text-main">
-        {getTitle()}
-      </h1>
-      <p className="text-text-muted mt-2 font-medium">
-        {getDescription()}
-      </p>
+    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 animate-in fade-in slide-in-from-left-2 duration-500 w-full">
+      <div className="flex-1 min-w-0">
+        <h1 className="text-display text-text-main">
+          {getTitle()}
+        </h1>
+        <p className="text-text-muted mt-2 font-medium">
+          {getDescription()}
+        </p>
+      </div>
+      
+      {actionAddon && (
+        <div className="flex items-center gap-3 shrink-0">
+          {actionAddon}
+        </div>
+      )}
     </div>
   );
 };

@@ -390,6 +390,90 @@ function App() {
     window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
+  const getActionAddon = () => {
+    if (isFormMode) {
+      return (
+        <>
+          <NexusSectionButton onClick={handleCancelAction} variant="secondary">
+            Cancelar
+          </NexusSectionButton>
+          <NexusSectionButton 
+            onClick={() => {
+              if (isCreatingProduct || isEditingProduct) (storeViewMode === 'create' ? null : null); // Trigger save from ref if needed
+            }} 
+            variant="brand"
+            icon={Save}
+          >
+            Guardar Cambios
+          </NexusSectionButton>
+        </>
+      );
+    }
+
+    if (isSystemMode) {
+      if (systemViewMode === 'config') {
+        return (
+          <NexusSectionButton onClick={() => (document.getElementById('save-platform-settings') as any)?.click()} variant="brand" icon={Save}>
+            Guardar Configuración
+          </NexusSectionButton>
+        );
+      }
+      if (systemViewMode === 'shipping') {
+        return (
+          <NexusSectionButton 
+            onClick={() => shippingSubView === 'config' ? shippingRef.current?.handleSaveConfig() : shippingRef.current?.handleSaveZones()} 
+            variant="brand" 
+            icon={Save}
+          >
+            Guardar Cambios
+          </NexusSectionButton>
+        );
+      }
+      if (systemViewMode === 'identity') {
+        return (
+          <NexusSectionButton onClick={() => identityRef.current?.handleSave()} variant="brand" icon={Save}>
+            Guardar Identidad
+          </NexusSectionButton>
+        );
+      }
+      if (systemViewMode === 'inventory') {
+        return (
+          <NexusSectionButton onClick={() => inventoryRef.current?.handleSave()} variant="brand" icon={Save}>
+            Guardar Ajustes
+          </NexusSectionButton>
+        );
+      }
+      if (systemViewMode === 'notifications') {
+        return (
+          <NexusSectionButton onClick={() => notificationsRef.current?.handleSave()} variant="brand" icon={Save}>
+            Guardar Notificaciones
+          </NexusSectionButton>
+        );
+      }
+      if (systemViewMode === 'raffle') {
+        return (
+          <NexusSectionButton onClick={() => raffleSettingsRef.current?.handleSave()} variant="brand" icon={Save}>
+            Guardar Módulo
+          </NexusSectionButton>
+        );
+      }
+      if (systemViewMode === 'channels' && channelsViewMode !== 'hub') {
+        return (
+          <>
+            <NexusSectionButton onClick={() => setChannelsViewMode('hub')} variant="secondary">
+              Cancelar
+            </NexusSectionButton>
+            <NexusSectionButton onClick={() => channelFormRef.current?.handleSave()} variant="brand" icon={Save}>
+              {channelsViewMode === 'create' ? 'Crear Canal' : 'Actualizar Canal'}
+            </NexusSectionButton>
+          </>
+        );
+      }
+    }
+
+    return null;
+  };
+
   if (!isAuthenticated) return <LoginView onLoginSuccess={handleLoginSuccess} showToast={showToast} />;
 
   return (
@@ -415,6 +499,7 @@ function App() {
               systemViewMode={systemViewMode}
               shippingSubView={shippingSubView}
               channelsViewMode={channelsViewMode}
+              actionAddon={getActionAddon()}
             />
             <div className="bg-white dark:bg-stone-900 px-5 py-3.5 rounded-full shadow-sm border border-stone-200 dark:border-stone-800 flex items-center gap-2 text-stone-600 dark:text-stone-400 font-medium text-sm capitalize">
               <Calendar size={16} className="text-brand-500" /> {currentDate}
