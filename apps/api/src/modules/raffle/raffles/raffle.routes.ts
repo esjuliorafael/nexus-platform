@@ -12,16 +12,22 @@ const reserveTicketsBodySchema = z.object({
 });
 
 export async function raffleRoutes(server: FastifyInstance) {
-  const prisma = server.rafflePrisma;
+  // Safe access to prisma
+  const getPrisma = () => {
+    if (!server.rafflePrisma) {
+      throw new Error("Raffle Prisma client is not initialized. Is RAFFLE_ENABLED=true?");
+    }
+    return server.rafflePrisma;
+  };
 
   // Public Routes
   server.get("/", async () => {
-    return raffleService.getAllActive(prisma);
+    return raffleService.getAllActive(getPrisma());
   });
 
   server.get("/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
-    const raffle = await raffleService.getById(prisma, parseInt(id));
+    const raffle = await raffleService.getById(getPrisma(), parseInt(id));
     if (!raffle) return reply.status(404).send({ message: "Raffle not found" });
     return raffle;
   });
@@ -29,10 +35,10 @@ export async function raffleRoutes(server: FastifyInstance) {
   server.get("/:id/occupied-tickets", async (request, reply) => {
     const { id } = request.params as { id: string };
     const raffleId = parseInt(id);
-    const raffle = await raffleService.getById(prisma, raffleId);
+    const raffle = await raffleService.getById(getPrisma(), raffleId);
     if (!raffle) return reply.status(404).send({ message: "Raffle not found" });
 
-    const occupied = await server.rafflePrisma.ticketSale.findMany({
+    const occupied = await getPrisma().ticketSale.findMany({
       where: {
         raffleId,
         paymentStatus: { in: ["PAID", "PENDING"] },
@@ -46,9 +52,9 @@ export async function raffleRoutes(server: FastifyInstance) {
   server.get("/:id/tickets", { preHandler: [server.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const raffleId = parseInt(id);
-    const raffle = await raffleService.getById(prisma, raffleId);
+    const raffle = await raffleService.getById(getPrisma(), raffleId);
     if (!raffle) return reply.status(404).send({ message: "Raffle not found" });
-    return server.rafflePrisma.ticketSale.findMany({
+    return getPrisma().ticketSale.findMany({
       where: { raffleId },
       orderBy: { createdAt: "desc" },
     });
@@ -64,12 +70,12 @@ export async function raffleRoutes(server: FastifyInstance) {
   }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const raffleId = parseInt(id);
-    const raffle = await raffleService.getById(prisma, raffleId);
+    const raffle = await raffleService.getById(getPrisma(), raffleId);
     if (!raffle) return reply.status(404).send({ message: "Raffle not found" });
 
     try {
       const body = reserveTicketsBodySchema.parse(request.body);
-      return await ticketSaleService.reserveTickets(server.rafflePrisma, server.storePrisma, {
+      return await ticketSaleService.reserveTickets(getPrisma(), server.storePrisma, {
         ...body,
         raffleId,
       });
@@ -89,12 +95,12 @@ export async function raffleRoutes(server: FastifyInstance) {
 
   // Admin Routes
   server.get("/admin", { preHandler: [server.authenticate] }, async () => {
-    return raffleService.getAllAdmin(prisma);
+    return raffleService.getAllAdmin(getPrisma());
   });
 
   server.post("/", { preHandler: [server.authenticate] }, async (request) => {
     const validated = createRaffleSchema.parse(request.body);
-    return raffleService.create(prisma, validated);
+    return raffleService.create(getPrisma(), validated);
   });
 
   server.put("/:id", { preHandler: [server.authenticate] }, async (request, reply) => {
@@ -107,7 +113,7 @@ export async function raffleRoutes(server: FastifyInstance) {
       validated.opportunities !== undefined;
 
     if (universeFieldsChanged) {
-      const activeSalesCount = await prisma.ticketSale.count({
+      const activeSalesCount = await getPrisma().ticketSale.count({
         where: {
           raffleId,
           paymentStatus: { in: ["PAID", "PENDING"] },
@@ -121,18 +127,18 @@ export async function raffleRoutes(server: FastifyInstance) {
       }
     }
 
-    return raffleService.update(prisma, raffleId, validated);
+    return raffleService.update(getPrisma(), raffleId, validated);
   });
 
   server.patch("/:id/status", { preHandler: [server.authenticate] }, async (request) => {
     const { id } = request.params as { id: string };
     const validated = updateRaffleStatusSchema.parse(request.body);
-    return raffleService.update(prisma, parseInt(id), validated);
+    return raffleService.update(getPrisma(), parseInt(id), validated);
   });
 
   server.delete("/:id", { preHandler: [server.authenticate] }, async (request) => {
     const { id } = request.params as { id: string };
-    await raffleService.delete(prisma, parseInt(id));
+    await raffleService.delete(getPrisma(), parseInt(id));
     return { success: true };
   });
 }

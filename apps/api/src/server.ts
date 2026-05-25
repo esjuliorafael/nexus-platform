@@ -107,7 +107,10 @@ async function bootstrap() {
       }
 
       server.log.error(error);
-      return reply.status(500).send({ message: "Internal server error" });
+      return reply.status(500).send({ 
+        message: "Internal server error",
+        error: process.env.NODE_ENV === 'development' ? error.message : error.message // Temporarily show error message to debug VPS issues
+      });
     });
 
     // Ensure worker is running
