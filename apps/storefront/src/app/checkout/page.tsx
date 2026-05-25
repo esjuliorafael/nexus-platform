@@ -72,12 +72,20 @@ export default function CheckoutPage() {
     const hasBirds = items.some(i => i.type === 'bird');
     const hasItems = items.some(i => i.type === 'item');
     
-    // Configuración desde Admin
-    const freeBirds = getSetting('general', 'shipping_free_threshold_birds') === '1';
-    const freeItems = getSetting('general', 'shipping_free_threshold_items') === '1';
-    const costStandard = Number(getSetting('general', 'shipping_cost_standard') || 0);
-    const costExtended = Number(getSetting('general', 'shipping_cost_extended') || 0);
-    const costBaseItems = Number(getSetting('general', 'shipping_base_cost_items') || 0);
+    // Configuración Robusta (busca en cualquier grupo)
+    const findSetting = (key: string) => {
+      if (!settings) return null;
+      for (const group in settings) {
+        if (settings[group][key] !== undefined) return settings[group][key];
+      }
+      return null;
+    };
+
+    const freeBirds = findSetting('shipping_free_threshold_birds') === '1';
+    const freeItems = findSetting('shipping_free_threshold_items') === '1';
+    const costStandard = Number(findSetting('shipping_cost_standard') || 0);
+    const costExtended = Number(findSetting('shipping_cost_extended') || 0);
+    const costBaseItems = Number(findSetting('shipping_base_cost_items') || 0);
 
     let total = 0;
     const details = [];
