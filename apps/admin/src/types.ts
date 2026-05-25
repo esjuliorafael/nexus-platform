@@ -105,6 +105,7 @@ export interface StateZone {
   id: string;
   name: string;
   zone: ShippingZone;
+  active: boolean;
 }
 
 export interface ShippingConfig {

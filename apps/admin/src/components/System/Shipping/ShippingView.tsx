@@ -108,7 +108,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
     }));
 
     const updateAllZones = (zone: ShippingZone) => {
-      setLocalStates(prev => prev.map(s => ({ ...s, zone })));
+      setLocalStates(prev => prev.map(s => ({ ...s, zone, active: true })));
     };
 
     const toggleStateZone = (id: string) => {
@@ -117,9 +117,16 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
       ));
     };
 
+    const toggleStateActive = (id: string) => {
+      setLocalStates(prev => prev.map(s => 
+        s.id === id ? { ...s, active: !s.active } : s
+      ));
+    };
+
     const stats = {
-      standard: localStates.filter(s => s.zone === 'STANDARD').length,
-      extended: localStates.filter(s => s.zone === 'EXTENDED').length,
+      standard: localStates.filter(s => s.zone === 'STANDARD' && s.active).length,
+      extended: localStates.filter(s => s.zone === 'EXTENDED' && s.active).length,
+      inactive: localStates.filter(s => !s.active).length
     };
 
     if (isLoading) {
@@ -156,10 +163,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
             action={
               <div className="flex gap-2">
                 <NexusSectionButton onClick={() => updateAllZones('STANDARD')} variant="secondary" className="hidden sm:flex">
-                  Todos Normal
-                </NexusSectionButton>
-                <NexusSectionButton onClick={() => updateAllZones('EXTENDED')} variant="secondary" className="hidden sm:flex">
-                  Todos Extendida
+                  Habilitar Todos (Normal)
                 </NexusSectionButton>
                 <NexusSectionButton onClick={() => setSubView('config')} variant="brand">
                   Volver
@@ -173,24 +177,43 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                   key={state.id}
                   delay={`${idx * 40}ms`}
                   icon={MapPin}
-                  iconVariant={state.zone === 'STANDARD' ? 'emerald' : 'orange'}
+                  iconVariant={!state.active ? 'muted' : state.zone === 'STANDARD' ? 'emerald' : 'orange'}
+                  isMuted={!state.active}
                   title={state.name}
                   subtitle={
-                    <span className={`text-secondary font-bold ${state.zone === 'STANDARD' ? 'text-emerald-600' : 'text-orange-600'}`}>
-                      {state.zone === 'STANDARD' ? 'Zona Normal' : 'Zona Extendida'}
+                    <span className={`text-secondary font-bold ${!state.active ? 'text-text-muted' : state.zone === 'STANDARD' ? 'text-emerald-600' : 'text-orange-600'}`}>
+                      {!state.active ? 'Sin Cobertura' : state.zone === 'STANDARD' ? 'Zona Normal' : 'Zona Extendida'}
                     </span>
                   }
                   actions={
-                    <NexusCardButton 
-                      onClick={() => toggleStateZone(state.id)}
-                      variant={state.zone === 'STANDARD' ? 'secondary' : 'brand'}
-                    >
-                      {state.zone === 'STANDARD' ? 'Normal' : 'Extendida'}
-                    </NexusCardButton>
+                    <div className="flex items-center gap-4">
+                      {/* Toggle para Tipo de Zona */}
+                      {state.active && (
+                        <NexusCardButton 
+                          onClick={() => toggleStateZone(state.id)}
+                          variant={state.zone === 'STANDARD' ? 'secondary' : 'brand'}
+                        >
+                          {state.zone === 'STANDARD' ? 'Cambiar a Extendida' : 'Cambiar a Normal'}
+                        </NexusCardButton>
+                      )}
+                      
+                      {/* Switch para Activo/Inactivo */}
+                      <div className="flex items-center gap-3 pl-4 border-l border-border-main">
+                        <span className="text-[10px] font-black uppercase text-stone-400 tracking-widest hidden sm:inline">Visible</span>
+                        <button 
+                          onClick={() => toggleStateActive(state.id)}
+                          className={`w-12 h-6 rounded-full transition-all relative active:scale-90 ${
+                            state.active ? 'bg-emerald-500 shadow-sm shadow-emerald-500/30' : 'bg-stone-200'
+                          }`}
+                          style={{ transitionTimingFunction: 'var(--ease-emil)' }}
+                        >
+                          <div className={`absolute top-1 w-4 h-4 rounded-full bg-bg-card shadow-sm transition-all ${
+                            state.active ? 'left-7' : 'left-1'
+                          }`} />
+                        </button>
+                      </div>
+                    </div>
                   }
-                  swipeable
-                  onEdit={() => setLocalStates(prev => prev.map(s => s.id === state.id ? { ...s, zone: 'STANDARD' } : s))}
-                  onDelete={() => setLocalStates(prev => prev.map(s => s.id === state.id ? { ...s, zone: 'EXTENDED' } : s))}
                 />
               ))}
             </div>
@@ -348,6 +371,16 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                   <span className="text-label uppercase tracking-[0.3em] text-text-muted">Zona Extendida</span>
                   <div className="flex items-baseline gap-2">
                     <span className="text-hero tabular-nums text-orange-400">{stats.extended}</span>
+                    <span className="text-secondary text-text-muted font-bold">Estados</span>
+                  </div>
+                </div>
+
+                <div className="w-[1px] h-16 bg-white/10 hidden sm:block" />
+
+                <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
+                  <span className="text-label uppercase tracking-[0.3em] text-text-muted">Inactivos</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-hero tabular-nums text-stone-500">{stats.inactive}</span>
                     <span className="text-secondary text-text-muted font-bold">Estados</span>
                   </div>
                 </div>

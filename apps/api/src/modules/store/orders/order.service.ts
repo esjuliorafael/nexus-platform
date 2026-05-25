@@ -62,7 +62,7 @@ export const orderService = {
     let shippingCost = 0;
     if (data.deliveryType === "SHIPPING") {
       const shippingZone = await storePrisma.shippingZone.findFirst({
-        where: { state: data.shippingState },
+        where: { name: data.shippingState },
       });
 
       const costBaseKey = shippingZone?.zoneType === "EXTENDED" 

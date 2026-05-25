@@ -34,7 +34,7 @@ export const settingService = {
     });
   },
 
-  async bulkUpsert(settings: { key: string; value: string }[]) {
+  async bulkUpsert(settings: { key: string; value: string; group?: string }[]) {
     const { rafflePrisma } = await import("@nexus/db/raffle");
 
     const storeSettings = settings.filter(s => !s.key.startsWith('raffle_'));

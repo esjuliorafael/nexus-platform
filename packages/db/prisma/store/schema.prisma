@@ -193,6 +193,7 @@ model ShippingZone {
   id       Int          @id @default(autoincrement())
   name     String       @map("state")
   zoneType ShippingType @default(STANDARD) @map("zone_type")
+  active   Boolean      @default(true) @map("active")
 
   @@map("shipping_zones")
 }

@@ -336,20 +336,20 @@ export const apiSystem = {
     return res.data.map((item: any) => ({
         id: item.id.toString(),
         name: item.name,
-        zone: item.zoneType
+        zone: item.zoneType,
+        active: item.active
     }));
   },
 
-  updateShippingZone: async (id: string, zone: string) => {
-    return api.put(`/admin/shipping-zones/${id}`, { 
-      zoneType: zone 
-    });
+  updateShippingZone: async (id: string, data: { zoneType?: string, active?: boolean }) => {
+    return api.put(`/admin/shipping-zones/${id}`, data);
   },
 
   updateShippingZones: async (zones: any[]) => {
     const promises = zones.map(z => 
       api.put(`/admin/shipping-zones/${z.id}`, { 
-        zoneType: z.zone 
+        zoneType: z.zone,
+        active: z.active
       })
     );
     return Promise.all(promises);
