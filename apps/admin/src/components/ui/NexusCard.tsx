@@ -11,12 +11,13 @@ interface NexusCardBaseProps {
   onDelete?: () => void;
   isMuted?: boolean;
   className?: string;
+  innerClassName?: string;
   delay?: string;
   style?: React.CSSProperties;
 }
 
 const NexusCardBase: React.FC<NexusCardBaseProps> = ({
-  children, level, swipeable, onEdit, onDelete, isMuted, className = '', delay = '0ms', style
+  children, level, swipeable, onEdit, onDelete, isMuted, className = '', innerClassName = '', delay = '0ms', style
 }) => {
   const [translateX, setTranslateX] = React.useState(0);
   const [isSwiping, setIsSwiping] = React.useState(false);
@@ -62,11 +63,18 @@ const NexusCardBase: React.FC<NexusCardBaseProps> = ({
           </div>
         )}
         <div onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
-          style={{ transform: swipeable ? `translateX(${translateX}px)` : 'none', transition: isSwiping ? 'none' : 'transform 0.4s var(--ease-emil)', borderRadius: radiusToken, padding: 'var(--padding-inner)' }}
-          className={`relative z-10 bg-bg-card border border-border-main transition-all duration-700 hover:shadow-xl hover:shadow-stone-200/30 overflow-hidden flex-1 flex flex-col ${isMuted ? 'opacity-60 grayscale-[0.5]' : 'shadow-sm'}`}
+          style={{ 
+            transform: swipeable ? `translateX(${translateX}px)` : 'none', 
+            transition: isSwiping ? 'none' : 'transform 0.4s var(--ease-emil)', 
+            borderRadius: radiusToken, 
+            padding: 'var(--padding-inner)' 
+          }}
+          className={`relative z-10 bg-bg-card border border-border-main transition-all duration-700 hover:shadow-xl hover:shadow-stone-200/30 overflow-hidden flex-1 flex flex-col shadow-sm ${innerClassName}`}
         >
           <div className="absolute inset-0 pointer-events-none opacity-[0.015]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)', backgroundSize: '20px 20px' }} />
-          <div className="relative z-10 flex-1 flex flex-col">{children}</div>
+          <div className={`relative z-10 flex-1 flex flex-col transition-opacity duration-500 ${isMuted ? 'opacity-60 grayscale-[0.5]' : 'opacity-100'}`}>
+            {children}
+          </div>
         </div>
       </div>
     </div>

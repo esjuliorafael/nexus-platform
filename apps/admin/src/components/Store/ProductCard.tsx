@@ -1,7 +1,8 @@
-import React, { useState, useRef } from 'react';
+import React, { useRef } from 'react';
 import { Edit2, Trash2, Box, Package, Hash, CircleCheck, Clock, CircleX } from 'lucide-react';
 import { Product } from '../../types';
-import { NexusButton, NexusAutonomousButton } from '../ui/NexusButton';
+import { NexusAutonomousButton } from '../ui/NexusButton';
+import { NexusAutonomousCard } from '../ui/NexusCard';
 import { ASSET_BASE_URL } from '../../api';
 
 interface ProductCardProps {
@@ -12,18 +13,8 @@ interface ProductCardProps {
 }
 
 export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDelete, style }) => {
-  // --- STATE & REFS ---
-  const [translateX, setTranslateX] = useState(0);
-  const [isSwiping, setIsSwiping] = useState(false);
-  const [activeSide, setActiveSide] = useState<'none' | 'left' | 'right'>('none');
-  
-  const touchStart = useRef(0);
-  const touchX = useRef(0);
   const videoRef = useRef<HTMLVideoElement>(null);
   
-  const SWIPE_THRESHOLD = 80;
-  const ACTION_WIDTH = 100;
-
   // Utilidad para asegurar que la URL sea absoluta
   const getFullUrl = (path?: string) => {
     if (!path) return '';
@@ -57,11 +48,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
     switch (s) {
       case 'available': 
         return { 
-          mobileBorder: 'border-border-main',
-          mobileAccent: '',
+          innerStyles: 'border-border-main',
           thumbOverlay: '',
           thumbFilter: '',
-          cardOpacity: '',
+          isMuted: false,
           pillStyle: 'bg-emerald-50 text-emerald-600 border-emerald-100', 
           label: 'Disponible',
           icon: <CircleCheck size={14} strokeWidth={2.5} />,
@@ -69,11 +59,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
         };
       case 'reserved': 
         return { 
-          mobileBorder: 'border-amber-100',
-          mobileAccent: 'border-l-[3px] border-l-amber-400',
+          innerStyles: 'border-amber-100 border-l-[3px] border-l-amber-400',
           thumbOverlay: 'bg-amber-400/[0.18]',
           thumbFilter: '',
-          cardOpacity: '',
+          isMuted: false,
           pillStyle: 'bg-amber-50 text-amber-600 border-amber-100', 
           label: 'Reservado',
           icon: <Clock size={14} strokeWidth={2.5} />,
@@ -81,11 +70,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
         };
       case 'sold': 
         return { 
-          mobileBorder: 'border-rose-100',
-          mobileAccent: 'border-l-[3px] border-l-rose-400',
+          innerStyles: 'border-rose-100 border-l-[3px] border-l-rose-400',
           thumbOverlay: 'bg-stone-500/[0.22]',
           thumbFilter: 'grayscale',
-          cardOpacity: 'opacity-75',
+          isMuted: true,
           pillStyle: 'bg-rose-50 text-rose-600 border-rose-100', 
           label: 'Vendido',
           icon: <CircleX size={14} strokeWidth={2.5} />,
@@ -93,11 +81,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
         };
       default: 
         return { 
-          mobileBorder: 'border-border-main',
-          mobileAccent: '',
+          innerStyles: 'border-border-main',
           thumbOverlay: '',
           thumbFilter: '',
-          cardOpacity: '',
+          isMuted: false,
           pillStyle: 'bg-bg-muted text-text-muted border-border-main', 
           label: status,
           icon: <CircleCheck size={14} strokeWidth={2.5} />,
@@ -108,90 +95,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
 
   const statusConfig = getStatusConfig(product.saleStatus);
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStart.current = e.touches[0].clientX;
-    touchX.current = touchStart.current;
-    setIsSwiping(true);
-  };
-
-  const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isSwiping) return;
-    const currentX = e.touches[0].clientX;
-    const diff = currentX - touchStart.current;
-    
-    let finalTranslate = diff;
-    if (activeSide === 'left') finalTranslate = ACTION_WIDTH + diff;
-    if (activeSide === 'right') finalTranslate = -ACTION_WIDTH + diff;
-
-    setTranslateX(finalTranslate);
-    touchX.current = currentX;
-  };
-
-  const handleTouchEnd = () => {
-    setIsSwiping(false);
-    const diff = touchX.current - touchStart.current;
-    
-    if (diff > SWIPE_THRESHOLD && activeSide !== 'right') {
-      setTranslateX(ACTION_WIDTH);
-      setActiveSide('left');
-    } else if (diff < -SWIPE_THRESHOLD && activeSide !== 'left') {
-      setTranslateX(-ACTION_WIDTH);
-      setActiveSide('right');
-    } else {
-      setTranslateX(0);
-      setActiveSide('none');
-    }
-  };
-
-  const resetSwipe = () => {
-    setTranslateX(0);
-    setActiveSide('none');
-  };
-
   return (
-    <div 
-      style={{ 
-        ...style,
-        borderRadius: 'var(--radius-outer)'
-      }}
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-      className={`group relative shadow-sm dark:shadow-none hover:shadow-xl hover:shadow-stone-200/40 overflow-hidden transition-all duration-700 border bg-bg-card ${statusConfig.mobileBorder} ${statusConfig.mobileAccent} ${statusConfig.cardOpacity} sm:border-border-main active:scale-[0.995] animate-in fade-in duration-500`}
+    <NexusAutonomousCard
+      onEdit={onEdit}
+      onDelete={onDelete}
+      swipeable
+      isMuted={statusConfig.isMuted}
+      innerClassName={`hover:shadow-xl hover:shadow-stone-200/40 active:scale-[0.995] transition-all duration-700 ${statusConfig.innerStyles}`}
+      style={style}
     >
-      {/* Mobile Swipe Actions */}
-      <div className="absolute inset-0 flex sm:hidden">
-        <NexusButton 
-          onClick={() => { onEdit(); resetSwipe(); }}
-          variant="brand"
-          className="absolute inset-y-0 left-0 w-[100px] h-full rounded-none"
-          isIconOnly
-          icon={Edit2}
-        >
-          Editar
-        </NexusButton>
-
-        <NexusButton 
-          onClick={() => { onDelete(); resetSwipe(); }}
-          variant="danger"
-          className="absolute inset-y-0 right-0 w-[100px] h-full rounded-none"
-          isIconOnly
-          icon={Trash2}
-        >
-          Eliminar
-        </NexusButton>
-      </div>
-
       <div 
-        onTouchStart={handleTouchStart}
-        onTouchMove={handleTouchMove}
-        onTouchEnd={handleTouchEnd}
-        style={{ 
-          transform: `translateX(${translateX}px)`,
-          transition: isSwiping ? 'none' : 'transform 0.4s var(--ease-emil)',
-          padding: 'var(--padding-inner)',
-          gap: 'var(--space-md)'
-        }}
-        className="relative z-10 bg-bg-card flex flex-row items-center w-full"
+        onMouseEnter={handleMouseEnter}
+        onMouseLeave={handleMouseLeave}
+        className="flex flex-row items-center w-full"
+        style={{ gap: 'var(--space-md)' }}
       >
         {/* Thumbnail: Level 2 Card Radius */}
         <div 
@@ -318,9 +235,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
                 icon={Trash2}
                 className="hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100"
               />
-            </div>          </div>
+            </div>
+          </div>
         </div>
       </div>
-    </div>
+    </NexusAutonomousCard>
   );
 };

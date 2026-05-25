@@ -3,6 +3,7 @@ import { Edit2, Trash2, Tag, Plus, Layers } from 'lucide-react';
 import { Category } from '../../types';
 import { NexusAutonomousButton } from '../ui/NexusButton';
 import { NexusAutonomousIcon } from '../ui/NexusIcon';
+import { NexusAutonomousCard } from '../ui/NexusCard';
 
 interface CategoryCardProps {
   category: Category;
@@ -20,13 +21,12 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
   style 
 }) => {
   return (
-    <div 
-      style={{ 
-        ...style,
-        borderRadius: 'var(--radius-outer)',
-        padding: 'var(--padding-inner)'
-      }}
-      className="flex flex-col bg-bg-card shadow-sm dark:shadow-none border border-border-main hover:shadow-xl hover:shadow-stone-200/40 transition-all duration-700 animate-in fade-in zoom-in-95 group justify-between"
+    <NexusAutonomousCard
+      onEdit={() => onEdit(category)}
+      onDelete={() => onDelete(category.id)}
+      swipeable
+      innerClassName="flex flex-col justify-between"
+      style={style}
     >
       <div className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
         {/* Header de la Tarjeta */}
@@ -34,11 +34,11 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
           <NexusAutonomousIcon
             icon={Tag}
             variant="brand"
-            hoverGroup="group"
-            className="group-hover:bg-brand-500 group-hover:text-white"
+            hoverGroup="group/card"
+            className="group-hover/card:bg-brand-500 group-hover/card:text-white"
           />
           
-          <div className="flex items-center opacity-0 group-hover:opacity-100 transition-opacity duration-300" style={{ gap: 'var(--space-sm)' }}>
+          <div className="hidden sm:flex items-center opacity-0 group-hover/card:opacity-100 transition-opacity duration-300" style={{ gap: 'var(--space-sm)' }}>
             <NexusAutonomousButton 
               variant="secondary"
               isIconOnly
@@ -103,6 +103,6 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
           Nueva Sub
         </NexusAutonomousButton>
       </div>
-    </div>
+    </NexusAutonomousCard>
   );
 };

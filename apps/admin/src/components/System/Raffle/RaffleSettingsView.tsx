@@ -3,7 +3,7 @@ import { Ticket, Info, ShieldCheck } from 'lucide-react';
 import { apiSystem } from '../../../api';
 
 export interface RaffleSettingsViewRef {
-  handleSaveConfig: () => void;
+  handleSave: () => void;
 }
 
 interface RaffleSettingsViewProps {
@@ -41,7 +41,7 @@ export const RaffleSettingsView = forwardRef<RaffleSettingsViewRef, RaffleSettin
 
     // 2. Guardar datos (expuesto al App.tsx)
     useImperativeHandle(ref, () => ({
-      handleSaveConfig: async () => {
+      handleSave: async () => {
         if (isSaving) return;
         setIsSaving(true);
 
