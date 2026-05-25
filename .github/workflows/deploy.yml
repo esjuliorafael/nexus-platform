@@ -43,6 +43,8 @@ jobs:
           file: ./apps/storefront/Dockerfile
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/nexus-storefront:latest
+          build-args: |
+            NEXT_PUBLIC_API_URL=https://api.granjalamanzana.com/api/v1
           cache-from: type=gha
           cache-to: type=inline
 
