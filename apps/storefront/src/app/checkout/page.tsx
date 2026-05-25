@@ -1,24 +1,32 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useCartStore } from '../../store/cart.store';
 import { orderApi } from '../../api/orders';
 import { paymentApi } from '../../api/payments';
+import { settingsApi } from '../../api/settings';
 import { useSettings } from '../../hooks/useSettings';
 import { Button } from '../../components/ui/Button';
 import { Spinner } from '../../components/ui/Spinner';
-import { ShoppingBag, Truck, Store, MapPin, Phone, User, CheckCircle, ArrowRight, CreditCard, Wallet, Info, AlertCircle } from 'lucide-react';
+import { ShoppingBag, Truck, Store, MapPin, Phone, User, CheckCircle, ArrowRight, CreditCard, Wallet, Info, AlertCircle, Search, ChevronDown, Check } from 'lucide-react';
 import Link from 'next/link';
 import { formatPrice } from '../../utils/formatters';
+import { motion, AnimatePresence } from 'framer-motion';
 
 export default function CheckoutPage() {
   const { items, getTotalPrice, clearCart } = useCartStore();
-  const { getSetting, loading: settingsLoading } = useSettings();
+  const { getSetting, isModuleEnabled, loading: settingsLoading } = useSettings();
   const [loading, setLoading] = useState(false);
   const [orderComplete, setOrderComplete] = useState<any>(null);
   const [paymentMethod, setPaymentMethod] = useState<'TRANSFER' | 'MERCADOPAGO'>('TRANSFER');
   const [paymentStatus, setPaymentStatus] = useState<'success' | 'pending' | 'failure' | null>(null);
   const [mounted, setMounted] = useState(false);
+
+  // Estados para Logística
+  const [zones, setZones] = useState<any[]>([]);
+  const [isZoneDropdownOpen, setIsZoneDropdownOpen] = useState(false);
+  const [searchZone, setSearchZone] = useState('');
+  const [selectedZone, setSelectedZone] = useState<any>(null);
 
   const [formData, setFormData] = useState({
     customerName: '',
@@ -31,6 +39,11 @@ export default function CheckoutPage() {
 
   useEffect(() => {
     setMounted(true);
+    // Cargar zonas públicas
+    settingsApi.getPublicShippingZones()
+      .then(data => setZones(data))
+      .catch(err => console.error("Error loading shipping zones:", err));
+
     // Detect Mercado Pago status from URL
     const params = new URLSearchParams(window.location.search);
     const status = params.get('status');
@@ -50,22 +63,79 @@ export default function CheckoutPage() {
     }
   }, []);
 
+  // LÓGICA DE CÁLCULO DE ENVÍO
+  const shippingCalculation = useMemo(() => {
+    if (formData.deliveryType === 'PICKUP' || !selectedZone) {
+      return { total: 0, reason: 'Gratis (Recoger)', details: [] };
+    }
+
+    const hasBirds = items.some(i => i.type === 'bird');
+    const hasItems = items.some(i => i.type === 'item');
+    
+    // Configuración desde Admin
+    const freeBirds = getSetting('general', 'shipping_free_threshold_birds') === '1';
+    const freeItems = getSetting('general', 'shipping_free_threshold_items') === '1';
+    const costStandard = Number(getSetting('general', 'shipping_cost_standard') || 0);
+    const costExtended = Number(getSetting('general', 'shipping_cost_extended') || 0);
+    const costBaseItems = Number(getSetting('general', 'shipping_base_cost_items') || 0);
+
+    let total = 0;
+    const details = [];
+
+    // 1. Cálculo para Aves (Basado en Zona)
+    if (hasBirds) {
+      if (freeBirds) {
+        details.push({ label: 'Envío de Aves', amount: 0, note: 'Promoción Envío Gratis' });
+      } else {
+        const amount = selectedZone.zoneType === 'EXTENDED' ? costExtended : costStandard;
+        total += amount;
+        details.push({ 
+          label: `Envío Aves (${selectedZone.zoneType === 'EXTENDED' ? 'Zona Extendida' : 'Zona Normal'})`, 
+          amount,
+          note: selectedZone.name
+        });
+      }
+    }
+
+    // 2. Cálculo para Artículos (Costo Base)
+    if (hasItems) {
+      if (freeItems) {
+        details.push({ label: 'Envío de Productos', amount: 0, note: 'Promoción Envío Gratis' });
+      } else {
+        // Si ya hay costo de aves, el costo de artículos suele ser marginal o incluido, 
+        // pero aquí lo sumamos según la config del admin.
+        total += costBaseItems;
+        details.push({ label: 'Paquetería Productos', amount: costBaseItems });
+      }
+    }
+
+    return { total, details };
+  }, [items, formData.deliveryType, selectedZone, getSetting]);
+
+  const filteredZones = useMemo(() => {
+    return zones.filter(z => z.name.toLowerCase().includes(searchZone.toLowerCase()));
+  }, [zones, searchZone]);
+
   const isMPEnabled = !!getSetting('payments', 'mp_seller_access_token');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (formData.deliveryType === 'SHIPPING' && !selectedZone) {
+      alert("Por favor selecciona un estado para el envío.");
+      return;
+    }
+    
     setLoading(true);
     try {
       const orderData = {
         ...formData,
+        shippingCost: shippingCalculation.total,
         items: items.map(i => ({ productId: i.productId, quantity: i.quantity })),
       };
       
-      console.log('Sending order data:', orderData);
       const createdOrder = await orderApi.create(orderData);
       
       if (paymentMethod === 'MERCADOPAGO') {
-        // Redirigir a Mercado Pago
         const preference = await paymentApi.getPreference(createdOrder.id);
         if (preference.init_point) {
           window.location.href = preference.init_point;
@@ -150,13 +220,6 @@ export default function CheckoutPage() {
         <div className="mb-8 bg-rose-50 border border-rose-100 p-6 rounded-2xl flex items-center gap-4 text-rose-700 animate-in slide-in-from-top-4 duration-500">
           <AlertCircle size={24} />
           <p className="font-bold uppercase tracking-tight text-sm">El pago no pudo ser procesado. Por favor, intenta de nuevo o elige otro método.</p>
-        </div>
-      )}
-
-      {paymentStatus === 'pending' && (
-        <div className="mb-8 bg-amber-50 border border-amber-100 p-6 rounded-2xl flex items-center gap-4 text-amber-700 animate-in slide-in-from-top-4 duration-500">
-          <Info size={24} />
-          <p className="font-bold uppercase tracking-tight text-sm">Tu pago está en proceso de validación. Te avisaremos por WhatsApp en cuanto se apruebe.</p>
         </div>
       )}
 
@@ -254,16 +317,72 @@ export default function CheckoutPage() {
                   Dirección de Envío
                 </h3>
                 <div className="space-y-6">
-                  <div className="group space-y-2">
-                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-1 group-focus-within:text-brand-500 transition-colors">Estado</label>
-                    <input
-                      required
-                      placeholder="Ej. Michoacán"
-                      className="w-full h-14 bg-stone-50 border border-stone-100 rounded-2xl px-5 focus:outline-none focus:ring-4 focus:ring-brand-500/5 focus:border-brand-500 font-bold text-stone-800 shadow-sm"
-                      value={formData.shippingState}
-                      onChange={(e) => setFormData({ ...formData, shippingState: e.target.value })}
-                    />
+                  {/* Selector de Estado con Autocompletado */}
+                  <div className="group space-y-2 relative">
+                    <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-1 group-focus-within:text-brand-500 transition-colors">Estado de la República</label>
+                    <div 
+                      className={`w-full h-14 bg-stone-50 border rounded-2xl px-5 flex items-center justify-between cursor-pointer transition-all shadow-sm ${isZoneDropdownOpen ? 'border-brand-500 ring-4 ring-brand-500/5' : 'border-stone-100 hover:border-stone-200'}`}
+                      onClick={() => setIsZoneDropdownOpen(!isZoneDropdownOpen)}
+                    >
+                      <span className={`font-bold ${selectedZone ? 'text-stone-800' : 'text-stone-400'}`}>
+                        {selectedZone ? selectedZone.name : 'Selecciona tu estado...'}
+                      </span>
+                      <ChevronDown size={18} className={`text-stone-400 transition-transform duration-300 ${isZoneDropdownOpen ? 'rotate-180' : ''}`} />
+                    </div>
+
+                    <AnimatePresence>
+                      {isZoneDropdownOpen && (
+                        <motion.div 
+                          initial={{ opacity: 0, y: -10 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          exit={{ opacity: 0, y: -10 }}
+                          className="absolute z-[60] left-0 right-0 top-[calc(100%+8px)] bg-white border border-stone-100 rounded-[2rem] shadow-2xl overflow-hidden"
+                        >
+                          <div className="p-4 border-b border-stone-50 bg-stone-50/50 flex items-center gap-3">
+                            <Search size={16} className="text-stone-400" />
+                            <input 
+                              autoFocus
+                              placeholder="Buscar estado..."
+                              className="bg-transparent border-none focus:outline-none w-full font-bold text-sm text-stone-800"
+                              value={searchZone}
+                              onChange={(e) => setSearchZone(e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                            />
+                          </div>
+                          <div className="max-h-64 overflow-y-auto custom-scrollbar">
+                            {filteredZones.length > 0 ? (
+                              filteredZones.map(zone => (
+                                <div 
+                                  key={zone.id}
+                                  className="px-6 py-4 hover:bg-brand-50 cursor-pointer flex items-center justify-between group transition-colors"
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    setSelectedZone(zone);
+                                    setFormData({ ...formData, shippingState: zone.name });
+                                    setIsZoneDropdownOpen(false);
+                                    setSearchZone('');
+                                  }}
+                                >
+                                  <div className="flex flex-col">
+                                    <span className="font-bold text-stone-800 group-hover:text-brand-700">{zone.name}</span>
+                                    <span className="text-[9px] font-black uppercase text-stone-400 tracking-widest">
+                                      {zone.zoneType === 'EXTENDED' ? 'Zona Extendida' : 'Zona Normal'}
+                                    </span>
+                                  </div>
+                                  {selectedZone?.id === zone.id && <Check size={18} className="text-brand-500" />}
+                                </div>
+                              ))
+                            ) : (
+                              <div className="px-6 py-10 text-center text-stone-400 font-medium italic text-sm">
+                                No se encontraron resultados.
+                              </div>
+                            )}
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </div>
+
                   <div className="group space-y-2">
                     <label className="text-[10px] font-black uppercase text-stone-400 tracking-widest ml-1 group-focus-within:text-brand-500 transition-colors">Dirección Completa</label>
                     <textarea
@@ -360,13 +479,39 @@ export default function CheckoutPage() {
                 <span>Subtotal</span>
                 <span className="text-stone-300 tabular-nums">${formatPrice(getTotalPrice())}</span>
               </div>
+              
+              <AnimatePresence>
+                {formData.deliveryType === 'SHIPPING' && selectedZone && (
+                  <motion.div 
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: 'auto' }}
+                    exit={{ opacity: 0, height: 0 }}
+                    className="space-y-3"
+                  >
+                    {shippingCalculation.details.map((detail, idx) => (
+                      <div key={idx} className="flex justify-between items-center text-stone-500 font-black uppercase tracking-widest text-[10px]">
+                        <span>{detail.label}</span>
+                        <span className="text-stone-300 tabular-nums">
+                          {detail.amount > 0 ? `$${formatPrice(detail.amount)}` : '¡Gratis!'}
+                        </span>
+                      </div>
+                    ))}
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               <div className="flex justify-between items-center text-stone-500 font-black uppercase tracking-widest text-[10px]">
-                <span>Envío</span>
-                <span className="text-stone-300 italic">{formData.deliveryType === 'SHIPPING' ? 'Pendiente' : 'Gratis'}</span>
+                <span>Envío Total</span>
+                <span className="text-stone-300 italic">
+                  {formData.deliveryType === 'PICKUP' ? 'Gratis (Recoger)' : (selectedZone ? `$${formatPrice(shippingCalculation.total)}` : 'Pendiente')}
+                </span>
               </div>
+
               <div className="flex justify-between items-center pt-6 text-5xl font-black tracking-tighter">
                 <span className="italic lora text-stone-400 text-3xl">Total</span>
-                <span className="text-brand-400 tabular-nums">${formatPrice(getTotalPrice())}</span>
+                <span className="text-brand-400 tabular-nums">
+                  ${formatPrice(getTotalPrice() + shippingCalculation.total)}
+                </span>
               </div>
             </div>
             
@@ -374,7 +519,9 @@ export default function CheckoutPage() {
                <div className="flex items-start gap-4">
                   <Info size={18} className="text-brand-400 shrink-0 mt-1" />
                   <p className="text-[10px] font-medium leading-relaxed text-stone-400 uppercase tracking-widest">
-                    Al confirmar, aceptas nuestras políticas de venta y tiempos de entrega estipulados.
+                    {selectedZone 
+                      ? `Enviando a ${selectedZone.name}. Entrega estimada de 3 a 5 días hábiles.`
+                      : 'Al confirmar, aceptas nuestras políticas de venta y tiempos de entrega estipulados.'}
                   </p>
                </div>
             </div>
