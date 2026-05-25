@@ -41,5 +41,14 @@ export function useSettings() {
     return settings?.[group]?.[key] ?? defaultValue;
   };
 
-  return { settings, loading, error, getBranding, getContact, getSetting };
+  const isModuleEnabled = (moduleKey: string) => {
+    // Search in any group for the enable flag
+    if (!settings) return false;
+    for (const group in settings) {
+      if (settings[group][moduleKey] === '1') return true;
+    }
+    return false;
+  };
+
+  return { settings, loading, error, getBranding, getContact, getSetting, isModuleEnabled };
 }

@@ -32,7 +32,7 @@ export const Header: React.FC<HeaderProps> = ({
     'Inicio',
     'Galería',
     'Tienda',
-    ...((import.meta.env.VITE_RAFFLE_ENABLED === 'true' && raffleEnabled) ? ['Rifas'] : []),
+    ...(raffleEnabled ? ['Rifas'] : []),
     'Sistema',
   ];
 

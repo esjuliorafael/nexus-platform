@@ -13,9 +13,9 @@ interface ClientLayoutProps {
 
 export function ClientLayout({ children }: ClientLayoutProps) {
   const [isCartOpen, setIsCartOpen] = useState(false);
-  const { getSetting } = useSettings();
+  const { isModuleEnabled } = useSettings();
   
-  const showRaffles = getSetting('general', 'raffle_enabled') === '1';
+  const showRaffles = isModuleEnabled('raffle_enabled');
 
   return (
     <div className="min-h-screen flex flex-col">

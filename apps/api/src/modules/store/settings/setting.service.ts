@@ -3,19 +3,21 @@ import { storePrisma } from "@nexus/db/store";
 export const settingService = {
   async getAllGrouped() {
     const storeSettings = await storePrisma.setting.findMany();
-    let allSettings = [...storeSettings];
-
+    
+    let raffleSettings: any[] = [];
     if (process.env.RAFFLE_ENABLED === "true") {
       try {
         const { rafflePrisma } = await import("@nexus/db/raffle");
-        const raffleSettings = await rafflePrisma.setting.findMany();
-        allSettings = [...allSettings, ...raffleSettings];
+        raffleSettings = await rafflePrisma.setting.findMany();
       } catch (e) {
         console.error("Error fetching raffle settings", e);
       }
     }
 
-    return allSettings.reduce((acc: any, setting) => {
+    // Combine settings giving priority to store settings for core flags like raffle_enabled
+    const combinedSettings = [...raffleSettings, ...storeSettings];
+
+    return combinedSettings.reduce((acc: any, setting) => {
       if (!acc[setting.group]) acc[setting.group] = {};
       acc[setting.group][setting.key] = setting.value;
       return acc;

@@ -14,11 +14,11 @@ import { Badge } from '../../components/ui/Badge';
 import { useSettings } from '../../hooks/useSettings';
 
 export default function RafflesPage() {
-  const { getSetting } = useSettings();
+  const { isModuleEnabled } = useSettings();
   const [raffles, setRaffles] = useState<Raffle[]>([]);
   const [loading, setLoading] = useState(true);
   
-  const isRaffleEnabled = getSetting('general', 'raffle_enabled') === '1' || process.env.NEXT_PUBLIC_RAFFLE_ENABLED === 'true';
+  const isRaffleEnabled = isModuleEnabled('raffle_enabled') || process.env.NEXT_PUBLIC_RAFFLE_ENABLED === 'true';
 
   useEffect(() => {
     if (isRaffleEnabled) {
