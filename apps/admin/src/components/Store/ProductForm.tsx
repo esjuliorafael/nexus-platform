@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useEffect, useMemo, useImperativeHandle, forwardRef } from 'react';
 import { Upload, X, DollarSign, Image as ImageIcon, Trash2, Package, Box, PlayCircle, Film, Image as ImageIconLucide, Check, Save } from 'lucide-react';
 import { Product } from '../../types';
 import { apiProducts, apiUpload } from '../../api';
@@ -14,32 +14,39 @@ interface ProductFormProps {
   showToast?: (msg: string, type: 'success' | 'error') => void;
 }
 
-export const ProductForm: React.FC<ProductFormProps> = ({ initialData, onCancel, onSave, onValidationChange, showToast }) => {
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
-  
-  const [productType, setProductType] = useState<'BIRD' | 'ITEM'>((initialData?.type?.toUpperCase() as 'BIRD' | 'ITEM') || 'BIRD');
-  const [name, setName] = useState(initialData?.name || '');
-  const [price, setPrice] = useState(initialData?.price.toString() || '');
-  const [status, setStatus] = useState(initialData?.status || 'available');
-  const [description, setDescription] = useState(initialData?.description || '');
-  
-  const [ringNumber, setRingNumber] = useState(initialData?.ringNumber || '');
-  const [age, setAge] = useState<Product['age']>(initialData?.age || 'STAG');
-  const [purpose, setPurpose] = useState<Product['purpose']>(initialData?.purpose || 'COMBAT');
-  
-  const [stock, setStock] = useState(initialData?.stock?.toString() || '');
+export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormProps>(
+  ({ initialData, onCancel, onSave, onValidationChange, showToast }, ref) => {
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isProcessing, setIsProcessing] = useState(false);
+    
+    const [productType, setProductType] = useState<'BIRD' | 'ITEM'>((initialData?.type?.toUpperCase() as 'BIRD' | 'ITEM') || 'BIRD');
+    const [name, setName] = useState(initialData?.name || '');
+    const [price, setPrice] = useState(initialData?.price.toString() || '');
+    const [status, setStatus] = useState(initialData?.status || 'available');
+    const [description, setDescription] = useState(initialData?.description || '');
+    
+    const [ringNumber, setRingNumber] = useState(initialData?.ringNumber || '');
+    const [age, setAge] = useState<Product['age']>(initialData?.age || 'STAG');
+    const [purpose, setPurpose] = useState<Product['purpose']>(initialData?.purpose || 'COMBAT');
+    
+    const [stock, setStock] = useState(initialData?.stock?.toString() || '');
 
-  const [coverUrl, setCoverUrl] = useState<string | null>(initialData?.imageUrl || null);
-  const [coverFile, setCoverFile] = useState<File | null>(null);
+    const [coverUrl, setCoverUrl] = useState<string | null>(initialData?.imageUrl || null);
+    const [coverFile, setCoverFile] = useState<File | null>(null);
 
-  const [galleryUrls, setGalleryUrls] = useState<string[]>(initialData?.gallery || []);
-  const [galleryFiles, setGalleryFiles] = useState<File[]>([]); 
+    const [galleryUrls, setGalleryUrls] = useState<string[]>(initialData?.gallery || []);
+    const [galleryFiles, setGalleryFiles] = useState<File[]>([]); 
 
-  const coverInputRef = useRef<HTMLInputElement>(null);
-  const galleryInputRef = useRef<HTMLInputElement>(null);
+    const coverInputRef = useRef<HTMLInputElement>(null);
+    const galleryInputRef = useRef<HTMLInputElement>(null);
 
-  const isFormValid = !!coverUrl && !!name && !!price && (productType === 'BIRD' ? !!ringNumber : !!stock) && !isProcessing;
+    useImperativeHandle(ref, () => ({
+      handleSave: () => {
+        handleSubmit();
+      }
+    }));
+
+    const isFormValid = !!coverUrl && !!name && !!price && (productType === 'BIRD' ? !!ringNumber : !!stock) && !isProcessing;
 
   useEffect(() => {
     onValidationChange?.(isFormValid);
