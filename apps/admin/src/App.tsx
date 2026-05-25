@@ -183,6 +183,9 @@ function App() {
     }
   });
 
+  const storeRef = React.useRef<StoreViewRef>(null);
+  const galleryRef = React.useRef<GalleryViewRef>(null);
+
   const [activeTab, setActiveTab] = useState<'Inicio' | 'Galería' | 'Tienda' | 'Órdenes' | 'Sistema' | 'Rifas'>('Inicio');
   const [galleryViewMode, setGalleryViewMode] = useState<'list' | 'create' | 'media_edit' | 'category_create' | 'categories_list' | 'category_edit'>('list');
   const [storeViewMode, setStoreViewMode] = useState<'list' | 'create' | 'edit' | 'orders' | 'order-detail'>('list');
@@ -400,7 +403,8 @@ function App() {
           </NexusSectionButton>
           <NexusSectionButton 
             onClick={() => {
-              if (isCreatingProduct || isEditingProduct) (storeViewMode === 'create' ? null : null); // Trigger save from ref if needed
+              if (isCreatingProduct || isEditingProduct) storeRef.current?.handleSave();
+              if (isCreatingMedia || isEditingMedia || isCategoryForm) galleryRef.current?.handleSave();
             }} 
             variant="brand"
             icon={Save}
@@ -520,7 +524,7 @@ function App() {
 
             <div className="flex-1">
               {isGalleryMode ? (
-                <GalleryView searchQuery={searchQuery} viewMode={galleryViewMode} onSetViewMode={setGalleryViewMode} showToast={showToast} setConfirmDialog={setConfirmDialog} onValidationChange={setIsFormValid} />
+                <GalleryView ref={galleryRef} searchQuery={searchQuery} viewMode={galleryViewMode} onSetViewMode={setGalleryViewMode} showToast={showToast} setConfirmDialog={setConfirmDialog} onValidationChange={setIsFormValid} />
               ) : (isStoreMode || isOrdersTab) ? (
                 (storeViewMode === 'orders' || isOrdersTab) && storeViewMode !== 'order-detail' ? (
                   <OrdersView 
@@ -536,7 +540,7 @@ function App() {
                     setConfirmDialog={setConfirmDialog} 
                   />
                 ) : (
-                  <StoreView searchQuery={searchQuery} viewMode={storeViewMode} onSetViewMode={setStoreViewMode} showToast={showToast} setConfirmDialog={setConfirmDialog} onValidationChange={setIsFormValid} />
+                  <StoreView ref={storeRef} searchQuery={searchQuery} viewMode={storeViewMode} onSetViewMode={setStoreViewMode} showToast={showToast} setConfirmDialog={setConfirmDialog} onValidationChange={setIsFormValid} />
                 )
               ) : isSystemMode ? (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-visible pb-10">
@@ -647,6 +651,13 @@ function App() {
 
         <BottomNav activeTab={activeTab as any} onTabChange={setActiveTab as any} tabs={['Inicio', 'Galería', 'Tienda', 'Órdenes', 'Sistema']} />
         <ConfirmModal {...confirmDialog} onCancel={closeConfirm} />
+        {toast && (
+          <Toast 
+            message={toast.message} 
+            type={toast.type} 
+            onClose={() => setToast(null)} 
+          />
+        )}
       </div>
     </ThemeContext.Provider>
   );

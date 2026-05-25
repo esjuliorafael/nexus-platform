@@ -7,25 +7,31 @@ import { CategoryForm } from './CategoryForm';
 import { CategoryView } from './CategoryView';
 import { apiGallery } from '../../api';
 
-interface GalleryViewProps {
-  searchQuery: string;
-  viewMode?: 'list' | 'create' | 'media_edit' | 'category_create' | 'categories_list' | 'category_edit';
-  onSetViewMode?: (mode: 'list' | 'create' | 'media_edit' | 'category_create' | 'categories_list' | 'category_edit') => void;
-  showToast: (message: string, type?: 'success' | 'error') => void;
-  setConfirmDialog: (dialog: any) => void;
-  onValidationChange?: (isValid: boolean) => void;
+export interface GalleryViewRef {
+  handleSave: () => void;
 }
 
-const ITEMS_PER_PAGE = 12;
+export const GalleryView = React.forwardRef<GalleryViewRef, GalleryViewProps>(
+  ({ searchQuery, viewMode = 'list', onSetViewMode, showToast, setConfirmDialog, onValidationChange }, ref) => {
+    const [mediaItems, setMediaItems] = useState<Media[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    
+    const [currentPage, setCurrentPage] = useState(1);
+    const [editingCategory, setEditingCategory] = useState<{id: string, name: string} | null>(null);
+    const [editingMedia, setEditingMedia] = useState<Media | null>(null);
+    const galleryTopRef = useRef<HTMLDivElement>(null);
+    const mediaFormRef = useRef<{ handleSave: () => void }>(null);
+    const categoryFormRef = useRef<{ handleSave: () => void }>(null);
 
-export const GalleryView: React.FC<GalleryViewProps> = ({ searchQuery, viewMode = 'list', onSetViewMode, showToast, setConfirmDialog, onValidationChange }) => {
-  const [mediaItems, setMediaItems] = useState<Media[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  
-  const [currentPage, setCurrentPage] = useState(1);
-  const [editingCategory, setEditingCategory] = useState<{id: string, name: string} | null>(null);
-  const [editingMedia, setEditingMedia] = useState<Media | null>(null);
-  const galleryTopRef = useRef<HTMLDivElement>(null);
+    useImperativeHandle(ref, () => ({
+      handleSave: () => {
+        if (viewMode === 'create' || viewMode === 'media_edit') {
+          mediaFormRef.current?.handleSave();
+        } else if (viewMode === 'category_create' || viewMode === 'category_edit') {
+          categoryFormRef.current?.handleSave();
+        }
+      }
+    }));
 
   const loadMedia = async () => {
     setIsLoading(true);
@@ -164,6 +170,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ searchQuery, viewMode 
   if (viewMode === 'create' || viewMode === 'media_edit') {
     return (
       <MediaForm 
+        ref={mediaFormRef}
         key={editingMedia ? editingMedia.id : 'new-media'}
         initialData={editingMedia || undefined}
         onCancel={() => {
@@ -179,6 +186,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ searchQuery, viewMode 
   if (viewMode === 'category_create') {
     return (
       <CategoryForm 
+        ref={categoryFormRef}
         key="new-cat"
         onCancel={() => onSetViewMode?.('list')} 
         onSave={() => handleCategorySaveSuccess(false)} 
@@ -190,6 +198,7 @@ export const GalleryView: React.FC<GalleryViewProps> = ({ searchQuery, viewMode 
   if (viewMode === 'category_edit') {
     return (
       <CategoryForm 
+        ref={categoryFormRef}
         key={editingCategory ? editingCategory.id : 'edit-cat'}
         initialData={editingCategory || undefined}
         onCancel={() => {

@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect, useRef } from 'react';
+import React, { useState, useMemo, useEffect, useRef, useImperativeHandle } from 'react';
 import { ShoppingBag, Plus } from 'lucide-react';
 import { Product } from '../../types';
 import { ProductForm } from './ProductForm';
@@ -20,12 +20,26 @@ interface StoreViewProps {
 
 const ITEMS_PER_PAGE = 8;
 
-export const StoreView: React.FC<StoreViewProps> = ({ searchQuery, viewMode = 'list', onSetViewMode, showToast, setConfirmDialog, onValidationChange }) => {
-  const [products, setProducts] = useState<Product[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
-  const [currentPage, setCurrentPage] = useState(1);
-  const storeTopRef = useRef<HTMLDivElement>(null);
+export interface StoreViewRef {
+  handleSave: () => void;
+}
+
+export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
+  ({ searchQuery, viewMode = 'list', onSetViewMode, showToast, setConfirmDialog, onValidationChange }, ref) => {
+    const [products, setProducts] = useState<Product[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [currentPage, setCurrentPage] = useState(1);
+    const storeTopRef = useRef<HTMLDivElement>(null);
+    const productFormRef = useRef<{ handleSave: () => void }>(null);
+
+    useImperativeHandle(ref, () => ({
+      handleSave: () => {
+        if (productFormRef.current) {
+          productFormRef.current.handleSave();
+        }
+      }
+    }));
 
   useEffect(() => {
     if (viewMode === 'create') {
@@ -108,6 +122,7 @@ export const StoreView: React.FC<StoreViewProps> = ({ searchQuery, viewMode = 'l
   if (viewMode === 'create' || viewMode === 'edit') {
     return (
       <ProductForm 
+        ref={productFormRef}
         key={editingProduct ? editingProduct.id : 'new'} 
         initialData={editingProduct || undefined}
         onCancel={() => {
