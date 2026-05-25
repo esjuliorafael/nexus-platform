@@ -1,6 +1,6 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  output: process.env.NEXT_STANDALONE === 'true' || process.env.IS_DOCKER === 'true' ? 'standalone' : undefined,
+  output: 'standalone',
   images: {
     remotePatterns: [
       {
