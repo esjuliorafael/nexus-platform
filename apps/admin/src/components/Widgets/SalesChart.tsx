@@ -79,8 +79,8 @@ export const SalesChart: React.FC<SalesChartProps> = ({ data = {}, isLoading = f
           <span className="text-label uppercase tracking-[0.15em] text-stone-400 font-bold">MXN</span>
         </div>
 
-        <div className="flex-grow w-full mt-auto min-h-[200px]" style={{ width: '100%' }}>
-          <ResponsiveContainer width="100%" height={200} minWidth={0} minHeight={0}>
+        <div className="flex-grow w-full mt-auto min-h-[200px]">
+          <ResponsiveContainer width="100%" height={200}>
             <BarChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-main)" opacity={0.5} />
               <XAxis 

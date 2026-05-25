@@ -160,6 +160,19 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
         subtitle="Administradores y Staff con acceso al sistema"
         icon={Users}
         delay="300ms"
+        action={currentUser?.role !== 'staff' && (
+          <NexusSectionButton 
+            onClick={() => {
+              setEditingUser(null);
+              setFormData({ fullName: '', email: '', username: '', password: '', role: 'staff' });
+              setIsModalOpen(true);
+            }}
+            icon={UserPlus}
+            variant="brand"
+          >
+            Nuevo Miembro
+          </NexusSectionButton>
+        )}
       >
         <div className="flex flex-col gap-5">
           {users.length === 0 ? (
@@ -167,18 +180,6 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
               icon={Users}
               title="No hay usuarios"
               description="Comienza creando tu primer usuario para gestionar el sistema."
-              action={currentUser?.role !== 'staff' && (
-                <NexusSectionButton 
-                  onClick={() => {
-                    setEditingUser(null);
-                    setFormData({ fullName: '', email: '', username: '', password: '', role: 'staff' });
-                    setIsModalOpen(true);
-                  }}
-                  icon={UserPlus}
-                >
-                  Añadir Usuario
-                </NexusSectionButton>
-              )}
             />
           ) : (
             users.map((user, idx) => (
