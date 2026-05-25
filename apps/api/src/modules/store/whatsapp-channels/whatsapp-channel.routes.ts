@@ -14,7 +14,8 @@ export async function whatsappChannelRoutes(server: FastifyInstance) {
     return storePrisma.whatsappChannel.create({ 
       data: {
         ...validated,
-        template: validated.template || ""
+        template: validated.template || "",
+        updated_at: new Date()
       },
       include: { templates: true }
     });
@@ -27,7 +28,8 @@ export async function whatsappChannelRoutes(server: FastifyInstance) {
       where: { id: parseInt(id) },
       data: {
         ...validated,
-        template: validated.template || ""
+        template: validated.template || "",
+        updated_at: new Date()
       },
       include: { templates: true }
     });
@@ -45,11 +47,12 @@ export async function whatsappChannelRoutes(server: FastifyInstance) {
           type
         }
       },
-      update: { content },
+      update: { content, updated_at: new Date() },
       create: {
         channelId: parseInt(id),
         type,
-        content
+        content,
+        updated_at: new Date()
       }
     });
   });

@@ -335,7 +335,7 @@ export const apiSystem = {
     const res = await api.get('/admin/shipping-zones');
     return res.data.map((item: any) => ({
         id: item.id.toString(),
-        name: item.state,
+        name: item.name,
         zone: item.zoneType
     }));
   },

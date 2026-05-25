@@ -46,19 +46,21 @@ export const settingService = {
     storeSettings.forEach(s => {
       promises.push(storePrisma.setting.upsert({
         where: { key: s.key },
-        update: { value: s.value },
-        create: { key: s.key, value: s.value, group: "general" },
+        update: { value: s.value, updated_at: new Date() },
+        create: { key: s.key, value: s.value, group: s.group || "general", updated_at: new Date() },
       }));
+
     });
 
     // Save Raffle settings if module is enabled
     if (raffleSettings.length > 0 && process.env.RAFFLE_ENABLED === "true") {
       raffleSettings.forEach(s => {
-        promises.push(rafflePrisma.setting.upsert({
+        promises.push(storePrisma.setting.upsert({
           where: { key: s.key },
-          update: { value: s.value },
-          create: { key: s.key, value: s.value, group: "general" },
+          update: { value: s.value, updated_at: new Date() },
+          create: { key: s.key, value: s.value, group: s.group || "general", updated_at: new Date() },
         }));
+
       });
     }
 

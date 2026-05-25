@@ -25,13 +25,10 @@ export default function RootLayout({
 }: {
   children: React.ReactNode;
 }) {
-  // Read feature flag for raffles from environment variables
-  const showRaffles = process.env.NEXT_PUBLIC_RAFFLE_ENABLED === 'true' || process.env.VITE_RAFFLE_ENABLED === 'true';
-
   return (
     <html lang="es" className={`${bodoniModa.variable}`}>
       <body className="bg-brand-50 text-stone-950 font-sans min-h-screen flex flex-col antialiased">
-        <ClientLayout showRaffles={showRaffles}>
+        <ClientLayout>
           {children}
         </ClientLayout>
       </body>

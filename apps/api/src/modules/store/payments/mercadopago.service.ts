@@ -335,8 +335,8 @@ export const mpService = {
   async saveSetting(key: string, value: string) {
     return storePrisma.setting.upsert({
       where: { key },
-      update: { value },
-      create: { key, value, group: "payments" }
+      update: { value, updated_at: new Date() },
+      create: { key, value, group: "payments", updated_at: new Date() }
     });
   }
 };

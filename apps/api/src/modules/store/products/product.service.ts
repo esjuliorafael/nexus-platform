@@ -68,7 +68,10 @@ export const productService = {
     
     return storePrisma.$transaction(async (tx) => {
       const product = await tx.product.create({
-        data: productData,
+        data: {
+          ...productData,
+          updated_at: new Date()
+        },
       });
 
       if (gallery && gallery.length > 0) {
@@ -107,7 +110,10 @@ export const productService = {
 
       const product = await tx.product.update({
         where: { id },
-        data: productData,
+        data: {
+          ...productData,
+          updated_at: new Date()
+        },
       });
 
       if (gallery !== undefined) {

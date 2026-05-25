@@ -5,14 +5,17 @@ import { Header } from './Header';
 import { BottomNav } from './BottomNav';
 import { Footer } from './Footer';
 import { CartDrawer } from '../cart/CartDrawer';
+import { useSettings } from '../../hooks/useSettings';
 
 interface ClientLayoutProps {
   children: React.ReactNode;
-  showRaffles: boolean;
 }
 
-export function ClientLayout({ children, showRaffles }: ClientLayoutProps) {
+export function ClientLayout({ children }: ClientLayoutProps) {
   const [isCartOpen, setIsCartOpen] = useState(false);
+  const { getSetting } = useSettings();
+  
+  const showRaffles = getSetting('general', 'raffle_enabled') === '1';
 
   return (
     <div className="min-h-screen flex flex-col">

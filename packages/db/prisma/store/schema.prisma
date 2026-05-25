@@ -15,7 +15,7 @@ model Setting {
   value       String?
   description String?
   group       String   @default("general")
-  updated_at  DateTime @map("updated_at")
+  updated_at  DateTime @default(now()) @map("updated_at")
 
   @@map("settings")
 }
@@ -70,7 +70,7 @@ model Product {
   saleStatus  SaleStatus       @default(AVAILABLE) @map("sale_status")
   thumbnail   String?          @map("thumbnail")
   type        ProductType      @map("type")
-  updated_at  DateTime         @map("updated_at")
+  updated_at  DateTime         @default(now()) @map("updated_at")
   age         BirdAge?         @map("age")
   purpose     BirdPurpose?     @map("purpose")
   orderItems  OrderItem[]
@@ -169,6 +169,7 @@ model WhatsappChannel {
   phone        String             @map("phone")
   purpose      String             @map("purpose")
   template     String             @map("template")
+  updated_at   DateTime           @default(now()) @map("updated_at")
   templates    WhatsappTemplate[]
 
   @@map("whatsapp_channels")
@@ -181,7 +182,7 @@ model WhatsappTemplate {
   content    String           @map("content")
   active     Boolean          @default(true) @map("active")
   createdAt  DateTime         @default(now()) @map("created_at")
-  updated_at DateTime         @map("updated_at")
+  updated_at DateTime         @default(now()) @map("updated_at")
   channel    WhatsappChannel? @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
   @@unique([channelId, type])
@@ -190,7 +191,7 @@ model WhatsappTemplate {
 
 model ShippingZone {
   id       Int          @id @default(autoincrement())
-  state    String       @map("state")
+  name     String       @map("state")
   zoneType ShippingType @default(STANDARD) @map("zone_type")
 
   @@map("shipping_zones")

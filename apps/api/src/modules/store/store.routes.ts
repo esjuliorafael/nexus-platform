@@ -52,8 +52,8 @@ export async function storeRoutes(server: FastifyInstance) {
 
     await server.storePrisma.setting.upsert({
       where: { key: "branding_logo_url" },
-      update: { value: logoUrl },
-      create: { key: "branding_logo_url", value: logoUrl, group: "branding" },
+      update: { value: logoUrl, updated_at: new Date() },
+      create: { key: "branding_logo_url", value: logoUrl, group: "branding", updated_at: new Date() },
     });
     return { success: true };
   });
