@@ -55,7 +55,7 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/nexus-admin:latest
           build-args: |
-            VITE_API_URL=https://api.granjalamanzana.com
+            VITE_API_URL=https://api.granjalamanzana.com/api/v1
             VITE_RAFFLE_ENABLED=true
           cache-from: type=gha
           cache-to: type=inline
