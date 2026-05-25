@@ -182,4 +182,4 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
       )}
     </div>
   );
-};
+});
