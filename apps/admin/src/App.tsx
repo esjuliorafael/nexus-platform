@@ -358,6 +358,14 @@ function App() {
       case 'Departamentos': navigateToSystem('channels'); break;
       case 'Configurar Envíos': navigateToSystem('shipping'); break;
       case 'Activar Rifas': navigateToSystem('raffle'); break;
+      case 'Ver Rifas': 
+        setActiveTab('Rifas');
+        setRaffleViewMode('list');
+        break;
+      case 'Nueva Rifa':
+        setActiveTab('Rifas');
+        setRaffleViewMode('create');
+        break;
       case 'Notificaciones': navigateToSystem('notifications'); break;
       case 'Lib. Inventario': navigateToSystem('inventory'); break;
       case 'Añadir Logo': navigateToSystem('identity'); break;
@@ -554,6 +562,13 @@ function App() {
                 ) : (
                   <StoreView ref={storeRef} searchQuery={searchQuery} viewMode={storeViewMode} onSetViewMode={setStoreViewMode} showToast={showToast} setConfirmDialog={setConfirmDialog} onValidationChange={setIsFormValid} />
                 )
+              ) : isRafflesMode ? (
+                <RaffleView 
+                  viewMode={raffleViewMode} 
+                  onSetViewMode={setRaffleViewMode} 
+                  showToast={showToast} 
+                  setConfirmDialog={setConfirmDialog} 
+                />
               ) : isSystemMode ? (
                 <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-visible pb-10">
                   {systemViewMode === 'shipping' ? (

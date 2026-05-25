@@ -69,7 +69,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
     ? allActions.filter(group => group.group === context)
     : allActions;
 
-  if (import.meta.env.VITE_RAFFLE_ENABLED !== 'true' || !raffleEnabled) {
+  if (!raffleEnabled) {
     filteredActions = filteredActions.filter(group => group.group !== 'Rifas');
   }
 
