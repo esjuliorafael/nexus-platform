@@ -482,10 +482,21 @@ function App() {
 
   if (!isAuthenticated) return <LoginView onLoginSuccess={handleLoginSuccess} showToast={showToast} />;
 
+  const bottomNavTabs: Array<'Inicio' | 'Galería' | 'Tienda' | 'Órdenes' | 'Sistema' | 'Rifas'> = [
+    'Inicio', 'Galería', 'Tienda', 'Órdenes',
+    ...(raffleEnabled ? ['Rifas' as const] : []),
+    'Sistema'
+  ];
+
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
       <div className="min-h-screen bg-bg-app font-sans pb-32 md:pb-10 text-stone-900 dark:text-stone-100 transition-colors duration-500">
-        <Header activeTab={activeTab} setActiveTab={setActiveTab as any} onLogout={handleLogout} />
+        <Header 
+          activeTab={activeTab} 
+          setActiveTab={setActiveTab as any} 
+          onLogout={handleLogout} 
+          raffleEnabled={raffleEnabled}
+        />
 
         <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-8">
           
@@ -650,7 +661,7 @@ function App() {
           </div>
         </main>
 
-        <BottomNav activeTab={activeTab as any} onTabChange={setActiveTab as any} tabs={['Inicio', 'Galería', 'Tienda', 'Órdenes', 'Sistema']} />
+        <BottomNav activeTab={activeTab as any} onTabChange={setActiveTab as any} tabs={bottomNavTabs} />
         <ConfirmModal {...confirmDialog} onCancel={closeConfirm} />
         {toast && (
           <Toast 

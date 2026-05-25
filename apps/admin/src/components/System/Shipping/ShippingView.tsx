@@ -1,9 +1,13 @@
 import React, { useState, useImperativeHandle, forwardRef, useEffect } from 'react';
-import { Settings, MapPin, ChevronRight, Save, Truck, Info, AlertCircle, CheckCircle2, Package, Bird, Loader2 } from 'lucide-react';
+import { Settings, MapPin, ChevronRight, Save, Truck, Info, AlertCircle, CheckCircle2, Package, Bird, Loader2, Globe, ShieldCheck, Box, DollarSign, Wallet, History, FileText, ArrowRight } from 'lucide-react';
 import { ShippingConfig, StateZone, ShippingZone } from '../../../types';
 import { apiSystem } from '../../../api';
-import { NexusButton } from '../../ui/NexusButton';
+import { NexusSectionButton, NexusCardButton } from '../../ui/NexusButton';
 import { NexusInput } from '../../ui/NexusInputs';
+import { NexusHero } from '../../ui/NexusHero';
+import { NexusSection } from '../../ui/NexusSection';
+import { NexusSectionCard } from '../../ui/NexusCard';
+import { EmptyState } from '../../ui/EmptyState';
 
 interface ShippingViewProps {
   showToast: (message: string, type?: 'success' | 'error') => void;
@@ -17,7 +21,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
 
-    // Estado para Costos (Viene de api/configuracion.php)
+    // Estado para Costos
     const [config, setConfig] = useState<ShippingConfig>({
       baseCostArticles: 0,
       freeShippingArticles: false,
@@ -26,7 +30,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
       freeShippingBirds: false,
     });
 
-    // Estado para Estados/Zonas (Viene de api/envios.php)
+    // Estado para Estados/Zonas
     const [states, setStates] = useState<StateZone[]>([]);
     const [localStates, setLocalStates] = useState<StateZone[]>([]);
 
@@ -35,13 +39,11 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
       const loadData = async () => {
         setIsLoading(true);
         try {
-          // Cargamos Configuración y Zonas en paralelo
           const [configData, zonesData] = await Promise.all([
             apiSystem.getConfig(),
             apiSystem.getShippingZones()
           ]);
 
-          // Mapeamos el diccionario de PHP al estado de React
           setConfig({
             baseCostArticles: Number(configData['shipping_base_cost_items'] || 250),
             freeShippingArticles: configData['shipping_free_threshold_items'] === '1',
@@ -123,138 +125,124 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
     if (isLoading) {
       return (
         <div className="flex flex-col items-center justify-center py-40 animate-in fade-in duration-500">
-           <div className="relative w-16 h-16 mb-6">
-              <div className="absolute inset-0 border-4 border-brand-100 rounded-full" />
-              <div className="absolute inset-0 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
+           <div className="relative w-20 h-20 mb-8">
+              <div className="absolute inset-0 border-4 border-brand-100 rounded-[2rem]" />
+              <div className="absolute inset-0 border-4 border-brand-500 border-t-transparent rounded-[2rem] animate-spin" style={{ animationDuration: '1s', animationTimingFunction: 'var(--ease-emil)' }} />
            </div>
-           <p className="text-stone-400 font-black uppercase tracking-[0.2em] text-[10px]">Cargando Envíos...</p>
+           <p className="text-label text-text-muted">Analizando Red de Logística...</p>
         </div>
       );
     }
 
     if (subView === 'zones') {
       return (
-        <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 relative" style={{ transitionTimingFunction: 'var(--ease-emil)' }}>
-          {/* Tarjeta Oscura */}
-          <div className="bg-stone-900 rounded-[2.5rem] p-8 text-white shadow-xl shadow-stone-900/20 border border-stone-800">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-8">
-              <div className="flex items-center gap-10">
-                <div className="space-y-1">
-                  <p className="text-text-muted text-[9px] font-black uppercase tracking-[0.2em]">Zona Normal</p>
-                  <p className="text-4xl font-black tabular-nums">{stats.standard}</p>
-                </div>
-                <div className="w-[1px] h-12 bg-bg-card/10 hidden md:block" />
-                <div className="space-y-1">
-                  <p className="text-text-muted text-[9px] font-black uppercase tracking-[0.2em]">Zona Extendida</p>
-                  <p className="text-4xl font-black tabular-nums">{stats.extended}</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-3">
-                <NexusButton 
-                  onClick={() => updateAllZones('STANDARD')}
-                  variant="secondary"
-                  className="bg-stone-800 border-stone-700 text-stone-300 hover:bg-stone-700"
-                  size="sm"
-                >
-                  Todos Normal
-                </NexusButton>
-                <NexusButton 
-                  onClick={() => updateAllZones('EXTENDED')}
-                  variant="secondary"
-                  className="bg-stone-800 border-stone-700 text-stone-300 hover:bg-stone-700"
-                  size="sm"
-                >
-                  Todos Extendida
-                </NexusButton>
-              </div>
-            </div>
-          </div>
+        <div key="shipping-zones-content" className="space-y-8 pb-12 animate-in fade-in duration-300">
+          
+          <NexusHero
+            title="Cobertura Territorial"
+            subtitle="Configuración de Zonas por Estado"
+            icon={MapPin}
+            variant="dark"
+            badge="Actualización Masiva"
+            badgeValue={`${localStates.length} Estados`}
+          />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4 pb-20">
-            {localStates.map((state, idx) => (
-              <div 
-                key={state.id}
-                className={`animate-card-enter p-5 rounded-3xl border transition-all duration-300 flex flex-col justify-between gap-4 hover:shadow-lg ${
-                  state.zone === 'STANDARD' 
-                    ? 'bg-bg-card border-border-main shadow-sm dark:shadow-none' 
-                    : 'bg-amber-50/50 border-amber-200 shadow-sm dark:shadow-none'
-                }`}
-                style={{ animationDelay: `${idx * 40}ms` }}
-              >
-                <div className="flex items-start justify-between">
-                  <h4 className="font-black text-text-main tracking-tight">{state.name}</h4>
-                  <span className={`px-2.5 py-1 rounded-xl text-[9px] font-black uppercase tracking-widest border ${
-                    state.zone === 'STANDARD' 
-                      ? 'bg-emerald-50 text-emerald-600 border-emerald-100' 
-                      : 'bg-amber-100 text-amber-700 border-amber-200'
-                  }`}>
-                    {state.zone === 'STANDARD' ? 'Normal' : 'Extendida'}
-                  </span>
-                </div>
-                
-                <div className="flex items-center justify-between pt-4 border-t border-border-main">
-                  <span className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Extendida</span>
-                  <button 
-                    onClick={() => toggleStateZone(state.id)}
-                    className={`w-12 h-6 rounded-full transition-all relative active:scale-90 ${
-                      state.zone === 'EXTENDED' ? 'bg-brand-500 shadow-sm dark:shadow-none shadow-brand-500/30' : 'bg-stone-200'
-                    }`}
-                    style={{ transitionTimingFunction: 'var(--ease-emil)' }}
-                  >
-                    <div className={`absolute top-1 w-4 h-4 rounded-full bg-bg-card shadow-sm dark:shadow-none transition-all ${
-                      state.zone === 'EXTENDED' ? 'left-7' : 'left-1'
-                    }`} />
-                  </button>
-                </div>
+          <NexusSection
+            title="Zonificación"
+            subtitle="Asignación de costos por región"
+            icon={MapPin}
+            iconVariant="brand"
+            delay="200ms"
+            action={
+              <div className="flex gap-2">
+                <NexusSectionButton onClick={() => updateAllZones('STANDARD')} variant="secondary" className="hidden sm:flex">
+                  Todos Normal
+                </NexusSectionButton>
+                <NexusSectionButton onClick={() => updateAllZones('EXTENDED')} variant="secondary" className="hidden sm:flex">
+                  Todos Extendida
+                </NexusSectionButton>
+                <NexusSectionButton onClick={() => setSubView('config')} variant="brand">
+                  Volver
+                </NexusSectionButton>
               </div>
-            ))}
-          </div>
+            }
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+              {localStates.map((state, idx) => (
+                <NexusSectionCard
+                  key={state.id}
+                  delay={`${idx * 40}ms`}
+                  icon={MapPin}
+                  iconVariant={state.zone === 'STANDARD' ? 'emerald' : 'orange'}
+                  title={state.name}
+                  subtitle={
+                    <span className={`text-secondary font-bold ${state.zone === 'STANDARD' ? 'text-emerald-600' : 'text-orange-600'}`}>
+                      {state.zone === 'STANDARD' ? 'Zona Normal' : 'Zona Extendida'}
+                    </span>
+                  }
+                  actions={
+                    <NexusCardButton 
+                      onClick={() => toggleStateZone(state.id)}
+                      variant={state.zone === 'STANDARD' ? 'secondary' : 'brand'}
+                    >
+                      {state.zone === 'STANDARD' ? 'Normal' : 'Extendida'}
+                    </NexusCardButton>
+                  }
+                  swipeable
+                  onEdit={() => setLocalStates(prev => prev.map(s => s.id === state.id ? { ...s, zone: 'STANDARD' } : s))}
+                  onDelete={() => setLocalStates(prev => prev.map(s => s.id === state.id ? { ...s, zone: 'EXTENDED' } : s))}
+                />
+              ))}
+            </div>
+          </NexusSection>
         </div>
       );
     }
 
     return (
-      <div className="space-y-8 animate-in fade-in duration-500" style={{ transitionTimingFunction: 'var(--ease-emil)' }}>
+      <div key="shipping-config-content" className="space-y-8 pb-12 animate-in fade-in duration-300">
+        
+        <NexusHero
+          title="Logística y Envíos"
+          subtitle="Configuración de Costos y Umbrales"
+          icon={Truck}
+          variant="dark"
+          badge="Modo Activo"
+          badgeValue="Tarifas Dinámicas"
+        />
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-          
-          {/* Bloque: Envío de Artículos */}
-          <section className="bg-bg-card rounded-[2.5rem] p-10 shadow-sm dark:shadow-none border border-border-main hover:shadow-md transition-all duration-300 flex flex-col h-full">
-            <div className="flex items-center gap-5 mb-10 pb-6 border-b border-stone-50">
-              <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center text-brand-600 shadow-sm dark:shadow-none">
-                <Package size={28} />
-              </div>
-              <div>
-                <h3 className="font-black text-text-main uppercase tracking-tight text-lg leading-tight">Artículos</h3>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 mt-1">Gestión de costos base</p>
-              </div>
-            </div>
-            
-            <div className="space-y-8 flex-1">
+          {/* SECCIÓN ARTÍCULOS */}
+          <NexusSection
+            title="Artículos y Productos"
+            subtitle="Gestión de costos base para paquetería"
+            icon={Package}
+            iconVariant="brand"
+            delay="200ms"
+          >
+            <div className="space-y-8">
               <div className={`transition-all duration-500 ${config.freeShippingArticles ? 'opacity-40 grayscale pointer-events-none' : ''}`}>
                 <NexusInput 
                   label="Costo base envío artículos"
                   type="number"
-                  inputMode="decimal"
                   value={config.baseCostArticles.toString()}
                   disabled={config.freeShippingArticles}
                   onChange={(e) => setConfig({ ...config, baseCostArticles: Number(e.target.value) })}
-                  placeholder="0.00"
-                  icon={() => <span className="font-black text-lg">$</span>}
+                  icon={DollarSign}
+                  helperText="Costo fijo por envío de accesorios o productos generales."
                 />
-                
-                {config.freeShippingArticles && (
-                  <div className="mt-4 flex items-center gap-3 text-[10px] font-black text-brand-600 bg-brand-50/50 px-5 py-3 rounded-[1.25rem] border border-brand-100 animate-in zoom-in duration-300">
-                    <Info size={16} />
-                    <span className="uppercase tracking-widest">Envío gratis habilitado</span>
-                  </div>
-                )}
               </div>
 
-              <div className="pt-8 border-t border-border-main mt-auto">
-                <div className="flex items-center justify-between bg-bg-muted p-6 rounded-[2rem] border border-border-main">
-                  <div>
-                    <h4 className="font-black text-text-main text-xs uppercase tracking-widest">Envío gratis</h4>
-                    <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mt-1">Aplica a todo el catálogo</p>
+              <div className="pt-8 border-t border-border-main">
+                <div className="flex items-center justify-between bg-bg-muted p-6 rounded-[2rem] border border-border-main transition-all duration-300 hover:border-brand-200 group">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 ${config.freeShippingArticles ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'bg-bg-card text-text-muted border border-border-main'}`}>
+                      <CheckCircle2 size={24} />
+                    </div>
+                    <div>
+                      <h4 className="text-h2 text-text-main">Envío Gratis</h4>
+                      <p className="text-secondary text-text-muted">Habilitar para todo el catálogo</p>
+                    </div>
                   </div>
                   <button 
                     onClick={() => setConfig({ ...config, freeShippingArticles: !config.freeShippingArticles })}
@@ -263,63 +251,53 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                     }`}
                     style={{ transitionTimingFunction: 'var(--ease-emil)' }}
                   >
-                    <div className={`absolute top-1 w-5 h-5 rounded-full bg-bg-card shadow-sm dark:shadow-none transition-all ${
+                    <div className={`absolute top-1 w-5 h-5 rounded-full bg-bg-card shadow-sm transition-all ${
                       config.freeShippingArticles ? 'left-8' : 'left-1'
                     }`} />
                   </button>
                 </div>
               </div>
             </div>
-          </section>
+          </NexusSection>
 
-          {/* Bloque: Envío de Aves */}
-          <section className="bg-bg-card rounded-[2.5rem] p-10 shadow-sm dark:shadow-none border border-border-main hover:shadow-md transition-all duration-300 flex flex-col h-full">
-            <div className="flex items-center gap-5 mb-10 pb-6 border-b border-stone-50">
-              <div className="flex-shrink-0 w-14 h-14 rounded-2xl bg-brand-50 border border-brand-100 flex items-center justify-center text-brand-600 shadow-sm dark:shadow-none">
-                <Bird size={28} />
-              </div>
-              <div>
-                <h3 className="font-black text-text-main uppercase tracking-tight text-lg leading-tight">Aves</h3>
-                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 mt-1">Configuración territorial</p>
-              </div>
-            </div>
-
-            <div className="space-y-8 flex-1">
-              <div className={`grid grid-cols-1 sm:grid-cols-2 gap-8 transition-all duration-500 ${config.freeShippingBirds ? 'opacity-40 grayscale pointer-events-none' : ''}`}>
+          {/* SECCIÓN AVES */}
+          <NexusSection
+            title="Ejemplares y Aves"
+            subtitle="Tarifas territoriales especializadas"
+            icon={Bird}
+            iconVariant="blue"
+            delay="400ms"
+          >
+            <div className="space-y-8">
+              <div className={`grid grid-cols-1 sm:grid-cols-2 gap-6 transition-all duration-500 ${config.freeShippingBirds ? 'opacity-40 grayscale pointer-events-none' : ''}`}>
                 <NexusInput 
-                  label="Costo zona normal"
+                  label="Costo Zona Normal"
                   type="number"
-                  inputMode="decimal"
                   value={config.costNormalZone.toString()}
                   disabled={config.freeShippingBirds}
                   onChange={(e) => setConfig({ ...config, costNormalZone: Number(e.target.value) })}
-                  placeholder="0.00"
-                  icon={() => <span className="font-black text-lg">$</span>}
+                  icon={DollarSign}
                 />
                 <NexusInput 
-                  label="Costo zona extendida"
+                  label="Costo Zona Extendida"
                   type="number"
-                  inputMode="decimal"
                   value={config.costExtendedZone.toString()}
                   disabled={config.freeShippingBirds}
                   onChange={(e) => setConfig({ ...config, costExtendedZone: Number(e.target.value) })}
-                  placeholder="0.00"
-                  icon={() => <span className="font-black text-lg">$</span>}
+                  icon={DollarSign}
                 />
               </div>
 
-              {config.freeShippingBirds && (
-                <div className="flex items-center gap-3 text-[10px] font-black text-brand-600 bg-brand-50/50 px-5 py-3 rounded-[1.25rem] border border-brand-100 animate-in zoom-in duration-300">
-                  <Info size={16} />
-                  <span className="uppercase tracking-widest">Costos por zona ignorados</span>
-                </div>
-              )}
-
-              <div className="pt-8 border-t border-border-main mt-auto">
-                <div className="flex items-center justify-between bg-bg-muted p-6 rounded-[2rem] border border-border-main">
-                  <div>
-                    <h4 className="font-black text-text-main text-xs uppercase tracking-widest">Envío gratis</h4>
-                    <p className="text-[10px] font-bold text-stone-400 uppercase tracking-widest mt-1">Aplica para todos los ejemplares</p>
+              <div className="pt-8 border-t border-border-main">
+                <div className="flex items-center justify-between bg-bg-muted p-6 rounded-[2rem] border border-border-main transition-all duration-300 hover:border-brand-200 group">
+                  <div className="flex items-center gap-4">
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 ${config.freeShippingBirds ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'bg-bg-card text-text-muted border border-border-main'}`}>
+                      <CheckCircle2 size={24} />
+                    </div>
+                    <div>
+                      <h4 className="text-h2 text-text-main">Envío Gratis</h4>
+                      <p className="text-secondary text-text-muted">Ignorar costos por zona</p>
+                    </div>
                   </div>
                   <button 
                     onClick={() => setConfig({ ...config, freeShippingBirds: !config.freeShippingBirds })}
@@ -328,48 +306,65 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                     }`}
                     style={{ transitionTimingFunction: 'var(--ease-emil)' }}
                   >
-                    <div className={`absolute top-1 w-5 h-5 rounded-full bg-bg-card shadow-sm dark:shadow-none transition-all ${
+                    <div className={`absolute top-1 w-5 h-5 rounded-full bg-bg-card shadow-sm transition-all ${
                       config.freeShippingBirds ? 'left-8' : 'left-1'
                     }`} />
                   </button>
                 </div>
               </div>
             </div>
-          </section>
+          </NexusSection>
         </div>
 
-        {/* Resumen de Zonificación */}
-        <div className="pt-8">
-          <div className="flex items-center gap-3 mb-6 px-2">
-            <MapPin size={18} className="text-brand-500" />
-            <h3 className="font-black text-text-main uppercase tracking-[0.2em] text-xs">Resumen de Zonificación</h3>
-          </div>
-
-          <div className="bg-stone-900 rounded-[3rem] p-10 text-white shadow-2xl shadow-stone-900/20 border border-stone-800 flex flex-col sm:flex-row items-center justify-between gap-10 overflow-hidden relative">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-brand-500/10 rounded-full -mr-20 -mt-20 blur-[80px] pointer-events-none" />
+        {/* RESUMEN TERRITORIAL */}
+        <NexusSection
+          title="Resumen Territorial"
+          subtitle="Distribución de estados por zona"
+          icon={MapPin}
+          iconVariant="emerald"
+          delay="600ms"
+          action={
+            <NexusSectionButton onClick={() => setSubView('zones')} icon={ArrowRight} variant="brand">
+              Configurar Zonas
+            </NexusSectionButton>
+          }
+        >
+          <div className="bg-stone-900 rounded-[var(--radius-outer)] p-8 sm:p-12 text-white relative overflow-hidden group/hero shadow-2xl shadow-stone-900/40">
+            <div className="absolute top-0 right-0 w-96 h-96 bg-brand-500/10 rounded-full -mr-32 -mt-32 blur-[100px] pointer-events-none group-hover/hero:scale-125 transition-transform duration-1000" />
             
-            <div className="flex items-center gap-16 relative z-10">
-              <div className="text-center sm:text-left space-y-2">
-                <p className="text-text-muted text-[10px] font-black uppercase tracking-[0.3em]">Zona Normal</p>
-                <p className="text-6xl font-black tracking-tighter tabular-nums">{stats.standard}</p>
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-12 relative z-10">
+              <div className="flex items-center gap-12 sm:gap-20">
+                <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
+                  <span className="text-label uppercase tracking-[0.3em] text-text-muted">Zona Normal</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-hero tabular-nums">{stats.standard}</span>
+                    <span className="text-secondary text-text-muted font-bold">Estados</span>
+                  </div>
+                </div>
+                
+                <div className="w-[1px] h-16 bg-white/10 hidden sm:block" />
+                
+                <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
+                  <span className="text-label uppercase tracking-[0.3em] text-text-muted">Zona Extendida</span>
+                  <div className="flex items-baseline gap-2">
+                    <span className="text-hero tabular-nums text-orange-400">{stats.extended}</span>
+                    <span className="text-secondary text-text-muted font-bold">Estados</span>
+                  </div>
+                </div>
               </div>
-              <div className="w-[1px] h-20 bg-bg-card/10 hidden sm:block" />
-              <div className="text-center sm:text-left space-y-2">
-                <p className="text-text-muted text-[10px] font-black uppercase tracking-[0.3em]">Zona Extendida</p>
-                <p className="text-6xl font-black tracking-tighter tabular-nums">{stats.extended}</p>
+
+              <div className="w-full sm:w-auto">
+                <NexusSectionButton 
+                  onClick={() => setSubView('zones')}
+                  variant="brand"
+                  className="w-full sm:px-12 bg-white text-stone-900 hover:bg-stone-100 border-none h-16 text-lg"
+                >
+                  Gestionar Cobertura
+                </NexusSectionButton>
               </div>
             </div>
-            
-            <NexusButton 
-              onClick={() => setSubView('zones')}
-              size="lg"
-              className="w-full sm:w-auto px-12 bg-bg-card text-text-main hover:bg-stone-100 shadow-xl"
-              icon={ChevronRight}
-            >
-              Configurar Zonas
-            </NexusButton>
           </div>
-        </div>
+        </NexusSection>
       </div>
     );
   }
