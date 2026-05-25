@@ -214,6 +214,7 @@ function App() {
   const notificationsRef = React.useRef<NotificationSettingsViewRef>(null);
   const billingRef = React.useRef<BillingViewRef>(null);
   const raffleSettingsRef = React.useRef<{ handleSave: () => void }>(null);
+  const platformSettingsRef = React.useRef<{ handleSave: () => void }>(null);
   
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -413,7 +414,7 @@ function App() {
     if (isSystemMode) {
       if (systemViewMode === 'config') {
         return (
-          <NexusSectionButton onClick={() => (document.getElementById('save-platform-settings') as any)?.click()} variant="brand" icon={Save}>
+          <NexusSectionButton onClick={() => platformSettingsRef.current?.handleSave()} variant="brand" icon={Save}>
             Guardar Configuración
           </NexusSectionButton>
         );
@@ -548,6 +549,7 @@ function App() {
                     />
                   ) : systemViewMode === 'config' ? (
                     <PlatformSettingsView 
+                      ref={platformSettingsRef}
                       showToast={showToast}
                     />
                   ) : systemViewMode === 'users' ? (
