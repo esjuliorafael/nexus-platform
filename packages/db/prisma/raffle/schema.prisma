@@ -16,7 +16,7 @@ model Setting {
   value       String?
   description String?
   group       String   @default("general")
-  updatedAt   DateTime @updatedAt @map("updated_at")
+  updated_at  DateTime @default(now()) @map("updated_at")
 
   @@map("settings")
 }

@@ -6,7 +6,7 @@ export interface Setting {
   value: string | null;
   description: string | null;
   group: string;
-  updatedAt: Date;
+  updated_at: Date;
 }
 
 export interface User {
@@ -35,7 +35,7 @@ export interface Product {
   saleStatus: "AVAILABLE" | "RESERVED" | "SOLD";
   active: boolean;
   createdAt: Date;
-  updatedAt: Date;
+  updated_at: Date;
 }
 
 export interface Order {

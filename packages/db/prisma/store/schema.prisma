@@ -37,9 +37,11 @@ model User {
 
 model Category {
   id            Int           @id @default(autoincrement())
-  active        Boolean       @default(true) @map("active")
-  createdAt     DateTime      @default(now()) @map("created_at")
-  icon          String?       @map("icon")
+  active               Boolean  @default(true) @map("active")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updated_at           DateTime @default(now()) @map("updated_at")
+  icon                 String?  @map("icon")
+
   name          String        @map("name")
   media         Media[]
   subcategories Subcategory[]
@@ -70,7 +72,7 @@ model Product {
   saleStatus  SaleStatus       @default(AVAILABLE) @map("sale_status")
   thumbnail   String?          @map("thumbnail")
   type        ProductType      @map("type")
-  updatedAt   DateTime         @updatedAt @map("updated_at")
+  updated_at  DateTime         @default(now()) @map("updated_at")
   age         BirdAge?         @map("age")
   purpose     BirdPurpose?     @map("purpose")
   orderItems  OrderItem[]
@@ -181,7 +183,7 @@ model WhatsappTemplate {
   content   String           @map("content")
   active    Boolean          @default(true) @map("active")
   createdAt DateTime         @default(now()) @map("created_at")
-  updatedAt DateTime         @updatedAt @map("updated_at")
+  updated_at DateTime         @default(now()) @map("updated_at")
   channel   WhatsappChannel? @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
   @@unique([channelId, type])
