@@ -11,6 +11,7 @@ import { GalleryView } from './components/Gallery/GalleryView';
 import { StoreView } from './components/Store/StoreView';
 import { OrdersView } from './components/Store/Orders/OrdersView';
 import { OrderDetailView } from './components/Store/Orders/OrderDetailView';
+import { PlatformSettingsView } from './components/System/Config/PlatformSettingsView';
 import { ShippingView } from './components/System/Shipping/ShippingView';
 import { UsersView, UsersViewRef } from './components/System/Users/UsersView';
 import { IdentityView, IdentityViewRef } from './components/System/Identity/IdentityView';
@@ -459,6 +460,10 @@ function App() {
                       subView={shippingSubView}
                       setSubView={setShippingSubView}
                       showToast={showToast} 
+                    />
+                  ) : systemViewMode === 'config' ? (
+                    <PlatformSettingsView 
+                      showToast={showToast}
                     />
                   ) : systemViewMode === 'users' ? (
                     <UsersView 
