@@ -54,5 +54,8 @@ jobs:
           file: ./apps/admin/Dockerfile
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/nexus-admin:latest
+          build-args: |
+            VITE_API_URL=https://api.granjalamanzana.com
+            VITE_RAFFLE_ENABLED=true
           cache-from: type=gha
           cache-to: type=inline
