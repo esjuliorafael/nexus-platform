@@ -322,12 +322,3 @@ export const RaffleList: React.FC<RaffleListProps> = ({
     </div>
   );
 };
-ages}
-              icon={ChevronRight}
-            />
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
