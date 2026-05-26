@@ -179,12 +179,12 @@ export const PlatformSettingsView = forwardRef<PlatformSettingsViewRef, Platform
             <div className="md:col-span-2 animate-in fade-in zoom-in-95 duration-300 [animation-fill-mode:both]" style={{ animationDelay: '300ms' }}>
               <NexusInput 
                 label="Tenant Prefix (WhatsApp)"
-                value={config.evolutionInstance} 
+                value={config.evolutionInstance.split('_')[0]} 
                 onChange={(e) => setConfig({ ...config, evolutionInstance: e.target.value.toLowerCase().replace(/[^a-z0-9]/g, '') })}
                 placeholder="Ej. manzana" 
                 icon={MessageCircle}
                 copyable
-                helperText="Nombre base de tu marca. Se usará para crear automáticamente las instancias: _main, _combat, _breeding y _raffles."
+                helperText="Nombre raíz de tu marca. El sistema gestionará automáticamente las instancias técnicas (_main, _combat, etc.) usando este prefijo."
               />
             </div>
           </div>
