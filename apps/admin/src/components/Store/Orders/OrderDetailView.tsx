@@ -138,14 +138,14 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
 
   const statusConfig = getStatusConfig(order?.status || 'pending');
   const itemsList = order?.items || [];
-  const hasBirds = itemsList.some(item => item?.type === 'BIRD');
-  const hasItems = itemsList.some(item => item?.type === 'ITEM');
+  const hasBirds = itemsList.some(item => item?.type?.toUpperCase() === 'BIRD');
+  const hasItems = itemsList.some(item => item?.type?.toUpperCase() === 'ITEM');
 
   const handleResendWhatsApp = async () => {
     if (!order?.id) return;
     setIsResending(true);
     try {
-      await apiOrders.resendWhatsApp(order.id);
+      await apiOrders.resendWhatsApp(String(order.id));
       showToast('Notificación enviada a la cola', 'success');
     } catch (error) {
       showToast('No se pudo re-enviar la notificación', 'error');
@@ -191,7 +191,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
           
           {/* General Info Section */}
           <NexusSection
-            title={order.id}
+            title={`Orden #${order.id}`}
             subtitle="Detalle de Orden de Venta"
             icon={Layers}
             iconVariant="brand"
@@ -199,7 +199,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
               <div className="flex flex-wrap items-center gap-[var(--space-sm)]">
                 {(order.status === 'pending' || order.status === 'paid') && (
                   <NexusSectionButton 
-                    onClick={() => onCancelOrder(order.id)}
+                    onClick={() => onCancelOrder(String(order.id))}
                     variant="outline"
                     icon={CircleX}
                     className="border-rose-200 text-rose-500 hover:bg-rose-50 hover:border-rose-300"
@@ -209,7 +209,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                 )}
                 {order.status === 'pending' && (
                   <NexusSectionButton 
-                    onClick={() => onMarkAsPaid(order.id)}
+                    onClick={() => onMarkAsPaid(String(order.id))}
                     icon={CheckCircle2}
                     variant="brand"
                   >
@@ -266,7 +266,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                     <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
                       <p className="text-h2 text-text-main truncate">{item?.name || 'Producto sin nombre'}</p>
                       <p className="text-label text-stone-400 uppercase tracking-[0.15em]">
-                        {item?.type === 'BIRD' ? 'Ave' : 'Artículo'}
+                        {item?.type?.toUpperCase() === 'BIRD' ? 'Ave' : 'Artículo'}
                       </p>
                     </div>
                   </div>
