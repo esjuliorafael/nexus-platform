@@ -12,7 +12,12 @@ async function evRequest<T>(
   path: string,
   body?: unknown
 ): Promise<T> {
-  const res = await fetch(`${instance.baseUrl}${path}`, {
+  // Normalize baseUrl by removing trailing slash if present
+  const cleanBaseUrl = instance.baseUrl.endsWith('/') 
+    ? instance.baseUrl.slice(0, -1) 
+    : instance.baseUrl;
+
+  const res = await fetch(`${cleanBaseUrl}${path}`, {
     method,
     headers: {
       "Content-Type": "application/json",
