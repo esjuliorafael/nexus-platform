@@ -4,7 +4,8 @@ import {
   SalesChannel, WhatsAppChannel, DashboardStats, 
   AnnualService, ExtraCharge, Raffle, TicketSale,
   BillingPayment, TemplateType, RaffleIntelligenceOverview,
-  RaffleIntelligenceSegment, RaffleParticipantIntelligence
+  RaffleIntelligenceSegment, RaffleParticipantIntelligence,
+  ChannelsOverview
 } from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
@@ -276,6 +277,13 @@ export const apiWhatsApp = {
   getStatus: async (instanceName: string) => api.get(`/admin/whatsapp/status/${instanceName}`),
   getQR: async (instanceName: string) => api.post(`/admin/whatsapp/connect/${instanceName}`),
   disconnect: async (instanceName: string) => api.post(`/admin/whatsapp/disconnect/${instanceName}`)
+};
+
+export const apiChannels = {
+  getOverview: async (): Promise<ChannelsOverview> => {
+    const res = await api.get('/admin/channels/overview');
+    return res.data;
+  }
 };
 
 export const apiUsers = {

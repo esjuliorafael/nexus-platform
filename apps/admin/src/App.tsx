@@ -18,6 +18,7 @@ import { IdentityView, IdentityViewRef } from './components/System/Identity/Iden
 import { ChannelForm } from './components/System/Channels/ChannelForm';
 import { ChannelEditor } from './components/System/Channels/ChannelEditor';
 import { ChannelsHub } from './components/System/Channels/ChannelsHub';
+import { PrincipalChannelView } from './components/System/Channels/PrincipalChannelView';
 import { InventorySettingsView, InventorySettingsViewRef } from './components/System/Inventory/InventorySettingsView';
 import { NotificationSettingsView, NotificationSettingsViewRef } from './components/System/Notifications/NotificationSettingsView';
 import { BillingView, BillingViewRef } from './components/System/Billing/BillingView';
@@ -203,7 +204,7 @@ function App() {
   }, [systemViewMode]);
   
   const [shippingSubView, setShippingSubView] = useState<'config' | 'zones'>('config');
-  const [channelsViewMode, setChannelsViewMode] = useState<'hub' | 'create' | 'edit'>('hub');
+  const [channelsViewMode, setChannelsViewMode] = useState<'hub' | 'create' | 'edit' | 'principal'>('hub');
   const [selectedChannelId, setSelectedChannelId] = useState<string | null>(null);
   const [identityStatus, setIdentityStatus] = useState<'empty' | 'preview' | 'editing'>('preview');
   const [hasTempLogo, setHasTempLogo] = useState(false);
@@ -473,7 +474,7 @@ function App() {
           </NexusSectionButton>
         );
       }
-      if (systemViewMode === 'channels' && channelsViewMode !== 'hub') {
+      if (systemViewMode === 'channels' && (channelsViewMode === 'create' || channelsViewMode === 'edit')) {
         return (
           <>
             <NexusSectionButton onClick={() => setChannelsViewMode('hub')} variant="secondary">
@@ -603,6 +604,7 @@ function App() {
                   ) : systemViewMode === 'channels' ? (
                     channelsViewMode === 'hub' ? (
                       <ChannelsHub 
+                        onEditPrincipal={() => setChannelsViewMode('principal')}
                         onCreateChannel={() => {
                           setSelectedChannelId(null);
                           setChannelsViewMode('create');
@@ -613,6 +615,11 @@ function App() {
                         }}
                         showToast={showToast}
                         setConfirmDialog={setConfirmDialog}
+                      />
+                    ) : channelsViewMode === 'principal' ? (
+                      <PrincipalChannelView
+                        onBack={() => setChannelsViewMode('hub')}
+                        showToast={showToast}
                       />
                     ) : channelsViewMode === 'create' ? (
                       <ChannelForm 

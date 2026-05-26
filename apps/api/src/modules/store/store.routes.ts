@@ -13,6 +13,7 @@ import { userRoutes } from "./users/user.routes";
 import { billingRoutes } from "./billing/billing.routes";
 import { uploadRoutes } from "./uploads/upload.routes";
 import { mpRoutes } from "./payments/mercadopago.routes";
+import { channelsOverviewRoutes } from "./channels/channels-overview.routes";
 
 export async function storeRoutes(server: FastifyInstance) {
   // Public Storefront Routes
@@ -34,6 +35,7 @@ export async function storeRoutes(server: FastifyInstance) {
   await server.register(evolutionProxyRoutes, { prefix: "/admin/whatsapp" });
   await server.register(shippingZoneRoutes, { prefix: "/admin/shipping-zones" });
   await server.register(uploadRoutes, { prefix: "/admin/uploads" });
+  await server.register(channelsOverviewRoutes, { prefix: "/admin/channels" });
 
   // Settings Logo Upload
   server.post("/admin/settings/logo", { preHandler: [server.authenticate] }, async (request, reply) => {

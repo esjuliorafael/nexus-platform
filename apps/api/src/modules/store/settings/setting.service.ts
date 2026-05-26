@@ -51,8 +51,14 @@ export const settingService = {
         update: { value: s.value, updated_at: new Date() },
         create: { key: s.key, value: s.value, group: s.group || "general", updated_at: new Date() },
       }));
-
     });
+
+    // Provisioning logic for WhatsApp Instances if prefix changed
+    const instancePrefix = settings.find(s => s.key === 'whatsapp_evolution_instance')?.value;
+    if (instancePrefix) {
+      // Trigger background provisioning to not block the main response
+      this.provisionEvolutionInstances(instancePrefix).catch(e => console.error("[WhatsApp] Auto-provisioning failed", e));
+    }
 
     // Save Raffle settings if module is enabled or it's the master toggle
     if (raffleSettings.length > 0) {
@@ -70,5 +76,36 @@ export const settingService = {
     }
 
     return Promise.all(promises);
+  },
+
+  async provisionEvolutionInstances(prefix: string) {
+    const settings = await this.getAllGrouped();
+    const baseUrl = settings.general?.whatsapp_evolution_url;
+    const apiKey = settings.general?.whatsapp_evolution_key;
+
+    if (!baseUrl || !apiKey) {
+      console.warn("[WhatsApp] Provisioning skipped: URL or Key missing in settings.");
+      return;
+    }
+
+    const purposes = ['main', 'combat', 'breeding', 'raffles'];
+    const { evolutionClient } = await import("../../../services/evolution/evolution.client");
+
+    for (const purpose of purposes) {
+      const instanceName = `${prefix}_${purpose}`;
+      try {
+        console.log(`[WhatsApp] Auto-provisioning instance: ${instanceName}`);
+        await evolutionClient.createInstance({
+          baseUrl,
+          apiKey,
+          instanceName,
+        });
+      } catch (e: any) {
+        // Evolution returns error if already exists, we can ignore that safely
+        if (!e.message?.includes('already exists')) {
+           console.error(`[WhatsApp] Failed to provision ${instanceName}:`, e.message);
+        }
+      }
+    }
   },
 };

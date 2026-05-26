@@ -1,6 +1,5 @@
 import React, { useState, useImperativeHandle, forwardRef, useEffect } from 'react';
-import { createPortal } from 'react-dom';
-import { Server, Globe, Wrench, Receipt, Plus, Trash2, CheckCircle2, AlertCircle, Tag, Calendar as CalendarIcon, Pencil, X, Save, Check, ShieldCheck, Box, DollarSign, Wallet, History, FileText } from 'lucide-react';
+import { Server, Globe, Wrench, Receipt, Plus, Trash2, CheckCircle2, AlertCircle, Tag, Calendar as CalendarIcon, Pencil, Save, Check, ShieldCheck, Box, DollarSign, Wallet, History, FileText } from 'lucide-react';
 import { AnnualService, ExtraCharge, BillingPayment } from '../../../types';
 import { apiBilling } from '../../../api';
 import { NexusSectionButton, NexusCardButton } from '../../ui/NexusButton';
@@ -9,6 +8,7 @@ import { EmptyState } from '../../ui/EmptyState';
 import { NexusSection } from '../../ui/NexusSection';
 import { NexusHero } from '../../ui/NexusHero';
 import { NexusSectionCard } from '../../ui/NexusCard';
+import { NexusModal } from '../../ui/NexusModal';
 
 export interface BillingViewRef {
   handleSaveConfig: () => void;
@@ -491,15 +491,11 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
         </NexusSection>
 
         {/* MODAL SERVICIO */}
-        {isServiceModalOpen && createPortal(
-          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in fade-in duration-300">
-            <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-md" onClick={() => setIsServiceModalOpen(false)} />
-            <div className="relative w-full max-w-lg bg-bg-card rounded-t-[3rem] sm:rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-              <div className="p-8 sm:p-12">
-                <div className="flex items-center justify-between mb-10">
-                  <h3 className="text-display text-text-main">{editingService ? 'Editar Servicio' : 'Nuevo Servicio'}</h3>
-                  <button onClick={() => setIsServiceModalOpen(false)} className="p-3 bg-bg-muted hover:bg-stone-200 text-text-muted rounded-2xl transition-all active:scale-90"><X size={20} strokeWidth={3} /></button>
-                </div>
+        <NexusModal
+          isOpen={isServiceModalOpen}
+          title={editingService ? 'Editar Servicio' : 'Nuevo Servicio'}
+          onClose={() => setIsServiceModalOpen(false)}
+        >
                 <form onSubmit={handleSaveService} className="space-y-6">
                   <div className="space-y-4">
                     <NexusSelect label="Icono" value={serviceFormData.iconType} onChange={(e) => setServiceFormData({...serviceFormData, iconType: e.target.value})}>
@@ -536,21 +532,14 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
                     </NexusSectionButton>
                   </div>
                 </form>
-              </div>
-            </div>
-          </div>, document.body
-        )}
+        </NexusModal>
 
         {/* MODAL CARGO */}
-        {isChargeModalOpen && createPortal(
-          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in fade-in duration-300">
-            <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-md" onClick={() => setIsChargeModalOpen(false)} />
-            <div className="relative w-full max-w-lg bg-bg-card rounded-t-[3rem] sm:rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-              <div className="p-8 sm:p-12">
-                <div className="flex items-center justify-between mb-10">
-                  <h3 className="text-display text-text-main">{editingCharge ? 'Editar Cargo' : 'Nuevo Cargo'}</h3>
-                  <button onClick={() => setIsChargeModalOpen(false)} className="p-3 bg-bg-muted hover:bg-stone-200 text-text-muted rounded-2xl transition-all active:scale-90"><X size={20} strokeWidth={3} /></button>
-                </div>
+        <NexusModal
+          isOpen={isChargeModalOpen}
+          title={editingCharge ? 'Editar Cargo' : 'Nuevo Cargo'}
+          onClose={() => setIsChargeModalOpen(false)}
+        >
                 <form onSubmit={handleSaveCharge} className="space-y-6">
                   <div className="space-y-4">
                     <NexusInput label="Concepto" required value={chargeFormData.concept} onChange={(e) => setChargeFormData({...chargeFormData, concept: e.target.value})} icon={Tag} />
@@ -575,21 +564,14 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
                     </NexusSectionButton>
                   </div>
                 </form>
-              </div>
-            </div>
-          </div>, document.body
-        )}
+        </NexusModal>
 
         {/* MODAL ABONO (PAGO) */}
-        {isPaymentModalOpen && createPortal(
-          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in fade-in duration-300">
-            <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-md" onClick={() => setIsPaymentModalOpen(false)} />
-            <div className="relative w-full max-w-lg bg-bg-card rounded-t-[3rem] sm:rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-              <div className="p-8 sm:p-12">
-                <div className="flex items-center justify-between mb-10">
-                  <h3 className="text-display text-text-main">{editingPayment ? 'Editar Abono' : 'Nuevo Abono'}</h3>
-                  <button onClick={() => setIsPaymentModalOpen(false)} className="p-3 bg-bg-muted hover:bg-stone-200 text-text-muted rounded-2xl transition-all active:scale-90"><X size={20} strokeWidth={3} /></button>
-                </div>
+        <NexusModal
+          isOpen={isPaymentModalOpen}
+          title={editingPayment ? 'Editar Abono' : 'Nuevo Abono'}
+          onClose={() => setIsPaymentModalOpen(false)}
+        >
                 <form onSubmit={handleSavePayment} className="space-y-6">
                   <div className="space-y-4">
                     <NexusInput label="Concepto / Referencia" required value={paymentFormData.concept} onChange={(e) => setPaymentFormData({...paymentFormData, concept: e.target.value})} placeholder="Ej. Abono Quincenal, Transferencia..." icon={Wallet} />
@@ -616,10 +598,7 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
                     </NexusSectionButton>
                   </div>
                 </form>
-              </div>
-            </div>
-          </div>, document.body
-        )}
+        </NexusModal>
       </div>
     );
   }

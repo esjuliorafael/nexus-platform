@@ -78,12 +78,14 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       if (systemViewMode === 'identity') return <>Identidad del <span className="text-stone-600">Sistema</span></>;
       if (systemViewMode === 'channels') {
         if (channelsViewMode === 'hub') return <>Centro de <span className="text-stone-600">Canales</span></>;
+        if (channelsViewMode === 'principal') return <>Canal <span className="text-stone-600">Principal</span></>;
         if (channelsViewMode === 'create') return <>Nuevo <span className="text-stone-600">Canal</span></>;
         return <>Configurar <span className="text-stone-600">Canal</span></>;
       }
       if (systemViewMode === 'inventory') return <>Ajustes de <span className="text-stone-600">Inventario</span></>;
       if (systemViewMode === 'notifications') return <>Alertas y <span className="text-stone-600">Notificaciones</span></>;
       if (systemViewMode === 'billing') return <>Estado de <span className="text-stone-600">Cuenta</span></>;
+      if (systemViewMode === 'intelligence') return <>Inteligencia de <span className="text-stone-600">Audiencias</span></>;
       if (systemViewMode === 'config') return <>Ajustes de <span className="text-stone-600">Plataforma</span></>;
       return <>Ajustes del <span className="text-stone-600">Sistema</span></>;
     }
@@ -113,12 +115,14 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       if (systemViewMode === 'identity') return 'Administra el logo global utilizado en el panel y la tienda.';
       if (systemViewMode === 'channels') {
         if (channelsViewMode === 'hub') return 'Configura la identidad, cobros y mensajería por departamento.';
+        if (channelsViewMode === 'principal') return 'Administra el fallback bancario, Mercado Pago, mensajería y plantillas principales.';
         if (channelsViewMode === 'create') return 'Completa los pasos para configurar la identidad, pagos y WhatsApp del nuevo canal.';
         return 'Ajusta los parámetros técnicos y plantillas de mensajería del canal.';
       }
       if (systemViewMode === 'inventory') return 'Configura la cancelación automática de órdenes vencidas para liberar el stock.';
       if (systemViewMode === 'notifications') return 'Administra los avisos por correo electrónico para mantenerte informado de tus ventas.';
       if (systemViewMode === 'billing') return 'Monitorea la vigencia de tu licenciamiento y gestiona los cargos por servicios adicionales.';
+      if (systemViewMode === 'intelligence') return 'Segmenta participantes de rifas, detecta valor comercial y exporta audiencias accionables.';
       if (systemViewMode === 'config') return 'Administra los parámetros globales de infraestructura, zonificación y staff.';
       return 'Controla los parámetros globales de infraestructura, zonificación y staff.';
     }

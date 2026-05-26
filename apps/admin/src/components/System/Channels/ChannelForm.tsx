@@ -146,7 +146,12 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
     if (!isFormValid || isSubmitting) return;
     setIsSubmitting(true);
     try {
-      const instanceName = PURPOSE_INSTANCES[generalData.purpose.toUpperCase()];
+      // Get global config to retrieve the tenant prefix
+      const globalConfig = await apiSystem.getConfig();
+      const prefix = globalConfig.whatsapp_evolution_instance || 'nexus';
+      const purposeSuffix = generalData.purpose.toLowerCase();
+      const instanceName = `${prefix}_${purposeSuffix === 'raffles' ? 'raffles' : purposeSuffix === 'breeding' ? 'breeding' : 'combat'}`;
+      
       const payload = { ...generalData, ...paymentData, phone: whatsappData.phone, active: whatsappData.active, instanceName };
       
       await Promise.all([

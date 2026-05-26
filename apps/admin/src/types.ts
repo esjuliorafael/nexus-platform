@@ -160,7 +160,7 @@ export interface SalesChannel extends BankDetails {
   purpose: string;
 }
 
-export type TemplateType = 'RESERVATION' | 'RELEASE';
+export type TemplateType = 'RESERVATION' | 'RELEASE' | 'PAYMENT_CONFIRMED';
 
 export interface WhatsAppTemplate {
   id: string;
@@ -306,4 +306,73 @@ export interface RaffleIntelligenceSegment {
   estimatedRevenue: number;
   latestActivity: string | null;
   paymentRate: number;
+}
+
+export interface ChannelReadiness {
+  ready: boolean;
+}
+
+export interface ChannelBankStatus extends ChannelReadiness {
+  bank: string;
+  beneficiary: string;
+  clabe: string;
+  card: string;
+}
+
+export interface ChannelMercadoPagoStatus extends ChannelReadiness {
+  userId: string;
+}
+
+export interface ChannelWhatsappStatus extends ChannelReadiness {
+  phone?: string;
+  active?: boolean;
+  instanceName: string;
+}
+
+export interface ChannelTemplateStatus extends ChannelReadiness {
+  count?: number;
+  storeCount?: number;
+  raffleCount?: number;
+}
+
+export interface PrincipalChannelOverview {
+  id: 'principal';
+  name: string;
+  purpose: 'PRINCIPAL';
+  bank: ChannelBankStatus;
+  mercadoPago: ChannelMercadoPagoStatus;
+  whatsapp: ChannelWhatsappStatus;
+  templates: ChannelTemplateStatus;
+  readyCount: number;
+}
+
+export interface SpecializedChannelOverview {
+  id: string;
+  name: string;
+  purpose: string;
+  label: string;
+  description: string;
+  paymentChannelId: string | null;
+  whatsappChannelId: string | null;
+  bank: ChannelBankStatus;
+  mercadoPago: ChannelMercadoPagoStatus;
+  whatsapp: ChannelWhatsappStatus;
+  templates: ChannelTemplateStatus;
+  readyCount: number;
+  usesPrincipalFallback: boolean;
+}
+
+export interface ChannelsOverview {
+  principal: PrincipalChannelOverview;
+  specialized: SpecializedChannelOverview[];
+  metrics: {
+    specializedCount: number;
+    whatsappRoutes: number;
+    mercadoPagoRoutes: number;
+  };
+  deliveryMatrix: Array<{
+    flow: string;
+    route: string;
+    detail: string;
+  }>;
 }

@@ -72,8 +72,8 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ showTo
   return (
     <div className="space-y-12 mt-12 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-300 [animation-fill-mode:both]">
       <NexusSection
-        title="Configuración de Respaldo"
-        subtitle="Cuentas bancarias y pasarelas maestras para la plataforma"
+        title="Canal Principal"
+        subtitle="Fallback bancario y pasarela principal para flujos sin canal especializado"
         icon={ShieldCheck}
         iconVariant="muted"
         action={
@@ -85,7 +85,7 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ showTo
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-12">
           {/* Identidad Bancaria */}
           <div className="space-y-8">
-            <h4 className="text-label text-text-muted ml-1">Transferencias Directas</h4>
+            <h4 className="text-label text-text-muted ml-1">Informacion bancaria principal</h4>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <NexusInput label="Banco" name="bank_main_name" value={config['bank_main_name'] || ''} onChange={handleChange} icon={Building2} placeholder="Ej. BBVA" />
               <NexusInput label="Beneficiario" name="bank_main_beneficiary" value={config['bank_main_beneficiary'] || ''} onChange={handleChange} icon={User} placeholder="Nombre completo" />
@@ -94,9 +94,9 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ showTo
             </div>
           </div>
 
-          {/* Mercado Pago Master */}
+          {/* Mercado Pago Principal */}
           <div className="space-y-8">
-            <h4 className="text-label text-text-muted ml-1">Recaudación Centralizada</h4>
+            <h4 className="text-label text-text-muted ml-1">Pasarela principal</h4>
             <div className="flex flex-col gap-6">
               <NexusInput 
                 label="Identidad en Extracto" 
@@ -115,7 +115,7 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ showTo
                       <CheckCircle2 size={24} />
                     </div>
                     <div>
-                      <p className="text-secondary font-black text-text-main">Mercado Pago Dueño</p>
+                      <p className="text-secondary font-black text-text-main">Mercado Pago Principal</p>
                       <p className="text-label text-text-muted">{config['mp_seller_access_token'] ? 'Cuenta Vinculada' : 'Pendiente de Vincular'}</p>
                     </div>
                   </div>

@@ -4,7 +4,7 @@ import {
   PackagePlus, ListOrdered, ClipboardList, PenTool, 
   Settings, Truck, Users, LayoutGrid, Tags, FolderPlus,
   ArrowLeft, CreditCard, MessageCircle, Timer, Bell, Receipt,
-  Ticket, TicketPlus
+  Ticket, TicketPlus, Brain
 } from 'lucide-react';
 import { QuickActionGroup } from '../types';
 
@@ -58,6 +58,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
         { icon: <LayoutGrid size={20} />, label: 'Departamentos' },
         { icon: <Truck size={20} />, label: 'Configurar Envíos' },
         { icon: <Ticket size={20} />, label: 'Activar Rifas' },
+        ...(userRole?.toLowerCase() === 'superadmin' ? [{ icon: <Brain size={20} />, label: 'Audiencias' }] : []),
         { icon: <Bell size={20} />, label: 'Notificaciones' },
         { icon: <Timer size={20} />, label: 'Lib. Inventario' },
         { icon: <PenTool size={20} />, label: 'Añadir Logo' },
