@@ -297,7 +297,10 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                         <p className="text-secondary text-text-muted mt-1">Anula el costo base en la compra de artículos.</p>
                       </div>
                     </div>
-                    <div className="flex justify-end pt-4 sm:pt-0 border-t sm:border-t-0 border-border-main/30">
+                    <div className="flex items-center justify-between pt-4 sm:pt-0 border-t sm:border-t-0 border-border-main/30 w-full sm:w-auto">
+                      <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.2em] sm:hidden">
+                        Modo de Operación
+                      </span>
                       <button 
                         onClick={() => setConfig({ ...config, freeShippingArticles: !config.freeShippingArticles })}
                         className={`flex-shrink-0 w-14 h-7 rounded-full transition-all relative active:scale-90 ${
@@ -360,7 +363,10 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                         <p className="text-secondary text-text-muted mt-1">Anula los costos territoriales en la compra de aves.</p>
                       </div>
                     </div>
-                    <div className="flex justify-end pt-4 sm:pt-0 border-t sm:border-t-0 border-border-main/30">
+                    <div className="flex items-center justify-between pt-4 sm:pt-0 border-t sm:border-t-0 border-border-main/30 w-full sm:w-auto">
+                      <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.2em] sm:hidden">
+                        Modo de Operación
+                      </span>
                       <button 
                         onClick={() => setConfig({ ...config, freeShippingBirds: !config.freeShippingBirds })}
                         className={`flex-shrink-0 w-14 h-7 rounded-full transition-all relative active:scale-90 ${
