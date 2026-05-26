@@ -54,10 +54,12 @@ export const settingService = {
     });
 
     // Provisioning logic for WhatsApp Instances if prefix changed
-    const instancePrefix = settings.find(s => s.key === 'whatsapp_evolution_instance')?.value;
-    if (instancePrefix) {
+    const rawPrefix = settings.find(s => s.key === 'whatsapp_evolution_instance')?.value;
+    if (rawPrefix) {
+      // Clean prefix of any existing suffixes to avoid redundancy (manzana_main -> manzana)
+      const cleanPrefix = rawPrefix.split('_')[0];
       // Trigger background provisioning to not block the main response
-      this.provisionEvolutionInstances(instancePrefix).catch(e => console.error("[WhatsApp] Auto-provisioning failed", e));
+      this.provisionEvolutionInstances(cleanPrefix).catch(e => console.error("[WhatsApp] Auto-provisioning failed", e));
     }
 
     // Save Raffle settings if module is enabled or it's the master toggle

@@ -19,6 +19,7 @@ import {
   Smartphone,
   Ticket,
   User,
+  Variable,
 } from 'lucide-react';
 import { apiPayments, apiSystem, apiWhatsApp } from '../../../api';
 import { SalesChannel, WhatsAppChannel } from '../../../types';

@@ -61,6 +61,7 @@ export const evolutionClient = {
         instanceName: instance.instanceName,
         token: "",
         qrcode: true,
+        integration: "WHATSAPP-BAILEYS",
       }
     );
   },
