@@ -136,11 +136,13 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
     }
   };
 
-  const statusConfig = getStatusConfig(order.status);
-  const hasBirds = order.items.some(item => item.type === 'BIRD');
-  const hasItems = order.items.some(item => item.type === 'ITEM');
+  const statusConfig = getStatusConfig(order?.status || 'pending');
+  const itemsList = order?.items || [];
+  const hasBirds = itemsList.some(item => item?.type === 'BIRD');
+  const hasItems = itemsList.some(item => item?.type === 'ITEM');
 
   const handleResendWhatsApp = async () => {
+    if (!order?.id) return;
     setIsResending(true);
     try {
       await apiOrders.resendWhatsApp(order.id);
@@ -151,6 +153,17 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
       setIsResending(false);
     }
   };
+
+  if (!order) {
+    return (
+      <div className="py-20 text-center">
+        <p className="text-text-muted">No se pudo cargar la información de la orden.</p>
+        <NexusCardButton variant="secondary" onClick={onBack} icon={ChevronLeft} className="mt-4">
+          Volver a Órdenes
+        </NexusCardButton>
+      </div>
+    );
+  }
 
   return (
     <div className="animate-in fade-in slide-in-from-right-4 duration-500 pb-10 flex flex-col" style={{ gap: 'var(--space-lg)' }}>
@@ -226,14 +239,14 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                   <DollarSign size={14} className="opacity-50" />
                   <span className="text-label uppercase tracking-[0.15em]">Total</span>
                 </div>
-                <p className="text-secondary text-text-main font-bold">${order.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+                <p className="text-secondary text-text-main font-bold">${(order.total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
               </div>
               <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
                 <div className="flex items-center gap-2 text-stone-400">
                   <Package size={14} className="opacity-50" />
                   <span className="text-label uppercase tracking-[0.15em]">Artículos</span>
                 </div>
-                <p className="text-secondary text-text-main font-bold">{order.items.length}</p>
+                <p className="text-secondary text-text-main font-bold">{itemsList.length}</p>
               </div>
             </div>
           </NexusSection>
@@ -246,20 +259,20 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
             iconVariant="muted"
           >
             <div className="flex flex-col divide-y divide-border-main/50">
-              {order.items.map((item) => (
-                <div key={item.id} className="py-6 flex items-center justify-between hover:bg-bg-muted/30 transition-colors px-2 rounded-xl">
+              {itemsList.map((item) => (
+                <div key={item?.id} className="py-6 flex items-center justify-between hover:bg-bg-muted/30 transition-colors px-2 rounded-xl">
                   <div className="flex items-center" style={{ gap: 'var(--space-md)' }}>
                     <OrderItemThumbnail item={item} />
                     <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                      <p className="text-h2 text-text-main truncate">{item.name}</p>
+                      <p className="text-h2 text-text-main truncate">{item?.name || 'Producto sin nombre'}</p>
                       <p className="text-label text-stone-400 uppercase tracking-[0.15em]">
-                        {item.type === 'BIRD' ? 'Ave' : 'Artículo'}
+                        {item?.type === 'BIRD' ? 'Ave' : 'Artículo'}
                       </p>
                     </div>
                   </div>
                   <div className="text-right flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                    <p className="text-h2 text-text-main">${item.price.toLocaleString('es-MX')}</p>
-                    <p className="text-label text-stone-400">Cant: {item.quantity}</p>
+                    <p className="text-h2 text-text-main">${(item?.price || 0).toLocaleString('es-MX')}</p>
+                    <p className="text-label text-stone-400">Cant: {item?.quantity || 0}</p>
                   </div>
                 </div>
               ))}
@@ -269,7 +282,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
               style={{ borderRadius: 'var(--radius-inner-visual)' }}
             >
               <span className="text-label text-text-muted uppercase tracking-[0.15em]">Total de la Orden</span>
-              <span className="text-h1 text-text-main">${order.total.toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
+              <span className="text-h1 text-text-main">${(order.total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
             </div>
           </NexusSection>
         </div>
