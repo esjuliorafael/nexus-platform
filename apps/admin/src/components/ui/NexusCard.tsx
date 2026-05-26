@@ -142,36 +142,38 @@ export const NexusWidgetCard: React.FC<LegacyCardProps> = ({
 /**
  * NexusControlRow: Componente de alta densidad para listas de control.
  * Basado en NexusWidgetCard para integrarse perfectamente en rejillas masivas.
- * Adaptable a móvil: Apila controles bajo el título en pantallas pequeñas.
+ * Estructura de flujo libre para evitar desbordamientos en móvil.
  */
 export const NexusControlRow: React.FC<LegacyCardProps & { statusColor?: string }> = ({
-  title, subtitle, icon, statusColor, actions, className, delay, isMuted
+  title, subtitle, icon, statusColor, actions, className = '', delay, isMuted
 }) => (
-  <NexusWidgetCard 
-    title={
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
-        <div className="flex items-center gap-3">
-          {statusColor && (
-            <div className={`w-2.5 h-2.5 rounded-full transition-all duration-500 shrink-0 ${statusColor}`} />
-          )}
-          <span className={`font-black text-xs uppercase tracking-tight truncate ${isMuted ? 'text-stone-400' : 'text-stone-800'}`}>
-            {title}
-          </span>
-        </div>
-        
-        {actions && (
-          <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6 border-t sm:border-t-0 border-border-main/50 pt-3 sm:pt-0 w-full sm:w-auto">
-            {actions}
-          </div>
+  <div 
+    className={`animate-in fade-in zoom-in-95 duration-300 [animation-fill-mode:both] group/card relative overflow-hidden border border-border-main/50 bg-bg-card transition-all duration-500 hover:shadow-lg hover:shadow-stone-200/20 ${isMuted ? 'opacity-60' : ''} ${className}`}
+    style={{ 
+      animationDelay: delay,
+      borderRadius: 'var(--radius-card-nested)',
+      padding: 'var(--space-md)'
+    }}
+  >
+    <div className="flex flex-col gap-4">
+      {/* Top: Status + Name */}
+      <div className="flex items-center gap-3">
+        {statusColor && (
+          <div className={`w-2.5 h-2.5 rounded-full transition-all duration-500 shrink-0 ${statusColor}`} />
         )}
+        <span className={`font-black text-xs uppercase tracking-tight truncate ${isMuted ? 'text-stone-400' : 'text-stone-800'}`}>
+          {title}
+        </span>
       </div>
-    }
-    subtitle={subtitle}
-    icon={icon}
-    className={className}
-    delay={delay}
-    isMuted={isMuted}
-  />
+
+      {/* Bottom Actions: Responsive Switch and Selector */}
+      {actions && (
+        <div className="flex items-center justify-between sm:justify-end gap-4 border-t border-border-main/30 pt-3 mt-auto">
+          {actions}
+        </div>
+      )}
+    </div>
+  </div>
 );
 
 /**

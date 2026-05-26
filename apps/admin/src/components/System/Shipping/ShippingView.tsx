@@ -284,29 +284,33 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
               </div>
 
               <div className="pt-8 border-t border-border-main">
-                <div className="flex items-center justify-between bg-bg-muted p-6 rounded-[2rem] border border-border-main transition-all duration-300 hover:border-brand-200 group">
-                  <div className="flex items-center gap-4">
-                    <NexusCardIcon 
-                      icon={CheckCircle2} 
-                      variant={config.freeShippingArticles ? 'solid-brand' : 'muted'}
-                      isMuted={!config.freeShippingArticles}
-                    />
-                    <div>
-                      <h4 className="text-h2 text-text-main">Envío Gratis</h4>
-                      <p className="text-secondary text-text-muted">Anula el costo base en la compra de artículos.</p>
+                <div className="bg-bg-muted p-6 rounded-[2rem] border border-border-main transition-all duration-300 hover:border-brand-200 group">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                    <div className="flex items-center gap-4">
+                      <NexusCardIcon 
+                        icon={CheckCircle2} 
+                        variant={config.freeShippingArticles ? 'solid-brand' : 'muted'}
+                        isMuted={!config.freeShippingArticles}
+                      />
+                      <div>
+                        <h4 className="text-h2 text-text-main">Envío Gratis</h4>
+                        <p className="text-secondary text-text-muted mt-1">Anula el costo base en la compra de artículos.</p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-4 sm:pt-0 border-t sm:border-t-0 border-border-main/30">
+                      <button 
+                        onClick={() => setConfig({ ...config, freeShippingArticles: !config.freeShippingArticles })}
+                        className={`flex-shrink-0 w-14 h-7 rounded-full transition-all relative active:scale-90 ${
+                          config.freeShippingArticles ? 'bg-brand-500 shadow-lg shadow-brand-500/20' : 'bg-stone-300'
+                        }`}
+                        style={{ transitionTimingFunction: 'var(--ease-emil)' }}
+                      >
+                        <div className={`absolute top-1 w-5 h-5 rounded-full bg-bg-card shadow-sm transition-all ${
+                          config.freeShippingArticles ? 'left-8' : 'left-1'
+                        }`} />
+                      </button>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => setConfig({ ...config, freeShippingArticles: !config.freeShippingArticles })}
-                    className={`flex-shrink-0 w-14 h-7 rounded-full transition-all relative active:scale-90 ${
-                      config.freeShippingArticles ? 'bg-brand-500 shadow-lg shadow-brand-500/20' : 'bg-stone-300'
-                    }`}
-                    style={{ transitionTimingFunction: 'var(--ease-emil)' }}
-                  >
-                    <div className={`absolute top-1 w-5 h-5 rounded-full bg-bg-card shadow-sm transition-all ${
-                      config.freeShippingArticles ? 'left-8' : 'left-1'
-                    }`} />
-                  </button>
                 </div>
               </div>
             </div>
@@ -343,29 +347,33 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
               </div>
 
               <div className="pt-8 border-t border-border-main">
-                <div className="flex items-center justify-between bg-bg-muted p-6 rounded-[2rem] border border-border-main transition-all duration-300 hover:border-brand-200 group">
-                  <div className="flex items-center gap-4">
-                    <NexusCardIcon 
-                      icon={CheckCircle2} 
-                      variant={config.freeShippingBirds ? 'blue' : 'muted'}
-                      isMuted={!config.freeShippingBirds}
-                    />
-                    <div>
-                      <h4 className="text-h2 text-text-main">Envío Gratis</h4>
-                      <p className="text-secondary text-text-muted">Anula los costos territoriales en la compra de aves.</p>
+                <div className="bg-bg-muted p-6 rounded-[2rem] border border-border-main transition-all duration-300 hover:border-brand-200 group">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
+                    <div className="flex items-center gap-4">
+                      <NexusCardIcon 
+                        icon={CheckCircle2} 
+                        variant={config.freeShippingBirds ? 'blue' : 'muted'}
+                        isMuted={!config.freeShippingBirds}
+                      />
+                      <div>
+                        <h4 className="text-h2 text-text-main">Envío Gratis</h4>
+                        <p className="text-secondary text-text-muted mt-1">Anula los costos territoriales en la compra de aves.</p>
+                      </div>
+                    </div>
+                    <div className="flex justify-end pt-4 sm:pt-0 border-t sm:border-t-0 border-border-main/30">
+                      <button 
+                        onClick={() => setConfig({ ...config, freeShippingBirds: !config.freeShippingBirds })}
+                        className={`flex-shrink-0 w-14 h-7 rounded-full transition-all relative active:scale-90 ${
+                          config.freeShippingBirds ? 'bg-blue-500 shadow-lg shadow-blue-500/20' : 'bg-stone-300'
+                        }`}
+                        style={{ transitionTimingFunction: 'var(--ease-emil)' }}
+                      >
+                        <div className={`absolute top-1 w-5 h-5 rounded-full bg-bg-card shadow-sm transition-all ${
+                          config.freeShippingBirds ? 'left-8' : 'left-1'
+                        }`} />
+                      </button>
                     </div>
                   </div>
-                  <button 
-                    onClick={() => setConfig({ ...config, freeShippingBirds: !config.freeShippingBirds })}
-                    className={`flex-shrink-0 w-14 h-7 rounded-full transition-all relative active:scale-90 ${
-                      config.freeShippingBirds ? 'bg-blue-500 shadow-lg shadow-blue-500/20' : 'bg-stone-300'
-                    }`}
-                    style={{ transitionTimingFunction: 'var(--ease-emil)' }}
-                  >
-                    <div className={`absolute top-1 w-5 h-5 rounded-full bg-bg-card shadow-sm transition-all ${
-                      config.freeShippingBirds ? 'left-8' : 'left-1'
-                    }`} />
-                  </button>
                 </div>
               </div>
             </div>
