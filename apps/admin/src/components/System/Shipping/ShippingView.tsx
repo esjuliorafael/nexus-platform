@@ -252,19 +252,19 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                   disabled={config.freeShippingArticles}
                   onChange={(e) => setConfig({ ...config, baseCostArticles: Number(e.target.value) })}
                   icon={DollarSign}
-                  helperText="Costo fijo por envío de accesorios o productos generales."
+                  helperText="Tarifa fija por envío de accesorios o productos generales."
                 />
               </div>
 
               <div className="pt-8 border-t border-border-main">
                 <div className="flex items-center justify-between bg-bg-muted p-6 rounded-[2rem] border border-border-main transition-all duration-300 hover:border-brand-200 group">
                   <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 ${config.freeShippingArticles ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'bg-bg-card text-text-muted border border-border-main'}`}>
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-500 ${config.freeShippingArticles ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'bg-bg-card text-text-muted border border-border-main'}`}>
                       <CheckCircle2 size={24} />
                     </div>
                     <div>
                       <h4 className="text-h2 text-text-main">Envío Gratis</h4>
-                      <p className="text-secondary text-text-muted">Habilitar para todo el catálogo</p>
+                      <p className="text-secondary text-text-muted">Habilitar gratuidad en productos de paquetería</p>
                     </div>
                   </div>
                   <button 
@@ -300,6 +300,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                   disabled={config.freeShippingBirds}
                   onChange={(e) => setConfig({ ...config, costNormalZone: Number(e.target.value) })}
                   icon={DollarSign}
+                  helperText="Tarifa estándar para regiones de cobertura base."
                 />
                 <NexusInput 
                   label="Costo Zona Extendida"
@@ -308,18 +309,19 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                   disabled={config.freeShippingBirds}
                   onChange={(e) => setConfig({ ...config, costExtendedZone: Number(e.target.value) })}
                   icon={DollarSign}
+                  helperText="Costo para zonas de difícil acceso."
                 />
               </div>
 
               <div className="pt-8 border-t border-border-main">
                 <div className="flex items-center justify-between bg-bg-muted p-6 rounded-[2rem] border border-border-main transition-all duration-300 hover:border-brand-200 group">
                   <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-500 ${config.freeShippingBirds ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'bg-bg-card text-text-muted border border-border-main'}`}>
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-500 ${config.freeShippingBirds ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'bg-bg-card text-text-muted border border-border-main'}`}>
                       <CheckCircle2 size={24} />
                     </div>
                     <div>
                       <h4 className="text-h2 text-text-main">Envío Gratis</h4>
-                      <p className="text-secondary text-text-muted">Ignorar costos por zona</p>
+                      <p className="text-secondary text-text-muted">Habilitar gratuidad en envíos de ejemplares</p>
                     </div>
                   </div>
                   <button 
