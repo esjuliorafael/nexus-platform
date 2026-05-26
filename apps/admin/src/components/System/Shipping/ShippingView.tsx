@@ -237,8 +237,8 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
           {/* SECCIÓN ARTÍCULOS */}
           <NexusSection
-            title="Artículos y Productos"
-            subtitle="Gestión de costos base para paquetería"
+            title="Envíos de Artículos"
+            subtitle="Gestión de costo base de envío"
             icon={Package}
             iconVariant="brand"
             delay="200ms"
@@ -252,7 +252,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                   disabled={config.freeShippingArticles}
                   onChange={(e) => setConfig({ ...config, baseCostArticles: Number(e.target.value) })}
                   icon={DollarSign}
-                  helperText="Tarifa fija por envío de accesorios o productos generales."
+                  helperText="Costo fijo por envío de artículos."
                 />
               </div>
 
@@ -264,7 +264,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                     </div>
                     <div>
                       <h4 className="text-h2 text-text-main">Envío Gratis</h4>
-                      <p className="text-secondary text-text-muted">Habilitar gratuidad en productos de paquetería</p>
+                      <p className="text-secondary text-text-muted">Anula el costo base en la compra de artículos.</p>
                     </div>
                   </div>
                   <button 
@@ -285,8 +285,8 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
 
           {/* SECCIÓN AVES */}
           <NexusSection
-            title="Ejemplares y Aves"
-            subtitle="Tarifas territoriales especializadas"
+            title="Envíos de Aves"
+            subtitle="Costos territoriales por zona"
             icon={Bird}
             iconVariant="blue"
             delay="400ms"
@@ -300,7 +300,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                   disabled={config.freeShippingBirds}
                   onChange={(e) => setConfig({ ...config, costNormalZone: Number(e.target.value) })}
                   icon={DollarSign}
-                  helperText="Tarifa estándar para regiones de cobertura base."
+                  helperText="Costo base para cobertura estándar."
                 />
                 <NexusInput 
                   label="Costo Zona Extendida"
@@ -309,25 +309,25 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                   disabled={config.freeShippingBirds}
                   onChange={(e) => setConfig({ ...config, costExtendedZone: Number(e.target.value) })}
                   icon={DollarSign}
-                  helperText="Costo para zonas de difícil acceso."
+                  helperText="Costo extra para zonas remotas."
                 />
               </div>
 
               <div className="pt-8 border-t border-border-main">
                 <div className="flex items-center justify-between bg-bg-muted p-6 rounded-[2rem] border border-border-main transition-all duration-300 hover:border-brand-200 group">
                   <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-500 ${config.freeShippingBirds ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'bg-bg-card text-text-muted border border-border-main'}`}>
+                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-500 ${config.freeShippingBirds ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-bg-card text-text-muted border border-border-main'}`}>
                       <CheckCircle2 size={24} />
                     </div>
                     <div>
                       <h4 className="text-h2 text-text-main">Envío Gratis</h4>
-                      <p className="text-secondary text-text-muted">Habilitar gratuidad en envíos de ejemplares</p>
+                      <p className="text-secondary text-text-muted">Anula los costos territoriales en la compra de aves.</p>
                     </div>
                   </div>
                   <button 
                     onClick={() => setConfig({ ...config, freeShippingBirds: !config.freeShippingBirds })}
                     className={`flex-shrink-0 w-14 h-7 rounded-full transition-all relative active:scale-90 ${
-                      config.freeShippingBirds ? 'bg-brand-500 shadow-lg shadow-brand-500/20' : 'bg-stone-300'
+                      config.freeShippingBirds ? 'bg-blue-500 shadow-lg shadow-blue-500/20' : 'bg-stone-300'
                     }`}
                     style={{ transitionTimingFunction: 'var(--ease-emil)' }}
                   >
