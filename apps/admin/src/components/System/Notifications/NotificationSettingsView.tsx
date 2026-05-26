@@ -4,7 +4,7 @@ import { apiUsers } from '../../../api';
 import { NexusInput } from '../../ui/NexusInputs';
 
 export interface NotificationSettingsViewRef {
-  handleSaveConfig: () => void;
+  handleSave: () => void;
 }
 
 interface NotificationSettingsViewProps {
@@ -46,7 +46,7 @@ export const NotificationSettingsView = forwardRef<NotificationSettingsViewRef, 
 
     // 2. Guardar datos de notificación del usuario
     useImperativeHandle(ref, () => ({
-      handleSaveConfig: async () => {
+      handleSave: async () => {
         if (config.active && !/^\S+@\S+\.\S+$/.test(config.email)) {
           showToast('Por favor ingresa un correo electrónico válido.', 'error');
           return;

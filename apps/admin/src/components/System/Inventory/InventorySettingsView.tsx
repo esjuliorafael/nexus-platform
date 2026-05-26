@@ -4,7 +4,7 @@ import { apiSystem } from '../../../api';
 import { NexusInput } from '../../ui/NexusInputs';
 
 export interface InventorySettingsViewRef {
-  handleSaveConfig: () => void;
+  handleSave: () => void;
 }
 
 interface InventorySettingsViewProps {
@@ -50,7 +50,7 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
 
     // 2. Guardar datos (expuesto al App.tsx)
     useImperativeHandle(ref, () => ({
-      handleSaveConfig: async () => {
+      handleSave: async () => {
         // Validación local
         if (config.storeActive && (!config.storeHours || config.storeHours <= 0)) {
           showToast('Por favor ingresa un número de horas válido para la tienda.', 'error');
