@@ -349,60 +349,39 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
         {/* RESUMEN TERRITORIAL */}
         <NexusSection
           title="Resumen Territorial"
-          subtitle="Distribución de estados por zona"
+          subtitle="Distribución de estados por zona operativa"
           icon={MapPin}
           iconVariant="emerald"
           delay="600ms"
           action={
             <NexusSectionButton onClick={() => setSubView('zones')} icon={ArrowRight} variant="brand">
-              Configurar Zonas
+              Gestionar Cobertura
             </NexusSectionButton>
           }
         >
-          <div className="bg-stone-900 rounded-[var(--radius-outer)] p-8 sm:p-12 text-white relative overflow-hidden group/hero shadow-2xl shadow-stone-900/40">
-            <div className="absolute top-0 right-0 w-96 h-96 bg-brand-500/10 rounded-full -mr-32 -mt-32 blur-[100px] pointer-events-none group-hover/hero:scale-125 transition-transform duration-1000" />
-            
-            <div className="flex flex-col sm:flex-row items-center justify-between gap-12 relative z-10">
-              <div className="flex items-center gap-12 sm:gap-20">
-                <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                  <span className="text-label uppercase tracking-[0.3em] text-text-muted">Zona Normal</span>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-hero tabular-nums">{stats.standard}</span>
-                    <span className="text-secondary text-text-muted font-bold">Estados</span>
-                  </div>
-                </div>
-                
-                <div className="w-[1px] h-16 bg-white/10 hidden sm:block" />
-                
-                <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                  <span className="text-label uppercase tracking-[0.3em] text-text-muted">Zona Extendida</span>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-hero tabular-nums text-orange-400">{stats.extended}</span>
-                    <span className="text-secondary text-text-muted font-bold">Estados</span>
-                  </div>
-                </div>
-
-                <div className="w-[1px] h-16 bg-white/10 hidden sm:block" />
-
-                <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                  <span className="text-label uppercase tracking-[0.3em] text-text-muted">Inactivos</span>
-                  <div className="flex items-baseline gap-2">
-                    <span className="text-hero tabular-nums text-stone-500">{stats.inactive}</span>
-                    <span className="text-secondary text-text-muted font-bold">Estados</span>
-                  </div>
-                </div>
-              </div>
-
-              <div className="w-full sm:w-auto">
-                <NexusSectionButton 
-                  onClick={() => setSubView('zones')}
-                  variant="brand"
-                  className="w-full sm:px-12 bg-white text-stone-900 hover:bg-stone-100 border-none h-16 text-lg"
-                >
-                  Gestionar Cobertura
-                </NexusSectionButton>
-              </div>
-            </div>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+            <NexusSectionCard
+              icon={MapPin}
+              iconVariant="emerald"
+              title="Cobertura Normal"
+              subtitle={`${stats.standard} Estados activos`}
+              helperText="Zonas con logística estándar y costo base."
+            />
+            <NexusSectionCard
+              icon={MapPin}
+              iconVariant="orange"
+              title="Zonas Extendidas"
+              subtitle={`${stats.extended} Estados identificados`}
+              helperText="Zonas con costos adicionales por difícil acceso."
+            />
+            <NexusSectionCard
+              icon={MapPin}
+              iconVariant="muted"
+              isMuted={true}
+              title="Sin Cobertura"
+              subtitle={`${stats.inactive} Estados deshabilitados`}
+              helperText="Regiones sin rutas de entrega activas."
+            />
           </div>
         </NexusSection>
       </div>
