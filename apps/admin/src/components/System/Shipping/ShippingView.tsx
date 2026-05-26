@@ -8,6 +8,7 @@ import { NexusHero } from '../../ui/NexusHero';
 import { NexusSection } from '../../ui/NexusSection';
 import { NexusSectionCard } from '../../ui/NexusCard';
 import { EmptyState } from '../../ui/EmptyState';
+import { NexusCardIcon } from '../../ui/NexusIcon';
 
 interface ShippingViewProps {
   showToast: (message: string, type?: 'success' | 'error') => void;
@@ -259,9 +260,11 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
               <div className="pt-8 border-t border-border-main">
                 <div className="flex items-center justify-between bg-bg-muted p-6 rounded-[2rem] border border-border-main transition-all duration-300 hover:border-brand-200 group">
                   <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-500 ${config.freeShippingArticles ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'bg-bg-card text-text-muted border border-border-main'}`}>
-                      <CheckCircle2 size={24} />
-                    </div>
+                    <NexusCardIcon 
+                      icon={CheckCircle2} 
+                      variant={config.freeShippingArticles ? 'solid-brand' : 'muted'}
+                      isMuted={!config.freeShippingArticles}
+                    />
                     <div>
                       <h4 className="text-h2 text-text-main">Envío Gratis</h4>
                       <p className="text-secondary text-text-muted">Anula el costo base en la compra de artículos.</p>
@@ -316,9 +319,11 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
               <div className="pt-8 border-t border-border-main">
                 <div className="flex items-center justify-between bg-bg-muted p-6 rounded-[2rem] border border-border-main transition-all duration-300 hover:border-brand-200 group">
                   <div className="flex items-center gap-4">
-                    <div className={`w-12 h-12 rounded-2xl flex items-center justify-center shrink-0 transition-all duration-500 ${config.freeShippingBirds ? 'bg-blue-500 text-white shadow-lg shadow-blue-500/20' : 'bg-bg-card text-text-muted border border-border-main'}`}>
-                      <CheckCircle2 size={24} />
-                    </div>
+                    <NexusCardIcon 
+                      icon={CheckCircle2} 
+                      variant={config.freeShippingBirds ? 'blue' : 'muted'}
+                      isMuted={!config.freeShippingBirds}
+                    />
                     <div>
                       <h4 className="text-h2 text-text-main">Envío Gratis</h4>
                       <p className="text-secondary text-text-muted">Anula los costos territoriales en la compra de aves.</p>
