@@ -89,7 +89,12 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
     loadConfig();
   }, []);
 
-  const principalInstance = config.whatsapp_evolution_instance ? `${config.whatsapp_evolution_instance}_main` : 'nexus_main';
+  const principalInstance = useMemo(() => {
+    const prefix = config.whatsapp_evolution_instance || 'nexus';
+    // If the prefix already contains '_main' or '_principal', don't add it again
+    if (prefix.endsWith('_main') || prefix.endsWith('_principal')) return prefix;
+    return `${prefix}_main`;
+  }, [config.whatsapp_evolution_instance]);
 
   const checkInstanceStatus = async (name = principalInstance) => {
     if (!name) {
@@ -324,13 +329,13 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
 
       {modal === 'bank' && (
         <NexusModal isOpen title="Informacion Bancaria Principal" onClose={() => setModal(null)}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div className="space-y-5">
             <NexusInput label="Banco" value={config.bank_main_name || ''} onChange={(e) => setConfig({ ...config, bank_main_name: e.target.value })} icon={Banknote} />
             <NexusInput label="Beneficiario" value={config.bank_main_beneficiary || ''} onChange={(e) => setConfig({ ...config, bank_main_beneficiary: e.target.value })} icon={User} />
             <NexusInput label="CLABE" value={config.bank_main_clabe || ''} onChange={(e) => setConfig({ ...config, bank_main_clabe: e.target.value })} icon={Hash} />
             <NexusInput label="No. tarjeta" value={config.bank_main_card || ''} onChange={(e) => setConfig({ ...config, bank_main_card: e.target.value })} icon={CreditCard} />
             <NexusSectionButton
-              className="sm:col-span-2 w-full"
+              className="w-full"
               onClick={() => updateConfig({
                 bank_main_name: config.bank_main_name || '',
                 bank_main_beneficiary: config.bank_main_beneficiary || '',

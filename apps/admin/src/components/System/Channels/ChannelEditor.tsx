@@ -8,7 +8,6 @@ import {
   Edit2,
   FileText,
   Hash,
-  Info,
   Link as LinkIcon,
   LogOut,
   MessageCircle,
@@ -20,16 +19,13 @@ import {
   Smartphone,
   Ticket,
   User,
-  WalletCards,
 } from 'lucide-react';
 import { apiPayments, apiSystem, apiWhatsApp } from '../../../api';
 import { SalesChannel, WhatsAppChannel } from '../../../types';
 import { NexusSectionButton, NexusCardButton } from '../../ui/NexusButton';
 import { NexusInput, NexusSelect, NexusTextarea } from '../../ui/NexusInputs';
-import { NexusHero } from '../../ui/NexusHero';
 import { NexusSection } from '../../ui/NexusSection';
-import { NexusAutonomousCard } from '../../ui/NexusCard';
-import { NexusHeader } from '../../ui/NexusHeader';
+import { NexusSectionCard } from '../../ui/NexusCard';
 import { NexusModal } from '../../ui/NexusModal';
 
 interface ChannelEditorProps {
@@ -40,7 +36,7 @@ interface ChannelEditorProps {
   setConfirmDialog: (dialog: any) => void;
 }
 
-type ModalType = 'identity' | 'bank' | 'mercadopago' | 'whatsapp' | 'templates' | null;
+type ModalType = 'identity' | 'bank' | 'mercadopago' | 'whatsapp' | null;
 
 const PURPOSE_INSTANCES: Record<string, string> = {
   COMBAT: 'nexus_combate',
@@ -122,36 +118,6 @@ const StatusPill: React.FC<{ ready: boolean; label: string }> = ({ ready, label 
     <span className={`w-1.5 h-1.5 rounded-full ${ready ? 'bg-emerald-500' : 'bg-text-muted/30'}`} />
     {label}
   </span>
-);
-
-const DetailCard: React.FC<{
-  icon: React.ElementType;
-  title: string;
-  subtitle: string;
-  ready: boolean;
-  actionLabel: string;
-  onAction: () => void;
-  children: React.ReactNode;
-}> = ({ icon: Icon, title, subtitle, ready, actionLabel, onAction, children }) => (
-  <NexusAutonomousCard className="h-full">
-    <NexusHeader
-      title={title}
-      subtitle={subtitle}
-      icon={Icon}
-      iconVariant={ready ? 'brand' : 'muted'}
-      action={
-        <NexusCardButton onClick={onAction} icon={Edit2} variant="secondary">
-          {actionLabel}
-        </NexusCardButton>
-      }
-    />
-    <div className="space-y-5">
-      <StatusPill ready={ready} label={ready ? 'Listo' : 'Usa principal'} />
-      <div className="text-secondary text-text-muted leading-relaxed">
-        {children}
-      </div>
-    </div>
-  </NexusAutonomousCard>
 );
 
 const ModalShell: React.FC<{
@@ -502,6 +468,60 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
     );
   }
 
+  if (templateDraft) {
+    return (
+      <div className="space-y-8 pb-20 animate-in fade-in duration-300">
+        <NexusCardButton onClick={() => setTemplateDraft(null)} variant="secondary" icon={ArrowLeft}>
+          Volver a Plantillas
+        </NexusCardButton>
+
+        <NexusSection
+          title={templateDraft.label}
+          subtitle={`Origen actual: ${templateDraft.source}. Al guardar, este canal usara su propia plantilla para este evento.`}
+          icon={FileText}
+          iconVariant="brand"
+          action={
+            <NexusSectionButton onClick={saveTemplate} isLoading={isSaving} icon={Save}>
+              Guardar Plantilla
+            </NexusSectionButton>
+          }
+        >
+          <div className="grid grid-cols-1 xl:grid-cols-2" style={{ gap: 'var(--space-lg)' }}>
+            <div className="space-y-6">
+              <NexusTextarea
+                label="Mensaje del canal"
+                rows={12}
+                value={templateDraft.content}
+                onChange={(e) => setTemplateDraft({ ...templateDraft, content: e.target.value })}
+                placeholder={templateDraft.sample}
+                helperText="Dejalo vacio si quieres seguir usando la plantilla principal o el default del sistema."
+              />
+              <div className="bg-bg-muted border border-border-main rounded-[2rem] p-5">
+                <p className="text-label text-text-muted mb-3">Variables disponibles</p>
+                <div className="flex flex-wrap gap-2">
+                  {templateDraft.variables.map(variable => (
+                    <span key={variable} className="px-3 py-1.5 rounded-full bg-bg-card border border-border-main text-label text-text-muted">
+                      {variable}
+                    </span>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            <NexusSection title="Preview" subtitle="Ejemplo con datos simulados" icon={Variable} iconVariant="muted" animate={false}>
+              <div className="bg-bg-muted border border-border-main rounded-[2rem] p-6 whitespace-pre-line text-secondary text-text-main leading-relaxed min-h-[20rem]">
+                {renderTemplatePreview(templateDraft.content || templateDraft.sample)}
+              </div>
+              <p className="text-label text-text-muted/60 mt-5">
+                Esta plantilla solo aplica a este canal especializado. Si falta, Nexus intenta usar el Canal Principal.
+              </p>
+            </NexusSection>
+          </div>
+        </NexusSection>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-500">
       <div className="flex items-center justify-between gap-4">
@@ -516,17 +536,8 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
         </div>
       </div>
 
-      <NexusHero
-        title={PURPOSE_LABELS[generalData.purpose] || generalData.name || 'Canal'}
-        subtitle="Ruta Especializada"
-        icon={WalletCards}
-        variant="dark"
-        badge="Fallback"
-        badgeValue="Principal"
-      />
-
       <NexusSection
-        title={generalData.name || PURPOSE_LABELS[generalData.purpose] || 'Canal operativo'}
+        title={generalData.name || PURPOSE_LABELS[generalData.purpose] || 'Canal Especializado'}
         subtitle="Este canal sobrescribe al Canal Principal cuando el flujo coincide con su proposito"
         icon={ShieldCheck}
         iconVariant="brand"
@@ -536,97 +547,73 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
           </NexusSectionButton>
         }
       >
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-bg-muted border border-border-main rounded-[1.5rem] p-5">
-            <p className="text-label text-text-muted">Proposito</p>
-            <p className="text-h2 text-text-main mt-2">{generalData.purpose}</p>
-          </div>
-          <div className="bg-bg-muted border border-border-main rounded-[1.5rem] p-5">
-            <p className="text-label text-text-muted">Instancia</p>
-            <p className="text-h2 text-text-main mt-2">{instanceName || 'Sin instancia'}</p>
-          </div>
-          <div className="bg-bg-muted border border-border-main rounded-[1.5rem] p-5">
-            <p className="text-label text-text-muted">Estado WhatsApp</p>
-            <p className="text-h2 text-text-main mt-2">{instanceStatus === 'open' ? 'Vinculado' : 'Desconectado'}</p>
-          </div>
+        <div className="flex flex-col gap-5">
+          <NexusSectionCard
+            icon={Banknote}
+            iconVariant={paymentReady ? 'emerald' : 'muted'}
+            title="Informacion Bancaria"
+            subtitle={paymentReady ? `${paymentData.bank} / ${paymentData.beneficiary}` : 'Usa la informacion bancaria del Canal Principal'}
+            rightContent={<p className="text-label text-text-muted">{paymentReady ? 'Completado' : 'Parcial'}</p>}
+            actions={<NexusCardButton onClick={() => setModal('bank')} icon={Edit2}>Configurar</NexusCardButton>}
+          />
+          <NexusSectionCard
+            icon={CreditCard}
+            iconVariant={mpReady ? 'blue' : 'muted'}
+            title="Mercado Pago"
+            subtitle={mpReady ? `Cuenta vinculada ${((paymentObj as any)?.mpUserId || '')}` : 'Usa Mercado Pago Principal si no se vincula una cuenta'}
+            rightContent={<p className="text-label text-text-muted">{mpReady ? 'Vinculado' : 'Fallback'}</p>}
+            actions={<NexusCardButton onClick={() => setModal('mercadopago')} icon={Edit2}>Configurar</NexusCardButton>}
+          />
+          <NexusSectionCard
+            icon={MessageCircle}
+            iconVariant={whatsappReady ? 'emerald' : 'muted'}
+            title="Mensajeria WhatsApp"
+            subtitle={whatsappData.phone || 'Numero de WhatsApp pendiente'}
+            rightContent={<p className="text-label text-text-muted">{whatsappReady ? 'Vinculado' : 'Parcial'}</p>}
+            actions={<NexusCardButton onClick={() => setModal('whatsapp')} icon={Edit2}>Configurar</NexusCardButton>}
+          />
         </div>
       </NexusSection>
 
-      <div className="grid grid-cols-1 xl:grid-cols-2" style={{ gap: 'var(--space-md)' }}>
-        <DetailCard
-          icon={Banknote}
-          title="Informacion bancaria"
-          subtitle="Datos enviados en apartados por deposito"
-          ready={paymentReady}
-          actionLabel="Editar"
-          onAction={() => setModal('bank')}
-        >
-          {paymentReady ? (
-            <div>
-              <p className="text-text-main font-bold">{paymentData.bank}</p>
-              <p>{paymentData.beneficiary}</p>
-              <p className="tabular-nums">CLABE: {paymentData.clabe || 'Sin CLABE'}</p>
-              <p className="tabular-nums">Tarjeta: {paymentData.card || 'Sin tarjeta'}</p>
-            </div>
-          ) : (
-            <p>Si no completas estos datos, el flujo usara la informacion bancaria del Canal Principal.</p>
-          )}
-        </DetailCard>
-
-        <DetailCard
-          icon={CreditCard}
-          title="Mercado Pago"
-          subtitle="Pasarela de cobro automatizado"
-          ready={mpReady}
-          actionLabel={mpReady ? 'Ver' : 'Vincular'}
-          onAction={() => setModal('mercadopago')}
-        >
-          {mpReady ? (
-            <div>
-              <p className="text-text-main font-bold">Cuenta vinculada</p>
-              <p>Usuario MP: {(paymentObj as any)?.mpUserId || 'Sin identificador local'}</p>
-            </div>
-          ) : (
-            <p>Si este canal no tiene cuenta vinculada, los cobros automatizados usaran la pasarela principal.</p>
-          )}
-        </DetailCard>
-
-        <DetailCard
-          icon={MessageCircle}
-          title="Mensajeria WhatsApp"
-          subtitle="Numero, instancia y vinculacion QR"
-          ready={whatsappReady}
-          actionLabel="Administrar"
-          onAction={() => setModal('whatsapp')}
-        >
-          <div>
-            <p className="text-text-main font-bold">{whatsappData.phone || 'Sin numero configurado'}</p>
-            <p>{instanceName || 'Sin instancia asignada'}</p>
-            <p>{whatsappData.active ? 'Notificaciones habilitadas' : 'Notificaciones desactivadas'}</p>
-          </div>
-        </DetailCard>
-
-        <DetailCard
-          icon={FileText}
-          title="Plantillas"
-          subtitle="Mensajes automaticos por evento"
-          ready={templatesReady}
-          actionLabel="Configurar"
-          onAction={() => setModal('templates')}
-        >
-          <p>{whatsappData.templates.length} plantillas configuradas. Donde falte una plantilla, el sistema intentara usar la plantilla principal.</p>
-        </DetailCard>
-      </div>
-
       <NexusSection
-        title="Comportamiento de Fallback"
-        subtitle="Regla operativa para proteger cobros y mensajes"
-        icon={Info}
-        iconVariant="muted"
+        title="Plantillas del Canal"
+        subtitle="Mensajes especializados para este proposito. Si falta una, se usa Canal Principal."
+        icon={FileText}
+        iconVariant={templatesReady ? 'brand' : 'muted'}
       >
-        <p className="text-secondary text-text-muted leading-relaxed max-w-3xl">
-          Si este canal no tiene banco, pasarela, WhatsApp o plantilla configurada, Nexus conserva el flujo usando el Canal Principal. Asi el cliente no pierde apartados, confirmaciones ni liberaciones por una configuracion incompleta del canal especializado.
-        </p>
+        <div className="flex flex-col gap-8">
+          {visibleTemplateGroups.map(group => (
+            <div key={group.label} className="space-y-4">
+              <div>
+                <h4 className="text-h2 text-text-main">{group.label}</h4>
+                <p className="text-secondary text-text-muted">{group.description}</p>
+              </div>
+              <div className="flex flex-col gap-4">
+                {group.templates.map(template => {
+                  const meta = getTemplateMeta(template.type, template.globalKey);
+                  const exists = meta.source === 'Canal';
+                  const hasFallback = meta.source === 'Principal';
+                  const Icon = template.type === 'PAYMENT_CONFIRMED' ? CheckCircle2 : template.type === 'RELEASE' ? LogOut : Ticket;
+                  return (
+                    <NexusSectionCard
+                      key={`${group.label}-${template.type}`}
+                      icon={Icon}
+                      iconVariant={exists ? 'brand' : hasFallback ? 'emerald' : 'muted'}
+                      title={template.label}
+                      subtitle={exists ? 'Plantilla configurada para este canal' : hasFallback ? 'Usa plantilla del Canal Principal' : 'Sin plantilla configurada'}
+                      rightContent={<p className="text-label text-text-muted">{meta.source}</p>}
+                      actions={
+                        <NexusCardButton onClick={() => openTemplate(template.type, `${group.label}: ${template.label}`, template.globalKey, template.variables, template.sample)} icon={Edit2}>
+                          Editar
+                        </NexusCardButton>
+                      }
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          ))}
+        </div>
       </NexusSection>
 
       {modal === 'identity' && (
@@ -647,12 +634,12 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
 
       {modal === 'bank' && (
         <ModalShell title="Informacion bancaria" subtitle="Estos datos se insertan en mensajes con la variable {{bank_info}}." onClose={() => setModal(null)}>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <div className="space-y-5">
             <NexusInput label="Banco" value={paymentData.bank} onChange={(e) => setPaymentData({ ...paymentData, bank: e.target.value })} icon={Building2} />
             <NexusInput label="Beneficiario" value={paymentData.beneficiary} onChange={(e) => setPaymentData({ ...paymentData, beneficiary: e.target.value })} icon={User} />
             <NexusInput label="CLABE" value={paymentData.clabe} onChange={(e) => setPaymentData({ ...paymentData, clabe: e.target.value })} icon={Hash} />
             <NexusInput label="No. tarjeta" value={paymentData.card} onChange={(e) => setPaymentData({ ...paymentData, card: e.target.value })} icon={CreditCard} />
-            <NexusSectionButton onClick={saveBank} isLoading={isSaving} icon={Save} className="sm:col-span-2 w-full">
+            <NexusSectionButton onClick={saveBank} isLoading={isSaving} icon={Save} className="w-full">
               Guardar Banco
             </NexusSectionButton>
           </div>
@@ -710,90 +697,6 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
                 Desvincular dispositivo
               </NexusSectionButton>
             )}
-          </div>
-        </ModalShell>
-      )}
-
-      {modal === 'templates' && (
-        <ModalShell title="Plantillas del canal" subtitle="Configura mensajes por evento. Esta version conserva el modelo actual y muestra tienda/rifas como contexto de uso." onClose={() => setModal(null)}>
-          <div className="space-y-8">
-            {visibleTemplateGroups.map(group => (
-              <div key={group.label} className="space-y-4">
-                <div>
-                  <h4 className="text-h2 text-text-main">{group.label}</h4>
-                  <p className="text-secondary text-text-muted">{group.description}</p>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                  {group.templates.map(template => {
-                    const meta = getTemplateMeta(template.type, template.globalKey);
-                    const exists = meta.source === 'Canal';
-                    const hasFallback = meta.source === 'Principal';
-                    const Icon = template.type === 'PAYMENT_CONFIRMED' ? CheckCircle2 : template.type === 'RELEASE' ? LogOut : Ticket;
-                    return (
-                      <button
-                        key={`${group.label}-${template.type}`}
-                        onClick={() => openTemplate(template.type, `${group.label}: ${template.label}`, template.globalKey, template.variables, template.sample)}
-                        className="text-left border border-border-main bg-bg-muted hover:bg-bg-card transition-all rounded-[1.5rem] p-5 active:scale-[0.98]"
-                      >
-                        <div className="flex items-center justify-between gap-3 mb-5">
-                          <div className={`w-11 h-11 rounded-2xl flex items-center justify-center ${exists ? 'bg-brand-500 text-white' : hasFallback ? 'bg-emerald-500 text-white' : 'bg-bg-card text-text-muted border border-border-main'}`}>
-                            <Icon size={18} />
-                          </div>
-                          <StatusPill ready={exists || hasFallback} label={meta.source} />
-                        </div>
-                        <p className="text-secondary font-black text-text-main">{template.label}</p>
-                        <p className="text-label text-text-muted/60 mt-2">{exists ? 'Sobrescribe al principal' : hasFallback ? 'Usa Canal Principal' : 'Usa default del sistema'}</p>
-                      </button>
-                    );
-                  })}
-                </div>
-              </div>
-            ))}
-          </div>
-        </ModalShell>
-      )}
-
-      {templateDraft && (
-        <ModalShell title={templateDraft.label} subtitle={`Origen actual: ${templateDraft.source}. Al guardar, este canal usara su propia plantilla para este evento generico.`} onClose={() => setTemplateDraft(null)}>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="space-y-6">
-              <NexusTextarea
-                label="Mensaje del canal"
-                rows={11}
-                value={templateDraft.content}
-                onChange={(e) => setTemplateDraft({ ...templateDraft, content: e.target.value })}
-                placeholder={templateDraft.sample}
-                helperText="Dejalo vacio si quieres seguir usando la plantilla principal o el default del sistema."
-              />
-              <div className="bg-bg-muted border border-border-main rounded-[2rem] p-5">
-                <p className="text-label text-text-muted mb-3">Variables disponibles</p>
-                <div className="flex flex-wrap gap-2">
-                  {templateDraft.variables.map(variable => (
-                    <span key={variable} className="px-3 py-1.5 rounded-full bg-bg-card border border-border-main text-label text-text-muted">{variable}</span>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <div className="bg-bg-muted border border-border-main rounded-[2rem] p-6 flex flex-col">
-              <div className="flex items-center justify-between gap-4 mb-5">
-                <div>
-                  <p className="text-label text-text-muted">Preview</p>
-                  <p className="text-secondary text-text-main font-black">Mensaje de ejemplo</p>
-                </div>
-                <StatusPill ready={Boolean(templateDraft.content)} label={templateDraft.content ? 'Canal' : templateDraft.source} />
-              </div>
-              <div className="bg-bg-card border border-border-main rounded-[1.5rem] p-5 whitespace-pre-line text-secondary text-text-main leading-relaxed flex-1">
-                {renderTemplatePreview(templateDraft.content || templateDraft.sample)}
-              </div>
-              <p className="text-label text-text-muted/60 mt-5">
-                Nota: en esta fase, Tienda/Rifas comparten el tipo tecnico del evento. La separacion completa requiere migracion de plantillas contextuales.
-              </p>
-            </div>
-
-            <NexusSectionButton onClick={saveTemplate} isLoading={isSaving} icon={Save} className="w-full lg:col-span-2">
-              Guardar Plantilla del Canal
-            </NexusSectionButton>
           </div>
         </ModalShell>
       )}
