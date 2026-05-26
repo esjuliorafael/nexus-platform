@@ -577,6 +577,7 @@ function App() {
                       subView={shippingSubView}
                       setSubView={setShippingSubView}
                       showToast={showToast} 
+                      setConfirmDialog={setConfirmDialog}
                     />
                   ) : systemViewMode === 'config' ? (
                     <PlatformSettingsView 

@@ -14,10 +14,11 @@ interface ShippingViewProps {
   showToast: (message: string, type?: 'success' | 'error') => void;
   subView: 'config' | 'zones';
   setSubView: (view: 'config' | 'zones') => void;
+  setConfirmDialog: (config: any) => void;
 }
 
 export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSaveZones: () => void }, ShippingViewProps>(
-  ({ showToast, subView, setSubView }, ref) => {
+  ({ showToast, subView, setSubView, setConfirmDialog }, ref) => {
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -112,9 +113,9 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
       setLocalStates(prev => prev.map(s => ({ ...s, zone, active: true })));
     };
 
-    const toggleStateZone = (id: string) => {
+    const toggleStateZone = (id: string, zone: ShippingZone) => {
       setLocalStates(prev => prev.map(s => 
-        s.id === id ? { ...s, zone: s.zone === 'STANDARD' ? 'EXTENDED' : 'STANDARD' } : s
+        s.id === id ? { ...s, zone } : s
       ));
     };
 
@@ -122,6 +123,26 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
       setLocalStates(prev => prev.map(s => 
         s.id === id ? { ...s, active: !s.active } : s
       ));
+    };
+
+    const allAreStandard = localStates.every(s => s.zone === 'STANDARD');
+
+    const handleMassiveAction = () => {
+      const targetZone = allAreStandard ? 'EXTENDED' : 'STANDARD';
+      const zoneLabel = targetZone === 'STANDARD' ? 'Normal' : 'Extendida';
+
+      setConfirmDialog({
+        isOpen: true,
+        title: `¿Cambiar todos a Zona ${zoneLabel}?`,
+        message: `Esta acción actualizará la zonificación de los 32 estados a la cobertura ${zoneLabel.toLowerCase()}.`,
+        confirmLabel: `Sí, cambiar todos`,
+        variant: 'warning',
+        onConfirm: () => {
+          updateAllZones(targetZone);
+          showToast(`Zonificación masiva a ${zoneLabel} completada`, 'success');
+          setConfirmDialog({ isOpen: false });
+        }
+      });
     };
 
     const stats = {
@@ -163,8 +184,8 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
             delay="200ms"
             action={
               <div className="flex gap-2">
-                <NexusSectionButton onClick={() => updateAllZones('STANDARD')} variant="secondary" className="hidden sm:flex">
-                  Habilitar Todos (Normal)
+                <NexusSectionButton onClick={handleMassiveAction} variant="secondary" className="hidden sm:flex">
+                  {allAreStandard ? 'Todos a Extendida' : 'Todos a Normal'}
                 </NexusSectionButton>
                 <NexusSectionButton onClick={() => setSubView('config')} variant="brand">
                   Volver
@@ -172,50 +193,55 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
               </div>
             }
           >
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {localStates.map((state, idx) => (
-                <NexusSectionCard
-                  key={state.id}
-                  delay={`${idx * 40}ms`}
-                  icon={MapPin}
-                  iconVariant={!state.active ? 'muted' : state.zone === 'STANDARD' ? 'emerald' : 'orange'}
-                  isMuted={!state.active}
-                  title={state.name || `Estado #${state.id}`}
-                  subtitle={
-                    <span className={`text-secondary font-bold ${!state.active ? 'text-text-muted' : state.zone === 'STANDARD' ? 'text-emerald-600' : 'text-orange-600'}`}>
-                      {!state.active ? 'Sin Cobertura' : state.zone === 'STANDARD' ? 'Zona Normal' : 'Zona Extendida'}
+                <div 
+                  key={state.id} 
+                  className={`flex items-center justify-between p-4 bg-white border rounded-[1.5rem] transition-all duration-300 group hover:shadow-lg hover:shadow-stone-200/40 ${!state.active ? 'border-dashed border-stone-200 opacity-60' : 'border-border-main hover:border-brand-500/30'}`}
+                  style={{ animationDelay: `${idx * 20}ms` }}
+                >
+                  <div className="flex items-center gap-4">
+                    <div className={`w-2.5 h-2.5 rounded-full transition-all duration-500 ${!state.active ? 'bg-stone-300 scale-75' : state.zone === 'STANDARD' ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50' : 'bg-orange-500 shadow-sm shadow-orange-500/50'}`} />
+                    <span className={`font-black text-xs uppercase tracking-tight ${!state.active ? 'text-stone-400' : 'text-stone-800'}`}>
+                      {state.name}
                     </span>
-                  }
-                  actions={
-                    <div className="flex items-center gap-4">
-                      {/* Toggle para Tipo de Zona */}
-                      {state.active && (
-                        <NexusCardButton 
-                          onClick={() => toggleStateZone(state.id)}
-                          variant={state.zone === 'STANDARD' ? 'secondary' : 'brand'}
-                        >
-                          {state.zone === 'STANDARD' ? 'Normal' : 'Extendida'}
-                        </NexusCardButton>
-                      )}
-                      
-                      {/* Switch para Activo/Inactivo */}
-                      <div className="flex items-center gap-3 pl-4 border-l border-border-main">
-                        <span className="text-[10px] font-black uppercase text-stone-400 tracking-widest hidden sm:inline">Visible</span>
+                  </div>
+
+                  <div className="flex items-center gap-4 sm:gap-6">
+                    {/* Pill Selector */}
+                    {state.active && (
+                      <div className="flex bg-stone-100 p-1 rounded-xl border border-stone-200 shadow-inner scale-90 sm:scale-100 origin-right">
                         <button 
-                          onClick={() => toggleStateActive(state.id)}
-                          className={`w-12 h-6 rounded-full transition-all relative active:scale-90 ${
-                            state.active ? 'bg-emerald-500 shadow-sm shadow-emerald-500/30' : 'bg-stone-200'
-                          }`}
-                          style={{ transitionTimingFunction: 'var(--ease-emil)' }}
+                          onClick={() => toggleStateZone(state.id, 'STANDARD')}
+                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${state.zone === 'STANDARD' ? 'bg-white text-emerald-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
                         >
-                          <div className={`absolute top-1 w-4 h-4 rounded-full bg-bg-card shadow-sm transition-all ${
-                            state.active ? 'left-7' : 'left-1'
-                          }`} />
+                          Normal
+                        </button>
+                        <button 
+                          onClick={() => toggleStateZone(state.id, 'EXTENDED')}
+                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${state.zone === 'EXTENDED' ? 'bg-white text-orange-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
+                        >
+                          Extra
                         </button>
                       </div>
+                    )}
+                    
+                    {/* Switch de Visibilidad */}
+                    <div className="pl-3 sm:pl-4 border-l border-stone-100 flex items-center gap-3">
+                      <button 
+                        onClick={() => toggleStateActive(state.id)} 
+                        className={`w-11 h-6 rounded-full transition-all relative active:scale-90 ${
+                          state.active ? 'bg-emerald-500 shadow-sm shadow-emerald-500/30' : 'bg-stone-200'
+                        }`}
+                        style={{ transitionTimingFunction: 'var(--ease-emil)' }}
+                      >
+                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-all ${
+                          state.active ? 'left-6' : 'left-1'
+                        }`} />
+                      </button>
                     </div>
-                  }
-                />
+                  </div>
+                </div>
               ))}
             </div>
           </NexusSection>
