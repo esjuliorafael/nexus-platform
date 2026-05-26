@@ -23,6 +23,7 @@ import { NotificationSettingsView, NotificationSettingsViewRef } from './compone
 import { BillingView, BillingViewRef } from './components/System/Billing/BillingView';
 import { RaffleView } from './components/Raffle/RaffleView';
 import { RaffleSettingsView } from './components/System/Raffle/RaffleSettingsView';
+import { RaffleIntelligenceView } from './components/System/Intelligence/RaffleIntelligenceView';
 import { LoginView } from './components/Auth/LoginView'; 
 import { Order, DashboardStats, AnnualService, ExtraCharge, BillingPayment } from './types';
 import { apiOrders, apiDashboard, apiBilling, apiSystem, api } from './api';
@@ -33,7 +34,7 @@ export const ThemeContext = createContext<{ theme: 'light' | 'dark'; toggleTheme
   toggleTheme: () => {},
 });
 
-type SystemViewType = 'shipping' | 'config' | 'users' | 'identity' | 'channels' | 'inventory' | 'notifications' | 'billing' | 'raffle';
+type SystemViewType = 'shipping' | 'config' | 'users' | 'identity' | 'channels' | 'inventory' | 'notifications' | 'billing' | 'raffle' | 'intelligence';
 
 const Toast = ({ message, type, onClose }: { message: string, type: 'success' | 'error', onClose: () => void }) => {
   React.useEffect(() => {
@@ -192,7 +193,7 @@ function App() {
   const [raffleViewMode, setRaffleViewMode] = useState<'list' | 'create' | 'edit' | 'detail'>('list');
   const [systemViewMode, setSystemViewMode] = useState<SystemViewType>(() => {
     const saved = localStorage.getItem('last_system_view');
-    const validModes: SystemViewType[] = ['shipping', 'config', 'users', 'identity', 'channels', 'inventory', 'notifications', 'billing', 'raffle'];
+    const validModes: SystemViewType[] = ['shipping', 'config', 'users', 'identity', 'channels', 'inventory', 'notifications', 'billing', 'raffle', 'intelligence'];
     if (saved && validModes.includes(saved as SystemViewType)) return saved as SystemViewType;
     return 'billing'; 
   });
@@ -358,6 +359,7 @@ function App() {
       case 'Departamentos': navigateToSystem('channels'); break;
       case 'Configurar Envíos': navigateToSystem('shipping'); break;
       case 'Activar Rifas': navigateToSystem('raffle'); break;
+      case 'Audiencias': navigateToSystem('intelligence'); break;
       case 'Ver Rifas': 
         setActiveTab('Rifas');
         setRaffleViewMode('list');
@@ -651,6 +653,10 @@ function App() {
                       ref={raffleSettingsRef}
                       showToast={showToast}
                       onStatusChange={(enabled) => setRaffleEnabled(enabled)}
+                    />
+                  ) : systemViewMode === 'intelligence' ? (
+                    <RaffleIntelligenceView
+                      showToast={showToast}
                     />
                   ) : (
                     <div className="bg-bg-card p-12 rounded-[3rem] shadow-sm dark:shadow-none border border-border-main text-center">

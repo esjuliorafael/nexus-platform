@@ -152,3 +152,19 @@ Spaces reflect relationships between elements (Base 4 grid):
 - **Dual Schema:** Separate Store and Raffle databases to maintain modularity (Raffle is optional).
 - **Prisma Output:** Clients generated to root `node_modules` to avoid workspace shadowing.
 - **Price Hydration Strategy (MXN):** Estandarizamos el formateo de precios en la storefront usando la locale fija de pesos mexicanos `'es-MX'` (`formatPrice`). Esto garantiza consistencia absoluta de textos entre SSR y CSR, previniendo por completo cualquier discrepancia de hidratación de React generada por configuraciones regionales dinámicas de `.toLocaleString()`.
+
+## Raffle Intelligence & Audience Capitalization [2026-05-26]
+
+### Contexto
+El modulo de rifas funciona como servicio opcional dentro del SaaS. El SaaS owner quiere usar la actividad de rifas para crear inteligencia comercial: segmentar participantes, medir confiabilidad de pago, detectar usuarios recurrentes, identificar abandonadores y exportar audiencias accionables.
+
+### Decision
+La primera version sera tenant-local y solo visible para `SUPERADMIN`, sin agregar contenedores ni bases nuevas en Contabo. Usara las tablas existentes de raffle (`raffles`, `ticket_sales`) y calculara metricas/segmentos desde el API actual.
+
+### Arquitectura por fases
+- **Fase 1:** `manzana-api` expone endpoints protegidos de inteligencia usando `server.rafflePrisma`; `manzana-admin` muestra la pantalla en Sistema solo para superadmin.
+- **Fase 2:** Extraer el motor de scoring/segmentacion a un servicio portable que reciba un raffle Prisma client.
+- **Fase 3:** Crear un servicio global `nexus-intelligence-api` o una base `nexus_intelligence` para consolidar multiples tenants.
+
+### Documentacion
+Ver `docs/ai/RAFFLE_INTELLIGENCE.md`.

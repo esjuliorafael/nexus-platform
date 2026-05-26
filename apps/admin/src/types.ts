@@ -245,3 +245,65 @@ export interface TicketSale {
   paymentMethod?: string;
   createdAt: string;
 }
+
+export type RaffleParticipantSegment =
+  | 'VIP_PAYERS'
+  | 'REPEAT_ACTIVE'
+  | 'HIGH_VOLUME'
+  | 'PROMISING_NEW'
+  | 'DORMANT'
+  | 'NON_PAYER'
+  | 'LOW_ACTIVITY';
+
+export interface RaffleParticipantIntelligence {
+  phone: string;
+  displayName: string;
+  state: string;
+  rafflesParticipated: number;
+  ticketsReserved: number;
+  ticketsPaid: number;
+  ticketsPending: number;
+  ticketsCancelled: number;
+  paymentRate: number;
+  estimatedRevenue: number;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  averageTicketsPerRaffle: number;
+  segment: RaffleParticipantSegment;
+  score: number;
+}
+
+export interface RaffleIntelligenceOverview {
+  uniqueParticipants: number;
+  totalReservedTickets: number;
+  totalPaidTickets: number;
+  paymentConversionRate: number;
+  estimatedRevenue: number;
+  averageTicketsPerParticipant: number;
+  repeatParticipants: number;
+  dormantParticipants: number;
+  nonPayers: number;
+  topStates: Array<{
+    state: string;
+    participants: number;
+    paidTickets: number;
+    revenue: number;
+  }>;
+  topRaffles: Array<{
+    id: string;
+    title: string;
+    paidTickets: number;
+    reservedTickets: number;
+    revenue: number;
+  }>;
+}
+
+export interface RaffleIntelligenceSegment {
+  segment: RaffleParticipantSegment;
+  size: number;
+  paidTickets: number;
+  reservedTickets: number;
+  estimatedRevenue: number;
+  latestActivity: string | null;
+  paymentRate: number;
+}

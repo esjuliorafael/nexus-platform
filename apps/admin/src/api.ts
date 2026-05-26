@@ -3,7 +3,8 @@ import {
   Order, Product, Media, User, Category, StateZone, 
   SalesChannel, WhatsAppChannel, DashboardStats, 
   AnnualService, ExtraCharge, Raffle, TicketSale,
-  BillingPayment, TemplateType
+  BillingPayment, TemplateType, RaffleIntelligenceOverview,
+  RaffleIntelligenceSegment, RaffleParticipantIntelligence
 } from './types';
 
 const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
@@ -382,6 +383,38 @@ export const apiRaffles = {
   createTicket: async (raffleId: string, data: any) => api.post(`/raffles/${raffleId}/tickets`, data),
   updateTicketStatus: async (id: string, status: string) => {
     return api.patch(`/ticket-sales/${id}/status`, { paymentStatus: status });
+  }
+};
+
+export const apiRaffleIntelligence = {
+  getOverview: async (params: Record<string, any> = {}): Promise<RaffleIntelligenceOverview> => {
+    const res = await api.get('/admin/raffle-intelligence/overview', { params });
+    return res.data;
+  },
+  getSegments: async (params: Record<string, any> = {}): Promise<RaffleIntelligenceSegment[]> => {
+    const res = await api.get('/admin/raffle-intelligence/segments', { params });
+    return res.data;
+  },
+  getParticipants: async (params: Record<string, any> = {}): Promise<{
+    data: RaffleParticipantIntelligence[];
+    meta: { total: number; page: number; pageSize: number; totalPages: number };
+  }> => {
+    const res = await api.get('/admin/raffle-intelligence/participants', { params });
+    return res.data;
+  },
+  exportParticipants: async (params: Record<string, any> = {}) => {
+    const res = await api.get('/admin/raffle-intelligence/export', {
+      params,
+      responseType: 'blob'
+    });
+    const url = window.URL.createObjectURL(new Blob([res.data], { type: 'text/csv;charset=utf-8;' }));
+    const link = document.createElement('a');
+    link.href = url;
+    link.setAttribute('download', `raffle-intelligence-${new Date().toISOString().slice(0, 10)}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    window.URL.revokeObjectURL(url);
   }
 };
 

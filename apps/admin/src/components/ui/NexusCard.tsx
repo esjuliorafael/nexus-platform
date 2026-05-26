@@ -155,8 +155,8 @@ export const NexusControlRow: React.FC<LegacyCardProps & { statusColor?: string 
       padding: 'var(--space-md)'
     }}
   >
-    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-      {/* Name and Dot always stay together */}
+    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+      {/* Name and Dot Row */}
       <div className="flex items-center gap-3">
         {statusColor && (
           <div className={`w-2.5 h-2.5 rounded-full transition-all duration-500 shrink-0 ${statusColor}`} />
@@ -166,9 +166,9 @@ export const NexusControlRow: React.FC<LegacyCardProps & { statusColor?: string 
         </span>
       </div>
 
-      {/* Actions: In mobile they fill the row, in desktop they stay right */}
+      {/* Actions Row: Full width distribution on mobile */}
       {actions && (
-        <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6 border-t sm:border-t-0 border-border-main/30 pt-3 sm:pt-0 w-full sm:w-auto">
+        <div className="flex items-center justify-between lg:justify-end gap-4 lg:gap-6 border-t lg:border-t-0 border-border-main/30 pt-3 lg:pt-0 w-full lg:w-auto">
           {actions}
         </div>
       )}

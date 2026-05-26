@@ -195,39 +195,35 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
           >
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {localStates.map((state, idx) => (
-                <div 
-                  key={state.id} 
-                  className={`flex items-center justify-between p-4 bg-white border rounded-[1.5rem] transition-all duration-300 group hover:shadow-lg hover:shadow-stone-200/40 ${!state.active ? 'border-dashed border-stone-200 opacity-60' : 'border-border-main hover:border-brand-500/30'}`}
-                  style={{ animationDelay: `${idx * 20}ms` }}
-                >
-                  <div className="flex items-center gap-4">
-                    <div className={`w-2.5 h-2.5 rounded-full transition-all duration-500 ${!state.active ? 'bg-stone-300 scale-75' : state.zone === 'STANDARD' ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50' : 'bg-orange-500 shadow-sm shadow-orange-500/50'}`} />
-                    <span className={`font-black text-xs uppercase tracking-tight ${!state.active ? 'text-stone-400' : 'text-stone-800'}`}>
-                      {state.name}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-4 sm:gap-6">
-                    {/* Pill Selector */}
-                    {state.active && (
-                      <div className="flex bg-stone-100 p-1 rounded-xl border border-stone-200 shadow-inner scale-90 sm:scale-100 origin-right">
-                        <button 
-                          onClick={() => toggleStateZone(state.id, 'STANDARD')}
-                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${state.zone === 'STANDARD' ? 'bg-white text-emerald-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
-                        >
-                          Normal
-                        </button>
-                        <button 
-                          onClick={() => toggleStateZone(state.id, 'EXTENDED')}
-                          className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${state.zone === 'EXTENDED' ? 'bg-white text-orange-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
-                        >
-                          Extra
-                        </button>
-                      </div>
-                    )}
-                    
-                    {/* Switch de Visibilidad */}
-                    <div className="pl-3 sm:pl-4 border-l border-stone-100 flex items-center gap-3">
+                <NexusControlRow
+                  key={state.id}
+                  delay={`${idx * 20}ms`}
+                  title={state.name}
+                  isMuted={!state.active}
+                  statusColor={!state.active ? 'bg-stone-300' : state.zone === 'STANDARD' ? 'bg-emerald-500 shadow-sm shadow-emerald-500/50' : 'bg-orange-500 shadow-sm shadow-orange-500/50'}
+                  actions={
+                    <>
+                      {/* Pill Selector (Left side on mobile) */}
+                      {state.active ? (
+                        <div className="flex bg-stone-100 p-1 rounded-xl border border-stone-200 shadow-inner">
+                          <button 
+                            onClick={() => toggleStateZone(state.id, 'STANDARD')}
+                            className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${state.zone === 'STANDARD' ? 'bg-white text-emerald-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
+                          >
+                            Normal
+                          </button>
+                          <button 
+                            onClick={() => toggleStateZone(state.id, 'EXTENDED')}
+                            className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${state.zone === 'EXTENDED' ? 'bg-white text-orange-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
+                          >
+                            Extra
+                          </button>
+                        </div>
+                      ) : (
+                        <span className="text-[9px] font-black uppercase text-stone-300 tracking-widest">Sin Cobertura</span>
+                      )}
+                      
+                      {/* Switch (Right side on mobile) */}
                       <button 
                         onClick={() => toggleStateActive(state.id)} 
                         className={`w-11 h-6 rounded-full transition-all relative active:scale-90 ${
@@ -239,9 +235,9 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                           state.active ? 'left-6' : 'left-1'
                         }`} />
                       </button>
-                    </div>
-                  </div>
-                </div>
+                    </>
+                  }
+                />
               ))}
             </div>
           </NexusSection>
