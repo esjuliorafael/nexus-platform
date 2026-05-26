@@ -140,6 +140,33 @@ export const NexusWidgetCard: React.FC<LegacyCardProps> = ({
 );
 
 /**
+ * NexusControlRow: Componente de alta densidad para listas de control.
+ * Basado en NexusWidgetCard para integrarse perfectamente en rejillas masivas.
+ */
+export const NexusControlRow: React.FC<LegacyCardProps & { statusColor?: string }> = ({
+  title, subtitle, icon, statusColor, actions, className, delay, isMuted
+}) => (
+  <NexusWidgetCard 
+    title={
+      <div className="flex items-center gap-3">
+        {statusColor && (
+          <div className={`w-2.5 h-2.5 rounded-full transition-all duration-500 ${statusColor}`} />
+        )}
+        <span className={`font-black text-xs uppercase tracking-tight ${isMuted ? 'text-stone-400' : 'text-stone-800'}`}>
+          {title}
+        </span>
+      </div>
+    }
+    subtitle={subtitle}
+    icon={icon}
+    actions={actions}
+    className={className}
+    delay={delay}
+    isMuted={isMuted}
+  />
+);
+
+/**
  * NexusSectionCard: Tarjeta de Nivel 2.
  * Diseñada para vivir dentro de una NexusSection.
  * Mantiene el espaciado y jerarquía visual de nivel medio.

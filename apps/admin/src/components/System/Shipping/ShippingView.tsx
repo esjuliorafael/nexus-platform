@@ -6,7 +6,7 @@ import { NexusSectionButton, NexusCardButton } from '../../ui/NexusButton';
 import { NexusInput } from '../../ui/NexusInputs';
 import { NexusHero } from '../../ui/NexusHero';
 import { NexusSection } from '../../ui/NexusSection';
-import { NexusSectionCard } from '../../ui/NexusCard';
+import { NexusSectionCard, NexusControlRow } from '../../ui/NexusCard';
 import { EmptyState } from '../../ui/EmptyState';
 import { NexusCardIcon } from '../../ui/NexusIcon';
 
