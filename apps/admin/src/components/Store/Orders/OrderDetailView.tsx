@@ -1,7 +1,7 @@
 import React, { useRef } from 'react';
 import { 
   Package, Clock, CheckCircle2, Phone, MapPin, User, 
-  Calendar, DollarSign, Plane, Truck, CircleX, ChevronLeft, Layers 
+  Calendar, DollarSign, Plane, Truck, CircleX, ChevronLeft, Layers, MessageCircle 
 } from 'lucide-react';
 import { Order } from '../../../types';
 import { NexusSectionButton, NexusCardButton } from '../../ui/NexusButton';
