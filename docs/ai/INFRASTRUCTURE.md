@@ -46,7 +46,24 @@ El despliegue sigue este camino:
    docker compose up -d
    ```
 
-## 4. Variables de Entorno Críticas (.env)
+## 4. Estrategia de Mensajería (WhatsApp)
+
+La plataforma utiliza **Evolution API** con un esquema de aprovisionamiento dinámico para evitar colisiones entre clientes.
+
+### Instancias por Cliente
+Cada cliente cuenta con 4 instancias técnicas generadas automáticamente a partir de un **Tenant Prefix** (ej. `manzana`):
+
+1. `[prefix]_main`: Canal principal y fallback del sistema.
+2. `[prefix]_combat`: Canal especializado para aves de combate.
+3. `[prefix]_breeding`: Canal especializado para aves de cría.
+4. `[prefix]_raffles`: Canal especializado para el módulo de rifas.
+
+### Flujo de Activación
+1. El prefijo se configura en **Sistema > Infraestructura**.
+2. El Backend aprovisiona las 4 instancias mediante `provisionEvolutionInstances`.
+3. El Admin permite vincular cada instancia individualmente mediante códigos QR generados dinámicamente.
+
+## 5. Variables de Entorno Críticas (.env)
 
 El archivo `.env` en el servidor debe contener al menos:
 - `RAFFLE_ENABLED=true` (Para cargar el plugin en el API).
