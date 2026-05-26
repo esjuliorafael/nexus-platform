@@ -142,24 +142,32 @@ export const NexusWidgetCard: React.FC<LegacyCardProps> = ({
 /**
  * NexusControlRow: Componente de alta densidad para listas de control.
  * Basado en NexusWidgetCard para integrarse perfectamente en rejillas masivas.
+ * Adaptable a móvil: Apila controles bajo el título en pantallas pequeñas.
  */
 export const NexusControlRow: React.FC<LegacyCardProps & { statusColor?: string }> = ({
   title, subtitle, icon, statusColor, actions, className, delay, isMuted
 }) => (
   <NexusWidgetCard 
     title={
-      <div className="flex items-center gap-3">
-        {statusColor && (
-          <div className={`w-2.5 h-2.5 rounded-full transition-all duration-500 ${statusColor}`} />
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 w-full">
+        <div className="flex items-center gap-3">
+          {statusColor && (
+            <div className={`w-2.5 h-2.5 rounded-full transition-all duration-500 shrink-0 ${statusColor}`} />
+          )}
+          <span className={`font-black text-xs uppercase tracking-tight truncate ${isMuted ? 'text-stone-400' : 'text-stone-800'}`}>
+            {title}
+          </span>
+        </div>
+        
+        {actions && (
+          <div className="flex items-center justify-between sm:justify-end gap-4 sm:gap-6 border-t sm:border-t-0 border-border-main/50 pt-3 sm:pt-0 w-full sm:w-auto">
+            {actions}
+          </div>
         )}
-        <span className={`font-black text-xs uppercase tracking-tight ${isMuted ? 'text-stone-400' : 'text-stone-800'}`}>
-          {title}
-        </span>
       </div>
     }
     subtitle={subtitle}
     icon={icon}
-    actions={actions}
     className={className}
     delay={delay}
     isMuted={isMuted}
