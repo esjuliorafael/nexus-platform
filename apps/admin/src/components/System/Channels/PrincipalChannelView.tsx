@@ -145,10 +145,14 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
     }
     try {
       const instanceName = principalInstance;
+      const prefix = config.whatsapp_evolution_instance || 'nexus';
+      
+      // Update config with the clean prefix, NOT the computed instance name
       await updateConfig({
         whatsapp_main_phone: config.whatsapp_main_phone || '',
-        whatsapp_evolution_instance: instanceName,
+        whatsapp_evolution_instance: prefix,
       }, false);
+
       const res = await apiWhatsApp.getQR(instanceName);
       if (res.data?.base64) {
         setQRData({ base64: res.data.base64, instanceName, timeLeft: 40 });

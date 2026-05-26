@@ -53,7 +53,13 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       const wa = resolved.whatsappChannel;
 
       // Determine instance details: Channel specific -> Global Settings
-      const instanceName = wa?.instanceName || getSetting("whatsapp_evolution_instance");
+      let instanceName = wa?.instanceName || getSetting("whatsapp_evolution_instance");
+      
+      // If using global fallback, append _main suffix if not present
+      if (!wa && instanceName && !instanceName.endsWith('_main')) {
+        instanceName = `${instanceName}_main`;
+      }
+
       const baseUrl = wa?.evolutionUrl || globalUrl;
       const apiKey = wa?.evolutionKey || globalKey;
       

@@ -46,6 +46,11 @@ export async function orderRoutes(server: FastifyInstance) {
     return orderService.updateStatus(parseInt(id), validated.status);
   });
 
+  server.post("/admin/:id/resend-whatsapp", { preHandler: [server.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    return orderService.resendNotification(parseInt(id));
+  });
+
   server.delete("/admin/:id", { preHandler: [server.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string };
     await orderService.cancelOrder(parseInt(id));

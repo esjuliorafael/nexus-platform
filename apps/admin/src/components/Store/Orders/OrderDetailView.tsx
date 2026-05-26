@@ -104,10 +104,11 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
   onBack,
   onMarkAsPaid,
   onCancelOrder
-}) => {
+  }) => {
+  const [isResending, setIsResending] = React.useState(false);
+
   // --- CONFIGURACIÓN DE ESTADOS ---
-  const getStatusConfig = (status: string) => {
-    switch (status) {
+  const getStatusConfig = (status: string) => {    switch (status) {
       case 'paid': 
         return { 
           style: 'bg-emerald-50 text-emerald-600 border-emerald-100', 
@@ -139,13 +140,34 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
   const hasBirds = order.items.some(item => item.type === 'BIRD');
   const hasItems = order.items.some(item => item.type === 'ITEM');
 
+  const handleResendWhatsApp = async () => {
+    setIsResending(true);
+    try {
+      await apiOrders.resendWhatsApp(order.id);
+      showToast('Notificación enviada a la cola', 'success');
+    } catch (error) {
+      showToast('No se pudo re-enviar la notificación', 'error');
+    } finally {
+      setIsResending(false);
+    }
+  };
+
   return (
     <div className="animate-in fade-in slide-in-from-right-4 duration-500 pb-10 flex flex-col" style={{ gap: 'var(--space-lg)' }}>
       
       {/* Botón Volver Volante */}
-      <div className="flex items-center">
+      <div className="flex items-center justify-between">
         <NexusCardButton variant="secondary" onClick={onBack} icon={ChevronLeft}>
           Volver a Órdenes
+        </NexusCardButton>
+        <NexusCardButton 
+          onClick={handleResendWhatsApp} 
+          isLoading={isResending} 
+          icon={MessageCircle}
+          variant="ghost"
+          className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-100"
+        >
+          Re-enviar WhatsApp
         </NexusCardButton>
       </div>
 

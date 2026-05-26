@@ -244,4 +244,43 @@ export const orderService = {
       return cancelledOrder;
     });
   },
+
+  async resendNotification(id: number) {
+    const order = await storePrisma.order.findUnique({
+      where: { id },
+      include: { items: true },
+    });
+
+    if (!order) throw new Error("Order not found");
+
+    const settings = await storePrisma.setting.findMany({
+      where: { key: "inventory_release_hours" }
+    });
+    const releaseHours = Number(settings[0]?.value || 24);
+
+    const birds = order.items.filter((i) => i.productType === "BIRD");
+    const hasItems = order.items.some((i) => i.productType === "ITEM");
+
+    let orderKind: OrderKind = { type: "mixed" };
+    if (birds.length > 0 && !hasItems) {
+      // Simplification: just assume first bird purpose for resend
+      const firstProduct = await storePrisma.product.findUnique({ where: { id: birds[0].productId } });
+      orderKind = {
+        type: "birds_only",
+        purpose: firstProduct?.purpose as OrderItemPurpose,
+      };
+    } else if (birds.length === 0 && hasItems) {
+      orderKind = { type: "articles_only" };
+    }
+
+    await whatsappQueue.add("order-notification", {
+      kind: order.status === 'PAID' ? 'order-paid' : 'order',
+      orderId: order.id.toString(),
+      recipientPhone: order.customerPhone,
+      orderKind,
+      timeLimit: `${releaseHours} horas`
+    });
+
+    return { success: true };
+  },
 };

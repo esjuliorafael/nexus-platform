@@ -176,6 +176,9 @@ export const apiOrders = {
   },
   delete: async (id: string) => {
     return api.delete(`/store/orders/admin/${id}`);
+  },
+  resendWhatsApp: async (id: string) => {
+    return api.post(`/store/orders/admin/${id}/resend-whatsapp`);
   }
 };
 
