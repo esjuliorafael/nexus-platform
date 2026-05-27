@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React, { useRef, useMemo } from 'react';
 import { 
   Package, Clock, CheckCircle2, Phone, MapPin, User, 
   Calendar, DollarSign, Plane, Truck, CircleX, ChevronLeft, Layers, MessageCircle 
@@ -6,7 +6,7 @@ import {
 import { Order } from '../../../types';
 import { NexusSectionButton, NexusCardButton } from '../../ui/NexusButton';
 import { NexusSection } from '../../ui/NexusSection';
-import { ASSET_BASE_URL } from '../../../api';
+import { ASSET_BASE_URL, apiOrders } from '../../../api';
 
 // --- SUB-COMPONENTES ---
 
@@ -87,6 +87,7 @@ interface OrderDetailViewProps {
   onBack: () => void;
   onMarkAsPaid: (orderId: string) => void;
   onCancelOrder: (orderId: string) => void;
+  showToast: (message: string, type?: 'success' | 'error') => void;
 }
 
 // Utilidad para formatear fecha (YYYY-MM-DD... -> DD/MM/YYYY)
@@ -99,44 +100,23 @@ const formatDate = (dateStr: string) => {
   return `${day}/${month}/${year}`;
 };
 
+// Truncado inteligente a 2 palabras
+const truncateProductName = (name: string) => {
+  if (!name) return 'Sin nombre';
+  const words = name.split(' ');
+  if (words.length <= 2) return name;
+  return `${words.slice(0, 2).join(' ')}...`;
+};
+
 export const OrderDetailView: React.FC<OrderDetailViewProps> = ({ 
   order, 
   onBack,
   onMarkAsPaid,
-  onCancelOrder
+  onCancelOrder,
+  showToast
   }) => {
   const [isResending, setIsResending] = React.useState(false);
 
-  // --- CONFIGURACIÓN DE ESTADOS ---
-  const getStatusConfig = (status: string) => {    switch (status) {
-      case 'paid': 
-        return { 
-          style: 'bg-emerald-50 text-emerald-600 border-emerald-100', 
-          icon: <CheckCircle2 size={14} strokeWidth={2.5} />,
-          label: 'Pagada'
-        };
-      case 'pending': 
-        return { 
-          style: 'bg-amber-50 text-amber-600 border-amber-100', 
-          icon: <Clock size={14} strokeWidth={2.5} />,
-          label: 'Pendiente'
-        };
-      case 'cancelled': 
-        return { 
-          style: 'bg-rose-50 text-rose-600 border-rose-100', 
-          icon: <CircleX size={14} strokeWidth={2.5} />,
-          label: 'Cancelada'
-        };
-      default: 
-        return { 
-          style: 'bg-bg-muted text-text-muted border-border-main', 
-          icon: <Package size={14} strokeWidth={2.5} />,
-          label: status 
-        };
-    }
-  };
-
-  const statusConfig = getStatusConfig(order?.status || 'pending');
   const itemsList = order?.items || [];
   const hasBirds = itemsList.some(item => item?.type?.toUpperCase() === 'BIRD');
   const hasItems = itemsList.some(item => item?.type?.toUpperCase() === 'ITEM');
@@ -159,7 +139,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
       <div className="py-20 text-center">
         <p className="text-text-muted">No se pudo cargar la información de la orden.</p>
         <NexusCardButton variant="secondary" onClick={onBack} icon={ChevronLeft} className="mt-4">
-          Volver a Órdenes
+          Volver
         </NexusCardButton>
       </div>
     );
@@ -171,7 +151,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
       {/* Botón Volver Volante */}
       <div className="flex items-center justify-between">
         <NexusCardButton variant="secondary" onClick={onBack} icon={ChevronLeft}>
-          Volver a Órdenes
+          Volver
         </NexusCardButton>
         <NexusCardButton 
           onClick={handleResendWhatsApp} 
@@ -254,19 +234,21 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
           >
             <div className="flex flex-col divide-y divide-border-main/50">
               {itemsList.map((item) => (
-                <div key={item?.id} className="py-6 flex items-center justify-between hover:bg-bg-muted/30 transition-colors px-2 rounded-xl">
-                  <div className="flex items-center" style={{ gap: 'var(--space-md)' }}>
+                <div key={item?.id} className="py-6 flex items-center justify-between hover:bg-bg-muted/30 transition-colors px-2 rounded-xl" style={{ gap: 'var(--space-md)' }}>
+                  <div className="flex items-center min-w-0" style={{ gap: 'var(--space-md)' }}>
                     <OrderItemThumbnail item={item} />
-                    <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                      <p className="text-h2 text-text-main truncate">{item?.name || 'Producto sin nombre'}</p>
+                    <div className="flex flex-col min-w-0" style={{ gap: 'var(--space-xs)' }}>
+                      <p className="text-h2 text-text-main truncate" title={item?.name || 'Producto'}>
+                        {truncateProductName(item?.name || 'Producto sin nombre')}
+                      </p>
                       <p className="text-label text-stone-400 uppercase tracking-[0.15em]">
                         {item?.type?.toUpperCase() === 'BIRD' ? 'Ave' : 'Artículo'}
                       </p>
                     </div>
                   </div>
-                  <div className="text-right flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                    <p className="text-h2 text-text-main">${(item?.price || 0).toLocaleString('es-MX')}</p>
-                    <p className="text-label text-stone-400">Cant: {item?.quantity || 0}</p>
+                  <div className="text-right flex flex-col shrink-0" style={{ gap: 'var(--space-xs)' }}>
+                    <p className="text-h2 text-text-main font-black">${(item?.price || 0).toLocaleString('es-MX')}</p>
+                    <p className="text-label text-stone-400 font-bold">Cant: {item?.quantity || 0}</p>
                   </div>
                 </div>
               ))}
