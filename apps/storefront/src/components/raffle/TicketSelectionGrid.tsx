@@ -1,18 +1,19 @@
-import { useState, useMemo } from 'react';
+import { useMemo, useState } from 'react';
+import { CheckCircle2, Loader2, MapPin, Phone, Search, User, type LucideIcon } from 'lucide-react';
 import { Raffle } from '../../types';
 import { cn } from '../../utils/cn';
-import { User, Phone, MapPin, CheckCircle2, Loader2, Search } from 'lucide-react';
 import { Button } from '../ui/Button';
+import { StorefrontField } from '../ui/Field';
 import { formatPrice } from '../../utils/formatters';
 
 interface TicketSelectionGridProps {
   raffle: Raffle;
   occupiedTickets: string[];
-  onReserve: (data: { 
-    tickets: string[]; 
-    customerName: string; 
-    customerPhone: string; 
-    customerState?: string; 
+  onReserve: (data: {
+    tickets: string[];
+    customerName: string;
+    customerPhone: string;
+    customerState?: string;
   }) => Promise<void>;
   isReserving: boolean;
 }
@@ -24,83 +25,85 @@ export function TicketSelectionGrid({ raffle, occupiedTickets, onReserve, isRese
   const [customerState, setCustomerState] = useState('');
   const [search, setSearch] = useState('');
 
-  // Generate all ticket numbers
   const allTickets = useMemo(() => {
-    const tickets = [];
+    const tickets: string[] = [];
     const start = raffle.useZero ? 0 : 1;
     const end = raffle.useZero ? raffle.ticketQuantity - 1 : raffle.ticketQuantity;
-    
-    for (let i = start; i <= end; i++) {
-      tickets.push(i.toString().padStart(raffle.digits, '0'));
+
+    for (let index = start; index <= end; index++) {
+      tickets.push(index.toString().padStart(raffle.digits, '0'));
     }
+
     return tickets;
   }, [raffle]);
 
   const toggleTicket = (number: string) => {
     if (occupiedTickets.includes(number)) return;
-    
-    setSelectedTickets(prev => 
-      prev.includes(number) 
-        ? prev.filter(t => t !== number) 
-        : [...prev, number]
+
+    setSelectedTickets((current) =>
+      current.includes(number)
+        ? current.filter((ticket) => ticket !== number)
+        : [...current, number]
     );
   };
 
-  const handleReserve = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleReserve = async (event: React.FormEvent) => {
+    event.preventDefault();
     if (selectedTickets.length === 0 || !customerName || !customerPhone) return;
-    
+
     await onReserve({
       tickets: selectedTickets,
       customerName,
       customerPhone,
-      customerState
+      customerState,
     });
   };
 
-  const filteredTickets = allTickets.filter(t => t.includes(search));
-
+  const filteredTickets = allTickets.filter((ticket) => ticket.includes(search));
   const totalAmount = selectedTickets.length * Number(raffle.ticketPrice);
 
   return (
-    <div className="space-y-12">
-      <div className="flex flex-col xl:flex-row gap-8 items-start">
-        {/* Selection Area */}
-        <div className="flex-1 space-y-6 w-full">
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-            <h4 className="text-xl font-black text-stone-800 uppercase tracking-tight lora">
-              Elige tus números <span className="text-stone-400">({selectedTickets.length} seleccionados)</span>
-            </h4>
-            <div className="relative w-full sm:w-60">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={16} />
-              <input 
-                type="text" 
-                placeholder="Buscar número..."
+    <div className="flex flex-col" style={{ gap: 'var(--sf-space-lg)' }}>
+      <div className="flex flex-col items-start xl:flex-row" style={{ gap: 'var(--sf-space-lg)' }}>
+        <div className="w-full flex-1">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between" style={{ gap: 'var(--sf-space-md)' }}>
+            <div>
+              <h4 className="sf-text-h2 text-stone-850 uppercase italic">Elige tus numeros</h4>
+              <p className="sf-text-label text-stone-400">{selectedTickets.length} seleccionados</p>
+            </div>
+            <div className="w-full sm:w-64">
+              <StorefrontField
+                icon={Search}
+                type="text"
+                placeholder="Buscar numero..."
                 value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="w-full bg-stone-50 pl-12 pr-4 py-3 rounded-2xl border border-stone-200 focus:outline-none focus:ring-2 focus:ring-brand-500/20 text-sm font-bold transition-all"
+                onChange={(event) => setSearch(event.target.value)}
               />
             </div>
           </div>
 
-          <div className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10 gap-2 max-h-[500px] overflow-y-auto p-4 no-scrollbar border border-stone-100 rounded-[2.5rem] bg-stone-50/30">
-            {filteredTickets.map(number => {
+          <div
+            className="mt-6 grid max-h-[500px] grid-cols-5 overflow-y-auto border border-stone-100 bg-stone-50/40 p-4 sm:grid-cols-8 md:grid-cols-10"
+            style={{ borderRadius: 'var(--sf-radius-outer)', gap: 'var(--sf-space-sm)' }}
+          >
+            {filteredTickets.map((number) => {
               const isOccupied = occupiedTickets.includes(number);
               const isSelected = selectedTickets.includes(number);
-              
+
               return (
                 <button
                   key={number}
                   disabled={isOccupied}
                   onClick={() => toggleTicket(number)}
                   className={cn(
-                    "aspect-square rounded-xl flex items-center justify-center font-black text-xs sm:text-sm transition-all active:scale-90",
-                    isOccupied 
-                      ? "bg-stone-200 text-stone-400 cursor-not-allowed opacity-50"
+                    'aspect-square flex items-center justify-center text-xs font-black transition-all duration-300 active:scale-90 sm:text-sm',
+                    isOccupied
+                      ? 'cursor-not-allowed bg-stone-200 text-stone-400 opacity-50'
                       : isSelected
-                        ? "bg-brand-500 text-white shadow-lg shadow-brand-500/30 scale-105"
-                        : "bg-white text-stone-600 border border-stone-200 hover:border-brand-500 hover:text-brand-500"
+                        ? 'scale-105 bg-brand-500 text-white shadow-lg shadow-brand-500/30'
+                        : 'border border-stone-200 bg-white text-stone-600 hover:border-brand-500 hover:text-brand-500'
                   )}
+                  style={{ borderRadius: 'var(--sf-radius-nested)' }}
                 >
                   {number}
                 </button>
@@ -108,88 +111,72 @@ export function TicketSelectionGrid({ raffle, occupiedTickets, onReserve, isRese
             })}
           </div>
 
-          <div className="flex flex-wrap gap-4 text-[10px] font-black uppercase tracking-widest text-stone-400 px-2">
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-white border border-stone-200" /> Disponible
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-brand-500" /> Seleccionado
-            </div>
-            <div className="flex items-center gap-2">
-              <div className="w-3 h-3 rounded-full bg-stone-200" /> Ocupado
-            </div>
+          <div className="mt-4 flex flex-wrap sf-text-label text-stone-400" style={{ gap: 'var(--sf-space-md)' }}>
+            <LegendItem label="Disponible" className="bg-white border border-stone-200" />
+            <LegendItem label="Seleccionado" className="bg-brand-500" />
+            <LegendItem label="Ocupado" className="bg-stone-200" />
           </div>
         </div>
 
-        {/* Form Area */}
-        <div className="w-full xl:w-96 sticky top-24">
-          <form onSubmit={handleReserve} className="bg-stone-900 text-white p-8 sm:p-10 rounded-[3rem] shadow-2xl space-y-8">
-            <div className="space-y-4">
-               <h5 className="text-2xl font-black italic lora tracking-tight">Apartar Boletos</h5>
-               <p className="text-stone-400 text-sm font-medium leading-relaxed">Completa tus datos para que podamos contactarte y confirmar tu pago.</p>
+        <div className="w-full xl:w-96 xl:sticky xl:top-24">
+          <form
+            onSubmit={handleReserve}
+            className="flex flex-col bg-stone-900 text-white shadow-2xl shadow-stone-900/25"
+            style={{ borderRadius: 'var(--sf-radius-outer)', padding: 'var(--sf-padding-outer)', gap: 'var(--sf-space-lg)' }}
+          >
+            <div className="flex flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
+              <h5 className="sf-text-h1 uppercase italic">Apartar Boletos</h5>
+              <p className="sf-text-secondary text-stone-400">Completa tus datos para contactarte y confirmar tu pago.</p>
             </div>
 
-            <div className="space-y-5">
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-stone-500 ml-4">Nombre Completo</label>
-                <div className="relative">
-                  <User className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-600" size={18} />
-                  <input 
-                    required
-                    type="text"
-                    placeholder="Tu nombre"
-                    value={customerName}
-                    onChange={(e) => setCustomerName(e.target.value)}
-                    className="w-full bg-stone-800 pl-14 pr-6 py-5 rounded-2xl border border-stone-700 focus:outline-none focus:border-brand-500 transition-all text-sm font-bold placeholder:text-stone-600"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-stone-500 ml-4">WhatsApp / Teléfono</label>
-                <div className="relative">
-                  <Phone className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-600" size={18} />
-                  <input 
-                    required
-                    type="tel"
-                    placeholder="10 dígitos"
-                    value={customerPhone}
-                    onChange={(e) => setCustomerPhone(e.target.value)}
-                    className="w-full bg-stone-800 pl-14 pr-6 py-5 rounded-2xl border border-stone-700 focus:outline-none focus:border-brand-500 transition-all text-sm font-bold placeholder:text-stone-600"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <label className="text-[10px] font-black uppercase tracking-widest text-stone-500 ml-4">Estado</label>
-                <div className="relative">
-                  <MapPin className="absolute left-5 top-1/2 -translate-y-1/2 text-stone-600" size={18} />
-                  <input 
-                    type="text"
-                    placeholder="Ej. Jalisco"
-                    value={customerState}
-                    onChange={(e) => setCustomerState(e.target.value)}
-                    className="w-full bg-stone-800 pl-14 pr-6 py-5 rounded-2xl border border-stone-700 focus:outline-none focus:border-brand-500 transition-all text-sm font-bold placeholder:text-stone-600"
-                  />
-                </div>
-              </div>
+            <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
+              <DarkField
+                icon={User}
+                label="Nombre Completo"
+                required
+                type="text"
+                placeholder="Tu nombre"
+                value={customerName}
+                onChange={(event) => setCustomerName(event.target.value)}
+              />
+              <DarkField
+                icon={Phone}
+                label="WhatsApp / Telefono"
+                required
+                type="tel"
+                placeholder="10 digitos"
+                value={customerPhone}
+                onChange={(event) => setCustomerPhone(event.target.value)}
+              />
+              <DarkField
+                icon={MapPin}
+                label="Estado"
+                type="text"
+                placeholder="Ej. Jalisco"
+                value={customerState}
+                onChange={(event) => setCustomerState(event.target.value)}
+              />
             </div>
 
-            <div className="pt-6 border-t border-stone-800 space-y-6">
-              <div className="flex justify-between items-center">
-                <span className="text-stone-400 text-sm font-bold uppercase tracking-widest">Total</span>
-                <span className="text-3xl font-black text-brand-500">${formatPrice(totalAmount)}</span>
+            <div className="flex flex-col border-t border-stone-800 pt-[var(--sf-space-md)]" style={{ gap: 'var(--sf-space-md)' }}>
+              <div className="flex items-center justify-between">
+                <span className="sf-text-label text-stone-400">Total</span>
+                <span className="sf-text-display text-brand-500">${formatPrice(totalAmount)}</span>
               </div>
-              
-              <Button 
-                type="submit" 
-                className="w-full h-18 text-lg rounded-2xl" 
+
+              <Button
+                type="submit"
+                context="section"
+                className="w-full"
                 disabled={selectedTickets.length === 0 || !customerName || !customerPhone || isReserving}
               >
                 {isReserving ? (
                   <Loader2 className="animate-spin" />
                 ) : (
-                  <>Reservar Ahora <CheckCircle2 className="ml-2" size={20} /></>
+                  <>
+                    Reservar Ahora
+                    <CheckCircle2 className="ml-2" size={20} />
+                  </>
                 )}
               </Button>
             </div>
@@ -197,5 +184,34 @@ export function TicketSelectionGrid({ raffle, occupiedTickets, onReserve, isRese
         </div>
       </div>
     </div>
+  );
+}
+
+function LegendItem({ label, className }: { label: string; className: string }) {
+  return (
+    <div className="flex items-center" style={{ gap: 'var(--sf-space-sm)' }}>
+      <div className={cn('h-3 w-3 rounded-full', className)} />
+      {label}
+    </div>
+  );
+}
+
+function DarkField({
+  icon: Icon,
+  label,
+  ...props
+}: React.InputHTMLAttributes<HTMLInputElement> & { icon: LucideIcon; label: string }) {
+  return (
+    <label className="group flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
+      <span className="sf-text-label text-stone-500 group-focus-within:text-brand-500">{label}</span>
+      <div className="relative flex h-[var(--sf-h-input)] items-center">
+        <Icon className="absolute left-5 text-stone-600 group-focus-within:text-brand-500" size={18} />
+        <input
+          {...props}
+          className="h-full w-full border border-stone-700 bg-stone-800 pl-14 pr-5 text-sm font-bold text-white transition-all placeholder:text-stone-600 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
+          style={{ borderRadius: 'var(--sf-radius-card-inner)', transitionTimingFunction: 'var(--sf-ease)' }}
+        />
+      </div>
+    </label>
   );
 }

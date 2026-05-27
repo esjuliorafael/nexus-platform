@@ -1,10 +1,11 @@
 "use client";
 
-import { motion } from 'framer-motion';
-import { Bird, ShieldCheck, Dna, ArrowRight } from 'lucide-react';
+import { ArrowRight, Bird, Dna, ShieldCheck, type LucideIcon } from 'lucide-react';
 import Link from 'next/link';
 import { Product } from '../../types';
 import { ProductCard } from '../product/ProductCard';
+import { Button } from '../ui/Button';
+import { StorefrontIcon } from '../ui/Icon';
 
 interface BirdShowcaseProps {
   combatBirds: Product[];
@@ -13,80 +14,125 @@ interface BirdShowcaseProps {
 
 export function BirdShowcase({ combatBirds, breedingBirds }: BirdShowcaseProps) {
   return (
-    <div className="space-y-40">
-      
-      {/* 1. COMBAT BIRDS - DARKROOM WARRIOR AESTHETIC */}
-      <section className="bg-stone-950 py-32 lg:py-48 relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-brand-500/5 rounded-full blur-[150px] pointer-events-none" />
-        
-        <div className="container-wide relative z-10 space-y-24">
-          <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-12 border-b border-white/10 pb-16">
-            <div className="space-y-6">
-              <div className="inline-flex items-center gap-2 text-brand-400 font-black uppercase text-[10px] tracking-[0.3em]">
-                <ShieldCheck size={12} /> Poderío & Carácter
-              </div>
-              <h2 className="text-5xl md:text-8xl font-display font-black text-white tracking-tighter uppercase italic leading-[0.8]">
-                Aves de <span className="text-brand-500">Combate</span>
-              </h2>
-              <p className="text-stone-400 font-medium text-lg max-w-lg">
-                Ejemplares seleccionados por su casta, velocidad y corte. Genética probada en los niveles más exigentes.
-              </p>
-            </div>
-            <Link href="/store?type=BIRD&purpose=COMBAT" className="group text-white font-black uppercase tracking-widest text-xs inline-flex items-center gap-2 shrink-0 hover:text-brand-400 transition-colors">
-              Explorar Linajes <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </div>
+    <div className="flex flex-col" style={{ gap: 'var(--sf-space-xl)' }}>
+      <section className="relative overflow-hidden bg-stone-950" style={{ paddingBlock: 'clamp(5rem, 12vw, 12rem)' }}>
+        <div className="absolute right-0 top-0 h-[600px] w-[600px] rounded-full bg-brand-500/5 blur-[150px]" />
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-12">
+        <div className="relative z-10 mx-auto max-w-[1440px] px-6 lg:px-12">
+          <div className="flex flex-col" style={{ gap: 'var(--sf-space-xl)' }}>
+            <ShowcaseHeader
+              dark
+              icon={ShieldCheck}
+              eyebrow="Poderio & Caracter"
+              title={<>Aves de <span className="text-brand-500">Combate</span></>}
+              description="Ejemplares seleccionados por su casta, velocidad y corte. Genetica probada en los niveles mas exigentes."
+              href="/store?type=BIRD&purpose=COMBAT"
+              cta="Explorar Linajes"
+            />
+
             {combatBirds.length > 0 ? (
-              combatBirds.map((product) => (
-                <div key={product.id} className="dark-card">
-                  <ProductCard product={product} />
-                </div>
-              ))
+              <ProductGrid products={combatBirds} dark />
             ) : (
-              <div className="col-span-full py-20 text-center border border-dashed border-white/10 rounded-[3rem]">
-                <Bird className="mx-auto text-stone-700 mb-4" size={48} />
-                <p className="text-stone-500 font-bold uppercase tracking-widest text-sm">Nuevos ejemplares en preparación</p>
-              </div>
+              <EmptyShowcase dark icon={Bird} text="Nuevos ejemplares en preparacion" />
             )}
           </div>
         </div>
       </section>
 
-      {/* 2. BREEDING BIRDS - MINIMALIST GENETIC AESTHETIC */}
-      <section className="max-w-[1440px] mx-auto px-6 lg:px-12 py-12">
-        <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-12 border-b border-stone-200 pb-16">
-          <div className="space-y-6">
-            <div className="inline-flex items-center gap-2 text-brand-500 font-black uppercase text-[10px] tracking-[0.3em]">
-              <Dna size={12} /> Pureza & Herencia
-            </div>
-            <h2 className="text-5xl md:text-8xl font-display font-black text-stone-950 tracking-tighter uppercase leading-[0.8]">
-              Aves de <span className="text-brand-500/80">Cría</span>
-            </h2>
-            <p className="text-stone-500 font-medium text-lg max-w-lg">
-              Sementales y reproductoras de registro. El corazón de nuestra excelencia genética para tu propio rancho.
-            </p>
-          </div>
-          <Link href="/store?type=BIRD&purpose=BREEDING" className="group text-stone-950 font-black uppercase tracking-widest text-xs inline-flex items-center gap-2 shrink-0 hover:text-brand-500 transition-colors">
-            Ver Reproductoras <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
-          </Link>
-        </div>
+      <section className="mx-auto max-w-[1440px] px-6 py-12 lg:px-12">
+        <div className="flex flex-col" style={{ gap: 'var(--sf-space-xl)' }}>
+          <ShowcaseHeader
+            icon={Dna}
+            eyebrow="Pureza & Herencia"
+            title={<>Aves de <span className="text-brand-500/80">Cria</span></>}
+            description="Sementales y reproductoras de registro. El corazon de nuestra excelencia genetica para tu propio rancho."
+            href="/store?type=BIRD&purpose=BREEDING"
+            cta="Ver Reproductoras"
+          />
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 lg:gap-12 mt-24">
           {breedingBirds.length > 0 ? (
-            breedingBirds.map((product) => (
-              <ProductCard key={product.id} product={product} />
-            ))
+            <ProductGrid products={breedingBirds} />
           ) : (
-            <div className="col-span-full py-20 text-center border border-dashed border-stone-200 rounded-[3rem]">
-              <Dna className="mx-auto text-stone-300 mb-4" size={48} />
-              <p className="text-stone-400 font-bold uppercase tracking-widest text-sm">Selección de sementales en curso</p>
-            </div>
+            <EmptyShowcase icon={Dna} text="Seleccion de sementales en curso" />
           )}
         </div>
       </section>
+    </div>
+  );
+}
 
+function ShowcaseHeader({
+  dark = false,
+  icon,
+  eyebrow,
+  title,
+  description,
+  href,
+  cta,
+}: {
+  dark?: boolean;
+  icon: LucideIcon;
+  eyebrow: string;
+  title: React.ReactNode;
+  description: string;
+  href: string;
+  cta: string;
+}) {
+  return (
+    <div
+      className={`flex flex-col justify-between border-b pb-[var(--sf-space-lg)] lg:flex-row lg:items-end ${
+        dark ? 'border-white/10' : 'border-stone-200'
+      }`}
+      style={{ gap: 'var(--sf-space-lg)' }}
+    >
+      <div className="flex max-w-3xl flex-col" style={{ gap: 'var(--sf-space-md)' }}>
+        <div className={`inline-flex items-center sf-text-label ${dark ? 'text-brand-400' : 'text-brand-500'}`} style={{ gap: 'var(--sf-space-sm)' }}>
+          <StorefrontIcon
+            icon={icon}
+            context="card"
+            variant={dark ? 'dark' : 'brand'}
+            className={dark ? 'border-white/10 bg-white/5 text-brand-400' : ''}
+          />
+          {eyebrow}
+        </div>
+        <h2 className={`sf-text-hero uppercase italic ${dark ? 'text-white' : 'text-stone-950'}`}>
+          {title}
+        </h2>
+        <p className={`sf-text-body max-w-lg ${dark ? 'text-stone-400' : 'text-stone-500'}`}>
+          {description}
+        </p>
+      </div>
+
+      <Button asChild variant={dark ? 'outline' : 'ghost'} context="card" className={dark ? 'border-white/10 text-white hover:bg-white hover:text-stone-950' : 'hover:bg-transparent hover:text-brand-500'}>
+        <Link href={href}>
+          {cta}
+          <ArrowRight size={14} className="ml-2 transition-transform group-hover:translate-x-1" />
+        </Link>
+      </Button>
+    </div>
+  );
+}
+
+function ProductGrid({ products, dark = false }: { products: Product[]; dark?: boolean }) {
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3" style={{ gap: 'var(--sf-space-md)' }}>
+      {products.map((product) => (
+        <div key={product.id} className={dark ? 'dark-card' : ''}>
+          <ProductCard product={product} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function EmptyShowcase({ icon: Icon, text, dark = false }: { icon: LucideIcon; text: string; dark?: boolean }) {
+  return (
+    <div
+      className={`col-span-full border border-dashed text-center ${dark ? 'border-white/10' : 'border-stone-200'}`}
+      style={{ borderRadius: 'var(--sf-radius-outer)', padding: 'var(--sf-space-xl)' }}
+    >
+      <Icon className={`mx-auto mb-4 ${dark ? 'text-stone-700' : 'text-stone-300'}`} size={48} />
+      <p className={`sf-text-label ${dark ? 'text-stone-500' : 'text-stone-400'}`}>{text}</p>
     </div>
   );
 }

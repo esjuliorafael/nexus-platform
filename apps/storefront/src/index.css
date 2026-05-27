@@ -7,6 +7,59 @@
 :root {
   --font-cabinet: 'Cabinet Grotesk', sans-serif;
   --font-satoshi: 'Satoshi', sans-serif;
+
+  /* Storefront Technical System - Perfectly mirrored from Admin's verified reference */
+  
+  /* Level 1: Main Containers */
+  --sf-radius-outer: clamp(2rem, 6vw, 3rem);
+  --sf-padding-outer: clamp(1.5rem, 5vw, 2.5rem);
+
+  /* Level 2: Primary Children */
+  --sf-radius-inner: calc(var(--sf-radius-outer) - (var(--sf-padding-outer) * 0.75));
+  --sf-padding-inner: clamp(1rem, 3vw, 1.5rem);
+
+  /* Level 3: Nested Elements */
+  --sf-radius-nested: max(0.5rem, calc(var(--sf-radius-inner) - var(--sf-padding-inner)));
+
+  /* Autonomous Cards Geometry */
+  --sf-radius-card-inner: calc(var(--sf-radius-outer) - (var(--sf-padding-inner) * 0.75));
+  --sf-radius-card-nested: max(0.5rem, calc(var(--sf-radius-card-inner) - var(--sf-padding-inner)));
+
+  /* Space Tokens - Relational Hierarchy (Base 4) */
+  --sf-space-xs: 0.25rem;  /* 4px */
+  --sf-space-sm: 0.5rem;   /* 8px */
+  --sf-space-md: clamp(1rem, 2vw, 1.5rem);  /* 16px-24px: Module (Icon -> Text) */
+  --sf-space-lg: clamp(1.5rem, 4vw, 2.5rem); /* 24px-40px: Boundary (Group -> Group) */
+  --sf-space-xl: clamp(2rem, 6vw, 3rem);     /* 32px-48px: Extra Boundary */
+
+  /* Fluid UI Components Heights */
+  /* Fluid UI Components Heights - Perfectly mirrored from Admin */
+  --sf-h-input: clamp(3rem, 4vw, 3.5rem);           /* 48px -> 56px */
+  --sf-h-button-section: clamp(3rem, 4vw, 3.5rem);  /* 48px -> 56px */
+  --sf-h-button-card: clamp(2.5rem, 3vw, 3rem);     /* 40px -> 48px */
+
+  /* Icon Sizes - Linked to Component Scales */
+  --sf-size-icon-section: var(--sf-h-button-section);
+  --sf-size-icon-card: var(--sf-h-button-card);
+  
+  /* Internal Icon Sizes - For Lucide icons inside containers */
+  --sf-size-inner-icon-section: 1.5rem;     /* 24px */
+  --sf-size-inner-icon-card: 1.25rem;       /* 20px */
+
+  /* Typography Scale - Modular Scale (Major Third 1.25x) */
+  --sf-text-hero:      clamp(1.875rem, 5vw,  2.5rem);    /* 30px -> 40px */
+  --sf-text-display:   clamp(1.5rem,   4vw,  2rem);       /* 24px -> 32px */
+  --sf-text-h1:        clamp(1.2rem,   2.5vw, 1.5rem);   /* 19px -> 24px */
+  --sf-text-h2:        clamp(1.05rem,  2vw,  1.25rem);   /* 16.8px -> 20px */
+  --sf-text-body:      clamp(0.9375rem, 1.2vw, 1rem);    /* 15px -> 16px */
+  --sf-text-secondary: clamp(0.8rem,   1vw,  0.875rem);  /* 12.8px -> 14px */
+  --sf-text-label:     clamp(0.6rem,   0.7vw, 0.6875rem);/* 9.6px -> 11px */
+
+  --sf-text-button-section:    clamp(0.875rem, 1.2vw, 1rem);
+  --sf-text-button-card:       clamp(0.75rem,  0.9vw, 0.8125rem);
+
+  --sf-ease: cubic-bezier(0.23, 1, 0.32, 1);
+  --sf-ease-reveal: cubic-bezier(0.16, 1, 0.3, 1);
 }
 
 @layer base {
@@ -16,7 +69,9 @@
   }
   
   body {
-    @apply antialiased selection:bg-brand-500/30 selection:text-stone-950;
+    @apply antialiased selection:bg-brand-500/30 selection:text-stone-950 bg-stone-50;
+    font-family: var(--font-satoshi);
+    color: #0c0a09; /* stone-950 */
   }
 
   /* Custom perspective for GSAP 3D effects */
@@ -36,5 +91,71 @@
   .scrollbar-hide {
     -ms-overflow-style: none;
     scrollbar-width: none;
+  }
+}
+
+@layer utilities {
+  .sf-text-hero {
+    font-family: var(--font-cabinet);
+    font-size: var(--sf-text-hero);
+    font-weight: 900;
+    letter-spacing: -0.05em;
+    line-height: 0.9;
+  }
+
+  .sf-text-display {
+    font-family: var(--font-cabinet);
+    font-size: var(--sf-text-display);
+    font-weight: 800;
+    letter-spacing: -0.04em;
+    line-height: 1.0;
+  }
+
+  .sf-text-h1 {
+    font-size: var(--sf-text-h1);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    line-height: 1.15;
+  }
+
+  .sf-text-h2 {
+    font-size: var(--sf-text-h2);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.3;
+  }
+
+  .sf-text-body {
+    font-size: var(--sf-text-body);
+    font-weight: 400;
+    line-height: 1.6;
+  }
+
+  .sf-text-secondary {
+    font-size: var(--sf-text-secondary);
+    font-weight: 500;
+    line-height: 1.5;
+  }
+
+  .sf-text-label {
+    font-size: var(--sf-text-label);
+    font-weight: 700;
+    line-height: 1.4;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .sf-text-button-section {
+    font-size: var(--sf-text-button-section);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
+
+  .sf-text-button-card {
+    font-size: var(--sf-text-button-card);
+    font-weight: 600;
+    letter-spacing: 0.02em;
+    line-height: 1;
   }
 }

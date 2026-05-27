@@ -3,7 +3,8 @@
 import { Product } from '../../types';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
-import { ShoppingCart, Heart, ShieldCheck, Tag } from 'lucide-react';
+import { StorefrontCard } from '../ui/Card';
+import { ShoppingCart, ShieldCheck, Tag } from 'lucide-react';
 import { useCartStore } from '../../store/cart.store';
 import Link from 'next/link';
 import { formatPrice } from '../../utils/formatters';
@@ -30,115 +31,117 @@ export function ProductCard({ product }: { product: Product }) {
     });
   };
 
-  // Human-readable translations for the UI
-  const ageLabel = product.age === 'COCK' ? 'Gallo' 
-                 : product.age === 'STAG' ? 'Pollo'
-                 : product.age === 'HEN' ? 'Gallina'
-                 : product.age === 'PULLET' ? 'Pollona'
-                 : product.age;
+  const ageLabel = product.age === 'COCK' ? 'Gallo'
+    : product.age === 'STAG' ? 'Pollo'
+      : product.age === 'HEN' ? 'Gallina'
+        : product.age === 'PULLET' ? 'Pollona'
+          : product.age;
 
   const purposeLabel = product.purpose === 'COMBAT' ? 'Combate'
-                     : product.purpose === 'BREEDING' ? 'Cría'
-                     : product.purpose;
+    : product.purpose === 'BREEDING' ? 'Cria'
+      : product.purpose;
 
   return (
     <motion.div
-      whileHover={{ y: -8, scale: 1.01 }}
-      transition={{ type: 'spring', damping: 25, stiffness: 260 }}
+      whileHover={{ y: -6, scale: 1.01 }}
+      transition={{ duration: 0.32, ease: [0.23, 1, 0.32, 1] }}
       className="group h-full"
     >
-      <Link 
-        href={`/store/${product.id}`} 
-        className="flex flex-col h-full bg-white rounded-[2.5rem] border border-stone-200/60 overflow-hidden shadow-sm hover:shadow-2xl hover:shadow-brand-500/5 hover:border-brand-500/20 transition-all duration-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+      <Link
+        href={`/store/${product.id}`}
+        className="block h-full focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20"
+        style={{ borderRadius: 'var(--sf-radius-outer)' }}
       >
-        {/* Thumbnail area */}
-        <div className="relative aspect-square overflow-hidden bg-stone-50 select-none">
-          {product.thumbnail ? (
-            <img
-              src={product.thumbnail}
-              alt={product.name}
-              className="w-full h-full object-cover group-hover:scale-108 transition-transform duration-700 ease-out"
-            />
-          ) : (
-            <div className="w-full h-full flex flex-col items-center justify-center text-stone-300 bg-stone-100/50">
-              <Tag size={36} strokeWidth={1} className="mb-2" />
-              <span className="text-xs font-semibold uppercase tracking-wider">Sin Imagen</span>
-            </div>
-          )}
-
-          {/* Badges Overlay */}
-          <div className="absolute top-5 left-5 flex flex-col gap-2 z-10">
-            <Badge variant={isBird ? 'default' : 'outline'} className="shadow-md backdrop-blur-md">
-              {isBird ? 'Ave de Registro' : 'Accesorio'}
-            </Badge>
-            {!isAvailable && (
-              <Badge 
-                variant={product.saleStatus === 'SOLD' ? 'danger' : 'warning'} 
-                className="shadow-md animate-pulse"
-              >
-                {product.saleStatus === 'SOLD' ? 'Vendido' : 'Reservado'}
-              </Badge>
+        <StorefrontCard
+          interactive
+          className="flex h-full flex-col overflow-hidden p-0"
+          style={{ borderRadius: 'var(--sf-radius-outer)' }}
+        >
+          <div className="relative aspect-square overflow-hidden bg-stone-50 select-none">
+            {product.thumbnail ? (
+              <img
+                src={product.thumbnail}
+                alt={product.name}
+                className="h-full w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.08]"
+              />
+            ) : (
+              <div className="flex h-full w-full flex-col items-center justify-center bg-stone-100/50 text-stone-300">
+                <Tag size={36} strokeWidth={1} className="mb-2" />
+                <span className="sf-text-label">Sin Imagen</span>
+              </div>
             )}
-          </div>
 
-          {/* Quality Badge Overlay for birds */}
-          {isBird && isAvailable && (
-            <div className="absolute top-5 right-5 z-10 bg-stone-900/40 backdrop-blur-md p-2 rounded-xl text-white opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-              <ShieldCheck size={16} className="text-brand-400" />
+            <div className="absolute left-5 top-5 z-10 flex flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
+              <Badge variant={isBird ? 'default' : 'outline'} className="shadow-md backdrop-blur-md">
+                {isBird ? 'Ave de Registro' : 'Accesorio'}
+              </Badge>
+              {!isAvailable && (
+                <Badge
+                  variant={product.saleStatus === 'SOLD' ? 'danger' : 'warning'}
+                  className="shadow-md"
+                >
+                  {product.saleStatus === 'SOLD' ? 'Vendido' : 'Reservado'}
+                </Badge>
+              )}
             </div>
-          )}
 
-          {/* Decorative Gradient Shadow */}
-          <div className="absolute inset-0 bg-gradient-to-t from-stone-950/20 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
-        </div>
-
-        {/* Info area */}
-        <div className="p-6 flex flex-col flex-1 space-y-4">
-          <div className="space-y-1">
-            <h3 className="text-lg md:text-xl font-black text-stone-850 tracking-tight line-clamp-1 group-hover:text-brand-500 transition-colors uppercase italic lora">
-              {product.name}
-            </h3>
-            
-            {/* Meta information tags */}
-            <p className="text-[11px] font-bold uppercase tracking-wider text-stone-400">
-              {isBird 
-                ? `${ageLabel} (Propósito: ${purposeLabel})` 
-                : `Disponibles: ${product.stock} pzas`
-              }
-            </p>
-          </div>
-
-          {isReserved && product.expiresAt && (
-            <div className="bg-brand-50/50 border border-brand-100/50 p-3 rounded-2xl">
-              <Countdown expiresAt={product.expiresAt} />
-            </div>
-          )}
-
-          {/* Price & Cart Actions */}
-          <div className="mt-auto pt-4 border-t border-stone-100/60 flex items-center justify-between gap-4">
-            <div className="flex flex-col">
-              <span className="text-[10px] font-black uppercase text-stone-400 tracking-wider">Precio</span>
-              <span className="text-xl md:text-2xl font-black text-brand-500 tracking-tight">
-                ${formatPrice(product.price)}
-              </span>
-            </div>
-            
-            {isAvailable && (
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.95 }}
+            {isBird && isAvailable && (
+              <div
+                className="absolute right-5 top-5 z-10 bg-stone-900/40 p-2 text-white opacity-0 backdrop-blur-md transition-opacity duration-300 group-hover:opacity-100"
+                style={{ borderRadius: 'var(--sf-radius-nested)' }}
               >
+                <ShieldCheck size={16} className="text-brand-400" />
+              </div>
+            )}
+
+            <div className="absolute inset-0 bg-gradient-to-t from-stone-950/20 via-transparent to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+          </div>
+
+          <div className="flex flex-1 flex-col" style={{ padding: 'var(--sf-padding-inner)', gap: 'var(--sf-space-md)' }}>
+            <div className="flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
+              <h3 className="sf-text-h2 line-clamp-1 text-stone-850 transition-colors group-hover:text-brand-500 uppercase italic">
+                {product.name}
+              </h3>
+              <p className="sf-text-label text-stone-400">
+                {isBird
+                  ? `${ageLabel} (Proposito: ${purposeLabel})`
+                  : `Disponibles: ${product.stock} pzas`
+                }
+              </p>
+            </div>
+
+            {isReserved && product.expiresAt && (
+              <div
+                className="border border-brand-100/50 bg-brand-50/50"
+                style={{ borderRadius: 'var(--sf-radius-nested)', padding: 'var(--sf-space-md)' }}
+              >
+                <Countdown expiresAt={product.expiresAt} />
+              </div>
+            )}
+
+            <div className="mt-auto flex items-center justify-between border-t border-stone-100/60 pt-[var(--sf-space-md)]" style={{ gap: 'var(--sf-space-md)' }}>
+              <div className="flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
+                <span className="sf-text-label text-stone-400">Precio</span>
+                <span className="sf-text-h1 text-brand-500">
+                  ${formatPrice(product.price)}
+                </span>
+              </div>
+
+              {isAvailable && (
                 <Button
                   size="icon"
-                  className="rounded-2xl w-12 h-12 bg-stone-900 hover:bg-brand-500 text-white shadow-lg hover:shadow-brand-500/20 transition-all duration-300"
+                  variant="secondary"
+                  context="card"
                   onClick={handleAddToCart}
+                  aria-label={`Agregar ${product.name} al carrito`}
+                  className="hover:bg-brand-500 hover:border-brand-500 hover:shadow-brand-500/20"
                 >
                   <ShoppingCart size={18} />
                 </Button>
-              </motion.div>
-            )}
+              )}
+            </div>
           </div>
-        </div>
+        </StorefrontCard>
       </Link>
     </motion.div>
   );

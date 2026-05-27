@@ -1,52 +1,62 @@
 "use client";
 
 import { motion } from 'framer-motion';
-import { Ticket, ArrowRight, Clock } from 'lucide-react';
+import { ArrowRight, Clock, Ticket } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '../ui/Button';
+import { Badge } from '../ui/Badge';
+import { StorefrontIcon } from '../ui/Icon';
 
 export function RaffleSection() {
   return (
-    <section className="max-w-[1440px] mx-auto px-6 lg:px-12">
-      <div className="relative bg-stone-900 rounded-[3rem] overflow-hidden border border-white/5 shadow-2xl">
-        {/* Animated Background */}
+    <section className="mx-auto max-w-[1440px] px-6 lg:px-12">
+      <div
+        className="relative overflow-hidden border border-white/5 bg-stone-900 shadow-2xl"
+        style={{ borderRadius: 'var(--sf-radius-outer)' }}
+      >
         <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(176,137,104,0.15),transparent_50%)]" />
-        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff02_1px,transparent_1px),linear-gradient(to_bottom,#ffffff02_1px,transparent_1px)] bg-[size:4rem_4rem]" />
+        <div className="absolute inset-0 bg-[linear-gradient(to_right,#ffffff08_1px,transparent_1px),linear-gradient(to_bottom,#ffffff08_1px,transparent_1px)] bg-[size:4rem_4rem]" />
 
-        <div className="relative z-10 grid grid-cols-1 lg:grid-cols-2 gap-12 items-center p-12 lg:p-24">
-          <div className="space-y-8">
+        <div
+          className="relative z-10 grid grid-cols-1 items-center lg:grid-cols-2"
+          style={{ padding: 'clamp(2rem, 7vw, 6rem)', gap: 'var(--sf-space-xl)' }}
+        >
+          <div className="flex flex-col" style={{ gap: 'var(--sf-space-lg)' }}>
             <motion.div
-              initial={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, scale: 0.95 }}
               whileInView={{ opacity: 1, scale: 1 }}
               viewport={{ once: true }}
-              className="inline-flex items-center gap-2 px-3 py-1 bg-brand-500/20 border border-brand-500/30 rounded-full text-brand-400 text-[10px] font-black uppercase tracking-widest"
+              transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
             >
-              <Ticket size={12} /> Sorteos Exclusivos
+              <Badge className="border-brand-500/30 bg-brand-500/20 text-brand-400">
+                <Ticket size={12} className="mr-2" />
+                Sorteos Exclusivos
+              </Badge>
             </motion.div>
 
-            <div className="space-y-4">
-              <h2 className="text-4xl md:text-7xl font-display font-black text-white tracking-tighter uppercase italic leading-[0.85]">
-                Gana Genética <br /> <span className="text-brand-500">de Clase Mundial</span>
+            <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
+              <h2 className="sf-text-display text-white uppercase italic">
+                Gana Genetica <br />
+                <span className="text-brand-500">de Clase Mundial</span>
               </h2>
-              <p className="text-stone-400 font-medium text-lg max-w-md">
-                Participa en nuestras rifas oficiales y obtén la oportunidad de llevarte ejemplares de registro y sementales probados.
+              <p className="sf-text-body max-w-md text-stone-400">
+                Participa en nuestras rifas oficiales y obten la oportunidad de llevarte ejemplares de registro y sementales probados.
               </p>
             </div>
 
-            <div className="flex flex-wrap items-center gap-6">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 rounded-2xl bg-white/5 flex items-center justify-center text-brand-400 border border-white/10">
-                  <Clock size={20} />
-                </div>
+            <div className="flex flex-wrap items-center" style={{ gap: 'var(--sf-space-md)' }}>
+              <div className="flex items-center" style={{ gap: 'var(--sf-space-sm)' }}>
+                <StorefrontIcon icon={Clock} context="card" variant="dark" className="border-white/10 bg-white/5 text-brand-400" />
                 <div>
-                  <p className="text-[10px] font-black text-stone-500 uppercase tracking-widest">Estado</p>
-                  <p className="text-sm font-bold text-white uppercase">Próximamente</p>
+                  <p className="sf-text-label text-stone-500">Estado</p>
+                  <p className="sf-text-secondary font-bold uppercase text-white">Proximamente</p>
                 </div>
               </div>
-              
-              <Button size="lg" className="rounded-full bg-brand-500 hover:bg-brand-600 text-white px-10 h-16 font-bold uppercase tracking-widest text-xs shadow-xl shadow-brand-500/20 group" asChild>
+
+              <Button asChild context="section" className="bg-brand-500 hover:bg-brand-600">
                 <Link href="/raffles">
-                  Ver Próximas Rifas <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
+                  Ver Proximas Rifas
+                  <ArrowRight className="ml-2 transition-transform group-hover:translate-x-1" />
                 </Link>
               </Button>
             </div>
@@ -54,16 +64,18 @@ export function RaffleSection() {
 
           <div className="relative">
             <motion.div
-              initial={{ opacity: 0, rotate: 5, y: 20 }}
+              initial={{ opacity: 0, rotate: 4, y: 20 }}
               whileInView={{ opacity: 1, rotate: -2, y: 0 }}
               viewport={{ once: true }}
-              className="relative aspect-square bg-white/5 border border-white/10 rounded-[3rem] p-12 flex flex-col justify-center items-center text-center space-y-6 overflow-hidden group"
+              transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
+              className="group relative flex aspect-square flex-col items-center justify-center overflow-hidden border border-white/10 bg-white/5 p-12 text-center"
+              style={{ borderRadius: 'var(--sf-radius-outer)', gap: 'var(--sf-space-md)' }}
             >
-              <div className="absolute -top-12 -right-12 w-48 h-48 bg-brand-500/20 rounded-full blur-3xl" />
-              <Ticket size={80} className="text-brand-500 mb-4 group-hover:scale-110 transition-transform duration-700" />
-              <h3 className="text-2xl font-display font-black text-white uppercase tracking-tight">Sistema de Boletos Digital</h3>
-              <p className="text-stone-500 text-sm font-medium max-w-[240px]">
-                Transparencia total y selección automática de ganadores.
+              <div className="absolute -right-12 -top-12 h-48 w-48 rounded-full bg-brand-500/20 blur-3xl" />
+              <Ticket size={80} className="text-brand-500 transition-transform duration-700 group-hover:scale-110" />
+              <h3 className="sf-text-h1 text-white uppercase">Sistema de Boletos Digital</h3>
+              <p className="sf-text-secondary max-w-[240px] text-stone-500">
+                Transparencia total y seleccion automatica de ganadores.
               </p>
             </motion.div>
           </div>

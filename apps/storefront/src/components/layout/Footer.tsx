@@ -1,156 +1,195 @@
 "use client";
 
-import { useSettings } from '../../hooks/useSettings';
-import { Mail, Phone, MapPin, Facebook, Instagram, ShieldCheck, Truck, HelpCircle } from 'lucide-react';
 import Link from 'next/link';
+import {
+  Facebook,
+  HelpCircle,
+  Instagram,
+  type LucideIcon,
+  Mail,
+  MapPin,
+  Phone,
+  ShieldCheck,
+  Truck,
+} from 'lucide-react';
+import { useSettings } from '../../hooks/useSettings';
+import { StorefrontIcon } from '../ui/Icon';
 
 export function Footer() {
-  const { getBranding, getContact } = useSettings();
+  const { getBranding, getContact, isModuleEnabled } = useSettings();
   const branding = getBranding();
   const contact = getContact();
 
   const brandName = branding.brand_name || 'Granja La Manzana';
-  const { isModuleEnabled } = useSettings();
   const showRaffles = isModuleEnabled('raffle_enabled');
 
+  const trustItems = [
+    {
+      icon: ShieldCheck,
+      title: 'Garantia genetica',
+      body: 'Linajes seleccionados con trazabilidad clara para compra, cria y seguimiento.',
+    },
+    {
+      icon: Truck,
+      title: 'Envios especializados',
+      body: 'Coordinacion de traslados seguros con operadores preparados para bienestar animal.',
+    },
+    {
+      icon: HelpCircle,
+      title: 'Atencion directa',
+      body: 'Acompanamiento por WhatsApp antes, durante y despues de cada compra.',
+    },
+  ];
+
+  const navLinks = [
+    { href: '/', label: 'Inicio' },
+    { href: '/store', label: 'Tienda oficial' },
+    { href: '/gallery', label: 'Galeria' },
+    ...(showRaffles ? [{ href: '/raffles', label: 'Rifas activas' }] : []),
+  ];
+
+  const helpLinks = [
+    { href: '/#preguntas-frecuentes', label: 'Preguntas frecuentes' },
+    { href: '/store', label: 'Catalogo disponible' },
+    { href: '/gallery', label: 'Archivo visual' },
+    ...(showRaffles ? [{ href: '/raffles', label: 'Rifas activas' }] : []),
+  ];
+
   return (
-    <footer className="bg-stone-950 text-stone-400 border-t border-stone-900 pb-32 md:pb-20 pt-20 px-6 font-medium">
-      <div className="max-w-7xl mx-auto space-y-16">
-        
-        {/* Value Propositions / Trust Banners */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 pb-12 border-b border-stone-900">
-          <div className="flex items-start gap-4 p-6 bg-stone-900/30 rounded-3xl border border-stone-900/50">
-            <div className="p-3 bg-brand-500/10 text-brand-400 rounded-2xl shrink-0">
-              <ShieldCheck size={24} />
+    <footer className="border-t border-stone-800 bg-stone-950 px-[var(--sf-padding-outer)] pb-32 pt-[var(--sf-space-xl)] text-stone-400 md:pb-20">
+      <div className="mx-auto max-w-7xl space-y-[var(--sf-space-xl)]">
+        <div className="grid grid-cols-1 gap-[var(--sf-space-md)] border-b border-stone-800 pb-[var(--sf-space-lg)] md:grid-cols-3">
+          {trustItems.map((item) => (
+            <div
+              key={item.title}
+              className="group flex items-start gap-4 border border-stone-800 bg-stone-900/45 p-[var(--sf-padding-inner)] shadow-sm shadow-black/10"
+              style={{ borderRadius: 'var(--sf-radius-card-inner)' }}
+            >
+              <StorefrontIcon icon={item.icon} variant="dark" />
+              <div className="min-w-0 space-y-2">
+                <h4 className="sf-text-h2 text-white">{item.title}</h4>
+                <p className="sf-text-secondary text-stone-500">{item.body}</p>
+              </div>
             </div>
-            <div>
-              <h4 className="text-white font-bold text-base uppercase tracking-wider mb-1">Garantía Genética</h4>
-              <p className="text-xs text-stone-500 leading-relaxed">Cada una de nuestras aves de combate y cría cuenta con un linaje rigurosamente seleccionado y certificado.</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-4 p-6 bg-stone-900/30 rounded-3xl border border-stone-900/50">
-            <div className="p-3 bg-brand-500/10 text-brand-400 rounded-2xl shrink-0">
-              <Truck size={24} />
-            </div>
-            <div>
-              <h4 className="text-white font-bold text-base uppercase tracking-wider mb-1">Envíos Especializados</h4>
-              <p className="text-xs text-stone-500 leading-relaxed">Coordinamos traslados seguros y confortables con transportistas expertos en bienestar animal en todo el país.</p>
-            </div>
-          </div>
-          <div className="flex items-start gap-4 p-6 bg-stone-900/30 rounded-3xl border border-stone-900/50">
-            <div className="p-3 bg-brand-500/10 text-brand-400 rounded-2xl shrink-0">
-              <HelpCircle size={24} />
-            </div>
-            <div>
-              <h4 className="text-white font-bold text-base uppercase tracking-wider mb-1">Atención Exclusiva</h4>
-              <p className="text-xs text-stone-500 leading-relaxed">Soporte directo por WhatsApp antes, durante y después de tu compra para resolver cualquier duda.</p>
-            </div>
-          </div>
+          ))}
         </div>
 
-        {/* Main Footer Links */}
-        <div className="grid grid-cols-1 lg:grid-cols-5 gap-12 lg:gap-8">
-          
-          {/* Brand Info */}
-          <div className="lg:col-span-2 space-y-6">
-            <Link href="/" className="flex items-center gap-3 text-white group">
+        <div className="grid grid-cols-1 gap-[var(--sf-space-lg)] lg:grid-cols-5">
+          <div className="space-y-[var(--sf-space-md)] lg:col-span-2">
+            <Link href="/" className="group flex min-w-0 items-center gap-3 text-white">
               {branding.logo_url ? (
-                <img src={branding.logo_url} alt={brandName} className="h-8 w-auto brightness-0 invert" />
+                <img src={branding.logo_url} alt={brandName} className="h-9 w-auto brightness-0 invert" />
               ) : (
-                <div className="w-9 h-9 bg-brand-500 rounded-xl flex items-center justify-center text-white font-black shadow-lg shadow-brand-500/25 group-hover:scale-105 transition-transform">
+                <div
+                  className="flex h-10 w-10 items-center justify-center bg-brand-500 text-xl font-black text-white shadow-lg shadow-brand-500/25 transition-transform duration-300 group-hover:scale-105"
+                  style={{ borderRadius: 'var(--sf-radius-nested)', transitionTimingFunction: 'var(--sf-ease)' }}
+                >
                   M
                 </div>
               )}
-              <span className="font-black text-xl tracking-tight uppercase italic lora group-hover:text-brand-400 transition-colors">
+              <span className="truncate text-xl font-black uppercase leading-none transition-colors group-hover:text-brand-400">
                 {brandName}
               </span>
             </Link>
-            <p className="max-w-sm text-sm text-stone-500 leading-relaxed">
-              Dedicados a la crianza profesional y selección genética de aves de combate y cría de la más alta calidad. Comprometidos con el desarrollo del deporte y la excelencia.
+
+            <p className="sf-text-body max-w-md text-stone-500">
+              Crianza profesional y seleccion genetica de aves de alta calidad, con procesos claros de compra,
+              entrega y seguimiento.
             </p>
-            
-            {/* Social Media Links */}
-            <div className="flex items-center gap-3 pt-2">
-              <a 
-                href="https://facebook.com" 
-                target="_blank" 
-                rel="noreferrer"
-                className="w-10 h-10 bg-stone-900 hover:bg-brand-500 hover:text-white border border-stone-800 rounded-xl flex items-center justify-center text-stone-400 transition-all duration-300 hover:-translate-y-1 shadow-md"
-              >
-                <Facebook size={18} />
-              </a>
-              <a 
-                href="https://instagram.com" 
-                target="_blank" 
-                rel="noreferrer"
-                className="w-10 h-10 bg-stone-900 hover:bg-brand-500 hover:text-white border border-stone-800 rounded-xl flex items-center justify-center text-stone-400 transition-all duration-300 hover:-translate-y-1 shadow-md"
-              >
-                <Instagram size={18} />
-              </a>
+
+            <div className="flex items-center gap-3 pt-1">
+              <SocialLink href="https://facebook.com" label="Facebook" icon={Facebook} />
+              <SocialLink href="https://instagram.com" label="Instagram" icon={Instagram} />
               {contact.phone && (
-                <a 
-                  href={`https://wa.me/${contact.phone.replace(/[^0-9]/g, '')}`} 
-                  target="_blank" 
-                  rel="noreferrer"
-                  className="w-10 h-10 bg-stone-900 hover:bg-brand-500 hover:text-white border border-stone-800 rounded-xl flex items-center justify-center text-stone-400 transition-all duration-300 hover:-translate-y-1 shadow-md"
-                >
-                  <Phone size={18} />
-                </a>
+                <SocialLink
+                  href={`https://wa.me/${contact.phone.replace(/[^0-9]/g, '')}`}
+                  label="WhatsApp"
+                  icon={Phone}
+                />
               )}
             </div>
           </div>
 
-          {/* Catalog / Navigation */}
-          <div className="space-y-6">
-            <h4 className="text-white font-black text-xs uppercase tracking-widest">Navegación</h4>
-            <ul className="space-y-4 text-sm font-semibold">
-              <li><Link href="/" className="hover:text-white transition-colors">Inicio</Link></li>
-              <li><Link href="/store" className="hover:text-white transition-colors">Tienda Oficial</Link></li>
-              <li><Link href="/gallery" className="hover:text-white transition-colors">Galería del Rancho</Link></li>
-              <li><Link href="/raffles" className="hover:text-white transition-colors">Rifas Activas</Link></li>
+          <FooterColumn title="Navegacion" links={navLinks} />
+
+          <div className="space-y-[var(--sf-space-md)]">
+            <h4 className="sf-text-label text-white">Contacto</h4>
+            <ul className="space-y-4">
+              <ContactItem icon={Phone} value={contact.phone || '-'} />
+              <ContactItem icon={Mail} value={contact.email || '-'} breakAll />
+              <ContactItem icon={MapPin} value={contact.address || '-'} alignStart />
             </ul>
           </div>
 
-          {/* Contact Details */}
-          <div className="space-y-6">
-            <h4 className="text-white font-black text-xs uppercase tracking-widest">Contacto</h4>
-            <ul className="space-y-4 text-sm font-semibold">
-              <li className="flex items-center gap-3">
-                <Phone size={16} className="text-brand-500 shrink-0" />
-                <span>{contact.phone || '-'}</span>
-              </li>
-              <li className="flex items-center gap-3">
-                <Mail size={16} className="text-brand-500 shrink-0" />
-                <span className="break-all">{contact.email || '-'}</span>
-              </li>
-              <li className="flex items-start gap-3">
-                <MapPin size={16} className="text-brand-500 shrink-0 mt-0.5" />
-                <span>{contact.address || '-'}</span>
-              </li>
-            </ul>
-          </div>
-
-          {/* Legal / Policy Links */}
-          <div className="space-y-6">
-            <h4 className="text-white font-black text-xs uppercase tracking-widest">Políticas</h4>
-            <ul className="space-y-4 text-sm font-semibold">
-              <li><Link href="#" className="hover:text-white transition-colors">Términos del Servicio</Link></li>
-              <li><Link href="#" className="hover:text-white transition-colors">Aviso de Privacidad</Link></li>
-              <li><Link href="#" className="hover:text-white transition-colors">Políticas de Envío</Link></li>
-              <li><Link href="#" className="hover:text-white transition-colors">Preguntas Frecuentes</Link></li>
-            </ul>
-          </div>
-
+          <FooterColumn title="Ayuda" links={helpLinks} />
         </div>
 
-        {/* Copyright */}
-        <div className="pt-8 border-t border-stone-900 flex flex-col md:flex-row items-center justify-between gap-4 text-xs font-bold uppercase tracking-wider text-stone-600">
-          <p>© {new Date().getFullYear()} {brandName}. Todos los derechos reservados.</p>
-          <p className="flex items-center gap-1.5 normal-case tracking-normal">
-            Orgullosamente criado en México.
+        <div className="flex flex-col items-center justify-between gap-4 border-t border-stone-800 pt-[var(--sf-space-md)] text-center md:flex-row md:text-left">
+          <p className="sf-text-label text-stone-600">
+            &copy; {new Date().getFullYear()} {brandName}. Todos los derechos reservados.
           </p>
+          <p className="sf-text-secondary font-bold text-stone-600">Criado en Mexico.</p>
         </div>
       </div>
     </footer>
+  );
+}
+
+interface FooterColumnProps {
+  title: string;
+  links: Array<{ href: string; label: string }>;
+}
+
+function FooterColumn({ title, links }: FooterColumnProps) {
+  return (
+    <div className="space-y-[var(--sf-space-md)]">
+      <h4 className="sf-text-label text-white">{title}</h4>
+      <ul className="space-y-4">
+        {links.map((link) => (
+          <li key={`${link.href}-${link.label}`}>
+            <Link className="sf-text-secondary font-bold text-stone-400 transition-colors hover:text-white" href={link.href}>
+              {link.label}
+            </Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
+
+interface ContactItemProps {
+  icon: LucideIcon;
+  value: string;
+  alignStart?: boolean;
+  breakAll?: boolean;
+}
+
+function ContactItem({ icon: Icon, value, alignStart = false, breakAll = false }: ContactItemProps) {
+  return (
+    <li className={`sf-text-secondary flex gap-3 font-bold text-stone-400 ${alignStart ? 'items-start' : 'items-center'}`}>
+      <Icon size={16} className={`shrink-0 text-brand-400 ${alignStart ? 'mt-0.5' : ''}`} />
+      <span className={breakAll ? 'break-all' : ''}>{value}</span>
+    </li>
+  );
+}
+
+interface SocialLinkProps {
+  href: string;
+  label: string;
+  icon: LucideIcon;
+}
+
+function SocialLink({ href, label, icon: Icon }: SocialLinkProps) {
+  return (
+    <a
+      href={href}
+      target="_blank"
+      rel="noreferrer"
+      aria-label={label}
+      className="flex h-10 w-10 items-center justify-center border border-stone-800 bg-stone-900 text-stone-400 shadow-sm shadow-black/10 transition-all duration-300 hover:-translate-y-0.5 hover:border-brand-500 hover:bg-brand-500 hover:text-white"
+      style={{ borderRadius: 'var(--sf-radius-nested)', transitionTimingFunction: 'var(--sf-ease)' }}
+    >
+      <Icon size={18} />
+    </a>
   );
 }

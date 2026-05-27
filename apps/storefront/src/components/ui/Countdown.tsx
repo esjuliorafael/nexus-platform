@@ -1,7 +1,8 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { Clock } from 'lucide-react';
+import { cn } from '../../utils/cn';
 
 interface CountdownProps {
   expiresAt: string;
@@ -9,7 +10,7 @@ interface CountdownProps {
   className?: string;
 }
 
-export function Countdown({ expiresAt, onExpire, className = "" }: CountdownProps) {
+export function Countdown({ expiresAt, onExpire, className = '' }: CountdownProps) {
   const [timeLeft, setTimeLeft] = useState<string>('');
 
   useEffect(() => {
@@ -18,7 +19,7 @@ export function Countdown({ expiresAt, onExpire, className = "" }: CountdownProp
       
       if (difference <= 0) {
         setTimeLeft('EXPIRADO');
-        if (onExpire) onExpire();
+        onExpire?.();
         return;
       }
 
@@ -33,13 +34,13 @@ export function Countdown({ expiresAt, onExpire, className = "" }: CountdownProp
     const timer = setInterval(calculateTimeLeft, 1000);
 
     return () => clearInterval(timer);
-  }, [expiresAt]);
+  }, [expiresAt, onExpire]);
 
   return (
-    <div className={`flex items-center gap-1.5 font-mono text-[10px] font-bold ${className}`}>
-      <Clock size={12} className="text-brand-500" />
-      <span>LIBERA EN:</span>
-      <span className="text-brand-500 tabular-nums">{timeLeft}</span>
+    <div className={cn('sf-text-label inline-flex items-center text-stone-500', className)} style={{ gap: 'var(--sf-space-xs)' }}>
+      <Clock size={14} className="text-brand-500" />
+      <span>Libera en</span>
+      <span className="tabular-nums text-brand-500">{timeLeft}</span>
     </div>
   );
 }

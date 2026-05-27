@@ -5,137 +5,170 @@ import Link from 'next/link';
 import { Product } from '../../../types';
 import { Button } from '../../../components/ui/Button';
 import { Badge } from '../../../components/ui/Badge';
+import { StorefrontCard } from '../../../components/ui/Card';
+import { StorefrontIcon } from '../../../components/ui/Icon';
 import { useCartStore } from '../../../store/cart.store';
-import { ChevronLeft, ShoppingCart, CheckCircle2, ShieldCheck, Truck } from 'lucide-react';
-import { formatBirdAge, formatBirdPurpose, formatSaleStatus, formatPrice } from '../../../utils/formatters';
+import { ChevronLeft, CheckCircle2, ShieldCheck, ShoppingCart, Tag, Truck } from 'lucide-react';
+import { formatBirdAge, formatBirdPurpose, formatPrice, formatSaleStatus } from '../../../utils/formatters';
 
 interface ProductDetailsClientProps {
   product: Product;
 }
+
+const trustItems = [
+  { icon: ShieldCheck, label: 'Compra Segura' },
+  { icon: Truck, label: 'Envios a todo el pais' },
+  { icon: CheckCircle2, label: 'Garantia de Calidad' },
+];
 
 export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
   const [activeImage, setActiveImage] = useState<string | null>(product.thumbnail);
   const addItem = useCartStore((state) => state.addItem);
 
   const isAvailable = product.saleStatus === 'AVAILABLE';
+  const galleryItems = [
+    ...(product.thumbnail ? [{ id: 'thumbnail', filePath: product.thumbnail }] : []),
+    ...(product.gallery ?? []).map((item) => ({ id: item.id, filePath: item.filePath })),
+  ];
+
+  const handleAddToCart = () => {
+    addItem({
+      productId: product.id,
+      name: product.name,
+      price: Number(product.price),
+      quantity: 1,
+      thumbnail: product.thumbnail,
+      type: product.type.toLowerCase() as 'bird' | 'item',
+    });
+  };
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-12 space-y-12">
-      <Link href="/store" className="inline-flex items-center gap-2 text-stone-500 hover:text-brand-500 font-bold transition-colors">
-        <ChevronLeft size={20} /> Volver al catálogo
-      </Link>
+    <div className="mx-auto max-w-7xl px-6" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
+      <div className="flex flex-col" style={{ gap: 'var(--sf-space-lg)' }}>
+        <Link
+          href="/store"
+          className="inline-flex w-fit items-center text-stone-500 transition-colors hover:text-brand-500 sf-text-label"
+          style={{ gap: 'var(--sf-space-sm)' }}
+        >
+          <ChevronLeft size={18} />
+          Volver al catalogo
+        </Link>
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 lg:gap-20">
-        {/* Gallery */}
-        <div className="space-y-6">
-          <div className="aspect-square rounded-[3rem] overflow-hidden bg-white border border-stone-100 shadow-xl shadow-stone-200/50">
-            {activeImage ? (
-              <img src={activeImage} className="w-full h-full object-cover" alt={product.name} />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-stone-300 italic">Sin imagen</div>
+        <div className="grid grid-cols-1 lg:grid-cols-2" style={{ gap: 'var(--sf-space-xl)' }}>
+          <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
+            <StorefrontCard className="aspect-square overflow-hidden p-0 shadow-xl shadow-stone-200/50">
+              {activeImage ? (
+                <img src={activeImage} className="h-full w-full object-cover" alt={product.name} />
+              ) : (
+                <div className="flex h-full w-full flex-col items-center justify-center bg-stone-100/50 text-stone-300" style={{ gap: 'var(--sf-space-sm)' }}>
+                  <Tag size={40} strokeWidth={1.2} />
+                  <span className="sf-text-label">Sin imagen</span>
+                </div>
+              )}
+            </StorefrontCard>
+
+            {galleryItems.length > 1 && (
+              <div className="grid grid-cols-4" style={{ gap: 'var(--sf-space-sm)' }}>
+                {galleryItems.map((item) => (
+                  <button
+                    key={item.id}
+                    onClick={() => setActiveImage(item.filePath)}
+                    className={`aspect-square overflow-hidden border-2 transition-all duration-300 ${
+                      activeImage === item.filePath
+                        ? 'border-brand-500 opacity-100 shadow-lg shadow-brand-500/10'
+                        : 'border-transparent opacity-60 hover:opacity-100'
+                    }`}
+                    style={{
+                      borderRadius: 'var(--sf-radius-nested)',
+                      transitionTimingFunction: 'var(--sf-ease)',
+                    }}
+                    aria-label="Cambiar imagen del producto"
+                  >
+                    <img src={item.filePath} className="h-full w-full object-cover" alt="Imagen del producto" />
+                  </button>
+                ))}
+              </div>
             )}
           </div>
-          
-          {product.gallery && product.gallery.length > 0 && (
-            <div className="grid grid-cols-4 gap-4">
-              <button 
-                onClick={() => setActiveImage(product.thumbnail)}
-                className={`aspect-square rounded-2xl overflow-hidden border-2 transition-all ${activeImage === product.thumbnail ? 'border-brand-500' : 'border-transparent opacity-60 hover:opacity-100'}`}
-              >
-                {product.thumbnail && <img src={product.thumbnail} className="w-full h-full object-cover" alt="Thumbnail" />}
-              </button>
-              {product.gallery.map((img) => (
-                <button 
-                  key={img.id}
-                  onClick={() => setActiveImage(img.filePath)}
-                  className={`aspect-square rounded-2xl overflow-hidden border-2 transition-all ${activeImage === img.filePath ? 'border-brand-500' : 'border-transparent opacity-60 hover:opacity-100'}`}
-                >
-                  <img src={img.filePath} className="w-full h-full object-cover" alt="Gallery item" />
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
 
-        {/* Info */}
-        <div className="space-y-8 py-4">
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              <Badge variant={product.type === 'BIRD' ? 'default' : 'outline'}>
-                {product.type === 'BIRD' ? 'Ave' : 'Artículo'}
-              </Badge>
-              <Badge variant={isAvailable ? 'success' : 'warning'}>
+          <div className="flex flex-col py-2" style={{ gap: 'var(--sf-space-lg)' }}>
+            <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
+              <div className="flex flex-wrap items-center" style={{ gap: 'var(--sf-space-sm)' }}>
+                <Badge variant={product.type === 'BIRD' ? 'default' : 'outline'}>
+                  {product.type === 'BIRD' ? 'Ave' : 'Articulo'}
+                </Badge>
+                <Badge variant={isAvailable ? 'success' : 'warning'}>
                   {formatSaleStatus(product.saleStatus)}
-              </Badge>
+                </Badge>
+              </div>
+
+              <div className="flex flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
+                <h1 className="sf-text-hero text-stone-850 uppercase italic">
+                  {product.name}
+                </h1>
+                <p className="sf-text-display text-brand-500">
+                  ${formatPrice(product.price)}
+                </p>
+              </div>
             </div>
-            <h1 className="text-4xl md:text-6xl font-black text-stone-800 tracking-tight leading-tight uppercase italic lora">
-              {product.name}
-            </h1>
-            <p className="text-4xl font-black text-brand-500">
-              ${formatPrice(product.price)}
+
+            <p className="sf-text-body max-w-xl text-stone-500">
+              {product.description || 'Sin descripcion disponible.'}
             </p>
-          </div>
 
-          <p className="text-lg text-stone-500 leading-relaxed max-w-lg">
-            {product.description || 'Sin descripción disponible.'}
-          </p>
-
-          {product.type === 'BIRD' && (
-            <div className="grid grid-cols-2 gap-4 bg-stone-50 p-6 rounded-[2rem] border border-stone-100">
-              <div className="space-y-1">
-                <span className="text-[10px] font-black uppercase text-stone-400 tracking-widest">No. Anillo</span>
-                <p className="font-bold text-stone-700">{product.ringNumber || 'N/A'}</p>
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Edad / Etapa</span>
-                <p className="font-bold text-stone-700">{formatBirdAge(product.age)}</p>
-              </div>
-              <div className="space-y-1">
-                <span className="text-[10px] font-black uppercase text-stone-400 tracking-widest">Propósito</span>
-                <p className="font-bold text-stone-700">{formatBirdPurpose(product.purpose)}</p>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-4">
-            {isAvailable ? (
-              <Button 
-                size="lg" 
-                className="w-full h-16 text-xl rounded-2xl shadow-xl shadow-brand-500/20"
-                onClick={() => addItem({
-                  productId: product.id,
-                  name: product.name,
-                  price: Number(product.price),
-                  quantity: 1,
-                  thumbnail: product.thumbnail,
-                  type: product.type.toLowerCase() as 'bird' | 'item'
-                })}
+            {product.type === 'BIRD' && (
+              <div
+                className="grid grid-cols-1 border border-stone-200/60 bg-stone-50 sm:grid-cols-3"
+                style={{
+                  borderRadius: 'var(--sf-radius-outer)',
+                  padding: 'var(--sf-padding-inner)',
+                  gap: 'var(--sf-space-md)',
+                }}
               >
-                <ShoppingCart className="mr-2" size={24} /> Agregar al Carrito
-              </Button>
-            ) : (
-              <Button size="lg" className="w-full h-16 text-xl rounded-2xl" disabled>
-                No disponible
-              </Button>
+                <ProductStat label="No. Anillo" value={product.ringNumber || 'N/A'} />
+                <ProductStat label="Edad / Etapa" value={formatBirdAge(product.age)} />
+                <ProductStat label="Proposito" value={formatBirdPurpose(product.purpose)} />
+              </div>
             )}
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 pt-8 border-t border-stone-100">
-            <div className="flex items-center gap-3 text-stone-400">
-              <ShieldCheck className="text-brand-500" size={20} />
-              <span className="text-xs font-bold uppercase tracking-wider">Compra Segura</span>
+            <div>
+              {isAvailable ? (
+                <Button
+                  size="lg"
+                  context="section"
+                  className="w-full"
+                  onClick={handleAddToCart}
+                >
+                  <ShoppingCart className="mr-2" size={22} />
+                  Agregar al Carrito
+                </Button>
+              ) : (
+                <Button size="lg" context="section" className="w-full" disabled>
+                  No disponible
+                </Button>
+              )}
             </div>
-            <div className="flex items-center gap-3 text-stone-400">
-              <Truck className="text-brand-500" size={20} />
-              <span className="text-xs font-bold uppercase tracking-wider">Envíos a todo el país</span>
-            </div>
-            <div className="flex items-center gap-3 text-stone-400">
-              <CheckCircle2 className="text-brand-500" size={20} />
-              <span className="text-xs font-bold uppercase tracking-wider">Garantía de Calidad</span>
+
+            <div className="grid grid-cols-1 border-t border-stone-100 pt-[var(--sf-space-md)] md:grid-cols-3" style={{ gap: 'var(--sf-space-md)' }}>
+              {trustItems.map((item) => (
+                <div key={item.label} className="flex items-center text-stone-500" style={{ gap: 'var(--sf-space-sm)' }}>
+                  <StorefrontIcon icon={item.icon} context="card" variant="brand" />
+                  <span className="sf-text-label">{item.label}</span>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       </div>
+    </div>
+  );
+}
+
+function ProductStat({ label, value }: { label: string; value: string | null }) {
+  return (
+    <div className="flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
+      <span className="sf-text-label text-stone-400">{label}</span>
+      <p className="sf-text-secondary font-bold text-stone-700">{value || 'N/A'}</p>
     </div>
   );
 }

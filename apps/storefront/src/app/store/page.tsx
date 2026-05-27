@@ -1,25 +1,39 @@
 "use client";
 
-import { useState, useMemo, Suspense } from 'react';
-import { useSearchParams, useRouter, usePathname } from 'next/navigation';
+import { useMemo, useState, Suspense } from 'react';
+import { usePathname, useRouter, useSearchParams } from 'next/navigation';
+import { motion } from 'framer-motion';
+import { Search, SlidersHorizontal, X } from 'lucide-react';
 import { useProducts } from '../../hooks/useProducts';
 import { ProductGrid } from '../../components/product/ProductGrid';
 import { Spinner } from '../../components/ui/Spinner';
-import { Search, X, SlidersHorizontal, Package, Bird } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { BottomSheet } from '../../components/ui/BottomSheet';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { motion } from 'framer-motion';
+import { StorefrontField } from '../../components/ui/Field';
+
+const typeOptions = [
+  { value: 'ALL', label: 'Todo' },
+  { value: 'BIRD', label: 'Aves' },
+  { value: 'ITEM', label: 'Insumos' },
+];
+
+const statusOptions = [
+  { value: 'ALL', label: 'Todos' },
+  { value: 'AVAILABLE', label: 'Disponibles' },
+  { value: 'RESERVED', label: 'Reservados' },
+  { value: 'SOLD', label: 'Vendidos' },
+];
 
 function StorePageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const pathname = usePathname();
-  
+
   const { products, loading } = useProducts();
   const [searchTerm, setSearchText] = useState('');
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
-  
+
   const typeFilter = searchParams.get('type') || 'ALL';
   const statusFilter = searchParams.get('status') || 'ALL';
 
@@ -51,197 +65,225 @@ function StorePageContent() {
     setIsFilterSheetOpen(false);
   };
 
-  return (
-    <div className="max-w-7xl mx-auto px-6 py-12 space-y-12">
-      {/* Header and Desktop Search bar */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-6 border-b border-stone-255/10">
-        <div className="space-y-1">
-          <h1 className="text-4xl md:text-5xl font-black text-stone-850 uppercase italic lora tracking-tight">Tienda Oficial</h1>
-          <p className="text-xs text-stone-400 font-bold uppercase tracking-wider">Granja La Manzana</p>
-        </div>
-        
-        {/* Desktop Search */}
-        <div className="hidden md:flex flex-1 max-w-md relative">
-          <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={18} />
-          <input
-            type="text"
-            placeholder="Buscar producto..."
-            value={searchTerm}
-            onChange={(e) => setSearchText(e.target.value)}
-            className="w-full pl-12 pr-4 h-12 bg-white border border-stone-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-brand-500/20 transition-all font-semibold text-sm"
-          />
-        </div>
+  const hasActiveFilters = typeFilter !== 'ALL' || statusFilter !== 'ALL' || Boolean(searchTerm);
 
-        {/* Mobile Search & Filter Button */}
-        <div className="flex items-center gap-3 md:hidden">
-          <div className="flex-1 relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-stone-400" size={16} />
-            <input
+  return (
+    <div className="mx-auto max-w-7xl px-6" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
+      <div className="flex flex-col" style={{ gap: 'var(--sf-space-lg)' }}>
+        <div className="flex flex-col justify-between border-b border-stone-200/60 pb-[var(--sf-space-md)] md:flex-row md:items-end" style={{ gap: 'var(--sf-space-md)' }}>
+          <div className="flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
+            <h1 className="sf-text-display text-stone-850 uppercase italic">Tienda Oficial</h1>
+            <p className="sf-text-label text-stone-400">Granja La Manzana</p>
+          </div>
+
+          <div className="hidden w-full max-w-md md:block">
+            <StorefrontField
+              icon={Search}
               type="text"
-              placeholder="Buscar..."
+              placeholder="Buscar producto..."
               value={searchTerm}
               onChange={(e) => setSearchText(e.target.value)}
-              className="w-full pl-10 pr-4 h-12 bg-white border border-stone-200 rounded-2xl focus:outline-none font-semibold text-xs"
             />
           </div>
-          <Button 
-            onClick={() => setIsFilterSheetOpen(true)}
-            className="h-12 w-12 rounded-2xl bg-stone-900 text-white shrink-0 p-0 flex items-center justify-center shadow-lg"
-          >
-            <SlidersHorizontal size={18} />
-          </Button>
-        </div>
-      </div>
 
-      {/* Desktop Filters Row */}
-      <div className="hidden md:flex flex-wrap items-center justify-between gap-4 bg-stone-100/50 border border-stone-200/40 p-4 rounded-3xl">
-        <div className="flex items-center gap-4">
-          {/* Type Filter */}
-          <div className="flex bg-stone-100 p-1 rounded-xl">
-            {['ALL', 'BIRD', 'ITEM'].map((t) => (
-              <button
-                key={t}
-                onClick={() => setQueryParams({ type: t })}
-                className={`px-4 py-2 text-xs font-black uppercase tracking-wider rounded-lg transition-all ${
-                  typeFilter === t ? 'bg-white text-brand-500 shadow-sm' : 'text-stone-500 hover:text-stone-850'
-                }`}
-              >
-                {t === 'ALL' ? 'Todo' : t === 'BIRD' ? 'Aves' : 'Insumos'}
-              </button>
-            ))}
-          </div>
-
-          {/* Status Filter */}
-          <div className="flex bg-stone-100 p-1 rounded-xl">
-            {['ALL', 'AVAILABLE', 'RESERVED', 'SOLD'].map((s) => (
-              <button
-                key={s}
-                onClick={() => setQueryParams({ status: s })}
-                className={`px-4 py-2 text-xs font-black uppercase tracking-wider rounded-lg transition-all ${
-                  statusFilter === s ? 'bg-white text-brand-500 shadow-sm' : 'text-stone-500 hover:text-stone-850'
-                }`}
-              >
-                {s === 'ALL' ? 'Todos' : s === 'AVAILABLE' ? 'Disponibles' : s === 'RESERVED' ? 'Reservados' : 'Vendidos'}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {(typeFilter !== 'ALL' || statusFilter !== 'ALL' || searchTerm) && (
-          <Button 
-            variant="ghost" 
-            size="sm" 
-            className="text-stone-400 font-bold uppercase tracking-wider text-xs hover:text-brand-500 hover:bg-transparent"
-            onClick={clearFilters}
-          >
-            <X size={14} className="mr-2 animate-spin-once" /> Limpiar Filtros
-          </Button>
-        )}
-      </div>
-
-      {/* Products Content */}
-      {loading ? (
-        <div className="h-96 flex items-center justify-center">
-          <Spinner className="w-12 h-12" />
-        </div>
-      ) : filteredProducts.length === 0 ? (
-        <EmptyState 
-          icon={Search} 
-          title="Sin Resultados" 
-          description="No encontramos productos que coincidan exactamente con tus criterios de búsqueda en Granja La Manzana."
-          actionText="Limpiar Búsqueda"
-          onActionClick={clearFilters}
-        />
-      ) : (
-        <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ duration: 0.5 }}
-        >
-          <ProductGrid products={filteredProducts} />
-        </motion.div>
-      )}
-
-      {/* Mobile Filters Bottom Sheet */}
-      <BottomSheet 
-        isOpen={isFilterSheetOpen} 
-        onClose={() => setIsFilterSheetOpen(false)}
-        title="Filtrar Catálogo"
-      >
-        <div className="space-y-8 font-medium">
-          {/* Filter by Category */}
-          <div className="space-y-3">
-            <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">Tipo de Producto</span>
-            <div className="grid grid-cols-3 gap-2">
-              {[
-                { value: 'ALL', label: 'Todos' },
-                { value: 'BIRD', label: 'Aves' },
-                { value: 'ITEM', label: 'Insumos' }
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => {
-                    setQueryParams({ type: opt.value });
-                  }}
-                  className={`h-12 rounded-xl text-xs font-bold transition-all border ${
-                    typeFilter === opt.value 
-                      ? 'bg-brand-500 text-white border-brand-500 shadow-md shadow-brand-500/20' 
-                      : 'bg-stone-50 text-stone-500 border-stone-200 hover:bg-stone-100'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+          <div className="flex items-center md:hidden" style={{ gap: 'var(--sf-space-sm)' }}>
+            <div className="flex-1">
+              <StorefrontField
+                icon={Search}
+                type="text"
+                placeholder="Buscar..."
+                value={searchTerm}
+                onChange={(e) => setSearchText(e.target.value)}
+              />
             </div>
-          </div>
-
-          {/* Filter by Availability */}
-          <div className="space-y-3">
-            <span className="text-[10px] font-black uppercase tracking-widest text-stone-400">Disponibilidad</span>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { value: 'ALL', label: 'Todos los estados' },
-                { value: 'AVAILABLE', label: 'Disponibles' },
-                { value: 'RESERVED', label: 'Reservados' },
-                { value: 'SOLD', label: 'Vendidos' }
-              ].map((opt) => (
-                <button
-                  key={opt.value}
-                  onClick={() => {
-                    setQueryParams({ status: opt.value });
-                  }}
-                  className={`h-12 rounded-xl text-xs font-bold transition-all border ${
-                    statusFilter === opt.value 
-                      ? 'bg-brand-500 text-white border-brand-500 shadow-md shadow-brand-500/20' 
-                      : 'bg-stone-50 text-stone-500 border-stone-200 hover:bg-stone-100'
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* Action buttons inside sheet */}
-          <div className="pt-6 border-t border-stone-100 flex gap-4">
-            {(typeFilter !== 'ALL' || statusFilter !== 'ALL' || searchTerm) && (
-              <Button 
-                variant="outline" 
-                className="flex-1 h-14 rounded-2xl border-stone-200 font-bold"
-                onClick={clearFilters}
-              >
-                Limpiar Todo
-              </Button>
-            )}
-            <Button 
-              className="flex-1 h-14 rounded-2xl font-bold bg-stone-900 text-white"
-              onClick={() => setIsFilterSheetOpen(false)}
+            <Button
+              size="icon"
+              variant="secondary"
+              onClick={() => setIsFilterSheetOpen(true)}
+              aria-label="Abrir filtros"
             >
-              Aplicar Filtros
+              <SlidersHorizontal size={18} />
             </Button>
           </div>
         </div>
-      </BottomSheet>
+
+        <div
+          className="hidden flex-wrap items-center justify-between border border-stone-200/50 bg-stone-100/50 md:flex"
+          style={{
+            borderRadius: 'var(--sf-radius-outer)',
+            padding: 'var(--sf-space-sm)',
+            gap: 'var(--sf-space-md)',
+          }}
+        >
+          <div className="flex flex-wrap items-center" style={{ gap: 'var(--sf-space-sm)' }}>
+            <SegmentedFilter
+              value={typeFilter}
+              options={typeOptions}
+              onChange={(value) => setQueryParams({ type: value })}
+            />
+            <SegmentedFilter
+              value={statusFilter}
+              options={statusOptions}
+              onChange={(value) => setQueryParams({ status: value })}
+            />
+          </div>
+
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={clearFilters}
+              className="text-stone-400 hover:bg-transparent hover:text-brand-500"
+            >
+              <X size={14} className="mr-2" />
+              Limpiar Filtros
+            </Button>
+          )}
+        </div>
+
+        {loading ? (
+          <div className="flex h-96 items-center justify-center">
+            <Spinner className="h-12 w-12" />
+          </div>
+        ) : filteredProducts.length === 0 ? (
+          <EmptyState
+            icon={Search}
+            title="Sin Resultados"
+            description="No encontramos productos que coincidan con tus criterios de busqueda en Granja La Manzana."
+            actionText="Limpiar Busqueda"
+            onActionClick={clearFilters}
+          />
+        ) : (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+          >
+            <ProductGrid products={filteredProducts} />
+          </motion.div>
+        )}
+
+        <BottomSheet
+          isOpen={isFilterSheetOpen}
+          onClose={() => setIsFilterSheetOpen(false)}
+          title="Filtrar Catalogo"
+        >
+          <div className="flex flex-col font-medium" style={{ gap: 'var(--sf-space-lg)' }}>
+            <MobileFilterGroup
+              label="Tipo de Producto"
+              value={typeFilter}
+              options={typeOptions}
+              columns="grid-cols-3"
+              onChange={(value) => setQueryParams({ type: value })}
+            />
+
+            <MobileFilterGroup
+              label="Disponibilidad"
+              value={statusFilter}
+              options={[
+                { value: 'ALL', label: 'Todos los estados' },
+                { value: 'AVAILABLE', label: 'Disponibles' },
+                { value: 'RESERVED', label: 'Reservados' },
+                { value: 'SOLD', label: 'Vendidos' },
+              ]}
+              columns="grid-cols-2"
+              onChange={(value) => setQueryParams({ status: value })}
+            />
+
+            <div className="flex border-t border-stone-100 pt-[var(--sf-space-md)]" style={{ gap: 'var(--sf-space-sm)' }}>
+              {hasActiveFilters && (
+                <Button variant="outline" context="section" className="flex-1" onClick={clearFilters}>
+                  Limpiar Todo
+                </Button>
+              )}
+              <Button
+                variant="secondary"
+                context="section"
+                className="flex-1"
+                onClick={() => setIsFilterSheetOpen(false)}
+              >
+                Aplicar Filtros
+              </Button>
+            </div>
+          </div>
+        </BottomSheet>
+      </div>
+    </div>
+  );
+}
+
+interface FilterOption {
+  value: string;
+  label: string;
+}
+
+function SegmentedFilter({
+  value,
+  options,
+  onChange,
+}: {
+  value: string;
+  options: FilterOption[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex bg-stone-100" style={{ borderRadius: 'var(--sf-radius-card-inner)', padding: 'var(--sf-space-xs)' }}>
+      {options.map((option) => (
+        <button
+          key={option.value}
+          onClick={() => onChange(option.value)}
+          className={`sf-text-label px-4 transition-all duration-300 ${
+            value === option.value ? 'bg-white text-brand-500 shadow-sm' : 'text-stone-500 hover:text-stone-850'
+          }`}
+          style={{
+            height: 'var(--sf-h-button-card)',
+            borderRadius: 'var(--sf-radius-nested)',
+            transitionTimingFunction: 'var(--sf-ease)',
+          }}
+        >
+          {option.label}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function MobileFilterGroup({
+  label,
+  value,
+  options,
+  columns,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: FilterOption[];
+  columns: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
+      <span className="sf-text-label text-stone-400">{label}</span>
+      <div className={`grid ${columns}`} style={{ gap: 'var(--sf-space-sm)' }}>
+        {options.map((option) => (
+          <button
+            key={option.value}
+            onClick={() => onChange(option.value)}
+            className={`sf-text-button-card border px-3 transition-all duration-300 ${
+              value === option.value
+                ? 'border-brand-500 bg-brand-500 text-white shadow-md shadow-brand-500/20'
+                : 'border-stone-200 bg-stone-50 text-stone-500 hover:bg-stone-100'
+            }`}
+            style={{
+              height: 'var(--sf-h-button-card)',
+              borderRadius: 'var(--sf-radius-nested)',
+              transitionTimingFunction: 'var(--sf-ease)',
+            }}
+          >
+            {option.label}
+          </button>
+        ))}
+      </div>
     </div>
   );
 }
@@ -249,12 +291,9 @@ function StorePageContent() {
 export default function StorePage() {
   return (
     <Suspense fallback={
-      <div className="max-w-7xl mx-auto px-6 py-12 space-y-12 animate-pulse">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
-          <h1 className="text-4xl font-black text-stone-800 tracking-tight">Tienda Oficial</h1>
-        </div>
-        <div className="h-96 flex items-center justify-center">
-          <Spinner className="w-12 h-12" />
+      <div className="mx-auto max-w-7xl animate-pulse px-6" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
+        <div className="flex h-96 items-center justify-center">
+          <Spinner className="h-12 w-12" />
         </div>
       </div>
     }>

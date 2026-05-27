@@ -6,6 +6,8 @@ import Link from 'next/link';
 import { Product } from '../../types';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
+import { StorefrontCard } from '../ui/Card';
+import { StorefrontIcon } from '../ui/Icon';
 import { SmartImage } from '../ui/SmartImage';
 
 interface BentoArrivalsProps {
@@ -19,104 +21,107 @@ export function BentoArrivals({ products }: BentoArrivalsProps) {
   const gridProducts = products.slice(1, 5);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:gap-8 items-stretch">
-      
-      {/* 1. PRIMARY FEATURED PRODUCT (The Tower) */}
+    <div className="grid grid-cols-1 items-stretch lg:grid-cols-12" style={{ gap: 'var(--sf-space-md)' }}>
       <motion.div
-        initial={{ opacity: 0, y: 40 }}
+        initial={{ opacity: 0, y: 32 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
-        transition={{ duration: 0.8, ease: [0.16, 1, 0.3, 1] }}
-        className="lg:col-span-5 lg:row-span-2 group relative bg-white border border-stone-200/60 rounded-[2.5rem] overflow-hidden shadow-sm hover:shadow-2xl hover:border-brand-500/20 transition-all duration-700 flex flex-col"
+        transition={{ duration: 0.45, ease: [0.23, 1, 0.32, 1] }}
+        className="lg:col-span-5 lg:row-span-2"
       >
-        <div className="relative aspect-[4/5] lg:aspect-auto lg:h-[500px] overflow-hidden bg-stone-50 shrink-0">
-          <SmartImage 
-            src={mainProduct.thumbnail || 'https://images.unsplash.com/photo-1612170153139-6f881ff067e0?w=800&q=80'} 
-            alt={mainProduct.name}
-            wrapperClassName="w-full h-full"
-            className="group-hover:scale-105 transition-transform duration-1000 ease-out"
-          />
-          <div className="absolute top-8 left-8 flex flex-col gap-2 z-10">
-            <Badge className="shadow-lg text-[9px] font-black uppercase tracking-widest px-4 py-2 bg-stone-950 text-white rounded-full border-none">
-              Nueva Incorporación
-            </Badge>
-            <Badge variant="outline" className="shadow-lg text-[9px] font-black uppercase tracking-widest px-4 py-2 bg-white/95 backdrop-blur-md text-stone-900 rounded-full border-stone-200">
-              {mainProduct.type === 'BIRD' ? 'Ejemplar de Registro' : 'Insumo Oficial'}
-            </Badge>
-          </div>
-          <div className="absolute inset-0 bg-gradient-to-t from-stone-950/20 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-        </div>
-        
-        <div className="p-10 flex-1 flex flex-col justify-between gap-8 bg-white relative z-10">
-          <div className="space-y-4">
-            <h3 className="text-3xl sm:text-4xl font-display font-black text-stone-950 tracking-tight uppercase leading-[0.95] group-hover:text-brand-500 transition-colors duration-500">
-              {mainProduct.name}
-            </h3>
-            <p className="text-sm text-stone-500 leading-relaxed font-medium max-w-sm">
-              {mainProduct.description || "Un ejemplar de linaje superior, seleccionado por su vigor genético y fenotipo excepcional."}
-            </p>
+        <StorefrontCard interactive className="group flex h-full flex-col overflow-hidden p-0">
+          <div className="relative aspect-[4/5] shrink-0 overflow-hidden bg-stone-50 lg:aspect-auto lg:h-[500px]">
+            <SmartImage
+              src={mainProduct.thumbnail || 'https://images.unsplash.com/photo-1612170153139-6f881ff067e0?w=800&q=80'}
+              alt={mainProduct.name}
+              wrapperClassName="w-full h-full"
+              className="transition-transform duration-1000 ease-out group-hover:scale-[1.05]"
+            />
+            <div className="absolute left-8 top-8 z-10 flex flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
+              <Badge className="border-none bg-stone-950 text-white shadow-lg">
+                Nueva Incorporacion
+              </Badge>
+              <Badge variant="outline" className="bg-white/95 text-stone-900 shadow-lg backdrop-blur-md">
+                {mainProduct.type === 'BIRD' ? 'Ejemplar de Registro' : 'Insumo Oficial'}
+              </Badge>
+            </div>
+            <div className="absolute inset-0 bg-gradient-to-t from-stone-950/20 to-transparent opacity-0 transition-opacity duration-700 group-hover:opacity-100" />
           </div>
 
-          <div className="pt-8 border-t border-stone-100 flex items-center justify-between gap-6">
-            <div className="flex flex-col">
-              <span className="text-[10px] font-black uppercase text-stone-400 tracking-widest mb-1">Inversión</span>
-              <span className="text-3xl font-black text-stone-950 tracking-tighter">${mainProduct.price.toLocaleString()}</span>
+          <div className="relative z-10 flex flex-1 flex-col justify-between bg-white" style={{ padding: 'var(--sf-padding-outer)', gap: 'var(--sf-space-lg)' }}>
+            <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
+              <h3 className="sf-text-display text-stone-950 transition-colors duration-500 group-hover:text-brand-500 uppercase">
+                {mainProduct.name}
+              </h3>
+              <p className="sf-text-body max-w-sm text-stone-500">
+                {mainProduct.description || 'Un ejemplar de linaje superior, seleccionado por su vigor genetico y fenotipo excepcional.'}
+              </p>
             </div>
-            <Button size="lg" className="rounded-full h-14 px-8 bg-stone-950 hover:bg-brand-500 text-white font-black text-[10px] uppercase tracking-widest shadow-xl transition-all duration-500 hover:-translate-y-1" asChild>
-              <Link href={`/store/${mainProduct.id}`}>
-                Detalles <ArrowUpRight size={14} className="ml-2" />
-              </Link>
-            </Button>
+
+            <div className="flex items-center justify-between border-t border-stone-100 pt-[var(--sf-space-md)]" style={{ gap: 'var(--sf-space-md)' }}>
+              <div className="flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
+                <span className="sf-text-label text-stone-400">Inversion</span>
+                <span className="sf-text-h1 text-stone-950">${Number(mainProduct.price).toLocaleString()}</span>
+              </div>
+              <Button asChild context="card" variant="secondary">
+                <Link href={`/store/${mainProduct.id}`}>
+                  Detalles
+                  <ArrowUpRight size={14} className="ml-2" />
+                </Link>
+              </Button>
+            </div>
           </div>
-        </div>
+        </StorefrontCard>
       </motion.div>
 
-      {/* 2. THE DENSE GRID (2x2) */}
-      <div className="lg:col-span-7 grid grid-cols-1 sm:grid-cols-2 gap-6 lg:gap-8 grid-flow-dense">
-        {gridProducts.map((product, idx) => (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:col-span-7" style={{ gap: 'var(--sf-space-md)' }}>
+        {gridProducts.map((product, index) => (
           <motion.div
             key={product.id}
-            initial={{ opacity: 0, y: 30 }}
+            initial={{ opacity: 0, y: 24 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
-            transition={{ duration: 0.8, delay: 0.1 * (idx + 1), ease: [0.16, 1, 0.3, 1] }}
-            className="group relative bg-white border border-stone-200/60 rounded-[2rem] overflow-hidden hover:shadow-xl hover:border-brand-500/20 transition-all duration-700 flex flex-col"
+            transition={{ duration: 0.45, delay: 0.06 * (index + 1), ease: [0.23, 1, 0.32, 1] }}
           >
-            <div className="relative aspect-video overflow-hidden bg-stone-50">
-              <SmartImage 
-                src={product.thumbnail || 'https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?w=500&q=80'} 
-                alt={product.name}
-                wrapperClassName="w-full h-full"
-                className="group-hover:scale-110 transition-transform duration-1000 ease-out"
-              />
-              <div className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-                <div className="w-10 h-10 rounded-full bg-white/90 backdrop-blur-md flex items-center justify-center text-stone-950 shadow-lg">
-                  <ShoppingBag size={16} />
+            <StorefrontCard interactive className="group flex h-full flex-col overflow-hidden p-0">
+              <div className="relative aspect-video overflow-hidden bg-stone-50">
+                <SmartImage
+                  src={product.thumbnail || 'https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?w=500&q=80'}
+                  alt={product.name}
+                  wrapperClassName="w-full h-full"
+                  className="transition-transform duration-1000 ease-out group-hover:scale-[1.08]"
+                />
+                <div className="absolute right-4 top-4 opacity-0 transition-opacity duration-500 group-hover:opacity-100">
+                  <StorefrontIcon icon={ShoppingBag} context="card" variant="muted" className="bg-white/90 backdrop-blur-md" />
                 </div>
               </div>
-            </div>
-            
-            <div className="p-6 flex-1 flex flex-col justify-between">
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[9px] font-black text-brand-500 uppercase tracking-widest">
-                    {product.type === 'BIRD' ? (product.purpose === 'COMBAT' ? 'Combate' : 'Cría') : 'Accesorio'}
-                  </span>
-                  <span className="text-sm font-black text-stone-950 tracking-tighter">${product.price.toLocaleString()}</span>
+
+              <div className="flex flex-1 flex-col justify-between" style={{ padding: 'var(--sf-padding-inner)', gap: 'var(--sf-space-md)' }}>
+                <div className="flex flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
+                  <div className="flex items-center justify-between" style={{ gap: 'var(--sf-space-sm)' }}>
+                    <span className="sf-text-label text-brand-500">
+                      {product.type === 'BIRD' ? (product.purpose === 'COMBAT' ? 'Combate' : 'Cria') : 'Accesorio'}
+                    </span>
+                    <span className="sf-text-secondary font-black text-stone-950">${Number(product.price).toLocaleString()}</span>
+                  </div>
+                  <h4 className="sf-text-h2 text-stone-950 transition-colors group-hover:text-brand-500 uppercase">
+                    {product.name}
+                  </h4>
                 </div>
-                <h4 className="text-xl font-display font-black text-stone-950 tracking-tight uppercase leading-none group-hover:text-brand-500 transition-colors">
-                  {product.name}
-                </h4>
+
+                <Link
+                  href={`/store/${product.id}`}
+                  className="inline-flex items-center sf-text-label text-stone-400 transition-colors hover:text-stone-950"
+                  style={{ gap: 'var(--sf-space-xs)' }}
+                >
+                  Ver Ficha
+                  <ArrowUpRight size={10} />
+                </Link>
               </div>
-              
-              <Link href={`/store/${product.id}`} className="mt-4 text-[10px] font-black uppercase tracking-widest text-stone-400 group-hover:text-stone-950 transition-colors inline-flex items-center gap-1">
-                Ver Ficha <ArrowUpRight size={10} />
-              </Link>
-            </div>
+            </StorefrontCard>
           </motion.div>
         ))}
       </div>
-
     </div>
   );
 }

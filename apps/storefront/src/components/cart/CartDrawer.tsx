@@ -1,96 +1,150 @@
-import { X, Trash2, Plus, Minus, ShoppingBag } from 'lucide-react';
-import { useCartStore } from '../../store/cart.store';
-import { Button } from '../ui/Button';
+import { Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
 import { useRouter } from 'next/navigation';
+import { useCartStore } from '../../store/cart.store';
+import { useToastStore } from '../../store/toast.store';
 import { formatPrice } from '../../utils/formatters';
+import { Button } from '../ui/Button';
+import { StorefrontCard } from '../ui/Card';
+import { StorefrontIcon } from '../ui/Icon';
 
 export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { items, removeItem, updateQuantity, getTotalPrice } = useCartStore();
+  const { showToast } = useToastStore();
   const router = useRouter();
+
+  const handleRemove = (productId: number, name: string) => {
+    removeItem(productId);
+    showToast(`${name} eliminado del carrito`, 'info');
+  };
 
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      
-      <div className="relative w-full max-w-md bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300">
-        <div className="p-6 border-bottom flex items-center justify-between">
-          <h2 className="text-xl font-black text-stone-800 flex items-center gap-2">
-            <ShoppingBag /> Mi Carrito
-          </h2>
-          <Button variant="ghost" size="icon" onClick={onClose}>
+      <div className="absolute inset-0 bg-stone-950/50 backdrop-blur-sm" onClick={onClose} />
+
+      <aside
+        className="relative flex h-full w-full max-w-md flex-col bg-white shadow-2xl animate-in slide-in-from-right duration-300"
+        style={{
+          borderTopLeftRadius: 'var(--sf-radius-outer)',
+          borderBottomLeftRadius: 'var(--sf-radius-outer)',
+        }}
+      >
+        <div
+          className="flex items-center justify-between border-b border-stone-100"
+          style={{ padding: 'var(--sf-padding-inner)', gap: 'var(--sf-space-md)' }}
+        >
+          <div className="flex items-center min-w-0" style={{ gap: 'var(--sf-space-md)' }}>
+            <StorefrontIcon icon={ShoppingBag} context="card" variant="brand" />
+            <div className="min-w-0">
+              <h2 className="sf-text-h2 text-stone-850 uppercase italic">Mi Carrito</h2>
+              <p className="sf-text-label text-stone-400">{items.length} producto(s)</p>
+            </div>
+          </div>
+          <Button variant="ghost" size="icon" context="card" onClick={onClose} aria-label="Cerrar carrito">
             <X size={20} />
           </Button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6 space-y-6">
+        <div className="flex-1 overflow-y-auto" style={{ padding: 'var(--sf-padding-inner)' }}>
           {items.length === 0 ? (
-            <div className="h-full flex flex-col items-center justify-center text-stone-400 gap-4">
-              <ShoppingBag size={48} strokeWidth={1} />
-              <p className="font-medium text-lg">Tu carrito está vacío</p>
-              <Button onClick={onClose}>Ver Productos</Button>
+            <div className="flex h-full flex-col items-center justify-center text-center text-stone-400" style={{ gap: 'var(--sf-space-md)' }}>
+              <StorefrontIcon icon={ShoppingBag} context="section" variant="muted" />
+              <div className="flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
+                <p className="sf-text-h2 text-stone-700">Tu carrito esta vacio</p>
+                <p className="sf-text-secondary max-w-xs">Agrega productos desde la tienda para iniciar tu pedido.</p>
+              </div>
+              <Button onClick={onClose} context="card">Ver Productos</Button>
             </div>
           ) : (
-            items.map((item) => (
-              <div key={item.productId} className="flex gap-4 group">
-                <div className="w-20 h-20 bg-stone-100 rounded-2xl overflow-hidden shrink-0">
-                  {item.thumbnail && (
-                    <img src={item.thumbnail} alt={item.name} className="w-full h-full object-cover" />
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <h4 className="font-bold text-stone-800 truncate">{item.name}</h4>
-                  <p className="text-brand-500 font-black mb-2">${formatPrice(item.price)}</p>
-                  
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center bg-stone-100 rounded-lg p-1">
-                      <button 
-                        className="p-1 hover:text-brand-500 transition-colors"
-                        onClick={() => updateQuantity(item.productId, item.quantity - 1)}
-                      >
-                        <Minus size={14} />
-                      </button>
-                      <span className="w-8 text-center text-sm font-bold">{item.quantity}</span>
-                      <button 
-                        className="p-1 hover:text-brand-500 transition-colors"
-                        onClick={() => updateQuantity(item.productId, item.quantity + 1)}
-                      >
-                        <Plus size={14} />
-                      </button>
-                    </div>
-                    <button 
-                      className="text-stone-300 hover:text-red-500 transition-colors ml-auto opacity-0 group-hover:opacity-100"
-                      onClick={() => removeItem(item.productId)}
+            <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
+              {items.map((item) => (
+                <StorefrontCard key={item.productId} level={3} className="group">
+                  <div className="flex" style={{ gap: 'var(--sf-space-md)' }}>
+                    <div
+                      className="h-20 w-20 shrink-0 overflow-hidden bg-stone-100"
+                      style={{ borderRadius: 'var(--sf-radius-nested)' }}
                     >
-                      <Trash2 size={16} />
-                    </button>
+                      {item.thumbnail ? (
+                        <img src={item.thumbnail} alt={item.name} className="h-full w-full object-cover" />
+                      ) : (
+                        <div className="flex h-full w-full items-center justify-center text-stone-300">
+                          <ShoppingBag size={24} strokeWidth={1.2} />
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="min-w-0 flex-1">
+                      <div className="flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
+                        <h4 className="sf-text-secondary truncate font-bold text-stone-800">{item.name}</h4>
+                        <p className="sf-text-h2 text-brand-500">${formatPrice(item.price)}</p>
+                      </div>
+
+                      <div className="mt-3 flex items-center" style={{ gap: 'var(--sf-space-sm)' }}>
+                        <div
+                          className="flex items-center bg-stone-100"
+                          style={{ borderRadius: 'var(--sf-radius-nested)', padding: 'var(--sf-space-xs)' }}
+                        >
+                          <button
+                            className="p-1 text-stone-500 transition-colors hover:text-brand-500"
+                            onClick={() => updateQuantity(item.productId, item.quantity - 1)}
+                            aria-label="Disminuir cantidad"
+                          >
+                            <Minus size={14} />
+                          </button>
+                          <span className="w-8 text-center sf-text-button-card text-stone-800">{item.quantity}</span>
+                          <button
+                            className="p-1 text-stone-500 transition-colors hover:text-brand-500"
+                            onClick={() => updateQuantity(item.productId, item.quantity + 1)}
+                            aria-label="Aumentar cantidad"
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
+
+                        <button
+                          className="ml-auto text-stone-300 opacity-100 transition-colors hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
+                          onClick={() => handleRemove(item.productId, item.name)}
+                          aria-label="Eliminar producto"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                </div>
-              </div>
-            ))
+                </StorefrontCard>
+              ))}
+            </div>
           )}
         </div>
 
         {items.length > 0 && (
-          <div className="p-6 border-t border-stone-100 bg-stone-50/50 space-y-4">
-            <div className="flex items-center justify-between text-lg font-black text-stone-800">
-              <span>Total</span>
-              <span>${formatPrice(getTotalPrice())}</span>
+          <div
+            className="border-t border-stone-100 bg-stone-50/70"
+            style={{
+              padding: 'var(--sf-padding-inner)',
+              borderBottomLeftRadius: 'var(--sf-radius-outer)',
+            }}
+          >
+            <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
+              <div className="flex items-center justify-between">
+                <span className="sf-text-label text-stone-400">Total</span>
+                <span className="sf-text-h1 text-stone-850">${formatPrice(getTotalPrice())}</span>
+              </div>
+              <Button
+                className="w-full"
+                context="section"
+                onClick={() => {
+                  onClose();
+                  router.push('/checkout');
+                }}
+              >
+                Finalizar Pedido
+              </Button>
             </div>
-            <Button 
-              className="w-full h-14 text-lg" 
-              onClick={() => {
-                onClose();
-                router.push('/checkout');
-              }}
-            >
-              Finalizar Pedido
-            </Button>
           </div>
         )}
-      </div>
+      </aside>
     </div>
   );
 }
-

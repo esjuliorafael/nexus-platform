@@ -1,21 +1,20 @@
 "use client";
 
 import { useEffect, useState } from 'react';
-import { HeroSlider } from '../components/layout/HeroSlider';
-import { useProducts } from '../hooks/useProducts';
-import { ShoppingBag, Sparkles } from 'lucide-react';
-import { Spinner } from '../components/ui/Spinner';
-import { EmptyState } from '../components/ui/EmptyState';
-import { ProductCard } from '../components/product/ProductCard';
-
-import { BentoArrivals } from '../components/layout/BentoArrivals';
-import { GalleryFeatured } from '../components/layout/GalleryFeatured';
-import { ArticleShelf } from '../components/layout/ArticleShelf';
-import { BirdShowcase } from '../components/layout/BirdShowcase';
-import { RaffleSection } from '../components/layout/RaffleSection';
-import { SectionReveal, SkeletonBento } from '../components/ui/LayoutUtils';
-import { useSettings } from '../hooks/useSettings';
+import { HelpCircle, ShoppingBag, Sparkles } from 'lucide-react';
 import { mediaApi } from '../api/settings';
+import { ArticleShelf } from '../components/layout/ArticleShelf';
+import { BentoArrivals } from '../components/layout/BentoArrivals';
+import { BirdShowcase } from '../components/layout/BirdShowcase';
+import { GalleryFeatured } from '../components/layout/GalleryFeatured';
+import { HeroSlider } from '../components/layout/HeroSlider';
+import { RaffleSection } from '../components/layout/RaffleSection';
+import { EmptyState } from '../components/ui/EmptyState';
+import { FAQAccordion } from '../components/ui/FAQAccordion';
+import { SectionReveal, SkeletonBento } from '../components/ui/LayoutUtils';
+import { StorefrontSection } from '../components/ui/Section';
+import { useProducts } from '../hooks/useProducts';
+import { useSettings } from '../hooks/useSettings';
 import { Media } from '../types';
 
 export default function HomePage() {
@@ -24,55 +23,60 @@ export default function HomePage() {
   const [media, setMedia] = useState<Media[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(true);
 
-  // Feature Flag for Raffles
   const showRaffles = isModuleEnabled('raffle_enabled') || process.env.NEXT_PUBLIC_RAFFLE_ENABLED === 'true';
 
-  // Filter products for dynamic sections
   const recentProducts = Array.isArray(products)
-    ? products.filter(p => p.saleStatus === 'AVAILABLE').slice(0, 5)
+    ? products.filter((product) => product.saleStatus === 'AVAILABLE').slice(0, 5)
     : [];
 
   const articleProducts = Array.isArray(products)
-    ? products.filter(p => p.type === 'ITEM' && p.saleStatus === 'AVAILABLE')
+    ? products.filter((product) => product.type === 'ITEM' && product.saleStatus === 'AVAILABLE')
     : [];
 
   const combatBirds = Array.isArray(products)
-    ? products.filter(p => p.type === 'BIRD' && p.purpose === 'COMBAT' && p.saleStatus === 'AVAILABLE').slice(0, 6)
+    ? products
+        .filter((product) => product.type === 'BIRD' && product.purpose === 'COMBAT' && product.saleStatus === 'AVAILABLE')
+        .slice(0, 6)
     : [];
 
   const breedingBirds = Array.isArray(products)
-    ? products.filter(p => p.type === 'BIRD' && p.purpose === 'BREEDING' && p.saleStatus === 'AVAILABLE').slice(0, 6)
+    ? products
+        .filter((product) => product.type === 'BIRD' && product.purpose === 'BREEDING' && product.saleStatus === 'AVAILABLE')
+        .slice(0, 6)
     : [];
 
-  // Fetch gallery items
   useEffect(() => {
-    mediaApi.getAll()
-      .then(data => {
-        const photos = Array.isArray(data) 
-          ? data.filter(m => m.type === 'PHOTO').slice(0, 8) 
+    const loadMedia = async () => {
+      try {
+        const data = await mediaApi.getAll();
+        const photos = Array.isArray(data)
+          ? data.filter((item) => item.type === 'PHOTO').slice(0, 8)
           : [];
         setMedia(photos);
-      })
-      .catch(err => console.error("Error fetching media in home:", err))
-      .finally(() => setLoadingMedia(false));
+      } catch (err) {
+        console.error('Error fetching media in home:', err);
+      } finally {
+        setLoadingMedia(false);
+      }
+    };
+
+    loadMedia();
   }, []);
 
   return (
-    <main className="overflow-x-hidden w-full max-w-full">
-      {/* PHASE 2: HERO SLIDER */}
+    <main className="w-full max-w-full overflow-x-hidden">
       <HeroSlider />
 
-      <div className="space-y-40 pb-40">
-        {/* PHASE 3: ASYMMETRIC GRID (ARRIVALS) */}
-        <section className="max-w-[1440px] mx-auto px-6 lg:px-12 mt-32">
+      <div className="space-y-[var(--sf-space-xl)] pb-[var(--sf-space-xl)] pt-[var(--sf-space-xl)]">
+        <section className="mx-auto max-w-[1440px] px-[var(--sf-padding-outer)]">
           <SectionReveal>
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-8 mb-16 border-b border-stone-200 pb-8">
-              <div className="space-y-4">
-                <div className="inline-flex items-center gap-2 text-brand-500 font-black uppercase text-[10px] tracking-[0.2em]">
-                  <Sparkles size={12} /> Genética & Selección
+            <div className="mb-[var(--sf-space-lg)] flex flex-col justify-between gap-[var(--sf-space-md)] border-b border-stone-200 pb-[var(--sf-space-md)] md:flex-row md:items-end">
+              <div className="space-y-3">
+                <div className="sf-text-label inline-flex items-center gap-2 text-brand-500">
+                  <Sparkles size={14} /> Genetica & seleccion
                 </div>
-                <h2 className="text-4xl md:text-6xl font-display font-black text-stone-950 tracking-tight uppercase leading-[0.9]">
-                  Últimas Incorporaciones
+                <h2 className="sf-text-display uppercase text-stone-950">
+                  Ultimas incorporaciones
                 </h2>
               </div>
             </div>
@@ -80,10 +84,10 @@ export default function HomePage() {
             {loading ? (
               <SkeletonBento />
             ) : recentProducts.length === 0 ? (
-              <EmptyState 
-                icon={ShoppingBag} 
-                title="Catálogo en Preparación" 
-                description="Estamos registrando nuevos ejemplares. Vuelve pronto." 
+              <EmptyState
+                icon={ShoppingBag}
+                title="Catalogo en preparacion"
+                description="Estamos registrando nuevos ejemplares. Vuelve pronto."
               />
             ) : (
               <BentoArrivals products={recentProducts} />
@@ -91,34 +95,43 @@ export default function HomePage() {
           </SectionReveal>
         </section>
 
-        {/* PHASE 4: DARKROOM GALLERY */}
         {!loadingMedia && media.length > 0 && (
           <SectionReveal>
             <GalleryFeatured items={media} />
           </SectionReveal>
         )}
 
-        {/* PHASE 5: ARTICLES SHELF */}
         {!loading && articleProducts.length > 0 && (
           <SectionReveal>
             <ArticleShelf products={articleProducts} />
           </SectionReveal>
         )}
 
-        {/* PHASE 6 & 7: BIRD SHOWCASE (COMBAT & BREEDING) */}
         {!loading && (
-          <BirdShowcase 
-            combatBirds={combatBirds} 
-            breedingBirds={breedingBirds} 
+          <BirdShowcase
+            combatBirds={combatBirds}
+            breedingBirds={breedingBirds}
           />
         )}
 
-        {/* PHASE 8: RAFFLE SECTION (CONDITIONAL) */}
         {showRaffles && (
           <SectionReveal>
             <RaffleSection />
           </SectionReveal>
         )}
+
+        <SectionReveal>
+          <StorefrontSection
+            id="preguntas-frecuentes"
+            icon={HelpCircle}
+            eyebrow="Ayuda"
+            title="Preguntas frecuentes"
+            description="Respuestas operativas sobre envio, pagos, reservas y validacion de ejemplares."
+            className="mx-auto max-w-7xl px-[var(--sf-padding-outer)]"
+          >
+            <FAQAccordion />
+          </StorefrontSection>
+        </SectionReveal>
       </div>
     </main>
   );

@@ -1,10 +1,11 @@
 "use client";
 
 import { motion, useMotionValue, useTransform } from 'framer-motion';
-import { Image as ImageIcon, ArrowRight } from 'lucide-react';
+import { ArrowRight, Image as ImageIcon } from 'lucide-react';
 import Link from 'next/link';
 import { Media } from '../../types';
 import { Button } from '../ui/Button';
+import { Badge } from '../ui/Badge';
 import { SmartImage } from '../ui/SmartImage';
 
 interface GalleryFeaturedProps {
@@ -14,17 +15,14 @@ interface GalleryFeaturedProps {
 function FloatingCard({ item, index }: { item: Media; index: number }) {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
-
-  // Subtle 3D rotation based on mouse position
   const rotateX = useTransform(y, [-100, 100], [7, -7]);
   const rotateY = useTransform(x, [-100, 100], [-7, 7]);
+  const yOffsets = [0, 40, -40, 20];
 
   function handleMouseMove(event: React.MouseEvent<HTMLDivElement>) {
     const rect = event.currentTarget.getBoundingClientRect();
-    const centerX = rect.left + rect.width / 2;
-    const centerY = rect.top + rect.height / 2;
-    x.set(event.clientX - centerX);
-    y.set(event.clientY - centerY);
+    x.set(event.clientX - (rect.left + rect.width / 2));
+    y.set(event.clientY - (rect.top + rect.height / 2));
   }
 
   function handleMouseLeave() {
@@ -32,33 +30,37 @@ function FloatingCard({ item, index }: { item: Media; index: number }) {
     y.set(0);
   }
 
-  // Staggered vertical offset for floating effect
-  const yOffsets = [0, 40, -40, 20];
-  const yPos = yOffsets[index % yOffsets.length];
-
   return (
     <motion.div
-      style={{ rotateX, rotateY, y: yPos, transformStyle: "preserve-3d" }}
+      style={{
+        rotateX,
+        rotateY,
+        y: yOffsets[index % yOffsets.length],
+        transformStyle: 'preserve-3d',
+        borderRadius: 'var(--sf-radius-card-inner)',
+      }}
       onMouseMove={handleMouseMove}
       onMouseLeave={handleMouseLeave}
-      initial={{ opacity: 0, scale: 0.9 }}
+      initial={{ opacity: 0, scale: 0.94 }}
       whileInView={{ opacity: 1, scale: 1 }}
       viewport={{ once: true }}
-      transition={{ duration: 0.8, delay: index * 0.15 }}
-      className="relative aspect-[3/4] rounded-[2rem] overflow-hidden bg-stone-900 border border-white/5 shadow-2xl group cursor-pointer perspective-1000"
+      transition={{ duration: 0.45, delay: index * 0.08, ease: [0.23, 1, 0.32, 1] }}
+      className="perspective-1000 group relative aspect-[3/4] cursor-pointer overflow-hidden border border-white/5 bg-stone-900 shadow-2xl"
     >
-      <SmartImage 
-        src={item.filePath} 
+      <SmartImage
+        src={item.filePath}
         alt={item.title}
         wrapperClassName="w-full h-full"
-        className="transition-transform duration-1000 group-hover:scale-110"
+        className="transition-transform duration-1000 group-hover:scale-[1.08]"
       />
-      
-      {/* Premium Overlay */}
-      <div className="absolute inset-0 bg-gradient-to-t from-black via-black/20 to-transparent opacity-0 group-hover:opacity-100 transition-all duration-500 p-8 flex flex-col justify-end">
-        <div style={{ transform: "translateZ(20px)" }} className="space-y-1">
-          <span className="text-[9px] font-black text-brand-400 uppercase tracking-widest">Captura del Rancho</span>
-          <h4 className="text-xl font-serif italic font-bold text-white uppercase leading-none">{item.title}</h4>
+
+      <div
+        className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black via-black/20 to-transparent opacity-0 transition-all duration-500 group-hover:opacity-100"
+        style={{ padding: 'var(--sf-padding-inner)' }}
+      >
+        <div style={{ transform: 'translateZ(20px)' }} className="flex flex-col" >
+          <span className="sf-text-label text-brand-400">Captura del Rancho</span>
+          <h4 className="sf-text-h2 text-white uppercase italic">{item.title}</h4>
         </div>
       </div>
     </motion.div>
@@ -69,62 +71,56 @@ export function GalleryFeatured({ items }: GalleryFeaturedProps) {
   if (!items || items.length === 0) return null;
 
   return (
-    <section className="bg-stone-950 py-32 lg:py-48 relative overflow-hidden">
-      {/* Ambient background effects */}
-      <div className="absolute top-0 left-1/4 w-[500px] h-[500px] bg-brand-500/5 rounded-full blur-[120px] pointer-events-none" />
-      <div className="absolute bottom-0 right-1/4 w-[600px] h-[600px] bg-brand-500/5 rounded-full blur-[150px] pointer-events-none" />
+    <section className="relative overflow-hidden bg-stone-950" style={{ paddingBlock: 'clamp(5rem, 12vw, 12rem)' }}>
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-20 pointer-events-none" />
 
-      <div className="container-wide relative z-10 space-y-24">
-        
-        {/* Header */}
-        <div className="text-center space-y-6">
-          <motion.div
-            initial={{ opacity: 0, scale: 0.9 }}
-            whileInView={{ opacity: 1, scale: 1 }}
-            viewport={{ once: true }}
-            className="inline-flex items-center gap-2 px-4 py-1.5 bg-brand-500/10 border border-brand-500/20 rounded-full text-brand-400 text-[10px] font-black uppercase tracking-widest"
-          >
-            <ImageIcon size={12} /> Archivo Visual
-          </motion.div>
-          <h2 className="text-5xl md:text-7xl font-display font-black text-white tracking-tight uppercase italic leading-none">
-            Vida en <span className="text-brand-500">La Manzana</span>
-          </h2>
-          <p className="text-stone-500 font-medium text-lg max-w-xl mx-auto">
-            Testimonios visuales de nuestra dedicación, linajes y el entorno donde forjamos campeones.
-          </p>
-        </div>
+      <div className="relative z-10 mx-auto max-w-[1440px] px-6 lg:px-12">
+        <div className="flex flex-col" style={{ gap: 'var(--sf-space-xl)' }}>
+          <div className="mx-auto flex max-w-2xl flex-col items-center text-center" style={{ gap: 'var(--sf-space-md)' }}>
+            <Badge className="border-brand-500/20 bg-brand-500/10 text-brand-400">
+              <ImageIcon size={12} className="mr-2" />
+              Archivo Visual
+            </Badge>
+            <h2 className="sf-text-display text-white uppercase italic">
+              Vida en <span className="text-brand-500">La Manzana</span>
+            </h2>
+            <p className="sf-text-body text-stone-500">
+              Testimonios visuales de nuestra dedicacion, linajes y el entorno donde forjamos campeones.
+            </p>
+          </div>
 
-        {/* Gallery Grid (Desktop Staggered) */}
-        <div className="hidden lg:grid grid-cols-4 gap-8 px-12">
-          {items.slice(0, 4).map((item, idx) => (
-            <FloatingCard key={item.id} item={item} index={idx} />
-          ))}
-        </div>
+          <div className="hidden grid-cols-4 px-12 lg:grid" style={{ gap: 'var(--sf-space-md)' }}>
+            {items.slice(0, 4).map((item, index) => (
+              <FloatingCard key={item.id} item={item} index={index} />
+            ))}
+          </div>
 
-        {/* Mobile Horizontal Carousel */}
-        <div className="lg:hidden flex gap-6 overflow-x-auto px-6 pb-8 scrollbar-hide snap-x snap-mandatory">
-          {items.map((item) => (
-            <div key={item.id} className="min-w-[80vw] snap-center aspect-[3/4] rounded-[2rem] overflow-hidden bg-stone-900 relative shadow-2xl border border-white/5">
-              <SmartImage 
-                src={item.filePath} 
-                alt={item.title}
-                wrapperClassName="w-full h-full"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent p-6 flex flex-col justify-end">
-                <h4 className="text-lg font-serif italic font-bold text-white uppercase">{item.title}</h4>
+          <div className="flex snap-x snap-mandatory overflow-x-auto px-6 pb-8 scrollbar-hide lg:hidden" style={{ gap: 'var(--sf-space-md)' }}>
+            {items.map((item) => (
+              <div
+                key={item.id}
+                className="relative aspect-[3/4] min-w-[80vw] snap-center overflow-hidden border border-white/5 bg-stone-900 shadow-2xl"
+                style={{ borderRadius: 'var(--sf-radius-card-inner)' }}
+              >
+                <SmartImage src={item.filePath} alt={item.title} wrapperClassName="w-full h-full" />
+                <div
+                  className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 via-transparent to-transparent text-white"
+                  style={{ padding: 'var(--sf-padding-inner)' }}
+                >
+                  <h4 className="sf-text-h2 uppercase italic">{item.title}</h4>
+                </div>
               </div>
-            </div>
-          ))}
-        </div>
+            ))}
+          </div>
 
-        {/* Footer CTA */}
-        <div className="text-center">
-          <Button variant="outline" size="lg" className="rounded-full border-white/10 text-white hover:bg-white hover:text-stone-950 px-10 h-16 font-bold uppercase tracking-widest text-xs group" asChild>
-            <Link href="/gallery">
-              Ver Galería Completa <ArrowRight className="ml-2 group-hover:translate-x-1 transition-transform" />
-            </Link>
-          </Button>
+          <div className="text-center">
+            <Button asChild variant="outline" context="section" className="border-white/10 text-white hover:bg-white hover:text-stone-950">
+              <Link href="/gallery">
+                Ver Galeria Completa
+                <ArrowRight className="ml-2 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </Button>
+          </div>
         </div>
       </div>
     </section>
