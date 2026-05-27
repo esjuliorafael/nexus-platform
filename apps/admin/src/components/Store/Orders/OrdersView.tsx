@@ -97,8 +97,6 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
                 onViewDetail={onViewDetail}
                 onMarkAsPaid={handleMarkAsPaid}
                 onCancelOrder={handleCancelOrder}
-                isSwiped={swipedOrderId === order.id}
-                onSwipe={(id) => setSwipedOrderId(id)}
               />
             </div>
           ))}

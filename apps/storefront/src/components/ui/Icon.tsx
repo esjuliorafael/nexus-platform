@@ -3,7 +3,7 @@ import { cn } from '../../utils/cn';
 
 interface StorefrontIconProps {
   icon: LucideIcon;
-  variant?: 'brand' | 'muted' | 'dark' | 'success' | 'warning';
+  variant?: 'brand' | 'muted' | 'dark' | 'success' | 'warning' | 'error';
   context?: 'section' | 'card';
   className?: string;
 }
@@ -20,6 +20,7 @@ export function StorefrontIcon({
     dark: 'bg-stone-900 text-white border-stone-800 shadow-stone-900/20',
     success: 'bg-emerald-50 text-emerald-600 border-emerald-100 shadow-emerald-500/5',
     warning: 'bg-amber-50 text-amber-600 border-amber-100 shadow-amber-500/5',
+    error: 'bg-red-50 text-red-500 border-red-100 shadow-red-500/5',
   };
 
   const isSection = context === 'section';

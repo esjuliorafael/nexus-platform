@@ -1,21 +1,16 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { Camera, LayoutGrid, PlayCircle, Video } from 'lucide-react';
+import { useEffect, useState, useMemo } from 'react';
+import { Camera, LayoutGrid, PlayCircle, Video, Image as ImageIcon } from 'lucide-react';
 import { mediaApi } from '../../api/settings';
 import { Media } from '../../types';
 import { Spinner } from '../../components/ui/Spinner';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { StorefrontCard } from '../../components/ui/Card';
+import { StorefrontIcon } from '../../components/ui/Icon';
+import { motion, AnimatePresence } from 'framer-motion';
 
 type GalleryFilter = 'ALL' | 'PHOTO' | 'VIDEO';
-
-const filters: Array<{ value: GalleryFilter; label: string; icon: typeof LayoutGrid }> = [
-  { value: 'ALL', label: 'Todos', icon: LayoutGrid },
-  { value: 'PHOTO', label: 'Fotos', icon: Camera },
-  { value: 'VIDEO', label: 'Videos', icon: Video },
-];
 
 export default function GalleryPage() {
   const [media, setMedia] = useState<Media[]>([]);
@@ -27,91 +22,128 @@ export default function GalleryPage() {
       try {
         const data = await mediaApi.getAll();
         setMedia(Array.isArray(data) ? data : []);
+      } catch (err) {
+        console.error("Error loading gallery:", err);
       } finally {
         setLoading(false);
       }
     };
-
     loadMedia();
   }, []);
 
-  const filteredMedia = Array.isArray(media)
-    ? media.filter((item) => filter === 'ALL' || item.type === filter)
-    : [];
+  const filteredMedia = useMemo(() => {
+    return media.filter((item) => filter === 'ALL' || item.type === filter);
+  }, [media, filter]);
 
   return (
     <div className="mx-auto max-w-7xl px-6" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
       <div className="flex flex-col" style={{ gap: 'var(--sf-space-lg)' }}>
-        <header className="mx-auto flex max-w-2xl flex-col items-center text-center" style={{ gap: 'var(--sf-space-sm)' }}>
-          <p className="sf-text-label text-brand-500">Archivo Visual</p>
-          <h1 className="sf-text-display text-stone-850 uppercase italic">Galeria</h1>
-          <p className="sf-text-body text-stone-500">Nuestros mejores ejemplares y momentos del rancho.</p>
+        
+        {/* Header: Instagram Profile Style */}
+        <header className="flex flex-col md:flex-row items-center md:items-end justify-between border-b border-stone-100 pb-12" style={{ gap: 'var(--sf-space-lg)' }}>
+          <div className="flex items-center" style={{ gap: 'var(--sf-space-md)' }}>
+            <StorefrontIcon icon={ImageIcon} context="section" variant="brand" />
+            <div className="flex flex-col">
+              <p className="sf-text-label text-brand-500 uppercase tracking-[0.2em] font-black">Archivo Visual</p>
+              <h1 className="sf-text-display text-stone-850 uppercase leading-none">Galería</h1>
+            </div>
+          </div>
+          
+          <div className="flex bg-stone-100 p-1.5 rounded-[2rem] border border-stone-200/60 shadow-inner">
+            <FilterButton active={filter === 'ALL'} onClick={() => setFilter('ALL')} icon={LayoutGrid} label="Todos" />
+            <FilterButton active={filter === 'PHOTO'} onClick={() => setFilter('PHOTO')} icon={Camera} label="Fotos" />
+            <FilterButton active={filter === 'VIDEO'} onClick={() => setFilter('VIDEO')} icon={Video} label="Videos" />
+          </div>
         </header>
-
-        <div className="flex flex-wrap justify-center" style={{ gap: 'var(--sf-space-sm)' }}>
-          {filters.map((option) => {
-            const Icon = option.icon;
-            const isActive = filter === option.value;
-
-            return (
-              <Button
-                key={option.value}
-                type="button"
-                variant={isActive ? 'secondary' : 'outline'}
-                context="card"
-                onClick={() => setFilter(option.value)}
-              >
-                <Icon size={18} className="mr-2" />
-                {option.label}
-              </Button>
-            );
-          })}
-        </div>
 
         {loading ? (
           <div className="flex h-96 items-center justify-center">
             <Spinner className="h-12 w-12" />
           </div>
         ) : filteredMedia.length === 0 ? (
-          <EmptyState
-            icon={LayoutGrid}
-            title="Sin Media"
-            description="No se encontraron imagenes o videos para este filtro."
-          />
-        ) : (
-          <div className="columns-1 space-y-6 gap-6 sm:columns-2 lg:columns-3">
-            {filteredMedia.map((item) => (
-              <StorefrontCard
-                key={item.id}
-                interactive
-                className="group relative mb-6 break-inside-avoid overflow-hidden p-0"
-              >
-                <img
-                  src={item.filePath}
-                  className="h-auto w-full object-cover transition-transform duration-700 ease-out group-hover:scale-[1.05]"
-                  alt={item.title}
-                />
-
-                {item.type === 'VIDEO' && (
-                  <div className="pointer-events-none absolute inset-0 flex items-center justify-center bg-stone-950/20 transition-colors group-hover:bg-stone-950/40">
-                    <PlayCircle className="text-white drop-shadow-2xl" size={48} strokeWidth={1.5} />
-                  </div>
-                )}
-
-                <div
-                  className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-stone-950/85 via-stone-950/10 to-transparent text-white opacity-0 transition-opacity duration-300 group-hover:opacity-100"
-                  style={{ padding: 'var(--sf-padding-inner)', gap: 'var(--sf-space-xs)' }}
-                >
-                  <h4 className="sf-text-h2">{item.title}</h4>
-                  {item.description && (
-                    <p className="sf-text-secondary line-clamp-2 text-stone-300">{item.description}</p>
-                  )}
-                </div>
-              </StorefrontCard>
-            ))}
+          <div className="py-20">
+            <EmptyState
+              icon={LayoutGrid}
+              title="Sin Contenido"
+              description="No se encontraron imágenes o vídeos para este filtro."
+            />
           </div>
+        ) : (
+          <motion.div 
+            layout
+            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6"
+          >
+            <AnimatePresence mode='popLayout'>
+              {filteredMedia.map((item) => (
+                <MediaCard key={item.id} item={item} />
+              ))}
+            </AnimatePresence>
+          </motion.div>
         )}
       </div>
     </div>
+  );
+}
+
+function FilterButton({ active, onClick, icon: Icon, label }: { active: boolean; onClick: () => void; icon: any; label: string }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`flex items-center gap-2 px-6 py-2.5 rounded-full text-[10px] font-black uppercase tracking-widest transition-all duration-500 ${
+        active ? 'bg-white text-stone-900 shadow-md shadow-stone-200/50' : 'text-stone-400 hover:text-stone-600'
+      }`}
+    >
+      <Icon size={14} strokeWidth={active ? 2.5 : 2} />
+      <span className="hidden sm:inline">{label}</span>
+    </button>
+  );
+}
+
+function MediaCard({ item }: { item: Media }) {
+  return (
+    <motion.div
+      layout
+      initial={{ opacity: 0, scale: 0.9 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.9 }}
+      transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
+      className="group relative aspect-square overflow-hidden bg-stone-100 cursor-pointer border border-stone-200/50"
+      style={{ borderRadius: 'var(--sf-radius-inner)' }}
+    >
+      <img
+        src={item.filePath}
+        className="h-full w-full object-cover transition-transform duration-1000 ease-out group-hover:scale-[1.15]"
+        alt={item.title}
+        loading="lazy"
+      />
+
+      {/* Type Indicator (Video) */}
+      {item.type === 'VIDEO' && (
+        <div className="absolute top-4 right-4 z-10 text-white drop-shadow-lg opacity-90 group-hover:opacity-0 transition-opacity">
+          <PlayCircle size={20} strokeWidth={2} />
+        </div>
+      )}
+
+      {/* Instagram Style Overlay */}
+      <div
+        className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-stone-950/80 via-stone-950/20 to-transparent p-6 opacity-0 transition-all duration-500 group-hover:opacity-100"
+      >
+        <div className="translate-y-4 transition-transform duration-500 ease-emil group-hover:translate-y-0">
+          <div className="flex items-center gap-2 mb-1">
+             {item.type === 'VIDEO' ? <Video size={12} className="text-brand-400" /> : <Camera size={12} className="text-brand-400" />}
+             <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/60">
+               {item.type === 'VIDEO' ? 'Reel / Video' : 'Fotografía'}
+             </span>
+          </div>
+          <h4 className="sf-text-h2 text-white line-clamp-2 leading-tight uppercase tracking-tight">{item.title}</h4>
+          {item.description && (
+            <p className="sf-text-secondary line-clamp-2 text-white/70 mt-2 font-medium leading-relaxed">{item.description}</p>
+          )}
+        </div>
+      </div>
+      
+      {/* Subtle Border Overlay */}
+      <div className="pointer-events-none absolute inset-0 border border-black/5 rounded-[var(--sf-radius-inner)]" />
+    </motion.div>
   );
 }

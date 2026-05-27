@@ -44,9 +44,12 @@ export function ArticleShelf({ products }: ArticleShelfProps) {
           </Link>
         </motion.div>
 
-        <div className="flex snap-x snap-mandatory overflow-x-auto px-2 pb-12 scrollbar-hide" style={{ gap: 'var(--sf-space-md)' }}>
+        <div 
+          className="flex snap-x snap-mandatory overflow-x-auto pb-12 scrollbar-hide lg:grid lg:grid-cols-4 lg:overflow-x-visible" 
+          style={{ gap: 'var(--sf-space-md)', paddingInline: 'var(--sf-space-xs)' }}
+        >
           {products.map((product) => (
-            <div key={product.id} className="w-[300px] min-w-[300px] shrink-0 snap-center sm:w-[340px] sm:min-w-[340px]">
+            <div key={product.id} className="w-[300px] min-w-[300px] shrink-0 snap-center sm:w-[340px] sm:min-w-[340px] lg:w-full lg:min-w-0">
               <ProductCard product={product} />
             </div>
           ))}

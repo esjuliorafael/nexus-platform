@@ -196,13 +196,13 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
             icon={Layers}
             iconVariant="brand"
             action={
-              <div className="flex flex-wrap items-center gap-[var(--space-sm)]">
+              <div className="flex flex-col sm:flex-row items-center gap-[var(--space-sm)] w-full sm:w-auto">
                 {(order.status === 'pending' || order.status === 'paid') && (
                   <NexusSectionButton 
                     onClick={() => onCancelOrder(String(order.id))}
                     variant="outline"
                     icon={CircleX}
-                    className="border-rose-200 text-rose-500 hover:bg-rose-50 hover:border-rose-300"
+                    className="w-full sm:w-auto border-rose-200 text-rose-500 hover:bg-rose-50 hover:border-rose-300"
                   >
                     Cancelar
                   </NexusSectionButton>
@@ -212,17 +212,11 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                     onClick={() => onMarkAsPaid(String(order.id))}
                     icon={CheckCircle2}
                     variant="brand"
+                    className="w-full sm:w-auto shadow-xl shadow-brand-500/20"
                   >
                     Confirmar Pago
                   </NexusSectionButton>
                 )}
-                <div 
-                  className={`flex items-center gap-[var(--space-sm)] px-4 h-[var(--h-button-section)] border shadow-sm dark:shadow-none ${statusConfig.style}`}
-                  style={{ borderRadius: 'var(--radius-inner-visual)' }}
-                >
-                  {statusConfig.icon}
-                  <span className="text-label uppercase tracking-[0.15em]">{statusConfig.label}</span>
-                </div>
               </div>
             }
           >

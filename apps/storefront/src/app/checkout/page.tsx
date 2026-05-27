@@ -233,7 +233,7 @@ export default function CheckoutPage() {
           <StorefrontIcon icon={ShoppingBag} context="section" variant="brand" />
           <div>
             <p className="sf-text-label text-brand-500 uppercase tracking-[0.2em] font-black">Checkout</p>
-            <h1 className="sf-text-display text-stone-850 uppercase leading-none text-4xl">Finalizar Pedido</h1>
+            <h1 className="sf-text-display text-stone-850 uppercase leading-none">Finalizar Pedido</h1>
           </div>
         </div>
 
@@ -583,7 +583,7 @@ function OrderSummary({
           <StorefrontIcon icon={ShoppingBag} context="section" variant="brand" className="bg-white/10 border-white/10 text-brand-400 shadow-none" />
           <div>
             <p className="sf-text-label text-brand-400 uppercase tracking-[0.2em] font-black text-[10px]">Tu Selección</p>
-            <h3 className="sf-text-h1 uppercase tracking-tight leading-none text-2xl">Resumen</h3>
+            <h3 className="sf-text-h1 uppercase tracking-tight leading-none">Resumen</h3>
           </div>
         </div>
 
@@ -644,8 +644,8 @@ function OrderSummary({
 
           <div className="flex flex-col pt-[var(--sf-space-md)] mt-2">
             <div className="flex items-baseline justify-between border-t border-white/5 pt-4">
-              <span className="sf-text-h1 text-stone-400 uppercase tracking-tighter text-xl">Total Final</span>
-              <span className="sf-text-display tabular-nums text-brand-400 font-black tracking-tighter leading-none text-3xl">
+              <span className="sf-text-h1 text-stone-400 uppercase tracking-tighter">Total Final</span>
+              <span className="sf-text-display tabular-nums text-brand-400 font-black tracking-tighter leading-none">
                 ${formatPrice(total)}
               </span>
             </div>
@@ -682,7 +682,7 @@ function OrderComplete({ order }: { order: StoreOrderResponse }) {
       <div className="flex flex-col items-center" style={{ gap: 'var(--sf-space-lg)' }}>
         <StorefrontIcon icon={CheckCircle} context="section" variant="success" />
         <div className="flex flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
-          <h1 className="sf-text-display text-stone-850 uppercase text-4xl">Pedido Recibido</h1>
+          <h1 className="sf-text-display text-stone-850 uppercase">Pedido Recibido</h1>
           <p className="sf-text-body text-stone-500 font-medium text-lg">
             Gracias por tu compra, {order.customerName || 'Cliente'}. Tu número de pedido es <strong className="text-stone-850">#{order.id}</strong>.
           </p>
@@ -722,7 +722,7 @@ function EmptyCart() {
     <div className="mx-auto max-w-2xl px-6 text-center" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
       <div className="flex flex-col items-center" style={{ gap: 'var(--sf-space-md)' }}>
         <StorefrontIcon icon={ShoppingBag} context="section" variant="muted" />
-        <h2 className="sf-text-display text-stone-850 uppercase leading-none text-4xl">Tu carrito está vacío</h2>
+        <h2 className="sf-text-display text-stone-850 uppercase leading-none">Tu carrito está vacío</h2>
         <p className="sf-text-body text-stone-500 font-medium mb-4">Parece que aún no has añadido ejemplares o productos a tu selección.</p>
         <Button asChild context="section" className="h-16 px-12 shadow-lg">
           <Link href="/store">Explorar Catálogo</Link>

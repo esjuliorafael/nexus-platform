@@ -9,6 +9,8 @@ interface NexusCardBaseProps {
   swipeable?: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
+  customSwipeLeft?: React.ReactNode;
+  customSwipeRight?: React.ReactNode;
   isMuted?: boolean;
   className?: string;
   innerClassName?: string;
@@ -17,7 +19,7 @@ interface NexusCardBaseProps {
 }
 
 const NexusCardBase: React.FC<NexusCardBaseProps> = ({
-  children, level, swipeable, onEdit, onDelete, isMuted, className = '', innerClassName = '', delay = '0ms', style
+  children, level, swipeable, onEdit, onDelete, customSwipeLeft, customSwipeRight, isMuted, className = '', innerClassName = '', delay = '0ms', style
 }) => {
   const [translateX, setTranslateX] = React.useState(0);
   const [isSwiping, setIsSwiping] = React.useState(false);
@@ -25,6 +27,11 @@ const NexusCardBase: React.FC<NexusCardBaseProps> = ({
   const touchStart = React.useRef(0);
   const touchX = React.useRef(0);
   
+  const resetSwipe = () => {
+    setTranslateX(0);
+    setActiveSide('none');
+  };
+
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!swipeable) return;
     touchStart.current = e.touches[0].clientX;
@@ -58,8 +65,21 @@ const NexusCardBase: React.FC<NexusCardBaseProps> = ({
       <div className="relative overflow-hidden group/card h-full flex flex-col" style={{ borderRadius: radiusToken }}>
         {swipeable && (
           <div className="absolute inset-0 flex sm:hidden">
-            <NexusCardButton onClick={() => { onEdit?.(); setTranslateX(0); setActiveSide('none'); }} variant="brand" isIconOnly icon={Edit2} className="absolute inset-y-0 left-0 w-[100px] h-full rounded-none" />
-            <NexusCardButton onClick={() => { onDelete?.(); setTranslateX(0); setActiveSide('none'); }} variant="danger" isIconOnly icon={Trash2} className="absolute inset-y-0 right-0 w-[100px] h-full rounded-none" />
+            {customSwipeLeft ? (
+              <div className="absolute inset-y-0 left-0 w-[100px] h-full overflow-hidden" onClick={resetSwipe}>
+                {customSwipeLeft}
+              </div>
+            ) : (
+              onEdit && <NexusCardButton onClick={() => { onEdit?.(); resetSwipe(); }} variant="brand" isIconOnly icon={Edit2} className="absolute inset-y-0 left-0 w-[100px] h-full rounded-none" />
+            )}
+            
+            {customSwipeRight ? (
+              <div className="absolute inset-y-0 right-0 w-[100px] h-full overflow-hidden" onClick={resetSwipe}>
+                {customSwipeRight}
+              </div>
+            ) : (
+              onDelete && <NexusCardButton onClick={() => { onDelete?.(); resetSwipe(); }} variant="danger" isIconOnly icon={Trash2} className="absolute inset-y-0 right-0 w-[100px] h-full rounded-none" />
+            )}
           </div>
         )}
         <div onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
@@ -221,4 +241,15 @@ export const NexusSectionCard: React.FC<LegacyCardProps> = ({
  * NexusAutonomousCard: Tarjeta de Nivel 1 (Widget).
  * El contenedor raíz para bloques independientes.
  */
-export const NexusAutonomousCard: React.FC<{ children: React.ReactNode; className?: string; delay?: string; style?: React.CSSProperties; }> = (props) => <NexusCardBase {...props} level={1} />;
+export const NexusAutonomousCard: React.FC<{ 
+  children: React.ReactNode; 
+  className?: string; 
+  delay?: string; 
+  style?: React.CSSProperties; 
+  swipeable?: boolean; 
+  onEdit?: () => void; 
+  onDelete?: () => void; 
+  customSwipeLeft?: React.ReactNode; 
+  customSwipeRight?: React.ReactNode; 
+  isMuted?: boolean;
+}> = (props) => <NexusCardBase {...props} level={1} />;

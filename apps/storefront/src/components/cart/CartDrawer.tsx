@@ -37,7 +37,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
           <div className="flex items-center min-w-0" style={{ gap: 'var(--sf-space-md)' }}>
             <StorefrontIcon icon={ShoppingBag} context="card" variant="brand" />
             <div className="min-w-0">
-              <h2 className="sf-text-h2 text-stone-850 uppercase italic">Mi Carrito</h2>
+              <h2 className="sf-text-h2 text-stone-850 uppercase">Mi Carrito</h2>
               <p className="sf-text-label text-stone-400">{items.length} producto(s)</p>
             </div>
           </div>

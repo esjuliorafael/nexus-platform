@@ -41,7 +41,7 @@ export function StorefrontSection({
             {icon && <StorefrontIcon icon={icon} context="section" />}
             <div className="flex flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
               {eyebrow && <p className="sf-text-label text-brand-500">{eyebrow}</p>}
-              {title && <h2 className="sf-text-display text-stone-850 uppercase italic">{title}</h2>}
+              {title && <h2 className="sf-text-display text-stone-850 uppercase">{title}</h2>}
               {description && <p className="sf-text-body max-w-2xl text-stone-500">{description}</p>}
             </div>
           </div>

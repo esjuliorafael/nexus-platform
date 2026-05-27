@@ -17,7 +17,11 @@ interface ClientLayoutProps {
 export function ClientLayout({ children }: ClientLayoutProps) {
   const [isCartOpen, setIsCartOpen] = useState(false);
   const { isModuleEnabled } = useSettings();
-  const { message, type, hideToast } = useToastStore();
+  
+  // Robust subscription to toast store
+  const message = useToastStore((state) => state.message);
+  const type = useToastStore((state) => state.type);
+  const hideToast = useToastStore((state) => state.hideToast);
   
   const showRaffles = isModuleEnabled('raffle_enabled');
 
@@ -32,6 +36,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
       <AnimatePresence>
         {message && (
           <StorefrontToast 
+            key={message}
             message={message} 
             type={type} 
             onClose={hideToast} 

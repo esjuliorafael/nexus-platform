@@ -18,13 +18,13 @@ export function StorefrontToast({ message, type, onClose }: ToastProps) {
   useEffect(() => {
     const timer = setTimeout(() => {
       onClose();
-    }, 5000);
+    }, 4000);
     return () => clearTimeout(timer);
   }, [onClose]);
 
   const config = {
     success: { icon: CheckCircle, variant: 'success' as const },
-    error: { icon: AlertCircle, variant: 'warning' as const }, // Usamos warning para rojo en Icon.tsx
+    error: { icon: AlertCircle, variant: 'error' as const },
     info: { icon: Info, variant: 'brand' as const },
   };
 
@@ -32,15 +32,15 @@ export function StorefrontToast({ message, type, onClose }: ToastProps) {
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 32, scale: 0.95 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, y: 20, scale: 0.95 }}
+      initial={{ opacity: 0, x: 40, scale: 0.95 }}
+      animate={{ opacity: 1, x: 0, scale: 1 }}
+      exit={{ opacity: 0, x: 40, scale: 0.95, transition: { duration: 0.2 } }}
       transition={{ 
-        duration: 0.6, 
+        duration: 0.5, 
         ease: [0.16, 1, 0.3, 1] // sf-ease-reveal
       }}
       className={cn(
-        'fixed bottom-10 left-1/2 z-[120] -translate-x-1/2 flex min-w-[340px] max-w-[90vw] items-center gap-4 border bg-white/90 p-3 pr-5 shadow-[0_20px_50px_rgba(0,0,0,0.1)] backdrop-blur-2xl transition-all duration-500',
+        'fixed bottom-8 right-6 left-6 md:left-auto md:w-[380px] z-[120] flex items-center gap-4 border bg-white shadow-[0_20px_50px_rgba(0,0,0,0.08)] backdrop-blur-xl p-4',
         type === 'error' ? 'border-red-100' : 'border-stone-100'
       )}
       style={{ 
@@ -58,25 +58,22 @@ export function StorefrontToast({ message, type, onClose }: ToastProps) {
       />
       
       <div className="flex-1 min-w-0">
-        <p className="sf-text-label normal-case tracking-normal text-stone-850 font-black leading-tight">
+        <p className="sf-text-label normal-case tracking-tight text-stone-850 font-black leading-tight">
           {message}
         </p>
       </div>
 
       <button 
         onClick={onClose}
-        className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-stone-100 text-stone-300 hover:text-stone-500 transition-colors"
+        className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-stone-50 text-stone-300 hover:text-stone-850 transition-all active:scale-90"
       >
-        <X size={14} strokeWidth={2.5} />
+        <X size={18} strokeWidth={2} />
       </button>
 
-      {/* Progress Bar Decorator */}
-      <motion.div 
-        initial={{ scaleX: 1 }}
-        animate={{ scaleX: 0 }}
-        transition={{ duration: 5, ease: "linear" }}
+      {/* Technical Accent: Side Status Bar */}
+      <div 
         className={cn(
-          "absolute bottom-0 left-6 right-6 h-[2px] origin-left rounded-full opacity-20",
+          "absolute left-0 top-6 bottom-6 w-1 rounded-r-full",
           type === 'success' ? 'bg-emerald-500' : type === 'error' ? 'bg-red-500' : 'bg-brand-500'
         )}
       />

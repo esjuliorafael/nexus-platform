@@ -60,9 +60,13 @@ export function StorefrontModal({
 
         {/* Modal Card */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.9, y: 20 }}
+          initial={{ opacity: 0, scale: 0.95, y: 32 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.9, y: 20 }}
+          exit={{ opacity: 0, scale: 0.95, y: 32 }}
+          transition={{ 
+            duration: 0.5, 
+            ease: [0.16, 1, 0.3, 1] // sf-ease-reveal
+          }}
           className="relative w-full max-w-md overflow-hidden bg-white shadow-2xl"
           style={{ borderRadius: 'var(--sf-radius-outer)' }}
         >
@@ -74,7 +78,7 @@ export function StorefrontModal({
                   icon={icon} 
                   variant={variant === 'danger' ? 'warning' : variant} 
                   context="section"
-                  className={variant === 'danger' ? 'bg-red-50 text-red-500 border-red-100' : ''}
+                  className={variant === 'danger' ? 'bg-red-50 text-red-500 border-red-100 shadow-none' : ''}
                 />
                 <div className="space-y-2">
                   <h2 className="sf-text-h1 uppercase tracking-tight text-stone-850 leading-none">{title}</h2>
