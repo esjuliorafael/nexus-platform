@@ -96,12 +96,15 @@ export const Header: React.FC<HeaderProps> = ({
         className="max-w-7xl mx-auto w-full bg-bg-card/95 backdrop-blur-xl border border-border-main shadow-xl dark:shadow-none transition-all duration-500 rounded-full"
         style={{ transitionTimingFunction: 'var(--ease-emil)' }}
       >
-        <div className="p-3 sm:p-4">
+        <div style={{ padding: 'var(--space-md)' }}>
           <div className="flex items-center justify-between">
             
             <div className="flex-shrink-0 flex items-center">
               <div className="relative group">
-                <div className="w-16 h-16 sm:w-20 sm:h-20 rounded-full bg-bg-card flex items-center justify-center overflow-hidden border-2 border-border-main shadow-inner transition-all duration-300 group-hover:scale-110 active:scale-95">
+                <div 
+                  className="rounded-full bg-bg-card flex items-center justify-center overflow-hidden border border-border-main shadow-inner transition-all duration-300 group-hover:scale-110 active:scale-95"
+                  style={{ width: 'var(--size-button-section)', height: 'var(--size-button-section)' }}
+                >
                   {logoUrl ? (
                     <img 
                       src={logoUrl} 
@@ -109,24 +112,25 @@ export const Header: React.FC<HeaderProps> = ({
                       className="w-full h-full object-cover" 
                     />
                   ) : (
-                    <span className="text-[10px] font-black text-text-muted tracking-[0.2em]">NEXUS</span>
+                    <span className="text-label text-text-muted">NEXUS</span>
                   )}
                 </div>
               </div>
             </div>
 
             {/* NAVEGACIÓN CON EFECTO CLIP-PATH (EMIL KOWALSKI) */}
-            <nav className="hidden md:flex items-center justify-center bg-bg-muted p-1.5 rounded-full mx-4 relative overflow-hidden">
-              {/* Capa Base: Texto gris (Title Case) */}
+            <nav className="hidden md:flex items-center justify-center bg-bg-muted rounded-full relative overflow-hidden mx-4" style={{ padding: 'var(--space-xs)' }}>
+              {/* Capa Base: Texto gris */}
               <ul className="flex items-center relative z-10">
                 {navItems.map((item) => (
                   <li key={item} className="relative">
                     <button
                       ref={activeTab === item ? activeTabElementRef : null}
                       onClick={() => setActiveTab(item)}
-                      className={`px-8 py-3 rounded-full text-[12px] font-black tracking-widest transition-colors duration-300 active:scale-95 ${
+                      className={`text-button-card px-8 rounded-full transition-colors duration-300 active:scale-95 flex items-center justify-center ${
                         activeTab === item ? 'opacity-0' : 'text-text-muted hover:text-text-main'
                       }`}
+                      style={{ height: 'var(--h-button-card)' }}
                     >
                       {item}
                     </button>
@@ -141,13 +145,19 @@ export const Header: React.FC<HeaderProps> = ({
               <div 
                 aria-hidden 
                 ref={containerRef}
-                className="absolute inset-1.5 pointer-events-none transition-[clip-path] duration-500 z-20"
-                style={{ transitionTimingFunction: 'var(--ease-emil)' }}
+                className="absolute pointer-events-none transition-[clip-path] duration-500 z-20"
+                style={{ 
+                  inset: 'var(--space-xs)',
+                  transitionTimingFunction: 'var(--ease-emil)' 
+                }}
               >
                 <ul className="flex items-center bg-bg-card h-full rounded-full">
                   {navItems.map((item) => (
                     <li key={item}>
-                      <div className="px-8 py-3 text-[12px] font-black tracking-widest text-brand-500 whitespace-nowrap">
+                      <div 
+                        className="text-button-card text-brand-500 px-8 flex items-center justify-center whitespace-nowrap"
+                        style={{ height: 'var(--h-button-card)' }}
+                      >
                         {item}
                       </div>
                     </li>
@@ -156,11 +166,15 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </nav>
 
-            <div className="flex items-center gap-3">
+            <div className="flex items-center" style={{ gap: 'var(--space-sm)' }}>
               <button 
                 onClick={toggleTheme}
-                className="flex items-center justify-center w-12 h-12 rounded-full bg-bg-card text-text-main shadow-sm dark:shadow-none hover:bg-bg-muted transition-all border border-border-main group active:scale-90"
-                style={{ transitionTimingFunction: 'var(--ease-emil)' }}
+                className="flex items-center justify-center rounded-full bg-bg-card text-text-main shadow-sm dark:shadow-none hover:bg-bg-muted transition-all border border-border-main group active:scale-90"
+                style={{ 
+                  width: 'var(--size-button-section)', 
+                  height: 'var(--size-button-section)',
+                  transitionTimingFunction: 'var(--ease-emil)' 
+                }}
                 title={theme === 'light' ? 'Modo Oscuro' : 'Modo Claro'}
               >
                 {theme === 'light' ? (
@@ -172,8 +186,12 @@ export const Header: React.FC<HeaderProps> = ({
 
               <button 
                 onClick={onLogout}
-                className="flex items-center justify-center w-12 h-12 rounded-full bg-bg-card text-text-main shadow-sm dark:shadow-none hover:bg-bg-muted hover:text-rose-500 transition-all border border-border-main group active:scale-90"
-                style={{ transitionTimingFunction: 'var(--ease-emil)' }}
+                className="flex items-center justify-center rounded-full bg-bg-card text-text-main shadow-sm dark:shadow-none hover:bg-bg-muted hover:text-rose-500 transition-all border border-border-main group active:scale-90"
+                style={{ 
+                  width: 'var(--size-button-section)', 
+                  height: 'var(--size-button-section)',
+                  transitionTimingFunction: 'var(--ease-emil)' 
+                }}
                 title="Cerrar Sesión"
               >
                 <LogOut size={20} className="group-hover:translate-x-0.5 transition-transform" />

@@ -73,7 +73,7 @@ function StorePageContent() {
         <div className="flex flex-col justify-between border-b border-stone-200/60 pb-[var(--sf-space-md)] md:flex-row md:items-end" style={{ gap: 'var(--sf-space-md)' }}>
           <div className="flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
             <h1 className="sf-text-display text-stone-850 uppercase italic">Tienda Oficial</h1>
-            <p className="sf-text-label text-stone-400">Granja La Manzana</p>
+            <p className="sf-text-label text-stone-400">Genética de Excelencia</p>
           </div>
 
           <div className="hidden w-full max-w-md md:block">
@@ -149,7 +149,8 @@ function StorePageContent() {
           <EmptyState
             icon={Search}
             title="Sin Resultados"
-            description="No encontramos productos que coincidan con tus criterios de busqueda en Granja La Manzana."
+            description="No encontramos productos que coincidan con tus criterios de busqueda en nuestra seleccion actual."
+
             actionText="Limpiar Busqueda"
             onActionClick={clearFilters}
           />

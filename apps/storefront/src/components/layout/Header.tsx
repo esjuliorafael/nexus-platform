@@ -37,7 +37,7 @@ export function Header({ showRaffles = false, onOpenCart }: HeaderProps) {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [prevScrollPos]);
 
-  const brandName = branding.brand_name || 'Granja La Manzana';
+  const brandName = branding.brand_name || 'Nexus Store';
   const navLinks = [
     { to: '/', label: 'Inicio' },
     { to: '/store', label: 'Tienda' },

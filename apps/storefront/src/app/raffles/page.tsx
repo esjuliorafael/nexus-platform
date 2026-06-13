@@ -71,7 +71,7 @@ export default function RafflesPage() {
           </Badge>
           <h1 className="sf-text-display text-stone-850 uppercase italic">Rifas Activas</h1>
           <p className="sf-text-body text-stone-500">
-            Participa en nuestros sorteos especiales y gana ejemplares elite de registro con genetica de campeonato mundial de Granja La Manzana.
+            Participa en nuestros sorteos especiales y gana ejemplares elite de registro con genetica de campeonato mundial.
           </p>
         </div>
 

@@ -35,7 +35,7 @@ jobs:
           cache-from: type=gha
           cache-to: type=inline
 
-      # Build & Push Nexus Storefront
+      # Build & Push Nexus Storefront (Generic Image)
       - name: Build and push Storefront
         uses: docker/build-push-action@v5
         with:
@@ -43,12 +43,10 @@ jobs:
           file: ./apps/storefront/Dockerfile
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/nexus-storefront:latest
-          build-args: |
-            NEXT_PUBLIC_API_URL=https://api.granjalamanzana.com/api/v1
           cache-from: type=gha
           cache-to: type=inline
 
-      # Build & Push Nexus Admin
+      # Build & Push Nexus Admin (Generic Image)
       - name: Build and push Admin
         uses: docker/build-push-action@v5
         with:
@@ -57,7 +55,6 @@ jobs:
           push: true
           tags: ${{ secrets.DOCKERHUB_USERNAME }}/nexus-admin:latest
           build-args: |
-            VITE_API_URL=https://api.granjalamanzana.com/api/v1
             VITE_RAFFLE_ENABLED=true
           cache-from: type=gha
           cache-to: type=inline

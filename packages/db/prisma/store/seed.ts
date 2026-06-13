@@ -15,13 +15,13 @@ async function main() {
   
   for (const state of mexicanStates) {
     const existing = await prisma.shippingZone.findFirst({
-      where: { state }
+      where: { name: state }
     });
 
     if (!existing) {
       await prisma.shippingZone.create({
         data: {
-          state,
+          name: state,
           zoneType: 'STANDARD'
         }
       });

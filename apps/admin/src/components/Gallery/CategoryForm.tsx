@@ -53,7 +53,6 @@ export const CategoryForm: React.FC<CategoryFormProps> = ({ initialData, onCance
         await apiCategories.create({
           name: name.trim(),
           icon: 'folder', // Icono por defecto
-          subcategories: [] // Array vacío al crear
         });
       }
       

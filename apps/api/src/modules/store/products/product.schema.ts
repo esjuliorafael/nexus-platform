@@ -21,6 +21,7 @@ export const createProductSchema = z.object({
   age: z.string().optional(),
   purpose: z.string().optional(),
   gallery: z.array(z.string()).optional(),
+  saleStatus: saleStatusEnum.optional(),
 });
 
 export const updateProductSchema = createProductSchema.partial();

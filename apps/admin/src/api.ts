@@ -8,10 +8,36 @@ import {
   ChannelsOverview
 } from './types';
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:3001/api/v1';
+// Derive API URL dynamically based on current domain if not explicitly provided via ENV
+// Pattern: admin.domain.com -> api.domain.com
+const getDynamicApiUrl = () => {
+  if (typeof window === 'undefined') return 'http://localhost:3001/api/v1';
+  
+  const { hostname, protocol, port } = window.location;
+  
+  // Local development fallback
+  if (hostname === 'localhost' || hostname === '127.0.0.1') {
+    return import.meta.env.VITE_API_URL || `http://${hostname}:3001/api/v1`;
+  }
 
-// Media assets base URL 
-export const ASSET_BASE_URL = import.meta.env.VITE_ASSET_BASE_URL || 'http://localhost:3001/';
+  // Multi-tenant production pattern: admin.[client-domain] -> api.[client-domain]
+  if (hostname.startsWith('admin.')) {
+    const rootDomain = hostname.replace('admin.', '');
+    return `${protocol}//api.${rootDomain}/api/v1`;
+  }
+
+  // Fallback to Env or relative path (risky for different subdomains but useful as last resort)
+  return import.meta.env.VITE_API_URL || `${protocol}//${hostname}${port ? `:${port}` : ''}/api/v1`;
+};
+
+const API_BASE_URL = import.meta.env.VITE_API_URL || getDynamicApiUrl();
+
+// Media assets base URL - Derived from API URL by default
+const getDynamicAssetUrl = () => {
+  return API_BASE_URL.replace('/api/v1', '/');
+};
+
+export const ASSET_BASE_URL = import.meta.env.VITE_ASSET_BASE_URL || getDynamicAssetUrl();
 
 export const api = axios.create({
   baseURL: API_BASE_URL,
@@ -59,6 +85,10 @@ export const apiAuth = {
   },
   me: async () => {
     const res = await api.get('/auth/me');
+    return res.data;
+  },
+  setupAccount: async (password: string) => {
+    const res = await api.post('/auth/setup-account', { password });
     return res.data;
   }
 };
@@ -294,7 +324,7 @@ export const apiUsers = {
     const res = await api.get('/admin/users');
     return res.data.map((item: any) => ({
       id: item.id.toString(),
-      fullName: item.name,
+      name: item.name,
       username: item.username,
       email: item.email,
       isActive: item.active,
@@ -314,7 +344,7 @@ export const apiUsers = {
        ...res.data,
        id: res.data.id.toString(),
        isActive: res.data.active,
-       fullName: res.data.name
+       name: res.data.name
     };
   },
   updateNotifications: async (id: string, receiveNotifications: boolean, notificationEmail?: string | null) => {

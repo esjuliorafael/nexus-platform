@@ -7,8 +7,8 @@ import { PageHeader } from './components/Layout/PageHeader';
 import { DashboardView } from './components/Dashboard/DashboardView';
 
 import { BottomNav } from './components/BottomNav';
-import { GalleryView } from './components/Gallery/GalleryView';
-import { StoreView } from './components/Store/StoreView';
+import { GalleryView, GalleryViewRef } from './components/Gallery/GalleryView';
+import { StoreView, StoreViewRef } from './components/Store/StoreView';
 import { OrdersView } from './components/Store/Orders/OrdersView';
 import { OrderDetailView } from './components/Store/Orders/OrderDetailView';
 import { PlatformSettingsView } from './components/System/Config/PlatformSettingsView';
@@ -26,6 +26,7 @@ import { RaffleView } from './components/Raffle/RaffleView';
 import { RaffleSettingsView } from './components/System/Raffle/RaffleSettingsView';
 import { RaffleIntelligenceView } from './components/System/Intelligence/RaffleIntelligenceView';
 import { LoginView } from './components/Auth/LoginView'; 
+import { SetupAccountView } from './components/Auth/SetupAccountView';
 import { Order, DashboardStats, AnnualService, ExtraCharge, BillingPayment } from './types';
 import { apiOrders, apiDashboard, apiBilling, apiSystem, api } from './api';
 import { NexusSectionButton } from './components/ui/NexusButton';
@@ -129,6 +130,16 @@ function App() {
       return !!authData.token;
     } catch (error) {
       return false; 
+    }
+  });
+
+  const [mustChangePassword, setMustChangePassword] = useState<boolean>(() => {
+    const authString = localStorage.getItem('admin_session');
+    if (!authString) return false;
+    try {
+      return !!JSON.parse(authString).mustChangePassword;
+    } catch {
+      return false;
     }
   });
 
@@ -286,12 +297,14 @@ function App() {
       token: jwtToken,
       name: userData.name,
       role: userData.role || 'staff',
+      mustChangePassword: userData.mustChangePassword,
       expiresAt: new Date().getTime() + (12 * 60 * 60 * 1000) 
     };
     localStorage.setItem('admin_session', JSON.stringify(authData));
     setUserName(userData.name.split(' ')[0]);
     setUserRole(userData.role || 'staff');
     setToken(jwtToken);
+    setMustChangePassword(userData.mustChangePassword);
     setIsAuthenticated(true);
   };
 
@@ -299,6 +312,16 @@ function App() {
     localStorage.removeItem('admin_session');
     setToken(null);
     setIsAuthenticated(false);
+  };
+
+  const handleSetupComplete = () => {
+    setMustChangePassword(false);
+    const authString = localStorage.getItem('admin_session');
+    if (authString) {
+      const authData = JSON.parse(authString);
+      authData.mustChangePassword = false;
+      localStorage.setItem('admin_session', JSON.stringify(authData));
+    }
   };
 
   const currentDate = new Date().toLocaleDateString('es-ES', { weekday: 'short', day: 'numeric', month: 'short' });
@@ -427,6 +450,39 @@ function App() {
       );
     }
 
+    if (isGalleryMode) {
+      if (galleryViewMode === 'list') {
+        return (
+          <NexusSectionButton onClick={() => setGalleryViewMode('create')} variant="brand" icon={Plus}>
+            Nuevo Medio
+          </NexusSectionButton>
+        );
+      }
+      if (galleryViewMode === 'categories_list') {
+        return (
+          <NexusSectionButton onClick={() => setGalleryViewMode('category_create')} variant="brand" icon={Plus}>
+            Nueva Categoría
+          </NexusSectionButton>
+        );
+      }
+    }
+
+    if (isStoreMode && storeViewMode === 'list') {
+      return (
+        <NexusSectionButton onClick={() => setStoreViewMode('create')} variant="brand" icon={Plus}>
+          Nuevo Producto
+        </NexusSectionButton>
+      );
+    }
+
+    if (isRafflesMode && raffleViewMode === 'list') {
+      return (
+        <NexusSectionButton onClick={() => setRaffleViewMode('create')} variant="brand" icon={Plus}>
+          Nueva Rifa
+        </NexusSectionButton>
+      );
+    }
+
     if (isSystemMode) {
       if (systemViewMode === 'config') {
         return (
@@ -492,6 +548,8 @@ function App() {
   };
 
   if (!isAuthenticated) return <LoginView onLoginSuccess={handleLoginSuccess} showToast={showToast} />;
+  
+  if (mustChangePassword) return <SetupAccountView onSetupComplete={handleSetupComplete} showToast={showToast} userName={userName} onLogout={handleLogout} />;
 
   const bottomNavTabs: Array<'Inicio' | 'Galería' | 'Tienda' | 'Órdenes' | 'Sistema' | 'Rifas'> = [
     'Inicio', 'Galería', 'Tienda', 'Órdenes',
@@ -515,6 +573,7 @@ function App() {
             <PageHeader 
               activeTab={activeTab}
               userName={userName}
+              currentDate={currentDate}
               galleryViewMode={galleryViewMode}
               isCreatingMedia={isCreatingMedia}
               isEditingMedia={isEditingMedia}
@@ -529,9 +588,6 @@ function App() {
               channelsViewMode={channelsViewMode}
               actionAddon={getActionAddon()}
             />
-            <div className="bg-white dark:bg-stone-900 px-5 py-3.5 rounded-full shadow-sm border border-stone-200 dark:border-stone-800 flex items-center gap-2 text-stone-600 dark:text-stone-400 font-medium text-sm capitalize">
-              <Calendar size={16} className="text-brand-500" /> {currentDate}
-            </div>
           </div>
 
           <div className="flex flex-col lg:flex-row gap-6">

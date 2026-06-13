@@ -169,15 +169,6 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
           description={searchQuery 
             ? `No encontramos productos que coincidan con "${searchQuery}". Prueba con otros términos.` 
             : "Aún no has registrado productos en tu tienda. Comienza añadiendo tu primer artículo."}
-          action={!searchQuery && onSetViewMode && (
-            <NexusSectionButton 
-              onClick={() => onSetViewMode('create')}
-              icon={Plus}
-              className="shadow-lg shadow-brand-500/20"
-            >
-              Añadir Producto
-            </NexusSectionButton>
-          )}
         />
       )}
     </div>

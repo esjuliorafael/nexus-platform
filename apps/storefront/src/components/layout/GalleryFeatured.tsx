@@ -82,7 +82,7 @@ export function GalleryFeatured({ items }: GalleryFeaturedProps) {
               Archivo Visual
             </Badge>
             <h2 className="sf-text-display text-white uppercase italic">
-              Vida en <span className="text-brand-500">La Manzana</span>
+              Vida en <span className="text-brand-500">Nuestra Granja</span>
             </h2>
             <p className="sf-text-body text-stone-500">
               Testimonios visuales de nuestra dedicacion, linajes y el entorno donde forjamos campeones.

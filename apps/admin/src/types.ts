@@ -70,7 +70,7 @@ export interface Category {
 
 export interface User {
   id: string;
-  fullName: string;
+  name: string;
   username: string;
   email: string;
   isActive: boolean;

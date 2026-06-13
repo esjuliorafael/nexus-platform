@@ -31,6 +31,7 @@ model User {
   createdAt            DateTime @default(now()) @map("created_at")
   notificationEmail    String?  @map("notification_email")
   receiveNotifications Boolean  @default(true) @map("receive_notifications")
+  mustChangePassword   Boolean  @default(true) @map("must_change_password")
 
   @@map("users")
 }

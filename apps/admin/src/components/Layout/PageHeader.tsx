@@ -1,8 +1,10 @@
 import React from 'react';
+import { Calendar } from 'lucide-react';
 
 interface PageHeaderProps {
   activeTab: string;
   userName: string;
+  currentDate?: string;
   // Gallery states
   galleryViewMode: string;
   isCreatingMedia: boolean;
@@ -26,6 +28,7 @@ interface PageHeaderProps {
 export const PageHeader: React.FC<PageHeaderProps> = ({
   activeTab,
   userName,
+  currentDate,
   galleryViewMode,
   isCreatingMedia,
   isEditingMedia,
@@ -47,50 +50,50 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   const isOrdersMode = isStoreMode && (storeViewMode === 'orders' || storeViewMode === 'order-detail');
 
   const getTitle = () => {
-    if (isCreatingMedia) return <>Subir <span className="text-stone-600">Nuevo Medio</span></>;
-    if (isEditingMedia) return <>Editar <span className="text-stone-600">Medio</span></>;
-    if (isCreatingProduct) return <>Nuevo <span className="text-stone-600">Producto</span></>;
-    if (isEditingProduct) return <>Editar <span className="text-stone-600">Producto</span></>;
-    if (isCreatingRaffle) return <>Nueva <span className="text-stone-600">Rifa</span></>;
-    if (isEditingRaffle) return <>Editar <span className="text-stone-600">Rifa</span></>;
-    if (galleryViewMode === 'category_create') return <>Nueva <span className="text-stone-600">Categoría</span></>;
-    if (galleryViewMode === 'category_edit') return <>Editar <span className="text-stone-600">Categoría</span></>;
-    if (galleryViewMode === 'categories_list') return <>Gestionar <span className="text-stone-600">Categorías</span></>;
-    if (isGalleryMode) return <>Panel de <span className="text-stone-600">Galería</span></>;
+    if (isCreatingMedia) return <>Subir <span className="text-text-muted">Nuevo Medio</span></>;
+    if (isEditingMedia) return <>Editar <span className="text-text-muted">Medio</span></>;
+    if (isCreatingProduct) return <>Nuevo <span className="text-text-muted">Producto</span></>;
+    if (isEditingProduct) return <>Editar <span className="text-text-muted">Producto</span></>;
+    if (isCreatingRaffle) return <>Nueva <span className="text-text-muted">Rifa</span></>;
+    if (isEditingRaffle) return <>Editar <span className="text-text-muted">Rifa</span></>;
+    if (galleryViewMode === 'category_create') return <>Nueva <span className="text-text-muted">Categoría</span></>;
+    if (galleryViewMode === 'category_edit') return <>Editar <span className="text-text-muted">Categoría</span></>;
+    if (galleryViewMode === 'categories_list') return <>Gestionar <span className="text-text-muted">Categorías</span></>;
+    if (isGalleryMode) return <>Panel de <span className="text-text-muted">Galería</span></>;
     
     if (isStoreMode) {
-      if (storeViewMode === 'orders') return <>Gestión de <span className="text-stone-600">Órdenes</span></>;
-      if (storeViewMode === 'order-detail') return <>Detalle de <span className="text-stone-600">Orden</span></>;
-      return <>Gestión de <span className="text-stone-600">Tienda</span></>;
+      if (storeViewMode === 'orders') return <>Gestión de <span className="text-text-muted">Órdenes</span></>;
+      if (storeViewMode === 'order-detail') return <>Detalle de <span className="text-text-muted">Orden</span></>;
+      return <>Gestión de <span className="text-text-muted">Tienda</span></>;
     }
 
     if (isRafflesMode) {
-      if (raffleViewMode === 'detail') return <>Detalle de <span className="text-stone-600">Rifa</span></>;
-      return <>Gestión de <span className="text-stone-600">Rifas</span></>;
+      if (raffleViewMode === 'detail') return <>Detalle de <span className="text-text-muted">Rifa</span></>;
+      return <>Gestión de <span className="text-text-muted">Rifas</span></>;
     }
 
     if (isSystemMode) {
       if (systemViewMode === 'shipping') {
-        if (shippingSubView === 'zones') return <>Zonas por <span className="text-stone-600">Estado</span></>;
-        return <>Gestión de <span className="text-stone-600">Envíos</span></>;
+        if (shippingSubView === 'zones') return <>Zonas por <span className="text-text-muted">Estado</span></>;
+        return <>Gestión de <span className="text-text-muted">Envíos</span></>;
       }
-      if (systemViewMode === 'users') return <>Gestión de <span className="text-stone-600">Miembros</span></>;
-      if (systemViewMode === 'identity') return <>Identidad del <span className="text-stone-600">Sistema</span></>;
+      if (systemViewMode === 'users') return <>Gestión de <span className="text-text-muted">Miembros</span></>;
+      if (systemViewMode === 'identity') return <>Identidad del <span className="text-text-muted">Sistema</span></>;
       if (systemViewMode === 'channels') {
-        if (channelsViewMode === 'hub') return <>Centro de <span className="text-stone-600">Canales</span></>;
-        if (channelsViewMode === 'principal') return <>Canal <span className="text-stone-600">Principal</span></>;
-        if (channelsViewMode === 'create') return <>Nuevo <span className="text-stone-600">Canal</span></>;
-        return <>Configurar <span className="text-stone-600">Canal</span></>;
+        if (channelsViewMode === 'hub') return <>Centro de <span className="text-text-muted">Canales</span></>;
+        if (channelsViewMode === 'principal') return <>Canal <span className="text-text-muted">Principal</span></>;
+        if (channelsViewMode === 'create') return <>Nuevo <span className="text-text-muted">Canal</span></>;
+        return <>Configurar <span className="text-text-muted">Canal</span></>;
       }
-      if (systemViewMode === 'inventory') return <>Ajustes de <span className="text-stone-600">Inventario</span></>;
-      if (systemViewMode === 'notifications') return <>Alertas y <span className="text-stone-600">Notificaciones</span></>;
-      if (systemViewMode === 'billing') return <>Estado de <span className="text-stone-600">Cuenta</span></>;
-      if (systemViewMode === 'intelligence') return <>Inteligencia de <span className="text-stone-600">Audiencias</span></>;
-      if (systemViewMode === 'config') return <>Ajustes de <span className="text-stone-600">Plataforma</span></>;
-      return <>Ajustes del <span className="text-stone-600">Sistema</span></>;
+      if (systemViewMode === 'inventory') return <>Ajustes de <span className="text-text-muted">Inventario</span></>;
+      if (systemViewMode === 'notifications') return <>Alertas y <span className="text-text-muted">Notificaciones</span></>;
+      if (systemViewMode === 'billing') return <>Estado de <span className="text-text-muted">Cuenta</span></>;
+      if (systemViewMode === 'intelligence') return <>Inteligencia de <span className="text-text-muted">Audiencias</span></>;
+      if (systemViewMode === 'config') return <>Ajustes de <span className="text-text-muted">Plataforma</span></>;
+      return <>Ajustes del <span className="text-text-muted">Sistema</span></>;
     }
 
-    return <>¡Bienvenido de Nuevo, <span className="text-stone-600">{userName}!</span></>;
+    return <>¡Bienvenido de Nuevo, <span className="text-text-muted">{userName}!</span></>;
   };
 
   const getDescription = () => {
@@ -130,21 +133,37 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   };
 
   return (
-    <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 animate-in fade-in slide-in-from-left-2 duration-500 w-full">
-      <div className="flex-1 min-w-0">
+    <div 
+      className="flex flex-col md:flex-row md:items-center justify-between animate-in fade-in slide-in-from-left-2 duration-500 w-full"
+      style={{ gap: 'var(--space-lg)' }}
+    >
+      <div className="flex-1 min-w-0 flex flex-col" style={{ gap: 'var(--space-xs)' }}>
         <h1 className="text-display text-text-main">
           {getTitle()}
         </h1>
-        <p className="text-text-muted mt-2 font-medium">
+        <p className="text-secondary text-text-muted">
           {getDescription()}
         </p>
       </div>
       
-      {actionAddon && (
-        <div className="flex items-center gap-3 shrink-0">
-          {actionAddon}
-        </div>
-      )}
+      <div className="flex items-center shrink-0" style={{ gap: 'var(--space-sm)' }}>
+        {actionAddon ? (
+          actionAddon
+        ) : currentDate ? (
+          <div 
+            className="inline-flex items-center justify-center select-none bg-bg-card text-text-main border border-border-main text-button-section"
+            style={{
+              height: 'var(--size-button-section)',
+              padding: '0 2rem',
+              borderRadius: 'var(--radius-inner-visual)',
+              gap: 'var(--space-sm)'
+            }}
+          >
+            <Calendar className="text-brand-500" size={20} strokeWidth={2.5} />
+            <span className="capitalize">{currentDate}</span>
+          </div>
+        ) : null}
+      </div>
     </div>
   );
 };

@@ -10,6 +10,7 @@ export const createRaffleSchema = z.object({
   distribution: z.nativeEnum(RaffleDistribution).default(RaffleDistribution.LINEAR),
   drawDate: z.string().datetime().optional().nullable(),
   image: z.string().optional().nullable(),
+  status: z.nativeEnum(RaffleStatus).optional(),
 }).refine(
   d => (d.ticketQuantity * (d.opportunities ?? 1)) <= 100_000,
   { message: 'El universo no puede superar 100,000 números' }

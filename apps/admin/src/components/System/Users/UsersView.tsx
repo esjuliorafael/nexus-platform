@@ -27,9 +27,9 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
   const [formData, setFormData] = useState<{
-    fullName: string; email: string; username: string; password: string; role: 'superadmin' | 'admin' | 'staff';
+    name: string; email: string; username: string; password: string; role: 'superadmin' | 'admin' | 'staff';
   }>({
-    fullName: '', email: '', username: '', password: '', role: 'staff'
+    name: '', email: '', username: '', password: '', role: 'staff'
   });
 
   const currentUserString = localStorage.getItem('admin_session');
@@ -66,7 +66,7 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
   useImperativeHandle(ref, () => ({
     handleCreateUser: () => {
       setEditingUser(null);
-      setFormData({ fullName: '', email: '', username: '', password: '', role: 'staff' });
+      setFormData({ name: '', email: '', username: '', password: '', role: 'staff' });
       setIsModalOpen(true);
     }
   }));
@@ -74,7 +74,7 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
   const handleEdit = (user: User) => {
     setEditingUser(user);
     setFormData({
-      fullName: user.fullName, email: user.email, username: user.username, password: '', role: user.role
+      name: user.name, email: user.email, username: user.username, password: '', role: user.role
     });
     setIsModalOpen(true);
   };
@@ -83,14 +83,14 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
     setConfirmDialog({
       isOpen: true,
       title: '¿Eliminar Usuario?',
-      message: `¿Estás seguro de eliminar a ${user.fullName}? Esta acción no se puede deshacer.`,
+      message: `¿Estás seguro de eliminar a ${user.name}? Esta acción no se puede deshacer.`,
       confirmLabel: 'Sí, Eliminar',
       variant: 'danger',
       onConfirm: async () => {
         try {
           await apiUsers.delete(user.id);
           setUsers(prev => prev.filter(u => u.id !== user.id));
-          showToast(`Usuario ${user.fullName} eliminado correctamente`, 'success');
+          showToast(`Usuario ${user.name} eliminado correctamente`, 'success');
         } catch (error) {
           showToast('Error al eliminar usuario', 'error');
         }
@@ -108,7 +108,7 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
       setUsers(prev => prev.map(u => 
         u.id === id ? { ...u, isActive: !u.isActive } : u
       ));
-      showToast(`Usuario ${user.fullName} ${!user.isActive ? 'activado' : 'desactivado'}`, 'success');
+      showToast(`Usuario ${user.name} ${!user.isActive ? 'activado' : 'desactivado'}`, 'success');
     } catch (error) {
       showToast('Error al cambiar el estado del usuario', 'error');
     }
@@ -117,11 +117,16 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
+      const payload = {
+        ...formData,
+        role: formData.role.toUpperCase()
+      };
+
       if (editingUser) {
-        await apiUsers.update(editingUser.id, formData);
+        await apiUsers.update(editingUser.id, payload);
         showToast('Cambios guardados correctamente');
       } else {
-        await apiUsers.create(formData);
+        await apiUsers.create(payload);
         showToast('Usuario creado correctamente');
       }
       fetchUsers();
@@ -164,7 +169,7 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
           <NexusSectionButton 
             onClick={() => {
               setEditingUser(null);
-              setFormData({ fullName: '', email: '', username: '', password: '', role: 'staff' });
+              setFormData({ name: '', email: '', username: '', password: '', role: 'staff' });
               setIsModalOpen(true);
             }}
             icon={UserPlus}
@@ -188,7 +193,7 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
                 delay={`${idx * 70}ms`}
                 icon={UserIcon}
                 iconVariant="muted"
-                title={user.fullName}
+                title={user.name}
                 isMuted={!user.isActive}
                 subtitle={
                   <div className="flex items-center gap-3">
@@ -262,8 +267,8 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
                   <div className="grid grid-cols-1 gap-4">
                     <NexusInput 
                       label="Nombre Completo *"
-                      value={formData.fullName}
-                      onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
+                      value={formData.name}
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })}
                       placeholder="Ej. Ricardo Montes"
                       icon={UserIcon}
                       required
@@ -329,7 +334,7 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
                   </NexusSectionButton>
                   <NexusSectionButton 
                     type="submit" 
-                    disabled={!(formData.fullName.trim() && formData.email.trim() && formData.username.trim() && (editingUser || formData.password.trim()))} 
+                    disabled={!(formData.name.trim() && formData.email.trim() && formData.username.trim() && (editingUser || formData.password.trim()))} 
                     className="flex-[2] rounded-2xl shadow-lg shadow-brand-500/20"
                     icon={editingUser ? Save : Check}
                   >

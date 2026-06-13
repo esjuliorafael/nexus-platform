@@ -39,9 +39,16 @@ export const userService = {
   },
 
   async update(id: number, data: any) {
+    const { password, ...updateData } = data;
+    
+    if (password) {
+      updateData.passwordHash = await bcrypt.hash(password, 10);
+      updateData.mustChangePassword = true;
+    }
+
     return storePrisma.user.update({
       where: { id },
-      data,
+      data: updateData,
       select: {
         id: true,
         username: true,

@@ -16,8 +16,8 @@ const bodoniModa = Bodoni_Moda({
 });
 
 export const metadata = {
-  title: 'Granja La Manzana - Genética de Excelencia',
-  description: 'Plataforma oficial de Granja La Manzana. Venta de aves de combate, cría y artículos de primera calidad con garantía genética certificada.',
+  title: 'Nexus Platform - Genética de Excelencia',
+  description: 'Plataforma oficial de venta de aves de combate, cría y artículos de primera calidad con garantía genética certificada.',
 };
 
 export default function RootLayout({

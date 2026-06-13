@@ -73,7 +73,7 @@ async function bootstrap() {
         role: user.role 
       });
 
-      return { token, user: { id: user.id, username: user.username, name: user.name, role: user.role } };
+      return { token, user: { id: user.id, username: user.username, name: user.name, role: user.role, mustChangePassword: user.mustChangePassword } };
     });
 
     server.get("/api/v1/auth/me", { preHandler: [server.authenticate] }, async (request) => {
@@ -82,7 +82,21 @@ async function bootstrap() {
         where: { id: payload.id },
       });
       if (!user) throw new Error("User not found");
-      return { id: user.id, username: user.username, name: user.name, role: user.role };
+      return { id: user.id, username: user.username, name: user.name, role: user.role, mustChangePassword: user.mustChangePassword };
+    });
+
+    server.post("/api/v1/auth/setup-account", { preHandler: [server.authenticate] }, async (request, reply) => {
+      const payload = (request.user as any);
+      const { password } = request.body as any;
+      if (!password || password.length < 6) {
+        return reply.status(400).send({ message: "Invalid password" });
+      }
+      const passwordHash = await bcrypt.hash(password, 10);
+      await server.storePrisma.user.update({
+        where: { id: payload.id },
+        data: { passwordHash, mustChangePassword: false },
+      });
+      return { success: true };
     });
 
     // Register Store Routes

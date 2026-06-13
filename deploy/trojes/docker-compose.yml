@@ -1,0 +1,34 @@
+version: '3.9'
+
+services:
+  trojes-api:
+    image: esjuliorafael/nexus-api:latest
+    container_name: trojes-api
+    restart: always
+    env_file: .env
+    networks:
+      - nexus-network
+
+  trojes-front:
+    image: esjuliorafael/nexus-storefront:latest
+    container_name: trojes-front
+    restart: always
+    env_file: .env
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - trojes-api
+    networks:
+      - nexus-network
+
+  trojes-admin:
+    image: esjuliorafael/nexus-admin:latest
+    container_name: trojes-admin
+    restart: always
+    networks:
+      - nexus-network
+
+networks:
+  nexus-network:
+    external: true
+    name: nexus-global-network

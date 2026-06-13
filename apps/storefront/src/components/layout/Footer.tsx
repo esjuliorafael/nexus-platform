@@ -20,7 +20,7 @@ export function Footer() {
   const branding = getBranding();
   const contact = getContact();
 
-  const brandName = branding.brand_name || 'Granja La Manzana';
+  const brandName = branding.brand_name || 'Nexus Store';
   const showRaffles = isModuleEnabled('raffle_enabled');
 
   const trustItems = [

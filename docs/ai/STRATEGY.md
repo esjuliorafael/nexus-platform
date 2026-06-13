@@ -17,6 +17,24 @@
 
 ---
 
+## Estrategia Multitenant (Single Image) [2026-06-13]
+
+### Concepto
+Para maximizar la escalabilidad y simplificar el mantenimiento, la plataforma utiliza un modelo de **Imagen Única (Generic Image)** para todos los clientes. Los frontends ya no tienen URLs grabadas en el build.
+
+### Mecanismo de Resolución de API
+1.  **Admin (Vite):** El cliente de API deriva la URL basándose en el hostname actual. Si el admin carga en `admin.cliente.com`, buscará la API en `api.cliente.com`.
+2.  **Storefront (Next.js):** 
+    *   **Lado Cliente (Browser):** Deriva `api.[domain]` igual que el Admin.
+    *   **Lado Servidor (SSR):** Utiliza la variable de entorno `INTERNAL_API_URL` (configurada en Docker Compose) para comunicarse con el contenedor de API por la red interna del VPS.
+
+### Reglas de Oro de Multitenancy
+- **No Hardcoding:** Prohibido escribir nombres de clientes, dominios o marcas en el código. Todo debe venir de la tabla `settings` o del hook `useSettings`.
+- **Aislamiento de DB:** Cada cliente tiene su propia base de datos física (`[cliente]_store`, `[cliente]_raffle`).
+- **CI/CD Universal:** El archivo `deploy.yml` genera imágenes con el tag `latest` que son compatibles con cualquier dominio.
+
+---
+
 ## High-End Editorial Design System (Admin) [2026-05-21]
 
 ### 1. Recursive Geometry (Nested Border Radius)
