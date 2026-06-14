@@ -10,16 +10,66 @@ La plataforma opera bajo un modelo de **Infraestructura Compartida con Servicios
 Estos contenedores son compartidos por todos los clientes/tenants en el VPS:
 - **nexus-postgres-global:** Motor de base de datos PostgreSQL (Puerto 5432 interno).
 - **nexus-redis-global:** Motor de caché y colas BullMQ.
-- **nexus-nginx:** Proxy inverso que maneja el tráfico SSL y redirección de dominios.
+- **nexus-nginx-proxy-manager:** Proxy inverso que maneja el tráfico SSL y redirección de dominios.
 - **nexus-evolution-global:** Instancia única de Evolution API para gestión de WhatsApp.
 
-### Servicios por Cliente (Tenant: Granja La Manzana)
-Ubicación: `/home/nexus/manzana`
-- **manzana-api:** Backend Fastify.
-- **manzana-front:** Frontend Next.js (Storefront).
-- **manzana-admin:** Panel Administrativo (Vite).
+### Estándares de Red y Puertos
+- **Red Docker:** `nexus-network` (external: true).
+- **API:** Puerto interno `8080`.
+- **Admin:** Puerto interno `80`.
+- **Storefront:** Puerto interno `3000`.
 
-## 2. Estrategia de Base de Datos
+## 2. Tenant Provisioning Playbook (Paso a Paso)
+
+Este procedimiento garantiza el despliegue de un nuevo cliente en < 10 minutos.
+
+### Paso 1: Preparación de Base de Datos (SQL)
+Estandarizar la contraseña con la clave maestra `FraP0Ps7yTKAVkyM` para facilitar la gestión operativa.
+
+```bash
+TENANT="nombre_cliente"
+docker exec -it nexus-postgres-global psql -U nexus -d postgres -c "CREATE USER $TENANT WITH PASSWORD 'FraP0Ps7yTKAVkyM';"
+docker exec -it nexus-postgres-global psql -U nexus -d postgres -c "CREATE DATABASE ${TENANT}_store OWNER $TENANT;"
+docker exec -it nexus-postgres-global psql -U nexus -d postgres -c "CREATE DATABASE ${TENANT}_raffle OWNER $TENANT;"
+```
+
+### Paso 2: Inicialización de Tablas (Prisma)
+Usar un contenedor atómico para evitar conflictos de variables de entorno con otros clientes.
+
+```bash
+# Para Store
+docker run --rm --network nexus-network -e DATABASE_URL="postgres://${TENANT}:FraP0Ps7yTKAVkyM@nexus-postgres-global:5432/${TENANT}_store" esjuliorafael/nexus-api:latest sh -c "cd packages/db && pnpm prisma db push --schema=prisma/store/schema.prisma --accept-data-loss"
+
+# Para Raffle
+docker run --rm --network nexus-network -e RAFFLE_DATABASE_URL="postgres://${TENANT}:FraP0Ps7yTKAVkyM@nexus-postgres-global:5432/${TENANT}_raffle" esjuliorafael/nexus-api:latest sh -c "cd packages/db && pnpm prisma db push --schema=prisma/raffle/schema.prisma --accept-data-loss"
+```
+
+### Paso 3: Usuario Maestro (Clonación de Hash)
+**Crítico:** No insertar hashes manuales. Clonar el hash de un superadmin funcional para evitar errores 401 por discrepancia de salt/formato.
+
+```bash
+# 1. Obtener hash funcional
+HASH=$(docker exec -it nexus-postgres-global psql -U nexus -d manzana_store -t -c "SELECT password_hash FROM users WHERE username = 'superadmin' LIMIT 1;" | tr -d '[:space:]')
+
+# 2. Inyectar en nuevo tenant
+docker exec -it nexus-postgres-global psql -U nexus -d ${TENANT}_store -c "INSERT INTO users (username, password_hash, name, role, active, must_change_password) VALUES ('superadmin', '$HASH', 'Julio Rafael', 'SUPERADMIN', true, false);"
+```
+
+### Paso 4: Configuración Nginx Proxy Manager
+Crear 3 Proxy Hosts apuntando a los nombres de contenedor en la red `nexus-network`:
+- `dominio.com` -> `http://${TENANT}-front:3000`
+- `admin.dominio.com` -> `http://${TENANT}-admin:80`
+- `api.dominio.com` -> `http://${TENANT}-api:8080` (Habilitar WebSockets)
+
+### Paso 5: Docker Compose
+```yaml
+services:
+  api: { container_name: ${TENANT}-api, ... }
+  front: { container_name: ${TENANT}-front, ... }
+  admin: { container_name: ${TENANT}-admin, ... }
+```
+
+## 3. Estrategia de Base de Datos
 
 Cada cliente utiliza múltiples bases de datos físicas dentro del motor global para garantizar integridad modular:
 
