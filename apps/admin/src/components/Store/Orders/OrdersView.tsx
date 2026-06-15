@@ -111,7 +111,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
         <EmptyState 
           icon={Package}
           title="No hay órdenes"
-          description="Aún no se han registrado órdenes en la tienda."
+          description="Aún no se han registrado órdenes en la tienda. Todas las transacciones de tus clientes aparecerán en este listado."
         />
       )}
     </div>

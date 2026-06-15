@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo, useImperativeHandle, forwardRef } from 'react';
-import { Upload, X, DollarSign, Image as ImageIcon, Trash2, Package, Box, PlayCircle, Film, Image as ImageIconLucide, Check, Save } from 'lucide-react';
+import { Upload, X, DollarSign, Image as ImageIcon, Trash2, Package, Box, PlayCircle, Film, Image as ImageIconLucide, Check, Save, PlusCircle } from 'lucide-react';
 import { Product } from '../../types';
 import { apiProducts, apiUpload } from '../../api';
 import { NexusInput, NexusSelect, NexusTextarea } from '../ui/NexusInputs';
 import { NexusSectionButton, NexusCardButton } from '../ui/NexusButton';
 import { NexusSection } from '../ui/NexusSection';
+import { InteractionStage } from '../ui/InteractionStage';
+import { EmptyState } from '../ui/EmptyState';
 
 interface ProductFormProps {
   initialData?: Product;
@@ -85,10 +87,20 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
   const handleGalleryUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
     const files = e.target.files;
     if (files && files.length > 0) {
-      const newFiles = Array.from(files) as File[];
+      const remainingSlots = 6 - galleryUrls.length;
+      if (remainingSlots <= 0) {
+        showToast?.('Máximo 6 elementos en la galería.', 'error');
+        return;
+      }
+      
+      const newFiles = Array.from(files).slice(0, remainingSlots) as File[];
       setGalleryFiles(prev => [...prev, ...newFiles]);
       const newUrls = newFiles.map(file => URL.createObjectURL(file));
       setGalleryUrls(prev => [...prev, ...newUrls]);
+      
+      if (Array.from(files).length > remainingSlots) {
+        showToast?.(`Solo se añadieron ${remainingSlots} archivos (límite de 6).`, 'error');
+      }
     }
   };
 
@@ -152,36 +164,43 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
   };
 
   return (
-    <form id="product-form" onSubmit={handleSubmit} className="flex flex-col lg:flex-row animate-in fade-in duration-700" style={{ gap: 'var(--space-lg)' }}>
+    <form id="product-form" onSubmit={handleSubmit} className="flex flex-col animate-in fade-in duration-700 pb-12" style={{ gap: 'var(--space-lg)' }}>
       
-      {/* COLUMN LEFT: MULTIMEDIA */}
-      <div className="flex-1 flex flex-col" style={{ gap: 'var(--space-lg)' }}>
+      {/* ROW 1: MULTIMEDIA (SIDE BY SIDE) */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         
-        {/* Cover Image Section */}
-        <div 
-          onClick={() => !isProcessing && coverInputRef.current?.click()}
-          className={`relative w-full aspect-square sm:aspect-video lg:aspect-square border-2 border-dashed transition-all duration-500 flex flex-col items-center justify-center overflow-hidden active:scale-[0.995] ${!coverUrl ? 'border-border-main bg-bg-muted hover:bg-bg-card hover:border-brand-300 cursor-pointer group' : 'border-transparent shadow-xl shadow-stone-200/40 group'}`}
-          style={{ borderRadius: 'var(--radius-outer)' }}
-        >
+        {/* Column Left: Cover Image */}
+        <div className="flex flex-col h-full">
           {!coverUrl ? (
-            <div className="flex flex-col items-center p-10 text-center pointer-events-none" style={{ gap: 'var(--space-md)' }}>
-              <div 
-                className="w-20 h-20 bg-bg-card text-brand-500 flex items-center justify-center shadow-sm dark:shadow-none border border-border-main group-hover:scale-110 transition-transform duration-500"
-                style={{ borderRadius: 'var(--radius-inner-visual)' }}
-              >
-                <ImageIcon size={32} strokeWidth={1.5} />
-              </div>
-              <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                <h3 className="text-h1 text-text-main">Foto de Portada</h3>
-                <p className="text-secondary text-text-muted max-w-[240px]">Imagen principal que se mostrará en el catálogo.</p>
-              </div>
-              <div className="flex" style={{ gap: 'var(--space-sm)' }}>
-                <span className="px-3 py-1 bg-stone-100 rounded-lg text-label uppercase tracking-[0.15em] text-text-muted border border-border-main !text-[9px]">JPG</span>
-                <span className="px-3 py-1 bg-stone-100 rounded-lg text-label uppercase tracking-[0.15em] text-text-muted border border-border-main !text-[9px]">MP4</span>
-              </div>
-            </div>
+            <InteractionStage 
+              level={1}
+              size="normal"
+              className="aspect-square w-full shadow-sm"
+              icon={Upload}
+              title="Foto de Portada"
+              description="Imagen principal del catálogo (JPG, PNG, MP4)."
+              onClick={() => !isProcessing && coverInputRef.current?.click()}
+              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+              onDrop={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                const file = e.dataTransfer.files?.[0];
+                if (file) {
+                  setIsProcessing(true);
+                  setTimeout(() => {
+                    setCoverFile(file);
+                    setCoverUrl(URL.createObjectURL(file));
+                    setIsProcessing(false);
+                  }, 400);
+                }
+              }}
+            />
           ) : (
-            <div className="absolute inset-0 w-full h-full group cursor-pointer">
+            <div 
+              className="relative w-full aspect-square transition-all duration-500 flex flex-col items-center justify-center overflow-hidden active:scale-[0.995] shadow-xl shadow-stone-200/40 group cursor-pointer"
+              style={{ borderRadius: 'var(--radius-outer)' }}
+              onClick={() => !isProcessing && coverInputRef.current?.click()}
+            >
               {isVideo ? (
                  <video src={coverUrl} className="w-full h-full object-cover" muted autoPlay loop playsInline />
               ) : (
@@ -210,22 +229,23 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
               </div>
             </div>
           )}
+          <input type="file" ref={coverInputRef} className="hidden" accept="image/*,video/*" onChange={handleCoverUpload} />
           {isProcessing && (
              <div className="absolute inset-0 bg-bg-card/80 backdrop-blur-sm z-30 flex flex-col items-center justify-center animate-in fade-in duration-200" style={{ gap: 'var(--space-md)' }}>
                  <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
                  <span className="text-label text-brand-700 uppercase tracking-[0.2em]">Procesando...</span>
              </div>
           )}
-          <input type="file" ref={coverInputRef} className="hidden" accept="image/*,video/*" onChange={handleCoverUpload} />
         </div>
 
-        {/* Gallery Section */}
+        {/* Column Right: Gallery */}
         <NexusSection
           title="Galería Adicional"
           subtitle="Multimedia secundario"
           icon={ImageIcon}
           iconVariant="brand"
-          action={
+          className="lg:aspect-square w-full"
+          action={galleryUrls.length < 6 && (
             <NexusSectionButton 
               type="button"
               variant="secondary" 
@@ -233,127 +253,143 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
               onClick={() => galleryInputRef.current?.click()}
               icon={Upload}
             />
-          }
+          )}
         >
-          <input type="file" ref={galleryInputRef} className="hidden" multiple accept="image/*,video/*" onChange={handleGalleryUpload} />
-          <div className="grid grid-cols-3 sm:grid-cols-4 lg:grid-cols-5" style={{ gap: 'var(--space-md)' }}>
-            {galleryUrls.map((url, idx) => (
-              <div 
-                key={idx} 
-                className="relative aspect-square overflow-hidden group border border-border-main shadow-sm dark:shadow-none bg-stone-100 hover:scale-[1.05] transition-transform duration-500"
-                style={{ borderRadius: 'var(--radius-inner-visual)' }}
-              >
-                {isVideoUrl(url) ? (
-                   <video src={url} className="w-full h-full object-cover" />
-                ) : (
-                   <img src={url} className="w-full h-full object-cover" alt={`Gallery ${idx}`} />
-                )}
-                {isVideoUrl(url) && (
-                   <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                      <PlayCircle className="text-white/80 w-8 h-8 drop-shadow-lg" />
-                   </div>
-                )}
-                <button 
-                  type="button"
-                  onClick={() => removeGalleryImage(idx)}
-                  className="absolute top-1.5 right-1.5 p-2 bg-rose-500 text-white opacity-0 group-hover:opacity-100 transition-all active:scale-90 backdrop-blur-sm"
-                  style={{ borderRadius: 'var(--radius-nested-simple)' }}
+          <div 
+            className="bg-bg-muted border border-border-main/50 flex flex-col p-6 overflow-hidden h-full min-h-[300px]" 
+            style={{ borderRadius: 'var(--radius-inner-visual)' }}
+          >
+            <input type="file" ref={galleryInputRef} className="hidden" multiple accept="image/*,video/*" onChange={handleGalleryUpload} />
+            <div className="grid grid-cols-3 gap-4 h-full content-start overflow-y-auto pr-2 custom-scrollbar">
+              {galleryUrls.map((url, idx) => (
+                <div 
+                  key={idx} 
+                  className="relative aspect-square overflow-hidden group border border-border-main shadow-sm bg-bg-card hover:scale-[1.05] transition-transform duration-500"
+                  style={{ borderRadius: 'var(--radius-inner-visual)' }}
                 >
-                  <Trash2 size={14} />
-                </button>
-              </div>
-            ))}
-            {galleryUrls.length === 0 && (
-              <div 
-                className="col-span-full py-12 text-center bg-bg-muted border border-dashed border-border-main flex flex-col items-center"
-                style={{ borderRadius: 'var(--radius-inner-visual)', gap: 'var(--space-sm)' }}
-              >
-                <p className="text-label text-text-muted uppercase tracking-[0.15em]">Sin imágenes adicionales</p>
-              </div>
-            )}
+                  {isVideoUrl(url) ? (
+                    <video src={url} className="w-full h-full object-cover" />
+                  ) : (
+                    <img src={url} className="w-full h-full object-cover" alt={`Gallery ${idx}`} />
+                  )}
+                  {isVideoUrl(url) && (
+                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                        <PlayCircle className="text-white/80 w-8 h-8 drop-shadow-lg" />
+                    </div>
+                  )}
+                  <button 
+                    type="button"
+                    onClick={() => removeGalleryImage(idx)}
+                    className="absolute top-1.5 right-1.5 p-2 bg-rose-500 text-white opacity-0 group-hover:opacity-100 transition-all active:scale-90 backdrop-blur-sm z-20"
+                    style={{ borderRadius: 'var(--radius-nested-simple)' }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+              {galleryUrls.length === 0 && (
+                <div className="col-span-full h-full flex items-center justify-center">
+                  <EmptyState 
+                    level={2}
+                    icon={ImageIcon}
+                    title="Sin Multimedia"
+                    description="Añade hasta 6 fotos o videos adicionales para este producto."
+                  />
+                </div>
+              )}
+            </div>
           </div>
         </NexusSection>
       </div>
 
-      {/* COLUMN RIGHT: DETAILS */}
-      <div className="w-full lg:w-[480px]">
-        <NexusSection
-          title="Detalles"
-          subtitle="Información del catálogo"
-          icon={productType === 'BIRD' ? Box : Package}
-          iconVariant="brand"
-          className="h-full"
-        >
-          <div className="flex flex-col relative" style={{ gap: 'var(--space-lg)' }}>
-            
-            {/* Product Type Selector */}
-            <div className="flex flex-col" style={{ gap: 'var(--space-sm)' }}>
-              <label className="text-label uppercase tracking-[0.15em] text-text-muted ml-1">Tipo de Producto</label>
-              <div className="grid grid-cols-2" style={{ gap: 'var(--space-sm)' }}>
-                 <button 
-                   type="button"
-                   onClick={() => setProductType('BIRD')}
-                   className={`flex items-center justify-center py-4 border-2 transition-all text-secondary font-bold active:scale-[0.98]
-                      ${productType === 'BIRD' ? 'border-brand-500 bg-brand-50 text-brand-600 shadow-lg shadow-brand-500/10' : 'border-border-main bg-bg-muted text-text-muted hover:border-brand-200'}
-                   `}
-                   style={{ borderRadius: 'var(--radius-inner-visual)', gap: 'var(--space-sm)' }}
-                 >
-                   <Box size={18} strokeWidth={2} />
-                   Ave
-                 </button>
-                 <button 
-                   type="button"
-                   onClick={() => setProductType('ITEM')}
-                   className={`flex items-center justify-center py-4 border-2 transition-all text-secondary font-bold active:scale-[0.98]
-                      ${productType === 'ITEM' ? 'border-brand-500 bg-brand-50 text-brand-600 shadow-lg shadow-brand-500/10' : 'border-border-main bg-bg-muted text-text-muted hover:border-brand-200'}
-                   `}
-                   style={{ borderRadius: 'var(--radius-inner-visual)', gap: 'var(--space-sm)' }}
-                 >
-                   <Package size={18} strokeWidth={2} />
-                   Artículo
-                 </button>
-              </div>
+      {/* ROW 2: DETAILS (FULL WIDTH) */}
+      <NexusSection
+        title="Detalles del Producto"
+        subtitle="Información técnica y comercial"
+        icon={productType === 'BIRD' ? Box : Package}
+        iconVariant="brand"
+      >
+        <div className="flex flex-col relative" style={{ gap: 'var(--space-lg)' }}>
+          
+          {/* 1. Header: Product Type Selector */}
+          <div 
+            className="bg-bg-muted/50 p-6 border border-border-main/50"
+            style={{ borderRadius: 'var(--radius-inner-visual)', gap: 'var(--space-md)' }}
+          >
+            <label className="text-label uppercase tracking-[0.15em] text-text-muted mb-4 block ml-1">Tipo de Producto</label>
+            <div className="grid grid-cols-1 sm:grid-cols-2 w-full" style={{ gap: 'var(--space-md)' }}>
+                <button 
+                  type="button"
+                  onClick={() => setProductType('BIRD')}
+                  className={`flex items-center justify-center py-4 border-2 transition-all text-secondary font-bold active:scale-[0.98]
+                      ${productType === 'BIRD' ? 'border-brand-500 bg-bg-card text-brand-600 shadow-lg shadow-brand-500/10' : 'border-border-main bg-bg-muted text-text-muted hover:border-brand-200'}
+                  `}
+                  style={{ borderRadius: 'var(--radius-nested-simple)', gap: 'var(--space-sm)' }}
+                >
+                  <Box size={18} strokeWidth={2} />
+                  Ave de Combate / Cría
+                </button>
+                <button 
+                  type="button"
+                  onClick={() => setProductType('ITEM')}
+                  className={`flex items-center justify-center py-4 border-2 transition-all text-secondary font-bold active:scale-[0.98]
+                      ${productType === 'ITEM' ? 'border-brand-500 bg-bg-card text-brand-600 shadow-lg shadow-brand-500/10' : 'border-border-main bg-bg-muted text-text-muted hover:border-brand-200'}
+                  `}
+                  style={{ borderRadius: 'var(--radius-nested-simple)', gap: 'var(--space-sm)' }}
+                >
+                  <Package size={18} strokeWidth={2} />
+                  Artículo de Tienda
+                </button>
             </div>
+          </div>
 
-            {/* Inputs Grid */}
-            <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
+          {/* 2. Main Grid: Identity, Specs and Logistics */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-8">
+            
+            {/* Identity Group */}
+            <div className="lg:col-span-2">
               <NexusInput 
                 label="Nombre del Producto *" 
-                placeholder={productType === 'BIRD' ? "Ej. Semental Colorado..." : "Ej. Sombrero de Gala..."}
+                placeholder="Ej. Semental Colorado..."
                 value={name}
                 onChange={(e) => setName(e.target.value)}
               />
+            </div>
+            
+            <div className="lg:col-span-1">
+              <NexusInput 
+                label="Precio de Venta *"
+                type="number"
+                icon={DollarSign}
+                placeholder="0.00"
+                value={price}
+                onChange={(e) => setPrice(e.target.value)}
+              />
+            </div>
 
-              <div className="grid grid-cols-2" style={{ gap: 'var(--space-md)' }}>
-                {productType === 'BIRD' ? (
-                  <NexusInput 
-                    label="No. Anillo *"
-                    placeholder="Ej. AB-123"
-                    value={ringNumber}
-                    onChange={(e) => setRingNumber(e.target.value)}
-                  />
-                ) : (
-                  <NexusInput 
-                    label="Stock *"
-                    type="number"
-                    placeholder="0"
-                    value={stock}
-                    onChange={(e) => setStock(e.target.value)}
-                  />
-                )}
-                
+            {/* Specs Group */}
+            <div className="lg:col-span-1">
+              {productType === 'BIRD' ? (
                 <NexusInput 
-                  label="Precio *"
-                  type="number"
-                  icon={DollarSign}
-                  placeholder="0.00"
-                  value={price}
-                  onChange={(e) => setPrice(e.target.value)}
+                  label="No. Anillo *"
+                  placeholder="Ej. AB-123"
+                  value={ringNumber}
+                  onChange={(e) => setRingNumber(e.target.value)}
                 />
-              </div>
+              ) : (
+                <NexusInput 
+                  label="Stock Disponible *"
+                  type="number"
+                  placeholder="0"
+                  value={stock}
+                  onChange={(e) => setStock(e.target.value)}
+                />
+              )}
+            </div>
 
-              {productType === 'BIRD' && (
-                <div className="grid grid-cols-2 animate-in fade-in slide-in-from-top-2 duration-500" style={{ gap: 'var(--space-md)' }}>
+            {productType === 'BIRD' && (
+              <>
+                <div className="lg:col-span-1">
                   <NexusSelect 
                     label="Edad / Etapa"
                     value={age}
@@ -364,7 +400,9 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                     <option value="PULLET">Polla</option>
                     <option value="STAG">Pollo</option>
                   </NexusSelect>
-                  
+                </div>
+                
+                <div className="lg:col-span-1">
                   <NexusSelect 
                     label="Propósito"
                     value={purpose}
@@ -374,8 +412,11 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                     <option value="BREEDING">Cría</option>
                   </NexusSelect>
                 </div>
-              )}
+              </>
+            )}
 
+            {/* Status and Logistics */}
+            <div className="lg:col-span-1">
               <NexusSelect 
                 label="Estado de Venta"
                 value={status}
@@ -385,27 +426,30 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                 <option value="reserved">Reservado</option>
                 <option value="sold">Vendido</option>
               </NexusSelect>
+            </div>
 
+            <div className="lg:col-span-2">
               <NexusTextarea 
-                label="Descripción"
-                placeholder="Detalles adicionales, genética, materiales..."
+                label="Descripción y Genética"
+                placeholder="Detalles adicionales, materiales o linaje..."
                 value={description}
                 onChange={(e) => setDescription(e.target.value)}
-                rows={4}
+                rows={6}
               />
             </div>
 
-            {isSubmitting && (
-                <div className="absolute inset-0 bg-bg-card/60 backdrop-blur-md z-50 flex items-center justify-center">
-                    <div className="flex flex-col items-center bg-bg-card p-10 border border-border-main shadow-2xl animate-in zoom-in duration-500" style={{ borderRadius: 'var(--radius-outer)', gap: 'var(--space-md)' }}>
-                        <div className="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
-                        <span className="text-label text-brand-700 uppercase tracking-[0.2em]">Guardando cambios...</span>
-                    </div>
-                </div>
-            )}
           </div>
-        </NexusSection>
-      </div>
+
+          {isSubmitting && (
+              <div className="absolute inset-0 bg-bg-card/60 backdrop-blur-md z-50 flex items-center justify-center">
+                  <div className="flex flex-col items-center bg-bg-card p-10 border border-border-main shadow-2xl animate-in zoom-in duration-500" style={{ borderRadius: 'var(--radius-outer)', gap: 'var(--space-md)' }}>
+                      <div className="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-label text-brand-700 uppercase tracking-[0.2em]">Guardando cambios...</span>
+                  </div>
+              </div>
+          )}
+        </div>
+      </NexusSection>
     </form>
   );
 });

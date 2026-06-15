@@ -164,11 +164,17 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
         </div>
       ) : (
         <EmptyState 
+          level={1}
           icon={ShoppingBag}
           title={searchQuery ? "Sin resultados" : "Inventario Vacío"}
           description={searchQuery 
             ? `No encontramos productos que coincidan con "${searchQuery}". Prueba con otros términos.` 
             : "Aún no has registrado productos en tu tienda. Comienza añadiendo tu primer artículo."}
+          action={!searchQuery && onSetViewMode && (
+            <NexusSectionButton onClick={() => onSetViewMode('create')} icon={Plus}>
+              Nuevo Producto
+            </NexusSectionButton>
+          )}
         />
       )}
     </div>

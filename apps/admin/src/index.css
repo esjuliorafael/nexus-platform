@@ -88,6 +88,12 @@
   --text-button-card:       clamp(0.75rem,  0.9vw, 0.8125rem);/* 12px -> 13px */
 
   --size-widget-kpi-min: 9rem; /* 144px */
+
+  /* Stage Components (EmptyState / InteractionStage) */
+  --size-stage-container: clamp(6rem, 8vw, 7.5rem); /* 96px to 120px */
+  --size-stage-container-compact: clamp(4.5rem, 6vw, 5.5rem); /* 72px to 88px */
+  --size-stage-icon: clamp(2.5rem, 4vw, 3.25rem); /* 40px to 52px */
+  --size-stage-icon-compact: clamp(1.75rem, 3vw, 2.25rem); /* 28px to 36px */
 }
 
 @utility text-hero {

@@ -3,16 +3,29 @@ import { Upload } from "@aws-sdk/lib-storage";
 import { settingService } from "../modules/store/settings/setting.service";
 import sharp from "sharp";
 
+function getStorageSettings(settings: any) {
+  const storage = settings.storage || {};
+
+  return {
+    accountId: (storage.storage_r2_account_id || "").trim(),
+    accessKeyId: (storage.storage_r2_access_key || "").trim(),
+    secretAccessKey: (storage.storage_r2_secret_key || "").trim(),
+    bucketName: (storage.storage_r2_bucket_name || "").trim(),
+    publicDomain: (storage.storage_r2_public_domain || "").trim(),
+  };
+}
+
 export const storageService = {
   async getS3Client() {
     const settings = await settingService.getAllGrouped();
-    const storage = settings.storage || {};
-
-    const accountId = storage['storage_r2_account_id'];
-    const accessKeyId = storage['storage_r2_access_key'];
-    const secretAccessKey = storage['storage_r2_secret_key'];
+    const { accountId, accessKeyId, secretAccessKey } = getStorageSettings(settings);
 
     if (!accountId || !accessKeyId || !secretAccessKey) {
+      console.error("[Storage] Configuración incompleta:", { 
+        hasAccountId: !!accountId, 
+        hasAccessKey: !!accessKeyId, 
+        hasSecretKey: !!secretAccessKey 
+      });
       throw new Error("Configuración de Cloudflare R2 incompleta");
     }
 
@@ -28,13 +41,16 @@ export const storageService = {
 
   async uploadFile(file: Buffer, fileName: string, contentType: string) {
     const settings = await settingService.getAllGrouped();
-    const storage = settings.storage || {};
-    
-    const bucketName = storage['storage_r2_bucket_name'];
-    const publicDomain = storage['storage_r2_public_domain'];
+    const { bucketName, publicDomain } = getStorageSettings(settings);
 
     if (!bucketName) {
+      console.error("[Storage] Nombre del Bucket no encontrado en settings.storage");
       throw new Error("Nombre del Bucket R2 no configurado");
+    }
+
+    if (!publicDomain) {
+      console.error("[Storage] Dominio publico no encontrado en settings.storage");
+      throw new Error("Dominio publico R2 no configurado");
     }
 
     let fileToUpload = file;
@@ -80,20 +96,33 @@ export const storageService = {
 
     const client = await this.getS3Client();
     
-    const upload = new Upload({
-      client,
-      params: {
-        Bucket: bucketName,
-        Key: finalFileName,
-        Body: fileToUpload,
-        ContentType: finalContentType,
-      },
-    });
+    console.log(`[Storage] Iniciando subida a R2 - Bucket: ${bucketName}, Key: ${finalFileName}`);
+    
+    try {
+      const upload = new Upload({
+        client,
+        params: {
+          Bucket: bucketName,
+          Key: finalFileName,
+          Body: fileToUpload,
+          ContentType: finalContentType,
+        },
+      });
 
-    await upload.done();
+      await upload.done();
+      console.log(`[Storage] Subida exitosa: ${finalFileName}`);
 
-    const baseUrl = publicDomain?.endsWith('/') ? publicDomain : `${publicDomain}/`;
-    return `${baseUrl}${finalFileName}`;
+      const baseUrl = publicDomain?.endsWith('/') ? publicDomain : `${publicDomain}/`;
+      return `${baseUrl}${finalFileName}`;
+    } catch (error: any) {
+      console.error("[Storage] Error fatal en Upload a R2:", error);
+      console.error("[Storage] Detalles del error:", {
+        code: error.code,
+        message: error.message,
+        requestId: error.$metadata?.requestId
+      });
+      throw error;
+    }
   },
 
   async deleteFile(url: string) {
@@ -101,9 +130,7 @@ export const storageService = {
 
     try {
       const settings = await settingService.getAllGrouped();
-      const storage = settings.storage || {};
-      const bucketName = storage['storage_r2_bucket_name'];
-      const publicDomain = storage['storage_r2_public_domain'];
+      const { bucketName, publicDomain } = getStorageSettings(settings);
 
       if (!bucketName || !publicDomain) return;
 

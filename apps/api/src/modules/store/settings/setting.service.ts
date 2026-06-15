@@ -1,5 +1,10 @@
 import { storePrisma } from "@nexus/db/store";
 
+function getSettingGroup(setting: { key: string; group?: string }) {
+  if (setting.key.startsWith("storage_r2_")) return "storage";
+  return setting.group || "general";
+}
+
 export const settingService = {
   async getAllGrouped() {
     const storeSettings = await storePrisma.setting.findMany();
@@ -46,10 +51,20 @@ export const settingService = {
 
     // Save Store settings
     storeSettings.forEach(s => {
+      const group = getSettingGroup(s);
       promises.push(storePrisma.setting.upsert({
         where: { key: s.key },
-        update: { value: s.value, updated_at: new Date() },
-        create: { key: s.key, value: s.value, group: s.group || "general", updated_at: new Date() },
+        update: { 
+          value: s.value, 
+          group,
+          updated_at: new Date() 
+        },
+        create: { 
+          key: s.key, 
+          value: s.value, 
+          group,
+          updated_at: new Date() 
+        },
       }));
     });
 

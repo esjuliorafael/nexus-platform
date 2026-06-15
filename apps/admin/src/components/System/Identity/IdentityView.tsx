@@ -1,6 +1,11 @@
 import React, { useState, useRef, useImperativeHandle, forwardRef, useEffect } from 'react';
-import { Upload, Image as ImageIcon, RefreshCw, Loader2 } from 'lucide-react';
+import { Upload, Image as ImageIcon, RefreshCw, Loader2, Palette, ShieldCheck, CheckCircle2, PlusCircle } from 'lucide-react';
 import { apiSystem, apiUpload } from '../../../api';
+import { NexusSection } from '../../ui/NexusSection';
+import { NexusHero } from '../../ui/NexusHero';
+import { NexusSectionButton, NexusCardButton } from '../../ui/NexusButton';
+import { EmptyState } from '../../ui/EmptyState';
+import { InteractionStage } from '../../ui/InteractionStage';
 
 export interface IdentityViewRef {
   handleSave: () => void;
@@ -120,103 +125,160 @@ export const IdentityView = forwardRef<IdentityViewRef, IdentityViewProps>(
     if (isLoading) {
       return (
         <div className="flex flex-col items-center justify-center py-40 animate-in fade-in duration-500">
-           <div className="relative w-16 h-16 mb-6">
-              <div className="absolute inset-0 border-4 border-brand-100 rounded-full" />
-              <div className="absolute inset-0 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
+           <div className="relative w-20 h-20 mb-8">
+              <div className="absolute inset-0 border-4 border-brand-100 rounded-[2rem]" />
+              <div className="absolute inset-0 border-4 border-brand-500 border-t-transparent rounded-[2rem] animate-spin" style={{ animationDuration: '1s', animationTimingFunction: 'var(--ease-emil)' }} />
            </div>
-           <p className="text-stone-400 font-black uppercase tracking-[0.2em] text-[10px]">Cargando Identidad...</p>
+           <p className="text-label text-text-muted">Consultando Identidad...</p>
         </div>
       );
     }
 
+    const handleTriggerFile = () => {
+      setStatus('editing');
+      setTimeout(() => fileInputRef.current?.click(), 100);
+    };
+
     return (
-      <div className="relative w-full bg-bg-card border border-border-main rounded-[2.5rem] shadow-sm dark:shadow-none p-6 sm:p-12 transition-all duration-700 animate-in fade-in min-h-[420px] flex flex-col justify-center">
+      <div className="space-y-8 pb-12 animate-in fade-in duration-300">
         
-        {isUploading && (
-             <div className="absolute inset-0 bg-bg-card/60 backdrop-blur-sm z-50 flex items-center justify-center rounded-[2.5rem]">
+        <NexusHero
+          title={status === 'preview' ? 'Identidad Visual' : 'Personalizar Marca'}
+          subtitle={status === 'preview' ? 'Gestión de activos de marca globales' : 'Actualiza la imagen de tu plataforma'}
+          icon={Palette}
+          variant="dark"
+          badge={status === 'preview' ? "Logo Activo" : "Esperando Logo"}
+          badgeValue={status === 'preview' ? "Desplegado" : "Pendiente"}
+        />
+
+        <NexusSection
+          title="Branding Global"
+          subtitle="Logo Principal del Sistema"
+          icon={ImageIcon}
+          delay="200ms"
+          action={(status === 'preview' || status === 'empty' || (status === 'editing' && !!tempFile)) ? (
+            <NexusSectionButton 
+              onClick={handleTriggerFile} 
+              icon={status === 'empty' ? PlusCircle : RefreshCw} 
+              variant="brand"
+            >
+              {status === 'empty' ? 'Subir Logo' : 'Cambiar Logo'}
+            </NexusSectionButton>
+          ) : null}
+        >
+          <div 
+            className="transition-all duration-700 animate-in fade-in min-h-[380px] flex flex-col justify-center overflow-hidden relative"
+          >
+            {/* Input oculto pero accesible vía ref */}
+            <input 
+              type="file" 
+              ref={fileInputRef} 
+              className="hidden" 
+              accept="image/png, image/svg+xml, image/jpeg, image/webp" 
+              onChange={(e) => {
+                if(e.target.files && e.target.files.length > 0) {
+                  handleFileSelect(e.target.files[0]);
+                }
+              }}
+            />
+
+            {isUploading && (
+              <div className="absolute inset-0 bg-bg-card/60 backdrop-blur-sm z-50 flex items-center justify-center" style={{ borderRadius: 'var(--radius-inner-visual)' }}>
                  <div className="flex flex-col items-center gap-2">
                     <div className="relative w-12 h-12 mb-4">
                         <div className="absolute inset-0 border-4 border-brand-100 rounded-full" />
                         <div className="absolute inset-0 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
                     </div>
-                    <span className="text-[10px] font-black uppercase tracking-widest text-brand-700">Subiendo logo...</span>
+                    <span className="text-label uppercase tracking-widest text-brand-700">Subiendo activos...</span>
                  </div>
-             </div>
-        )}
+              </div>
+            )}
 
-        {status === 'empty' && (
-          <div className="py-12 text-center animate-in fade-in zoom-in duration-500">
-            <div className="w-24 h-24 bg-stone-100 rounded-[2rem] flex items-center justify-center mx-auto mb-6 text-stone-300 shadow-inner">
-              <ImageIcon size={48} />
-            </div>
-            <h3 className="text-2xl font-black text-text-main tracking-tight mb-2">No hay logo cargado</h3>
-            <p className="text-text-muted font-medium max-w-xs mx-auto">Haz clic en "Subir logo" arriba para comenzar a personalizar tu marca.</p>
-          </div>
-        )}
-
-        {status === 'preview' && currentLogo && (
-          <div className="flex flex-col items-center justify-center w-full">
-            <div className="bg-bg-muted py-16 px-8 rounded-[2rem] w-full flex items-center justify-center mb-8 border border-border-main">
-              <img 
-                src={currentLogo} 
-                alt="Logo actual del sistema" 
-                className="max-h-[180px] sm:max-h-[220px] w-auto object-contain drop-shadow-sm dark:shadow-none transition-all duration-300"
+            {status === 'empty' && (
+              <EmptyState 
+                icon={ImageIcon} 
+                title="Sin Identidad Visual" 
+                description="Haz clic debajo para cargar el logotipo oficial de tu rancho y personalizar tu panel." 
+                action={
+                  <NexusSectionButton onClick={handleTriggerFile} icon={PlusCircle}>
+                    Subir Logo
+                  </NexusSectionButton>
+                }
               />
-            </div>
-            <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-8 text-sm text-stone-400 font-medium">
-              <span className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-stone-300"/> Formato optimizado</span>
-              <span className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-stone-300"/> Tamaño optimizado</span>
-              <span className="flex items-center gap-2"><div className="w-1.5 h-1.5 rounded-full bg-green-400"/> Activo en Sistema</span>
-            </div>
-          </div>
-        )}
+            )}
 
-        {status === 'editing' && (
-          <div className="h-full flex flex-col justify-center w-full">
-            <div 
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={handleDragOver}
-              onDrop={handleDrop}
-              className="border-2 border-dashed border-border-main rounded-[2rem] p-10 sm:p-16 text-center cursor-pointer hover:bg-brand-50/20 hover:border-brand-300 transition-colors w-full flex flex-col items-center justify-center min-h-[320px] group"
-            >
-              <input 
-                type="file" 
-                ref={fileInputRef} 
-                className="hidden" 
-                accept="image/png, image/svg+xml, image/jpeg, image/webp" 
-                onChange={(e) => {
-                  if(e.target.files && e.target.files.length > 0) {
-                    handleFileSelect(e.target.files[0]);
-                  }
-                }}
-              />
-              
-              {tempLogoUrl ? (
-                <div className="flex flex-col items-center">
-                  <div className="bg-bg-card p-6 rounded-[2rem] shadow-sm dark:shadow-none border border-border-main mb-6 relative group-hover:shadow-md transition-all">
-                    <img src={tempLogoUrl} alt="Vista previa del nuevo logo" className="max-h-[180px] object-contain" />
-                    <div className="absolute inset-0 bg-bg-card/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center rounded-[2rem] backdrop-blur-[1px]">
-                      <span className="bg-stone-800 text-white px-4 py-2 rounded-2xl text-xs font-bold flex items-center gap-2 shadow-xl">
-                        <RefreshCw size={14} /> Cambiar imagen
-                      </span>
+            {status === 'preview' && currentLogo && (
+              <div className="flex flex-col items-center justify-center w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
+                <div 
+                  className="group/logo-stage bg-bg-muted py-16 px-8 w-full flex items-center justify-center mb-10 border border-border-main/50 relative cursor-pointer overflow-hidden transition-colors hover:bg-bg-muted/80"
+                  style={{ borderRadius: 'var(--radius-inner-visual)' }}
+                  onClick={handleTriggerFile}
+                >
+                  <img 
+                    src={currentLogo} 
+                    alt="Logo actual del sistema" 
+                    className="max-h-[180px] sm:max-h-[220px] w-auto object-contain drop-shadow-sm transition-all duration-500 group-hover/logo-stage:scale-105"
+                  />
+                </div>
+                
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-6 w-full max-w-2xl">
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center border border-emerald-100/50">
+                      <ShieldCheck size={20} />
                     </div>
+                    <p className="text-secondary font-medium">Formato Válido</p>
+                    <p className="text-label text-text-muted">PNG / SVG optimizado</p>
                   </div>
-                  <p className="text-sm font-medium text-text-muted">Vista previa generada. Recuerda guardar los cambios.</p>
-                </div>
-              ) : (
-                <div className="flex flex-col items-center justify-center">
-                  <div className="w-20 h-20 bg-bg-card shadow-sm dark:shadow-none border border-border-main rounded-full flex items-center justify-center text-stone-400 mb-6 group-hover:scale-110 group-hover:text-stone-600 transition-all">
-                    <Upload size={32} strokeWidth={1.5} />
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-500 flex items-center justify-center border border-blue-100/50">
+                      <CheckCircle2 size={20} />
+                    </div>
+                    <p className="text-secondary font-medium">Distribución</p>
+                    <p className="text-label text-text-muted">Global en el panel</p>
                   </div>
-                  <h4 className="text-xl font-bold text-stone-700 mb-2">Haz clic o arrastra una imagen aquí</h4>
-                  <p className="text-sm font-medium text-stone-400 mt-2 bg-bg-card px-4 py-1.5 rounded-full border border-border-main shadow-sm dark:shadow-none">
-                    Recomendado: PNG o SVG con fondo transparente. Max 2MB.
-                  </p>
+                  <div className="flex flex-col items-center gap-2 text-center">
+                    <div className="w-10 h-10 rounded-full bg-purple-50 text-purple-500 flex items-center justify-center border border-purple-100/50">
+                      <RefreshCw size={20} />
+                    </div>
+                    <p className="text-secondary font-medium">Cloud Proxy</p>
+                    <p className="text-label text-text-muted">Edge Delivery</p>
+                  </div>
                 </div>
-              )}
-            </div>
+              </div>
+            )}
+
+            {status === 'editing' && (
+              <div className="h-full flex flex-col justify-center w-full animate-in fade-in zoom-in-95 duration-500">
+                {tempLogoUrl ? (
+                  <div className="flex flex-col items-center animate-in fade-in scale-in duration-300">
+                    <div 
+                      className="group/logo-preview bg-bg-card p-8 border border-border-main mb-6 relative group-hover:shadow-2xl transition-all duration-500 cursor-pointer"
+                      style={{ borderRadius: 'var(--radius-inner-visual)' }}
+                      onClick={() => fileInputRef.current?.click()}
+                    >
+                      <img src={tempLogoUrl} alt="Vista previa del nuevo logo" className="max-h-[180px] object-contain transition-transform group-hover/logo-preview:scale-105 duration-500" />
+                    </div>
+                    <p className="text-secondary font-medium text-text-muted italic">Activo listo para procesar</p>
+                  </div>
+                ) : (
+                  <InteractionStage 
+                    icon={Upload}
+                    title="Suelte el archivo aquí"
+                    description="Formatos aceptados: PNG o SVG optimizados."
+                    onClick={() => fileInputRef.current?.click()}
+                    onDragOver={handleDragOver}
+                    onDrop={handleDrop}
+                    action={
+                      <NexusSectionButton onClick={() => fileInputRef.current?.click()}>
+                        Seleccionar Archivo
+                      </NexusSectionButton>
+                    }
+                  />
+                )}
+              </div>
+            )}
           </div>
-        )}
+        </NexusSection>
       </div>
     );
   }

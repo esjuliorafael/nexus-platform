@@ -212,6 +212,11 @@ function App() {
 
   useEffect(() => {
     localStorage.setItem('last_system_view', systemViewMode);
+    // Resetear estados transitorios al cambiar de vista
+    if (systemViewMode !== 'identity') {
+      setIdentityStatus('preview');
+      setHasTempLogo(false);
+    }
   }, [systemViewMode]);
   
   const [shippingSubView, setShippingSubView] = useState<'config' | 'zones'>('config');
@@ -503,11 +508,26 @@ function App() {
         );
       }
       if (systemViewMode === 'identity') {
-        return (
-          <NexusSectionButton onClick={() => identityRef.current?.handleSave()} variant="brand" icon={Save}>
-            Guardar Identidad
-          </NexusSectionButton>
-        );
+        if (identityStatus === 'editing') {
+          return (
+            <>
+              <NexusSectionButton 
+                onClick={() => identityRef.current?.handleCancel()} 
+                variant="secondary"
+              >
+                Cancelar
+              </NexusSectionButton>
+              <NexusSectionButton 
+                onClick={() => identityRef.current?.handleSave()} 
+                variant="brand" 
+                icon={Save}
+              >
+                Guardar Identidad
+              </NexusSectionButton>
+            </>
+          );
+        }
+        return null;
       }
       if (systemViewMode === 'inventory') {
         return (

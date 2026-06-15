@@ -27,7 +27,7 @@ export const NexusSection: React.FC<NexusSectionProps> = ({
 }) => {
   return (
     <section 
-      className={`relative bg-bg-card border border-border-main shadow-sm transition-all duration-500 hover:shadow-xl hover:shadow-stone-200/30 dark:hover:shadow-none overflow-hidden group/section ${animate ? 'animate-in fade-in slide-in-from-bottom-4 duration-600' : ''} ${className}`}
+      className={`relative bg-bg-card border border-border-main shadow-sm transition-all duration-500 hover:shadow-xl hover:shadow-stone-200/30 dark:hover:shadow-none overflow-hidden group/section flex flex-col ${animate ? 'animate-in fade-in slide-in-from-bottom-4 duration-600' : ''} ${className}`}
       style={{ 
         animationDelay: delay,
         animationTimingFunction: 'var(--ease-emil)',
@@ -40,7 +40,7 @@ export const NexusSection: React.FC<NexusSectionProps> = ({
       <div className="absolute inset-0 pointer-events-none overflow-hidden">
         {/* Subtle Mesh/Grid pattern */}
         <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.04]" 
-             style={{ backgroundImage: 'radial-gradient(circle at 1.5px 1.5px, currentColor 1px, transparent 0)', backgroundSize: '24px 24px' }} />
+             style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)', backgroundSize: '24px 24px' }} />
         
         {/* Top-right subtle glow */}
         <div className="absolute -top-12 -right-12 w-48 h-48 bg-brand-500/5 rounded-full blur-3xl transition-transform duration-1000 group-hover/section:scale-125" />
@@ -82,7 +82,7 @@ export const NexusSection: React.FC<NexusSectionProps> = ({
       </div>
 
       {/* Content Area */}
-      <div className="relative z-10">
+      <div className="relative z-10 flex-1 h-full">
         {children}
       </div>
     </section>
