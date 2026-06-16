@@ -1,13 +1,12 @@
 import React, { useState, useRef, useEffect, useMemo, useImperativeHandle, forwardRef } from 'react';
 import { Upload, X, DollarSign, Image as ImageIcon, Trash2, Package, Box, PlayCircle, Film, Check, PlusCircle } from 'lucide-react';
 import { Product } from '../../types';
-import { apiProducts, apiUpload } from '../../api';
+import { apiProducts, apiUpload, ASSET_BASE_URL } from '../../api';
 import { extractFramesFromVideo } from '../../utils/video';
 import { NexusInput, NexusSelect, NexusTextarea } from '../ui/NexusInputs';
-import { NexusSectionButton, NexusCardButton, NexusAutonomousButton } from '../ui/NexusButton';
+import { NexusAutonomousButton } from '../ui/NexusButton';
 import { NexusSection } from '../ui/NexusSection';
 import { InteractionStage } from '../ui/InteractionStage';
-import { EmptyState } from '../ui/EmptyState';
 
 interface ProductFormProps {
   initialData?: Product;
@@ -16,6 +15,15 @@ interface ProductFormProps {
   onValidationChange?: (isValid: boolean) => void;
   showToast?: (msg: string, type: 'success' | 'error') => void;
 }
+
+// Helper para asegurar que las URLs sean absolutas
+const getFullUrl = (path: string | null | undefined) => {
+  if (!path) return null;
+  if (path.startsWith('http') || path.startsWith('blob:') || path.startsWith('data:')) return path;
+  const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+  const baseUrl = ASSET_BASE_URL.endsWith('/') ? ASSET_BASE_URL : `${ASSET_BASE_URL}/`;
+  return `${baseUrl}${cleanPath}`;
+};
 
 export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormProps>(
   ({ initialData, onCancel, onSave, onValidationChange, showToast }, ref) => {
@@ -34,15 +42,15 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
     
     const [stock, setStock] = useState(initialData?.stock?.toString() || '');
 
-    const [coverUrl, setCoverUrl] = useState<string | null>(initialData?.imageUrl || null);
+    const [coverUrl, setCoverUrl] = useState<string | null>(getFullUrl(initialData?.imageUrl) || null);
     const [coverFile, setCoverFile] = useState<File | null>(null);
 
-    const [staticThumbUrl, setStaticThumbUrl] = useState<string | null>(initialData?.thumbnail || null);
+    const [staticThumbUrl, setStaticThumbUrl] = useState<string | null>(getFullUrl(initialData?.thumbnail) || null);
     const [staticThumbFile, setStaticThumbFile] = useState<File | null>(null);
     const [suggestedThumbs, setSuggestedThumbs] = useState<{ blob: Blob, url: string }[]>([]);
     const [isGeneratingThumbs, setIsGeneratingThumbs] = useState(false);
 
-    const [galleryUrls, setGalleryUrls] = useState<string[]>(initialData?.gallery || []);
+    const [galleryUrls, setGalleryUrls] = useState<string[]>(initialData?.gallery?.map(g => getFullUrl(typeof g === 'string' ? g : (g as any).filePath)!) || []);
     const [galleryFiles, setGalleryFiles] = useState<File[]>([]); 
 
     const coverInputRef = useRef<HTMLInputElement>(null);
@@ -52,8 +60,8 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
     const isVideo = useMemo(() => {
       if (coverFile) return coverFile.type.startsWith('video/');
       if (coverUrl) {
-         const lower = coverUrl.toLowerCase();
-         return lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.webm');
+         const urlWithoutParams = coverUrl.split('?')[0].toLowerCase();
+         return urlWithoutParams.endsWith('.mp4') || urlWithoutParams.endsWith('.mov') || urlWithoutParams.endsWith('.webm');
       }
       return false;
     }, [coverFile, coverUrl]);
@@ -64,17 +72,18 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
     useEffect(() => {
       if (initialData?.gallery && initialData.gallery.length > 0) {
         const firstAsset = initialData.gallery[0];
-        const url = typeof firstAsset === 'string' ? firstAsset : (firstAsset as any).filePath;
+        const rawUrl = typeof firstAsset === 'string' ? firstAsset : (firstAsset as any).filePath;
+        const url = getFullUrl(rawUrl);
         
-        const isFirstAssetVideo = url.toLowerCase().match(/\.(mp4|mov|webm)$/);
+        if (url) {
+          const urlWithoutParams = url.split('?')[0].toLowerCase();
+          const isFirstAssetVideo = urlWithoutParams.match(/\.(mp4|mov|webm)$/);
 
-        if (isFirstAssetVideo) {
-          // Si el primer asset es video, él es la "portada" real
-          setCoverUrl(url);
-          // La imagen en initialData.thumbnail es la miniatura estática guardada
-          setStaticThumbUrl(initialData.thumbnail || null);
-          // El resto de la galería son los assets secundarios
-          setGalleryUrls(initialData.gallery.slice(1).map(g => typeof g === 'string' ? g : (g as any).filePath));
+          if (isFirstAssetVideo) {
+            setCoverUrl(url);
+            setStaticThumbUrl(getFullUrl(initialData.thumbnail) || null);
+            setGalleryUrls(initialData.gallery.slice(1).map(g => getFullUrl(typeof g === 'string' ? g : (g as any).filePath)!));
+          }
         }
       }
     }, [initialData]);
@@ -114,8 +123,8 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
   }, [onValidationChange]);
 
   const isVideoUrl = (url: string) => {
-    const lower = url.toLowerCase();
-    return lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.webm');
+    const urlWithoutParams = url.split('?')[0].toLowerCase();
+    return urlWithoutParams.endsWith('.mp4') || urlWithoutParams.endsWith('.mov') || urlWithoutParams.endsWith('.webm');
   };
 
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
