@@ -45,6 +45,21 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
     const [galleryUrls, setGalleryUrls] = useState<string[]>(initialData?.gallery || []);
     const [galleryFiles, setGalleryFiles] = useState<File[]>([]); 
 
+    const coverInputRef = useRef<HTMLInputElement>(null);
+    const thumbInputRef = useRef<HTMLInputElement>(null);
+    const galleryInputRef = useRef<HTMLInputElement>(null);
+
+    const isVideo = useMemo(() => {
+      if (coverFile) return coverFile.type.startsWith('video/');
+      if (coverUrl) {
+         const lower = coverUrl.toLowerCase();
+         return lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.webm');
+      }
+      return false;
+    }, [coverFile, coverUrl]);
+
+    const isFormValid = !!coverUrl && !!name && !!price && (productType === 'BIRD' ? !!ringNumber : !!stock) && !isProcessing && (!isVideo || !!staticThumbUrl);
+
     // Inicialización inteligente para productos con video de portada
     useEffect(() => {
       if (initialData?.gallery && initialData.gallery.length > 0) {
@@ -64,26 +79,31 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
       }
     }, [initialData]);
 
-    const coverInputRef = useRef<HTMLInputElement>(null);
-    const thumbInputRef = useRef<HTMLInputElement>(null);
-    const galleryInputRef = useRef<HTMLInputElement>(null);
+    // Generar miniaturas sugeridas automáticamente si la portada es un video (para edición)
+    useEffect(() => {
+      const shouldExtract = coverUrl && isVideo && suggestedThumbs.length === 0 && !isGeneratingThumbs && !coverFile;
+      
+      if (shouldExtract) {
+        const autoExtract = async () => {
+          setIsGeneratingThumbs(true);
+          try {
+            const frames = await extractFramesFromVideo(coverUrl, 3);
+            setSuggestedThumbs(frames);
+          } catch (err) {
+            console.error('Error auto-generating thumbs:', err);
+          } finally {
+            setIsGeneratingThumbs(false);
+          }
+        };
+        autoExtract();
+      }
+    }, [coverUrl, isVideo, suggestedThumbs.length, isGeneratingThumbs, coverFile]);
 
     useImperativeHandle(ref, () => ({
       handleSave: () => {
         handleSubmit();
       }
     }));
-
-    const isVideo = useMemo(() => {
-      if (coverFile) return coverFile.type.startsWith('video/');
-      if (coverUrl) {
-         const lower = coverUrl.toLowerCase();
-         return lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.webm');
-      }
-      return false;
-    }, [coverFile, coverUrl]);
-
-    const isFormValid = !!coverUrl && !!name && !!price && (productType === 'BIRD' ? !!ringNumber : !!stock) && !isProcessing && (!isVideo || !!staticThumbUrl);
 
   useEffect(() => {
     onValidationChange?.(isFormValid);
@@ -337,22 +357,24 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                       </button>
                     ))}
                     
-                    {/* Manual Upload */}
+                    {/* Manual Upload or Existing Server Thumb */}
                     <button
                       type="button"
                       onClick={() => thumbInputRef.current?.click()}
                       className={`relative aspect-video overflow-hidden border-2 border-dashed flex flex-col items-center justify-center transition-all duration-300 group
-                        ${staticThumbFile && !suggestedThumbs.some(f => f.url === staticThumbUrl) 
+                        ${staticThumbUrl && !suggestedThumbs.some(f => f.url === staticThumbUrl) 
                           ? 'border-emerald-500 bg-emerald-50 text-emerald-600' 
                           : 'border-border-main/60 bg-bg-muted/20 hover:bg-brand-50/20 hover:border-brand-300/50 text-text-muted'}
                       `}
                       style={{ borderRadius: 'var(--radius-inner-visual)', gap: 'var(--space-xs)' }}
                     >
-                      {staticThumbFile && !suggestedThumbs.some(f => f.url === staticThumbUrl) ? (
+                      {staticThumbUrl && !suggestedThumbs.some(f => f.url === staticThumbUrl) ? (
                         <>
                           <img src={staticThumbUrl!} className="absolute inset-0 w-full h-full object-cover opacity-20" alt="Manual" />
                           <Check size={16} className="z-10 text-emerald-600" />
-                          <span className="text-[8px] uppercase font-black tracking-widest z-10 text-emerald-700">Manual</span>
+                          <span className="text-[8px] uppercase font-black tracking-widest z-10 text-emerald-700">
+                            {staticThumbFile ? 'Manual' : 'Actual'}
+                          </span>
                         </>
                       ) : (
                         <>
