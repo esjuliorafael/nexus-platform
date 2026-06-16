@@ -3,8 +3,8 @@ import Link from 'next/link';
 import { ShoppingBag } from 'lucide-react';
 import { ProductDetailsClient } from './ProductDetailsClient';
 import { Button } from '../../../components/ui/Button';
-import { Product } from '../../../types';
 import { getAssetUrl } from '../../../utils/formatters';
+import { productApi } from '../../../api/products';
 
 interface PageProps {
   params: {
@@ -12,30 +12,19 @@ interface PageProps {
   };
 }
 
-async function fetchProduct(id: string): Promise<Product | null> {
-  const apiUrl = process.env.INTERNAL_API_URL || 
-                 process.env.NEXT_PUBLIC_API_URL || 
-                 process.env.VITE_API_URL || 
-                 'http://localhost:3001/api/v1';
-
+async function getProduct(id: string) {
   try {
-    const res = await fetch(`${apiUrl}/store/products/${id}`, {
-      cache: 'no-store',
-    });
-
-    if (!res.ok) {
-      return null;
-    }
-
-    return res.json();
+    const productId = parseInt(id);
+    if (isNaN(productId)) return null;
+    return await productApi.getById(productId);
   } catch (error) {
-    console.error('Error fetching product in SSR:', error);
+    console.error(`Error fetching product ${id} in SSR:`, error);
     return null;
   }
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const product = await fetchProduct(params.id);
+  const product = await getProduct(params.id);
 
   if (!product) {
     return {
@@ -68,7 +57,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function ProductDetailPage({ params }: PageProps) {
-  const product = await fetchProduct(params.id);
+  const product = await getProduct(params.id);
 
   if (!product) {
     return (
@@ -95,7 +84,7 @@ export default async function ProductDetailPage({ params }: PageProps) {
           <div className="flex flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
             <h1 className="sf-text-h1 uppercase italic text-stone-800">Producto no encontrado</h1>
             <p className="sf-text-secondary mx-auto max-w-xs text-stone-500">
-              El producto con ID {params.id} no existe o no esta disponible.
+              El producto con ID {params.id} no existe o no esta disponible en este momento.
             </p>
           </div>
 

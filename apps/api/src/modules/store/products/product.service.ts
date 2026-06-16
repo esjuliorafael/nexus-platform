@@ -57,10 +57,36 @@ export const productService = {
   },
 
   async getById(id: number) {
-    return storePrisma.product.findUnique({
+    const product = await storePrisma.product.findUnique({
       where: { id },
-      include: { gallery: true },
+      include: { 
+        gallery: true,
+        orderItems: {
+          where: {
+            order: {
+              status: "PENDING"
+            }
+          },
+          include: {
+            order: {
+              select: {
+                expiresAt: true
+              }
+            }
+          },
+          take: 1
+        }
+      },
     });
+
+    if (!product) return null;
+
+    const pendingOrder = product.orderItems[0]?.order;
+    const { orderItems, ...productData } = product as any;
+    return {
+      ...productData,
+      expiresAt: pendingOrder?.expiresAt || null
+    };
   },
 
   async create(data: any) {

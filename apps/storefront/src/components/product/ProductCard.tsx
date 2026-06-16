@@ -56,11 +56,12 @@ export function ProductCard({ product }: { product: Product }) {
         {thumbnailUrl ? (
           isVideo ? (
             <video
-              src={thumbnailUrl}
+              src={`${thumbnailUrl}#t=0.5`}
               className="h-full w-full object-cover transition-transform duration-1000 ease-out group-hover:scale-[1.1]"
               muted
               loop
               playsInline
+              preload="metadata"
               onMouseEnter={(e) => e.currentTarget.play()}
               onMouseLeave={(e) => {
                 e.currentTarget.pause();
