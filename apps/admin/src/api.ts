@@ -108,6 +108,7 @@ export const apiProducts = {
       purpose: item.purpose || undefined,
       description: item.description || '',
       imageUrl: item.thumbnail || '', 
+      thumbnail: item.thumbnail || '',
       gallery: item.gallery ? item.gallery.map((g: any) => g.filePath) : [],
       createdAt: item.createdAt
     }));
