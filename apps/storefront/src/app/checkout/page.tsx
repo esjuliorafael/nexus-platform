@@ -34,7 +34,7 @@ import { StorefrontField, StorefrontTextarea } from '../../components/ui/Field';
 import { StorefrontIcon } from '../../components/ui/Icon';
 import { Spinner } from '../../components/ui/Spinner';
 import { StorefrontModal } from '../../components/ui/Modal';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, getAssetUrl } from '../../utils/formatters';
 
 type DeliveryType = 'SHIPPING' | 'PICKUP';
 type PaymentMethod = 'TRANSFER' | 'MERCADOPAGO';
@@ -593,7 +593,7 @@ function OrderSummary({
               <div className="flex min-w-0" style={{ gap: 'var(--sf-space-md)' }}>
                 <div className="h-16 w-16 shrink-0 overflow-hidden border border-white/10 bg-white/5 shadow-inner" style={{ borderRadius: 'var(--sf-radius-inner)' }}>
                   {item.thumbnail ? (
-                    <img src={item.thumbnail} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" alt={item.name} />
+                    <img src={getAssetUrl(item.thumbnail)} className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110" alt={item.name} />
                   ) : (
                     <div className="w-full h-full flex items-center justify-center text-white/10">
                       <ShoppingBag size={24} />

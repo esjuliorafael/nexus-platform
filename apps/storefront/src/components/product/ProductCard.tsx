@@ -3,11 +3,11 @@
 import { Product } from '../../types';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
-import { ShoppingCart, Eye, Tag } from 'lucide-react';
+import { ShoppingCart, Eye, Tag, PlayCircle } from 'lucide-react';
 import { useCartStore } from '../../store/cart.store';
 import { useToastStore } from '../../store/toast.store';
 import Link from 'next/link';
-import { formatPrice } from '../../utils/formatters';
+import { formatPrice, getAssetUrl } from '../../utils/formatters';
 import { motion } from 'framer-motion';
 
 export function ProductCard({ product }: { product: Product }) {
@@ -15,6 +15,9 @@ export function ProductCard({ product }: { product: Product }) {
   const showToast = useToastStore((state) => state.showToast);
 
   const isAvailable = product.saleStatus === 'AVAILABLE';
+
+  const thumbnailUrl = getAssetUrl(product.thumbnail);
+  const isVideo = thumbnailUrl.toLowerCase().match(/\.(mp4|mov|webm)$/);
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -24,7 +27,7 @@ export function ProductCard({ product }: { product: Product }) {
       name: product.name,
       price: Number(product.price),
       quantity: 1,
-      thumbnail: product.thumbnail,
+      thumbnail: thumbnailUrl,
       type: product.type.toLowerCase() as 'bird' | 'item',
     });
     showToast(`${product.name} añadido al carrito`, 'success');
@@ -50,15 +53,37 @@ export function ProductCard({ product }: { product: Product }) {
         style={{ borderRadius: 'var(--sf-radius-outer)' }}
       >
         {/* Media */}
-        {product.thumbnail ? (
-          <img
-            src={product.thumbnail}
-            alt={product.name}
-            className="h-full w-full object-cover transition-transform duration-1000 ease-out group-hover:scale-[1.1]"
-          />
+        {thumbnailUrl ? (
+          isVideo ? (
+            <video
+              src={thumbnailUrl}
+              className="h-full w-full object-cover transition-transform duration-1000 ease-out group-hover:scale-[1.1]"
+              muted
+              loop
+              playsInline
+              onMouseEnter={(e) => e.currentTarget.play()}
+              onMouseLeave={(e) => {
+                e.currentTarget.pause();
+                e.currentTarget.currentTime = 0;
+              }}
+            />
+          ) : (
+            <img
+              src={thumbnailUrl}
+              alt={product.name}
+              className="h-full w-full object-cover transition-transform duration-1000 ease-out group-hover:scale-[1.1]"
+            />
+          )
         ) : (
           <div className="flex h-full w-full flex-col items-center justify-center bg-stone-50 text-stone-300">
             <Tag size={48} strokeWidth={1} />
+          </div>
+        )}
+
+        {/* Video Icon Overlay */}
+        {isVideo && (
+          <div className="absolute bottom-3 right-3 z-10 bg-black/20 backdrop-blur-md p-1.5 rounded-full border border-white/20 text-white shadow-lg pointer-events-none group-hover:scale-110 transition-transform">
+            <PlayCircle size={14} fill="currentColor" />
           </div>
         )}
 

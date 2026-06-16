@@ -37,21 +37,60 @@ export async function productAdminRoutes(server: FastifyInstance) {
     });
   });
 
-  server.post("/", async (request) => {
-    const validated = createProductSchema.parse(request.body);
-    return productService.create(validated);
+  server.post("/", async (request, reply) => {
+    try {
+      const validated = createProductSchema.parse(request.body);
+      return await productService.create(validated);
+    } catch (err: any) {
+      server.log.error(err);
+      if (err?.issues) {
+        return reply.status(400).send({ message: "Validation error", errors: err.issues });
+      }
+
+      return reply.status(500).send({ 
+        message: "Error creating product", 
+        error: err.message,
+        details: err instanceof Error ? err.stack : undefined
+      });
+    }
   });
 
   server.put("/:id", async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const validated = updateProductSchema.parse(request.body);
-    return productService.update(parseInt(id), validated);
+    try {
+      const { id } = request.params as { id: string };
+      const validated = updateProductSchema.parse(request.body);
+      return await productService.update(parseInt(id), validated);
+    } catch (err: any) {
+      server.log.error(err);
+      if (err?.issues) {
+        return reply.status(400).send({ message: "Validation error", errors: err.issues });
+      }
+
+      return reply.status(500).send({ 
+        message: "Error updating product", 
+        error: err.message,
+        details: err instanceof Error ? err.stack : undefined
+      });
+    }
   });
 
   server.patch("/:id/status", async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const validated = updateProductStatusSchema.parse(request.body);
-    return productService.update(parseInt(id), validated);
+    try {
+      const { id } = request.params as { id: string };
+      const validated = updateProductStatusSchema.parse(request.body);
+      return await productService.update(parseInt(id), validated);
+    } catch (err: any) {
+      server.log.error(err);
+      if (err?.issues) {
+        return reply.status(400).send({ message: "Validation error", errors: err.issues });
+      }
+
+      return reply.status(500).send({ 
+        message: "Error updating product status", 
+        error: err.message,
+        details: err instanceof Error ? err.stack : undefined
+      });
+    }
   });
 
   server.delete("/:id", async (request, reply) => {

@@ -32,7 +32,12 @@ const loginSchema = z.object({
 async function bootstrap() {
   try {
     // Register Core Plugins
-    await server.register(cors, { origin: true });
+    await server.register(cors, { 
+      origin: true,
+      credentials: true,
+      methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+      allowedHeaders: ["Content-Type", "Authorization"]
+    });
     await server.register(rateLimit, {
       max: 100,
       timeWindow: '1 minute'

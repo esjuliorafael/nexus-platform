@@ -20,7 +20,13 @@ export const createProductSchema = z.object({
   ringNumber: z.string().optional(),
   age: z.string().optional(),
   purpose: z.string().optional(),
-  gallery: z.array(z.string()).optional(),
+  gallery: z.array(z.union([
+    z.string(),
+    z.object({
+      url: z.string(),
+      type: z.enum(["PHOTO", "VIDEO"])
+    })
+  ])).optional(),
   saleStatus: saleStatusEnum.optional(),
 });
 

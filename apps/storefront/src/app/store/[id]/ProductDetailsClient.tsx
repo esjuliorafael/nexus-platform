@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { Product } from '../../../types';
 import { Button } from '../../../components/ui/Button';
@@ -8,8 +8,8 @@ import { Badge } from '../../../components/ui/Badge';
 import { StorefrontCard } from '../../../components/ui/Card';
 import { StorefrontIcon } from '../../../components/ui/Icon';
 import { useCartStore } from '../../../store/cart.store';
-import { ChevronLeft, CheckCircle2, ShieldCheck, ShoppingCart, Tag, Truck } from 'lucide-react';
-import { formatBirdAge, formatBirdPurpose, formatPrice, formatSaleStatus } from '../../../utils/formatters';
+import { ChevronLeft, CheckCircle2, ShieldCheck, ShoppingCart, Tag, Truck, PlayCircle, Film } from 'lucide-react';
+import { formatBirdAge, formatBirdPurpose, formatPrice, formatSaleStatus, getAssetUrl } from '../../../utils/formatters';
 
 interface ProductDetailsClientProps {
   product: Product;
@@ -22,14 +22,38 @@ const trustItems = [
 ];
 
 export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
-  const [activeImage, setActiveImage] = useState<string | null>(product.thumbnail);
+  const [activeMedia, setActiveMedia] = useState<{ url: string; type: 'PHOTO' | 'VIDEO' } | null>(
+    product.thumbnail 
+      ? { 
+          url: getAssetUrl(product.thumbnail), 
+          type: product.thumbnail.toLowerCase().match(/\.(mp4|mov|webm)$/) ? 'VIDEO' : 'PHOTO' 
+        } 
+      : null
+  );
   const addItem = useCartStore((state) => state.addItem);
 
   const isAvailable = product.saleStatus === 'AVAILABLE';
   const galleryItems = [
-    ...(product.thumbnail ? [{ id: 'thumbnail', filePath: product.thumbnail }] : []),
-    ...(product.gallery ?? []).map((item) => ({ id: item.id, filePath: item.filePath })),
+    ...(product.thumbnail ? [{ 
+      id: 'thumbnail', 
+      filePath: getAssetUrl(product.thumbnail), 
+      fileType: (product.thumbnail.toLowerCase().match(/\.(mp4|mov|webm)$/) ? 'VIDEO' : 'PHOTO') as 'PHOTO' | 'VIDEO'
+    }] : []),
+    ...(product.gallery ?? []).map((item) => ({ 
+      id: item.id.toString(), 
+      filePath: getAssetUrl(item.filePath), 
+      fileType: item.fileType 
+    })),
   ];
+
+  // Si la galería tiene un video en la primera posición real (no el thumbnail), lo priorizamos
+  // Esto es para el nuevo flujo donde la portada (video) se guarda en la galería[0]
+  useEffect(() => {
+    const firstVideo = product.gallery?.find((item, idx) => idx === 0 && item.fileType === 'VIDEO');
+    if (firstVideo) {
+      setActiveMedia({ url: getAssetUrl(firstVideo.filePath), type: 'VIDEO' });
+    }
+  }, [product.gallery]);
 
   const handleAddToCart = () => {
     addItem({
@@ -37,7 +61,7 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
       name: product.name,
       price: Number(product.price),
       quantity: 1,
-      thumbnail: product.thumbnail,
+      thumbnail: getAssetUrl(product.thumbnail),
       type: product.type.toLowerCase() as 'bird' | 'item',
     });
   };
@@ -57,8 +81,20 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
         <div className="grid grid-cols-1 lg:grid-cols-2" style={{ gap: 'var(--sf-space-xl)' }}>
           <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
             <StorefrontCard className="aspect-square overflow-hidden p-0 shadow-xl shadow-stone-200/50">
-              {activeImage ? (
-                <img src={activeImage} className="h-full w-full object-cover" alt={product.name} />
+              {activeMedia ? (
+                activeMedia.type === 'VIDEO' ? (
+                  <video 
+                    src={activeMedia.url} 
+                    className="h-full w-full object-cover" 
+                    controls 
+                    autoPlay 
+                    muted 
+                    loop 
+                    playsInline 
+                  />
+                ) : (
+                  <img src={activeMedia.url} className="h-full w-full object-cover animate-in fade-in duration-500" alt={product.name} />
+                )
               ) : (
                 <div className="flex h-full w-full flex-col items-center justify-center bg-stone-100/50 text-stone-300" style={{ gap: 'var(--sf-space-sm)' }}>
                   <Tag size={40} strokeWidth={1.2} />
@@ -72,9 +108,9 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
                 {galleryItems.map((item) => (
                   <button
                     key={item.id}
-                    onClick={() => setActiveImage(item.filePath)}
-                    className={`aspect-square overflow-hidden border-2 transition-all duration-300 ${
-                      activeImage === item.filePath
+                    onClick={() => setActiveMedia({ url: item.filePath, type: item.fileType })}
+                    className={`relative aspect-square overflow-hidden border-2 transition-all duration-300 ${
+                      activeMedia?.url === item.filePath
                         ? 'border-brand-500 opacity-100 shadow-lg shadow-brand-500/10'
                         : 'border-transparent opacity-60 hover:opacity-100'
                     }`}
@@ -84,7 +120,21 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
                     }}
                     aria-label="Cambiar imagen del producto"
                   >
-                    <img src={item.filePath} className="h-full w-full object-cover" alt="Imagen del producto" />
+                    {item.fileType === 'VIDEO' ? (
+                      <div className="relative h-full w-full">
+                        <video 
+                          src={`${item.filePath}#t=0.5`} 
+                          className="h-full w-full object-cover" 
+                          preload="metadata" 
+                          playsInline
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                          <PlayCircle className="text-white drop-shadow-md" size={24} fill="currentColor" />
+                        </div>
+                      </div>
+                    ) : (
+                      <img src={item.filePath} className="h-full w-full object-cover" alt="Imagen del producto" />
+                    )}
                   </button>
                 ))}
               </div>

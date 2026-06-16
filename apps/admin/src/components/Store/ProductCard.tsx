@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Edit2, Trash2, Box, Package, Hash, CircleCheck, Clock, CircleX } from 'lucide-react';
+import { Edit2, Trash2, Box, Package, Hash, CircleCheck, Clock, CircleX, PlayCircle } from 'lucide-react';
 import { Product } from '../../types';
 import { NexusAutonomousButton } from '../ui/NexusButton';
 import { NexusAutonomousCard } from '../ui/NexusCard';
@@ -24,20 +24,26 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
   };
 
   const imageUrl = getFullUrl(product.imageUrl || (product as any).thumbnail);
+
+  // Buscar si hay un video en la galería para el hover preview (la galería en Admin es string[])
+  const videoUrlFromGallery = product.gallery?.find(g => typeof g === 'string' && g.toLowerCase().match(/\.(mp4|mov|webm)$/));
+
   const isVideo = imageUrl.toLowerCase().split('?')[0].endsWith('.mp4') || 
                   imageUrl.toLowerCase().split('?')[0].endsWith('.mov') || 
                   imageUrl.toLowerCase().split('?')[0].endsWith('.webm');
 
+  const finalVideoUrl = videoUrlFromGallery ? getFullUrl(videoUrlFromGallery) : (isVideo ? imageUrl : null);
+
   // --- HANDLERS ---
   const handleMouseEnter = () => {
-    if (isVideo && videoRef.current) {
+    if (finalVideoUrl && videoRef.current) {
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) playPromise.catch(() => {});
     }
   };
 
   const handleMouseLeave = () => {
-    if (isVideo && videoRef.current) {
+    if (finalVideoUrl && videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
     }
@@ -120,16 +126,24 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
           }}
         >
           <div className={`absolute inset-0 ${statusConfig.thumbFilter}`}>
-            {isVideo ? (
-              <video
-                ref={videoRef}
-                src={imageUrl}
-                className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
-                muted
-                loop
-                playsInline
-                preload="metadata"
-              />
+            {finalVideoUrl ? (
+              <>
+                <video
+                  ref={videoRef}
+                  src={finalVideoUrl}
+                  className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
+                  muted
+                  loop
+                  playsInline
+                  preload="metadata"
+                  poster={!isVideo ? imageUrl : undefined}
+                />
+                {!isVideo && (
+                  <div className="absolute bottom-1.5 right-1.5 z-10 bg-black/40 backdrop-blur-md p-1 rounded-full text-white pointer-events-none group-hover/thumb:scale-110 transition-transform shadow-lg border border-white/10">
+                    <PlayCircle size={10} fill="currentColor" />
+                  </div>
+                )}
+              </>
             ) : (
               <img 
                 src={imageUrl} 

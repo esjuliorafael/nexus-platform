@@ -38,3 +38,25 @@ export const formatPrice = (price: number | string | null | undefined): string =
   }).format(num);
 };
 
+export const getAssetUrl = (path: string | null | undefined): string => {
+  if (!path) return '';
+  if (path.startsWith('http') || path.startsWith('blob:') || path.startsWith('data:')) return path;
+  
+  const apiUrl = process.env.NEXT_PUBLIC_API_URL || '';
+  let baseUrl = '';
+
+  if (apiUrl) {
+    baseUrl = apiUrl.replace('/api/v1', '/');
+  } else if (typeof window !== 'undefined') {
+    const { hostname, protocol } = window.location;
+    if (hostname === 'localhost' || hostname === '127.0.0.1') {
+      baseUrl = `http://${hostname}:3001/`;
+    } else {
+      baseUrl = `${protocol}//api.${hostname}/`;
+    }
+  }
+
+  const cleanPath = path.startsWith('/') ? path.substring(1) : path;
+  return `${baseUrl}${cleanPath}`;
+};
+

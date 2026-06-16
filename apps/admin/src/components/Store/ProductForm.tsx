@@ -1,9 +1,10 @@
 import React, { useState, useRef, useEffect, useMemo, useImperativeHandle, forwardRef } from 'react';
-import { Upload, X, DollarSign, Image as ImageIcon, Trash2, Package, Box, PlayCircle, Film, Image as ImageIconLucide, Check, Save, PlusCircle } from 'lucide-react';
+import { Upload, X, DollarSign, Image as ImageIcon, Trash2, Package, Box, PlayCircle, Film, Check, PlusCircle } from 'lucide-react';
 import { Product } from '../../types';
 import { apiProducts, apiUpload } from '../../api';
+import { extractFramesFromVideo } from '../../utils/video';
 import { NexusInput, NexusSelect, NexusTextarea } from '../ui/NexusInputs';
-import { NexusSectionButton, NexusCardButton } from '../ui/NexusButton';
+import { NexusSectionButton, NexusCardButton, NexusAutonomousButton } from '../ui/NexusButton';
 import { NexusSection } from '../ui/NexusSection';
 import { InteractionStage } from '../ui/InteractionStage';
 import { EmptyState } from '../ui/EmptyState';
@@ -36,10 +37,35 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
     const [coverUrl, setCoverUrl] = useState<string | null>(initialData?.imageUrl || null);
     const [coverFile, setCoverFile] = useState<File | null>(null);
 
+    const [staticThumbUrl, setStaticThumbUrl] = useState<string | null>(initialData?.thumbnail || null);
+    const [staticThumbFile, setStaticThumbFile] = useState<File | null>(null);
+    const [suggestedThumbs, setSuggestedThumbs] = useState<{ blob: Blob, url: string }[]>([]);
+    const [isGeneratingThumbs, setIsGeneratingThumbs] = useState(false);
+
     const [galleryUrls, setGalleryUrls] = useState<string[]>(initialData?.gallery || []);
     const [galleryFiles, setGalleryFiles] = useState<File[]>([]); 
 
+    // Inicialización inteligente para productos con video de portada
+    useEffect(() => {
+      if (initialData?.gallery && initialData.gallery.length > 0) {
+        const firstAsset = initialData.gallery[0];
+        const url = typeof firstAsset === 'string' ? firstAsset : (firstAsset as any).filePath;
+        
+        const isFirstAssetVideo = url.toLowerCase().match(/\.(mp4|mov|webm)$/);
+
+        if (isFirstAssetVideo) {
+          // Si el primer asset es video, él es la "portada" real
+          setCoverUrl(url);
+          // La imagen en initialData.thumbnail es la miniatura estática guardada
+          setStaticThumbUrl(initialData.thumbnail || null);
+          // El resto de la galería son los assets secundarios
+          setGalleryUrls(initialData.gallery.slice(1).map(g => typeof g === 'string' ? g : (g as any).filePath));
+        }
+      }
+    }, [initialData]);
+
     const coverInputRef = useRef<HTMLInputElement>(null);
+    const thumbInputRef = useRef<HTMLInputElement>(null);
     const galleryInputRef = useRef<HTMLInputElement>(null);
 
     useImperativeHandle(ref, () => ({
@@ -48,7 +74,16 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
       }
     }));
 
-    const isFormValid = !!coverUrl && !!name && !!price && (productType === 'BIRD' ? !!ringNumber : !!stock) && !isProcessing;
+    const isVideo = useMemo(() => {
+      if (coverFile) return coverFile.type.startsWith('video/');
+      if (coverUrl) {
+         const lower = coverUrl.toLowerCase();
+         return lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.webm');
+      }
+      return false;
+    }, [coverFile, coverUrl]);
+
+    const isFormValid = !!coverUrl && !!name && !!price && (productType === 'BIRD' ? !!ringNumber : !!stock) && !isProcessing && (!isVideo || !!staticThumbUrl);
 
   useEffect(() => {
     onValidationChange?.(isFormValid);
@@ -58,29 +93,53 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
     return () => onValidationChange?.(false);
   }, [onValidationChange]);
 
-  const isVideo = useMemo(() => {
-    if (coverFile) return coverFile.type.startsWith('video/');
-    if (coverUrl) {
-       const lower = coverUrl.toLowerCase();
-       return lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.webm');
-    }
-    return false;
-  }, [coverFile, coverUrl]);
-
   const isVideoUrl = (url: string) => {
     const lower = url.toLowerCase();
     return lower.endsWith('.mp4') || lower.endsWith('.mov') || lower.endsWith('.webm');
   };
 
-  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
       setIsProcessing(true);
-      setTimeout(() => {
-          setCoverFile(file);
-          setCoverUrl(URL.createObjectURL(file));
-          setIsProcessing(false);
-      }, 400);
+      setSuggestedThumbs([]);
+      try {
+        setCoverFile(file);
+        setCoverUrl(URL.createObjectURL(file));
+
+        if (file.type.startsWith('video/')) {
+          setIsGeneratingThumbs(true);
+          const frames = await extractFramesFromVideo(file, 3);
+          setSuggestedThumbs(frames);
+          if (frames.length >= 2) {
+            const defaultFrame = frames[1];
+            setStaticThumbUrl(defaultFrame.url);
+            setStaticThumbFile(new File([defaultFrame.blob], 'thumbnail.jpg', { type: 'image/jpeg' }));
+          }
+        } else {
+          setStaticThumbUrl(null);
+          setStaticThumbFile(null);
+        }
+      } catch (error) {
+        console.error('Error al procesar el archivo:', error);
+        showToast?.('Error al procesar el multimedia.', 'error');
+      } finally {
+        setIsProcessing(false);
+        setIsGeneratingThumbs(false);
+      }
+    }
+  };
+
+  const selectSuggestedThumb = (frame: { blob: Blob, url: string }) => {
+    setStaticThumbFile(new File([frame.blob], 'thumbnail.jpg', { type: 'image/jpeg' }));
+    setStaticThumbUrl(frame.url);
+  };
+
+  const handleThumbUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      setStaticThumbFile(file);
+      setStaticThumbUrl(URL.createObjectURL(file));
     }
   };
 
@@ -92,15 +151,10 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
         showToast?.('Máximo 6 elementos en la galería.', 'error');
         return;
       }
-      
       const newFiles = Array.from(files).slice(0, remainingSlots) as File[];
       setGalleryFiles(prev => [...prev, ...newFiles]);
       const newUrls = newFiles.map(file => URL.createObjectURL(file));
       setGalleryUrls(prev => [...prev, ...newUrls]);
-      
-      if (Array.from(files).length > remainingSlots) {
-        showToast?.(`Solo se añadieron ${remainingSlots} archivos (límite de 6).`, 'error');
-      }
     }
   };
 
@@ -119,15 +173,30 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
     setIsSubmitting(true);
     try {
       let finalCoverUrl = coverUrl;
+      let finalStaticThumbUrl = staticThumbUrl;
+
       if (coverFile) {
         const uploadRes = await apiUpload.upload(coverFile);
         finalCoverUrl = uploadRes.url;
       }
 
-      const finalGalleryUrls = galleryUrls.filter(url => !url.startsWith('blob:'));
+      if (isVideo && staticThumbFile) {
+        const uploadRes = await apiUpload.upload(staticThumbFile);
+        finalStaticThumbUrl = uploadRes.url;
+      }
+
+      const finalGallery = galleryUrls.filter(url => !url.startsWith('blob:')).map(url => ({
+        url,
+        type: isVideoUrl(url) ? 'VIDEO' : 'PHOTO'
+      }));
+
+      if (isVideo && finalCoverUrl) {
+        finalGallery.unshift({ url: finalCoverUrl, type: 'VIDEO' });
+      }
+
       for (const file of galleryFiles) {
         const uploadRes = await apiUpload.upload(file);
-        finalGalleryUrls.push(uploadRes.url);
+        finalGallery.push({ url: uploadRes.url, type: file.type.startsWith('video/') ? 'VIDEO' : 'PHOTO' });
       }
 
       const payload: any = {
@@ -136,8 +205,8 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
         price: parseFloat(price),
         description,
         saleStatus: status.toUpperCase(),
-        thumbnail: finalCoverUrl,
-        gallery: finalGalleryUrls
+        thumbnail: isVideo ? finalStaticThumbUrl : finalCoverUrl,
+        gallery: finalGallery
       };
 
       if (productType === 'BIRD') {
@@ -166,290 +235,287 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
   return (
     <form id="product-form" onSubmit={handleSubmit} className="flex flex-col animate-in fade-in duration-700 pb-12" style={{ gap: 'var(--space-lg)' }}>
       
-      {/* ROW 1: MULTIMEDIA (SIDE BY SIDE) */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+      {/* MASTER LAYOUT: 2 MAIN COLUMNS */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 items-start" style={{ gap: 'var(--space-lg)' }}>
         
-        {/* Column Left: Cover Image */}
-        <div className="flex flex-col h-full">
-          {!coverUrl ? (
-            <InteractionStage 
-              level={1}
-              size="normal"
-              className="aspect-square w-full shadow-sm"
-              icon={Upload}
-              title="Foto de Portada"
-              description="Imagen principal del catálogo (JPG, PNG, MP4)."
-              onClick={() => !isProcessing && coverInputRef.current?.click()}
-              onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-              onDrop={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                const file = e.dataTransfer.files?.[0];
-                if (file) {
-                  setIsProcessing(true);
-                  setTimeout(() => {
-                    setCoverFile(file);
-                    setCoverUrl(URL.createObjectURL(file));
-                    setIsProcessing(false);
-                  }, 400);
-                }
-              }}
-            />
-          ) : (
-            <div 
-              className="relative w-full aspect-square transition-all duration-500 flex flex-col items-center justify-center overflow-hidden active:scale-[0.995] shadow-xl shadow-stone-200/40 group cursor-pointer"
-              style={{ borderRadius: 'var(--radius-outer)' }}
-              onClick={() => !isProcessing && coverInputRef.current?.click()}
-            >
-              {isVideo ? (
-                 <video src={coverUrl} className="w-full h-full object-cover" muted autoPlay loop playsInline />
-              ) : (
-                 <img src={coverUrl} className="w-full h-full object-cover" alt="Portada" />
-              )}
-              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center" style={{ gap: 'var(--space-sm)' }}>
-                <div className="bg-bg-card/20 backdrop-blur-xl p-4 rounded-full border border-white/30 text-white mb-2 scale-90 group-hover:scale-100 transition-transform duration-500">
-                    <ImageIconLucide size={32} />
-                </div>
-                <span className="text-white text-label uppercase tracking-[0.15em]">Cambiar portada</span>
-              </div>
-              <NexusCardButton 
-                variant="ghost" 
-                size="icon"
-                onClick={(e) => { e.stopPropagation(); setCoverUrl(null); setCoverFile(null); if(coverInputRef.current) coverInputRef.current.value = ''; }}
-                className="absolute top-6 right-6 bg-black/20 hover:bg-rose-500 text-white backdrop-blur-xl z-20"
-              >
-                <X size={18} />
-              </NexusCardButton>
-              <div 
-                className="absolute top-6 left-6 px-3 py-1.5 bg-black/40 backdrop-blur-md border border-white/10 flex items-center z-10"
-                style={{ borderRadius: 'var(--radius-nested-simple)', gap: 'var(--space-sm)' }}
-              >
-                {isVideo ? <Film size={12} className="text-white" /> : <ImageIcon size={12} className="text-white" />}
-                <span className="text-white text-label uppercase tracking-[0.15em] !text-[9px]">{isVideo ? 'Video' : 'Foto'}</span>
-              </div>
-            </div>
-          )}
-          <input type="file" ref={coverInputRef} className="hidden" accept="image/*,video/*" onChange={handleCoverUpload} />
-          {isProcessing && (
-             <div className="absolute inset-0 bg-bg-card/80 backdrop-blur-sm z-30 flex flex-col items-center justify-center animate-in fade-in duration-200" style={{ gap: 'var(--space-md)' }}>
-                 <div className="w-10 h-10 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
-                 <span className="text-label text-brand-700 uppercase tracking-[0.2em]">Procesando...</span>
-             </div>
-          )}
-        </div>
-
-        {/* Column Right: Gallery */}
-        <NexusSection
-          title="Galería Adicional"
-          subtitle="Multimedia secundario"
-          icon={ImageIcon}
-          iconVariant="brand"
-          className="lg:aspect-square w-full"
-          action={galleryUrls.length < 6 && (
-            <NexusSectionButton 
-              type="button"
-              variant="secondary" 
-              isIconOnly
-              onClick={() => galleryInputRef.current?.click()}
-              icon={Upload}
-            />
-          )}
-        >
-          <div 
-            className="bg-bg-muted border border-border-main/50 flex flex-col p-6 overflow-hidden h-full min-h-[300px]" 
-            style={{ borderRadius: 'var(--radius-inner-visual)' }}
-          >
-            <input type="file" ref={galleryInputRef} className="hidden" multiple accept="image/*,video/*" onChange={handleGalleryUpload} />
-            <div className="grid grid-cols-3 gap-4 h-full content-start overflow-y-auto pr-2 custom-scrollbar">
-              {galleryUrls.map((url, idx) => (
-                <div 
-                  key={idx} 
-                  className="relative aspect-square overflow-hidden group border border-border-main shadow-sm bg-bg-card hover:scale-[1.05] transition-transform duration-500"
-                  style={{ borderRadius: 'var(--radius-inner-visual)' }}
-                >
-                  {isVideoUrl(url) ? (
-                    <video src={url} className="w-full h-full object-cover" />
-                  ) : (
-                    <img src={url} className="w-full h-full object-cover" alt={`Gallery ${idx}`} />
-                  )}
-                  {isVideoUrl(url) && (
-                    <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
-                        <PlayCircle className="text-white/80 w-8 h-8 drop-shadow-lg" />
-                    </div>
-                  )}
-                  <button 
-                    type="button"
-                    onClick={() => removeGalleryImage(idx)}
-                    className="absolute top-1.5 right-1.5 p-2 bg-rose-500 text-white opacity-0 group-hover:opacity-100 transition-all active:scale-90 backdrop-blur-sm z-20"
-                    style={{ borderRadius: 'var(--radius-nested-simple)' }}
-                  >
-                    <Trash2 size={14} />
-                  </button>
-                </div>
-              ))}
-              {galleryUrls.length === 0 && (
-                <div className="col-span-full h-full flex items-center justify-center">
-                  <EmptyState 
-                    level={2}
-                    icon={ImageIcon}
-                    title="Sin Multimedia"
-                    description="Añade hasta 6 fotos o videos adicionales para este producto."
-                  />
-                </div>
-              )}
-            </div>
-          </div>
-        </NexusSection>
-      </div>
-
-      {/* ROW 2: DETAILS (FULL WIDTH) */}
-      <NexusSection
-        title="Detalles del Producto"
-        subtitle="Información técnica y comercial"
-        icon={productType === 'BIRD' ? Box : Package}
-        iconVariant="brand"
-      >
-        <div className="flex flex-col relative" style={{ gap: 'var(--space-lg)' }}>
+        {/* LEFT COLUMN: MULTIMEDIA (SPAN 7/12) */}
+        <div className="lg:col-span-7 flex flex-col" style={{ gap: 'var(--space-lg)' }}>
           
-          {/* 1. Header: Product Type Selector */}
-          <div 
-            className="bg-bg-muted/50 p-6 border border-border-main/50"
-            style={{ borderRadius: 'var(--radius-inner-visual)', gap: 'var(--space-md)' }}
-          >
-            <label className="text-label uppercase tracking-[0.15em] text-text-muted mb-4 block ml-1">Tipo de Producto</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 w-full" style={{ gap: 'var(--space-md)' }}>
-                <button 
-                  type="button"
-                  onClick={() => setProductType('BIRD')}
-                  className={`flex items-center justify-center py-4 border-2 transition-all text-secondary font-bold active:scale-[0.98]
-                      ${productType === 'BIRD' ? 'border-brand-500 bg-bg-card text-brand-600 shadow-lg shadow-brand-500/10' : 'border-border-main bg-bg-muted text-text-muted hover:border-brand-200'}
-                  `}
-                  style={{ borderRadius: 'var(--radius-nested-simple)', gap: 'var(--space-sm)' }}
-                >
-                  <Box size={18} strokeWidth={2} />
-                  Ave de Combate / Cría
-                </button>
-                <button 
-                  type="button"
-                  onClick={() => setProductType('ITEM')}
-                  className={`flex items-center justify-center py-4 border-2 transition-all text-secondary font-bold active:scale-[0.98]
-                      ${productType === 'ITEM' ? 'border-brand-500 bg-bg-card text-brand-600 shadow-lg shadow-brand-500/10' : 'border-border-main bg-bg-muted text-text-muted hover:border-brand-200'}
-                  `}
-                  style={{ borderRadius: 'var(--radius-nested-simple)', gap: 'var(--space-sm)' }}
-                >
-                  <Package size={18} strokeWidth={2} />
-                  Artículo de Tienda
-                </button>
-            </div>
-          </div>
-
-          {/* 2. Main Grid: Identity, Specs and Logistics */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-8">
-            
-            {/* Identity Group */}
-            <div className="lg:col-span-2">
-              <NexusInput 
-                label="Nombre del Producto *" 
-                placeholder="Ej. Semental Colorado..."
-                value={name}
-                onChange={(e) => setName(e.target.value)}
+          {/* 1. Cover Asset */}
+          <div className="w-full">
+            {!coverUrl ? (
+              <InteractionStage 
+                level={1}
+                size="normal"
+                className="aspect-video w-full shadow-sm"
+                icon={Upload}
+                title="Portada"
+                description="Imagen o video principal (16:9)."
+                onClick={() => !isProcessing && coverInputRef.current?.click()}
               />
-            </div>
-            
-            <div className="lg:col-span-1">
-              <NexusInput 
-                label="Precio de Venta *"
-                type="number"
-                icon={DollarSign}
-                placeholder="0.00"
-                value={price}
-                onChange={(e) => setPrice(e.target.value)}
-              />
-            </div>
-
-            {/* Specs Group */}
-            <div className="lg:col-span-1">
-              {productType === 'BIRD' ? (
-                <NexusInput 
-                  label="No. Anillo *"
-                  placeholder="Ej. AB-123"
-                  value={ringNumber}
-                  onChange={(e) => setRingNumber(e.target.value)}
-                />
-              ) : (
-                <NexusInput 
-                  label="Stock Disponible *"
-                  type="number"
-                  placeholder="0"
-                  value={stock}
-                  onChange={(e) => setStock(e.target.value)}
-                />
-              )}
-            </div>
-
-            {productType === 'BIRD' && (
-              <>
-                <div className="lg:col-span-1">
-                  <NexusSelect 
-                    label="Edad / Etapa"
-                    value={age}
-                    onChange={(e) => setAge(e.target.value as any)}
-                  >
-                    <option value="HEN">Gallina</option>
-                    <option value="COCK">Gallo</option>
-                    <option value="PULLET">Polla</option>
-                    <option value="STAG">Pollo</option>
-                  </NexusSelect>
+            ) : (
+              <div 
+                className="relative w-full aspect-video transition-all duration-500 flex flex-col items-center justify-center overflow-hidden active:scale-[0.995] shadow-xl shadow-stone-200/40 group cursor-pointer"
+                style={{ borderRadius: 'var(--radius-outer)' }}
+                onClick={() => !isProcessing && coverInputRef.current?.click()}
+              >
+                {isVideo ? (
+                  <video src={coverUrl} className="w-full h-full object-cover" muted autoPlay loop playsInline />
+                ) : (
+                  <img src={coverUrl} className="w-full h-full object-cover" alt="Portada" />
+                )}
+                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center" style={{ gap: 'var(--space-sm)' }}>
+                  <div className="bg-bg-card/20 backdrop-blur-xl p-4 rounded-full border border-white/30 text-white scale-90 group-hover:scale-100 transition-transform duration-500">
+                      <PlusCircle size={32} />
+                  </div>
+                  <span className="text-white text-label uppercase tracking-[0.15em]">Cambiar Portada</span>
                 </div>
                 
-                <div className="lg:col-span-1">
-                  <NexusSelect 
-                    label="Propósito"
-                    value={purpose}
-                    onChange={(e) => setPurpose(e.target.value as any)}
-                  >
-                    <option value="COMBAT">Combate</option>
-                    <option value="BREEDING">Cría</option>
-                  </NexusSelect>
+                {/* Controles Flotantes Nivel 2 (Autonomous Scale) */}
+                <div className="absolute top-0 inset-x-0 flex items-center justify-between z-20 pointer-events-none" style={{ padding: 'var(--padding-inner)' }}>
+                  
+                  {/* Badge de Estado (Usando el componente oficial para heredar proporciones) */}
+                  <div className="pointer-events-auto">
+                    <NexusAutonomousButton
+                      type="button"
+                      variant="ghost"
+                      icon={isVideo ? Film : ImageIcon}
+                      className="bg-black/40 backdrop-blur-md border border-white/10 text-white shadow-none pointer-events-none"
+                    >
+                      Portada
+                    </NexusAutonomousButton>
+                  </div>
+
+                  {/* Acción de Eliminar (isIconOnly garantiza el 1:1 aspect-square) */}
+                  <div className="pointer-events-auto">
+                    <NexusAutonomousButton 
+                      type="button"
+                      variant="ghost" 
+                      isIconOnly
+                      icon={X}
+                      onClick={(e) => { e.stopPropagation(); setCoverUrl(null); setCoverFile(null); setStaticThumbUrl(null); if(coverInputRef.current) coverInputRef.current.value = ''; }}
+                      className="bg-black/40 hover:bg-rose-500 backdrop-blur-md border border-white/10 text-white shadow-none"
+                    />
+                  </div>
                 </div>
-              </>
+              </div>
             )}
-
-            {/* Status and Logistics */}
-            <div className="lg:col-span-1">
-              <NexusSelect 
-                label="Estado de Venta"
-                value={status}
-                onChange={(e) => setStatus(e.target.value as any)}
-              >
-                <option value="available">Disponible</option>
-                <option value="reserved">Reservado</option>
-                <option value="sold">Vendido</option>
-              </NexusSelect>
-            </div>
-
-            <div className="lg:col-span-2">
-              <NexusTextarea 
-                label="Descripción y Genética"
-                placeholder="Detalles adicionales, materiales o linaje..."
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={6}
-              />
-            </div>
-
+            <input type="file" ref={coverInputRef} className="hidden" accept="image/*,video/*" onChange={handleCoverUpload} />
           </div>
 
-          {isSubmitting && (
-              <div className="absolute inset-0 bg-bg-card/60 backdrop-blur-md z-50 flex items-center justify-center">
-                  <div className="flex flex-col items-center bg-bg-card p-10 border border-border-main shadow-2xl animate-in zoom-in duration-500" style={{ borderRadius: 'var(--radius-outer)', gap: 'var(--space-md)' }}>
-                      <div className="w-12 h-12 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
-                      <span className="text-label text-brand-700 uppercase tracking-[0.2em]">Guardando cambios...</span>
+          {/* 2. Bottom Content: Miniature & Gallery (Always Stacked) */}
+          <div className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
+            
+            {/* Miniature Selector (Only if Video) */}
+            {isVideo && (
+              <NexusSection
+                title="Miniatura del Video"
+                subtitle="Selecciona el fotograma para el catálogo"
+                icon={ImageIcon}
+                iconVariant="brand"
+              >
+                <div className="flex flex-col animate-in slide-in-from-top duration-500" style={{ gap: 'var(--space-md)' }}>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5" style={{ gap: 'var(--space-md)' }}>
+                    {suggestedThumbs.map((frame, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => selectSuggestedThumb(frame)}
+                        className={`relative aspect-video overflow-hidden border-2 transition-all duration-300 group
+                          ${staticThumbUrl === frame.url ? 'border-brand-500 ring-4 ring-brand-500/10 scale-[1.02]' : 'border-border-main opacity-60 hover:opacity-100 hover:border-brand-200'}
+                        `}
+                        style={{ borderRadius: 'var(--radius-inner-visual)' }}
+                      >
+                        <img src={frame.url} className="w-full h-full object-cover" alt={`Opción ${idx + 1}`} />
+                        {staticThumbUrl === frame.url && (
+                          <div className="absolute inset-0 bg-brand-500/10 flex items-center justify-center">
+                            <div className="bg-brand-500 text-white p-1 rounded-full shadow-lg">
+                              <Check size={12} strokeWidth={4} />
+                            </div>
+                          </div>
+                        )}
+                      </button>
+                    ))}
+                    
+                    {/* Manual Upload */}
+                    <button
+                      type="button"
+                      onClick={() => thumbInputRef.current?.click()}
+                      className={`relative aspect-video overflow-hidden border-2 border-dashed flex flex-col items-center justify-center transition-all duration-300 group
+                        ${staticThumbFile && !suggestedThumbs.some(f => f.url === staticThumbUrl) 
+                          ? 'border-emerald-500 bg-emerald-50 text-emerald-600' 
+                          : 'border-border-main/60 bg-bg-muted/20 hover:bg-brand-50/20 hover:border-brand-300/50 text-text-muted'}
+                      `}
+                      style={{ borderRadius: 'var(--radius-inner-visual)', gap: 'var(--space-xs)' }}
+                    >
+                      {staticThumbFile && !suggestedThumbs.some(f => f.url === staticThumbUrl) ? (
+                        <>
+                          <img src={staticThumbUrl!} className="absolute inset-0 w-full h-full object-cover opacity-20" alt="Manual" />
+                          <Check size={16} className="z-10 text-emerald-600" />
+                          <span className="text-[8px] uppercase font-black tracking-widest z-10 text-emerald-700">Manual</span>
+                        </>
+                      ) : (
+                        <>
+                          <div 
+                            className="p-2 bg-stone-100 text-stone-400 group-hover:bg-brand-100 group-hover:text-brand-500 transition-colors"
+                            style={{ borderRadius: 'var(--radius-nested-simple)' }}
+                          >
+                            <Upload size={20} strokeWidth={2} />
+                          </div>
+                          <span className="text-[8px] uppercase font-black tracking-widest text-text-muted group-hover:text-brand-600 transition-colors">Manual</span>
+                        </>
+                      )}
+                    </button>
                   </div>
+                  <input type="file" ref={thumbInputRef} className="hidden" accept="image/*" onChange={handleThumbUpload} />
+                </div>
+              </NexusSection>
+            )}
+
+            {/* Gallery Section - Organic Grid Look */}
+            <NexusSection
+              title="Galería Adicional"
+              subtitle="Multimedia secundario (Máx. 6)"
+              icon={Film}
+              iconVariant="brand"
+            >
+              <div className="flex flex-col animate-in slide-in-from-top duration-500" style={{ gap: 'var(--space-md)' }}>
+                <input type="file" ref={galleryInputRef} className="hidden" multiple accept="image/*,video/*" onChange={handleGalleryUpload} />
+                
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6" style={{ gap: 'var(--space-md)' }}>
+                  {/* Gallery Items */}
+                  {galleryUrls.map((url, idx) => (
+                    <div 
+                      key={idx} 
+                      className="relative aspect-square overflow-hidden group border border-border-main shadow-sm bg-bg-card hover:scale-[1.05] transition-transform duration-500"
+                      style={{ borderRadius: 'var(--radius-inner-visual)' }}
+                    >
+                      {isVideoUrl(url) ? (
+                        <video 
+                          src={`${url}#t=0.5`} 
+                          className="w-full h-full object-cover" 
+                          preload="metadata" 
+                          playsInline
+                        />
+                      ) : (
+                        <img src={url} className="w-full h-full object-cover" alt={`Gallery ${idx}`} />
+                      )}
+                      {isVideoUrl(url) && (
+                        <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+                            <PlayCircle className="text-white/80 w-8 h-8 drop-shadow-lg" />
+                        </div>
+                      )}
+                      <button 
+                        type="button"
+                        onClick={() => removeGalleryImage(idx)}
+                        className="absolute top-1.5 right-1.5 p-2 bg-rose-500 text-white opacity-0 group-hover:opacity-100 transition-all active:scale-90 backdrop-blur-sm z-20"
+                        style={{ borderRadius: 'var(--radius-nested-simple)' }}
+                      >
+                        <Trash2 size={12} />
+                      </button>
+                    </div>
+                  ))}
+
+                  {/* Organic Add Button (Always visible if < 6) */}
+                  {galleryUrls.length < 6 && (
+                    <button
+                      type="button"
+                      onClick={() => galleryInputRef.current?.click()}
+                      className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-border-main/60 bg-bg-muted/20 hover:bg-brand-50/20 hover:border-brand-300/50 transition-all duration-300 group"
+                      style={{ borderRadius: 'var(--radius-inner-visual)', gap: 'var(--space-xs)' }}
+                    >
+                      <div 
+                        className="p-2 bg-stone-100 text-stone-400 group-hover:bg-brand-100 group-hover:text-brand-500 transition-colors"
+                        style={{ borderRadius: 'var(--radius-nested-simple)' }}
+                      >
+                        <PlusCircle size={20} strokeWidth={2} />
+                      </div>
+                      <span className="text-[8px] uppercase font-black tracking-widest text-text-muted group-hover:text-brand-600 transition-colors">Añadir</span>
+                    </button>
+                  )}
+                </div>
               </div>
-          )}
+            </NexusSection>
+          </div>
         </div>
-      </NexusSection>
+
+        {/* RIGHT COLUMN: DETAILS (SPAN 5/12) */}
+        <div className="lg:col-span-5">
+          <NexusSection title="Detalles del Producto" subtitle="Configuración técnica" icon={productType === 'BIRD' ? Box : Package} iconVariant="brand">
+            <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
+              
+              {/* Product Type Toggle */}
+              <div className="grid grid-cols-2" style={{ gap: 'var(--space-md)' }}>
+                <button 
+                  type="button" 
+                  onClick={() => setProductType('BIRD')} 
+                  className={`flex items-center justify-center text-[10px] font-black uppercase tracking-[0.15em] transition-all border-2
+                    ${productType === 'BIRD' ? 'border-brand-500 bg-brand-50/30 text-brand-600 shadow-sm shadow-brand-500/10' : 'border-border-main bg-bg-card text-text-muted hover:border-brand-300 hover:bg-bg-muted'}
+                  `} 
+                  style={{ borderRadius: 'var(--radius-inner-visual)', gap: 'var(--space-xs)', height: 'var(--h-input)' }}
+                >
+                  <Box size={14} strokeWidth={2.5} /> Ave
+                </button>
+                <button 
+                  type="button" 
+                  onClick={() => setProductType('ITEM')} 
+                  className={`flex items-center justify-center text-[10px] font-black uppercase tracking-[0.15em] transition-all border-2
+                    ${productType === 'ITEM' ? 'border-brand-500 bg-brand-50/30 text-brand-600 shadow-sm shadow-brand-500/10' : 'border-border-main bg-bg-card text-text-muted hover:border-brand-300 hover:bg-bg-muted'}
+                  `} 
+                  style={{ borderRadius: 'var(--radius-inner-visual)', gap: 'var(--space-xs)', height: 'var(--h-input)' }}
+                >
+                  <Package size={14} strokeWidth={2.5} /> Artículo
+                </button>
+              </div>
+
+              <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
+                  <NexusInput label="Nombre del Producto *" value={name} onChange={(e) => setName(e.target.value)} />
+                  
+                  <div className="grid grid-cols-2" style={{ gap: 'var(--space-md)' }}>
+                    <NexusInput label="Precio *" type="number" icon={DollarSign} value={price} onChange={(e) => setPrice(e.target.value)} />
+                    <NexusSelect label="Estado Venta" value={status} onChange={(e) => setStatus(e.target.value as any)}>
+                      <option value="available">Disponible</option>
+                      <option value="reserved">Reservado</option>
+                      <option value="sold">Vendido</option>
+                    </NexusSelect>
+                  </div>
+
+                  <div className="grid grid-cols-2" style={{ gap: 'var(--space-md)' }}>
+                    {productType === 'BIRD' ? (
+                      <>
+                        <NexusInput label="No. Anillo *" value={ringNumber} onChange={(e) => setRingNumber(e.target.value)} />
+                        <NexusSelect label="Edad" value={age} onChange={(e) => setAge(e.target.value as any)}>
+                          <option value="STAG">Pollo</option>
+                          <option value="COCK">Gallo</option>
+                          <option value="PULLET">Polla</option>
+                          <option value="HEN">Gallina</option>
+                        </NexusSelect>
+                      </>
+                    ) : (
+                      <NexusInput label="Stock *" type="number" value={stock} onChange={(e) => setStock(e.target.value)} />
+                    )}
+                  </div>
+
+                  {productType === 'BIRD' && (
+                    <NexusSelect label="Propósito" value={purpose} onChange={(e) => setPurpose(e.target.value as any)}>
+                      <option value="COMBAT">Combate</option>
+                      <option value="BREEDING">Cría</option>
+                    </NexusSelect>
+                  )}
+
+                  <NexusTextarea label="Descripción y Genética" value={description} onChange={(e) => setDescription(e.target.value)} rows={6} />
+              </div>
+
+              {isSubmitting && (
+                <div className="flex items-center justify-center py-4 bg-brand-50 rounded-xl border border-brand-100 animate-pulse" style={{ gap: 'var(--space-sm)' }}>
+                  <div className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-label text-brand-700 uppercase tracking-widest">Guardando cambios...</span>
+                </div>
+              )}
+            </div>
+          </NexusSection>
+        </div>
+      </div>
     </form>
   );
 });

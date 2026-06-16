@@ -74,13 +74,19 @@ export const productService = {
         },
       });
 
-      if (gallery && gallery.length > 0) {
+      if (gallery && Array.isArray(gallery) && gallery.length > 0) {
         await tx.productGallery.createMany({
-          data: gallery.map((url: string) => ({
-            productId: product.id,
-            filePath: url,
-            fileType: "PHOTO",
-          })),
+          data: gallery.map((item: any) => {
+            const url = typeof item === 'string' ? item : item.url;
+            const type = (typeof item === 'object' && item.type) ? item.type : 
+                         (url.toLowerCase().match(/\.(mp4|mov|webm)$/) ? "VIDEO" : "PHOTO");
+            
+            return {
+              productId: product.id,
+              filePath: url,
+              fileType: type,
+            };
+          }),
         });
       }
 
@@ -116,10 +122,11 @@ export const productService = {
         },
       });
 
-      if (gallery !== undefined) {
+      if (gallery !== undefined && Array.isArray(gallery)) {
         // 2. Identificar archivos de la galería que se van a eliminar
         const currentGalleryUrls = currentProduct.gallery.map(g => g.filePath);
-        const newGalleryUrls = gallery as string[];
+        const newGalleryItems = gallery as any[];
+        const newGalleryUrls = newGalleryItems.map(item => typeof item === 'string' ? item : item.url);
         
         const urlsToDelete = currentGalleryUrls.filter(url => !newGalleryUrls.includes(url));
 
@@ -133,19 +140,25 @@ export const productService = {
           where: { productId: id },
         });
 
-        if (newGalleryUrls.length > 0) {
+        if (newGalleryItems.length > 0) {
           await tx.productGallery.createMany({
-            data: newGalleryUrls.map((url: string) => ({
-              productId: id,
-              filePath: url,
-              fileType: "PHOTO",
-            })),
+            data: newGalleryItems.map((item: any) => {
+              const url = typeof item === 'string' ? item : item.url;
+              const type = (typeof item === 'object' && item.type) ? item.type : 
+                           (url.toLowerCase().match(/\.(mp4|mov|webm)$/) ? "VIDEO" : "PHOTO");
+
+              return {
+                productId: id,
+                filePath: url,
+                fileType: type,
+              };
+            }),
           });
         }
       }
 
       return tx.product.findUnique({
-        where: { id },
+        where: { id: id },
         include: { gallery: true },
       });
     });

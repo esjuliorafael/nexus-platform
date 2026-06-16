@@ -9,6 +9,7 @@ import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { StorefrontIcon } from '../../components/ui/Icon';
 import { motion, AnimatePresence } from 'framer-motion';
+import { getAssetUrl } from '../../utils/formatters';
 
 type GalleryFilter = 'ALL' | 'PHOTO' | 'VIDEO';
 
@@ -111,7 +112,7 @@ function MediaCard({ item }: { item: Media }) {
       style={{ borderRadius: 'var(--sf-radius-inner)' }}
     >
       <img
-        src={item.filePath}
+        src={getAssetUrl(item.filePath)}
         className="h-full w-full object-cover transition-transform duration-1000 ease-out group-hover:scale-[1.15]"
         alt={item.title}
         loading="lazy"

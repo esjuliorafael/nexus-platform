@@ -6,6 +6,8 @@ services:
     container_name: trojes-api
     restart: always
     env_file: .env
+    environment:
+      - PORT=8080
     networks:
       - nexus-network
 

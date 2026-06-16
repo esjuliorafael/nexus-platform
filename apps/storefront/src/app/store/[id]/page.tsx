@@ -4,6 +4,7 @@ import { ShoppingBag } from 'lucide-react';
 import { ProductDetailsClient } from './ProductDetailsClient';
 import { Button } from '../../../components/ui/Button';
 import { Product } from '../../../types';
+import { getAssetUrl } from '../../../utils/formatters';
 
 interface PageProps {
   params: {
@@ -46,7 +47,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const title = `${product.name} | Nexus Store`;
   const description = product.description || `Adquiere ${product.name} al mejor precio en Nexus Store.`;
   const defaultFallbackImage = 'https://images.unsplash.com/photo-1612170153139-6f881ff067e0?w=1200&q=80';
-  const imageUrl = product.thumbnail || defaultFallbackImage;
+  const imageUrl = getAssetUrl(product.thumbnail) || defaultFallbackImage;
 
   return {
     title,
