@@ -1,10 +1,10 @@
 import React, { useRef, useMemo } from 'react';
-import { 
-  Package, Clock, CheckCircle2, Phone, MapPin, User, 
-  Calendar, DollarSign, Plane, Truck, CircleX, ChevronLeft, Layers, MessageCircle 
+import {
+  Package, Clock, CheckCircle2, Phone, MapPin, User,
+  Calendar, DollarSign, Plane, Truck, CircleX, ChevronLeft, Layers, MessageCircle
 } from 'lucide-react';
 import { Order } from '../../../types';
-import { NexusSectionButton, NexusCardButton } from '../../ui/NexusButton';
+import { NexusSectionButton } from '../../ui/NexusButton';
 import { NexusSection } from '../../ui/NexusSection';
 import { ASSET_BASE_URL, apiOrders } from '../../../api';
 
@@ -16,7 +16,7 @@ import { ASSET_BASE_URL, apiOrders } from '../../../api';
  */
 const OrderItemThumbnail = ({ item }: { item: any }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
-  
+
   const getFullUrl = (path?: string) => {
     if (!path) return '';
     if (path.startsWith('http') || path.startsWith('blob:') || path.startsWith('data:')) return path;
@@ -25,7 +25,7 @@ const OrderItemThumbnail = ({ item }: { item: any }) => {
   };
 
   const imageUrl = getFullUrl(item.imageUrl);
-  const isVideo = imageUrl.toLowerCase().split('?')[0].endsWith('.mp4') || 
+  const isVideo = imageUrl.toLowerCase().split('?')[0].endsWith('.mp4') ||
                   imageUrl.toLowerCase().split('?')[0].endsWith('.mov');
 
   const handleMouseEnter = () => {
@@ -44,7 +44,7 @@ const OrderItemThumbnail = ({ item }: { item: any }) => {
 
   if (!item.imageUrl) {
     return (
-      <div 
+      <div
         className={`w-16 h-16 shrink-0 flex items-center justify-center border ${item.type === 'BIRD' ? 'bg-brand-50 text-brand-600 border-brand-100/50' : 'bg-bg-muted text-text-muted border-border-main'}`}
         style={{ borderRadius: 'var(--radius-inner-visual)' }}
       >
@@ -54,7 +54,7 @@ const OrderItemThumbnail = ({ item }: { item: any }) => {
   }
 
   return (
-    <div 
+    <div
       className="w-16 h-16 shrink-0 overflow-hidden bg-stone-100 border border-border-main shadow-inner relative group"
       style={{ borderRadius: 'var(--radius-inner-visual)' }}
       onMouseEnter={handleMouseEnter}
@@ -71,8 +71,8 @@ const OrderItemThumbnail = ({ item }: { item: any }) => {
           preload="metadata"
         />
       ) : (
-        <img 
-          src={imageUrl} 
+        <img
+          src={imageUrl}
           alt={item.name}
           className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
         />
@@ -93,7 +93,7 @@ interface OrderDetailViewProps {
 // Utilidad para formatear fecha (YYYY-MM-DD... -> DD/MM/YYYY)
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '';
-  const pureDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr.split(' ')[0]; 
+  const pureDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr.split(' ')[0];
   const parts = pureDate.split('-');
   if (parts.length < 3) return pureDate;
   const [year, month, day] = parts;
@@ -108,8 +108,8 @@ const truncateProductName = (name: string) => {
   return `${words.slice(0, 2).join(' ')}...`;
 };
 
-export const OrderDetailView: React.FC<OrderDetailViewProps> = ({ 
-  order, 
+export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
+  order,
   onBack,
   onMarkAsPaid,
   onCancelOrder,
@@ -136,39 +136,47 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
 
   if (!order) {
     return (
-      <div className="py-20 text-center">
+      <div className="text-center" style={{ paddingBlock: 'var(--space-3xl)' }}>
         <p className="text-text-muted">No se pudo cargar la información de la orden.</p>
-        <NexusCardButton variant="secondary" onClick={onBack} icon={ChevronLeft} className="mt-4">
+        <NexusSectionButton
+          variant="secondary"
+          onClick={onBack}
+          icon={ChevronLeft}
+          style={{ marginTop: 'var(--space-md)' }}
+        >
           Volver
-        </NexusCardButton>
+        </NexusSectionButton>
       </div>
     );
   }
 
   return (
-    <div className="animate-in fade-in slide-in-from-right-4 duration-500 pb-10 flex flex-col" style={{ gap: 'var(--space-lg)' }}>
-      
+    <div
+      className="animate-in fade-in slide-in-from-right-4 duration-500 flex flex-col"
+      style={{ gap: 'var(--space-lg)', paddingBottom: 'var(--space-xl)' }}
+    >
+
       {/* Botón Volver Volante */}
       <div className="flex items-center justify-between">
-        <NexusCardButton variant="secondary" onClick={onBack} icon={ChevronLeft}>
+        <NexusSectionButton variant="secondary" onClick={onBack} icon={ChevronLeft}>
           Volver
-        </NexusCardButton>
-        <NexusCardButton 
-          onClick={handleResendWhatsApp} 
-          isLoading={isResending} 
+        </NexusSectionButton>
+        <NexusSectionButton
+          onClick={handleResendWhatsApp}
+          isLoading={isResending}
           icon={MessageCircle}
           variant="ghost"
           className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-100"
         >
           Re-enviar WhatsApp
-        </NexusCardButton>
+        </NexusSectionButton>
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3" style={{ gap: 'var(--space-lg)' }}>
-        
+
         {/* Left Column: Order Summary & Items */}
         <div className="lg:col-span-2 flex flex-col" style={{ gap: 'var(--space-lg)' }}>
-          
+
           {/* General Info Section */}
           <NexusSection
             title={`Orden #${order.id}`}
@@ -178,7 +186,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
             action={
               <div className="flex flex-col sm:flex-row items-center gap-[var(--space-sm)] w-full sm:w-auto">
                 {(order.status === 'pending' || order.status === 'paid') && (
-                  <NexusSectionButton 
+                  <NexusSectionButton
                     onClick={() => onCancelOrder(String(order.id))}
                     variant="outline"
                     icon={CircleX}
@@ -188,7 +196,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                   </NexusSectionButton>
                 )}
                 {order.status === 'pending' && (
-                  <NexusSectionButton 
+                  <NexusSectionButton
                     onClick={() => onMarkAsPaid(String(order.id))}
                     icon={CheckCircle2}
                     variant="brand"
@@ -202,21 +210,21 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
           >
             <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 'var(--space-lg)' }}>
               <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                <div className="flex items-center gap-2 text-stone-400">
+                <div className="flex items-center text-stone-400" style={{ gap: 'var(--space-xs)' }}>
                   <Calendar size={14} className="opacity-50" />
                   <span className="text-label uppercase tracking-[0.15em]">Fecha</span>
                 </div>
                 <p className="text-secondary text-text-main font-bold">{formatDate(order.date)}</p>
               </div>
               <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                <div className="flex items-center gap-2 text-stone-400">
+                <div className="flex items-center text-stone-400" style={{ gap: 'var(--space-xs)' }}>
                   <DollarSign size={14} className="opacity-50" />
                   <span className="text-label uppercase tracking-[0.15em]">Total</span>
                 </div>
                 <p className="text-secondary text-text-main font-bold">${(order.total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
               </div>
               <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                <div className="flex items-center gap-2 text-stone-400">
+                <div className="flex items-center text-stone-400" style={{ gap: 'var(--space-xs)' }}>
                   <Package size={14} className="opacity-50" />
                   <span className="text-label uppercase tracking-[0.15em]">Artículos</span>
                 </div>
@@ -234,7 +242,16 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
           >
             <div className="flex flex-col divide-y divide-border-main/50">
               {itemsList.map((item) => (
-                <div key={item?.id} className="py-6 flex items-center justify-between hover:bg-bg-muted/30 transition-colors px-2 rounded-xl" style={{ gap: 'var(--space-md)' }}>
+                <div
+                  key={item?.id}
+                  className="flex items-center justify-between hover:bg-bg-muted/30 transition-colors"
+                  style={{
+                    gap: 'var(--space-md)',
+                    paddingBlock: 'var(--space-md)',
+                    paddingInline: 'var(--space-xs)',
+                    borderRadius: 'var(--radius-inner-visual)'
+                  }}
+                >
                   <div className="flex items-center min-w-0" style={{ gap: 'var(--space-md)' }}>
                     <OrderItemThumbnail item={item} />
                     <div className="flex flex-col min-w-0" style={{ gap: 'var(--space-xs)' }}>
@@ -253,9 +270,13 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                 </div>
               ))}
             </div>
-            <div 
-              className="mt-8 p-8 bg-bg-muted/50 flex justify-between items-center border-t border-border-main"
-              style={{ borderRadius: 'var(--radius-inner-visual)' }}
+            <div
+              className="bg-bg-muted/50 flex justify-between items-center border-t border-border-main"
+              style={{
+                marginTop: 'var(--space-lg)',
+                padding: 'var(--padding-inner)',
+                borderRadius: 'var(--radius-inner-visual)'
+              }}
             >
               <span className="text-label text-text-muted uppercase tracking-[0.15em]">Total de la Orden</span>
               <span className="text-h1 text-text-main">${(order.total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
@@ -265,7 +286,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
 
         {/* Right Column: Customer & Shipping */}
         <div className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
-          
+
           {/* Customer Info Section */}
           <NexusSection
             title="Cliente"
@@ -275,7 +296,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
           >
             <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
               <div className="flex items-center" style={{ gap: 'var(--space-md)' }}>
-                <div 
+                <div
                   className="w-12 h-12 bg-bg-muted border border-border-main flex items-center justify-center text-stone-400 shrink-0"
                   style={{ borderRadius: 'var(--radius-inner-visual)' }}
                 >
@@ -288,7 +309,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
               </div>
 
               <div className="flex items-center" style={{ gap: 'var(--space-md)' }}>
-                <div 
+                <div
                   className="w-12 h-12 bg-bg-muted border border-border-main flex items-center justify-center text-stone-400 shrink-0"
                   style={{ borderRadius: 'var(--radius-inner-visual)' }}
                 >
@@ -301,7 +322,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
               </div>
 
               <div className="flex items-center" style={{ gap: 'var(--space-md)' }}>
-                <div 
+                <div
                   className="w-12 h-12 bg-bg-muted border border-border-main flex items-center justify-center text-stone-400 shrink-0"
                   style={{ borderRadius: 'var(--radius-inner-visual)' }}
                 >
@@ -316,12 +337,15 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
           </NexusSection>
 
           {/* Shipping Logic Section: Dark Variant */}
-          <div 
-            className="bg-stone-900 p-[var(--padding-outer)] text-white shadow-xl shadow-stone-900/20 border border-stone-800 flex flex-col" 
+          <div
+            className="bg-stone-900 p-[var(--padding-outer)] text-white shadow-xl shadow-stone-900/20 border border-stone-800 flex flex-col"
             style={{ borderRadius: 'var(--radius-outer)', gap: 'var(--space-lg)' }}
           >
             <div className="flex items-center" style={{ gap: 'var(--space-md)' }}>
-               <div className="w-12 h-12 bg-white/10 rounded-full flex items-center justify-center text-brand-400 border border-white/10">
+               <div
+                 className="w-12 h-12 bg-white/10 flex items-center justify-center text-brand-400 border border-white/10"
+                 style={{ borderRadius: 'var(--radius-inner-visual)' }}
+               >
                   <Truck size={24} strokeWidth={1.5} />
                </div>
                <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
@@ -329,20 +353,23 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                   <p className="text-label text-white/40 uppercase tracking-[0.15em]">Instrucciones de entrega</p>
                </div>
             </div>
-            
+
             <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
               {hasBirds && (
                 <div className="flex flex-col" style={{ gap: 'var(--space-sm)' }}>
-                  <div className="flex items-center gap-2 text-brand-400">
+                  <div className="flex items-center text-brand-400" style={{ gap: 'var(--space-xs)' }}>
                     <Plane size={16} strokeWidth={2.5} />
                     <span className="text-label uppercase tracking-[0.15em]">Envío de Aves</span>
                   </div>
-                  <div 
-                    className="bg-white/5 p-5 border border-white/10"
-                    style={{ borderRadius: 'var(--radius-inner-visual)' }}
+                  <div
+                    className="bg-white/5 border border-white/10"
+                    style={{
+                      padding: 'var(--padding-inner)',
+                      borderRadius: 'var(--radius-inner-visual)'
+                    }}
                   >
                     <p className="text-secondary leading-relaxed text-stone-300">
-                      {hasItems 
+                      {hasItems
                         ? `El envío se realizará al aeropuerto o terminal más cercana al estado de ${order.customerState}.`
                         : (order.customerAddress || `El envío se realizará al aeropuerto o terminal más cercana al estado de ${order.customerState}.`)
                       }
@@ -353,15 +380,18 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
 
               {hasItems && (
                 <div className="flex flex-col" style={{ gap: 'var(--space-sm)' }}>
-                  <div className="flex items-center gap-2 text-blue-400">
+                  <div className="flex items-center text-blue-400" style={{ gap: 'var(--space-xs)' }}>
                     <Truck size={16} strokeWidth={2.5} />
                     <span className="text-label uppercase tracking-[0.15em]">Envío de Artículos</span>
                   </div>
-                  <div 
-                    className="bg-white/5 p-5 border border-white/10"
-                    style={{ borderRadius: 'var(--radius-inner-visual)' }}
+                  <div
+                    className="bg-white/5 border border-white/10"
+                    style={{
+                      padding: 'var(--padding-inner)',
+                      borderRadius: 'var(--radius-inner-visual)'
+                    }}
                   >
-                    <p className="text-label text-white/30 uppercase tracking-[0.15em] mb-1.5">Dirección Completa</p>
+                    <p className="text-label text-white/30 uppercase tracking-[0.15em]" style={{ marginBottom: 'var(--space-xs)' }}>Dirección Completa</p>
                     <p className="text-secondary leading-relaxed text-stone-300">
                       {order.customerAddress || 'No se proporcionó dirección completa.'}
                     </p>

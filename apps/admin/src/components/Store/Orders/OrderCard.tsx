@@ -1,9 +1,21 @@
-import React, { useRef, useMemo } from 'react';
-import { 
-  Package, Clock, CheckCircle2, CircleX, ChevronRight, Check, 
-  Hash, MapPin, Calendar, Layers, Bird, ShoppingBag 
+import React, { useMemo, useRef } from 'react';
+import {
+  Bird,
+  Calendar,
+  Check,
+  CheckCircle2,
+  ChevronRight,
+  CircleX,
+  Clock,
+  Hash,
+  Layers,
+  MapPin,
+  Package,
+  ShoppingBag,
+  type LucideIcon,
 } from 'lucide-react';
 import { Order } from '../../../types';
+import { NexusAutonomousBadge, type NexusBadgeVariant } from '../../ui/NexusBadge';
 import { NexusAutonomousButton } from '../../ui/NexusButton';
 import { NexusAutonomousCard } from '../../ui/NexusCard';
 import { NexusAutonomousIcon } from '../../ui/NexusIcon';
@@ -16,43 +28,69 @@ interface OrderCardProps {
   style?: React.CSSProperties;
 }
 
-// Mapa de Abreviaturas de Estados (MX)
 const getStateAbbr = (stateName: string) => {
   const map: Record<string, string> = {
-    'Aguascalientes': 'Ags.', 'Baja California': 'B.C.', 'Baja California Sur': 'B.C.S.',
-    'Campeche': 'Camp.', 'Chiapas': 'Chis.', 'Chihuahua': 'Chih.',
-    'Ciudad de México': 'CDMX', 'Coahuila': 'Coah.', 'Colima': 'Col.',
-    'Durango': 'Dgo.', 'Guanajuato': 'Gto.', 'Guerrero': 'Gro.',
-    'Hidalgo': 'Hgo.', 'Jalisco': 'Jal.', 'México': 'Edo. Méx.',
-    'Michoacán': 'Mich.', 'Morelos': 'Mor.', 'Nayarit': 'Nay.',
-    'Nuevo León': 'N.L.', 'Oaxaca': 'Oax.', 'Puebla': 'Pue.',
-    'Querétaro': 'Qro.', 'Quintana Roo': 'Q. Roo', 'San Luis Potosí': 'S.L.P.',
-    'Sinaloa': 'Sin.', 'Sonora': 'Son.', 'Tabasco': 'Tab.',
-    'Tamaulipas': 'Tamps.', 'Tlaxcala': 'Tlax.', 'Veracruz': 'Ver.',
-    'Yucatán': 'Yuc.', 'Zacatecas': 'Zac.'
+    Aguascalientes: 'Ags.',
+    'Baja California': 'B.C.',
+    'Baja California Sur': 'B.C.S.',
+    Campeche: 'Camp.',
+    Chiapas: 'Chis.',
+    Chihuahua: 'Chih.',
+    'Ciudad de Mexico': 'CDMX',
+    'Ciudad de México': 'CDMX',
+    Coahuila: 'Coah.',
+    Colima: 'Col.',
+    Durango: 'Dgo.',
+    Guanajuato: 'Gto.',
+    Guerrero: 'Gro.',
+    Hidalgo: 'Hgo.',
+    Jalisco: 'Jal.',
+    Mexico: 'Edo. Mex.',
+    México: 'Edo. Méx.',
+    Michoacan: 'Mich.',
+    Michoacán: 'Mich.',
+    Morelos: 'Mor.',
+    Nayarit: 'Nay.',
+    'Nuevo Leon': 'N.L.',
+    'Nuevo León': 'N.L.',
+    Oaxaca: 'Oax.',
+    Puebla: 'Pue.',
+    Queretaro: 'Qro.',
+    Querétaro: 'Qro.',
+    'Quintana Roo': 'Q. Roo',
+    'San Luis Potosi': 'S.L.P.',
+    Sinaloa: 'Sin.',
+    Sonora: 'Son.',
+    Tabasco: 'Tab.',
+    Tamaulipas: 'Tamps.',
+    Tlaxcala: 'Tlax.',
+    Veracruz: 'Ver.',
+    Yucatan: 'Yuc.',
+    Yucatán: 'Yuc.',
+    Zacatecas: 'Zac.',
   };
-  return map[stateName] || stateName.substring(0, 3) + '.';
+
+  return map[stateName] || `${stateName.substring(0, 3)}.`;
 };
 
-// Utilidad para formatear fecha (YYYY-MM-DD... -> DD/MM/YYYY)
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '';
-  const pureDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr.split(' ')[0]; 
+  const pureDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr.split(' ')[0];
   const parts = pureDate.split('-');
   if (parts.length < 3) return pureDate;
   const [year, month, day] = parts;
   return `${day}/${month}/${year}`;
 };
 
-export const OrderCard: React.FC<OrderCardProps> = ({ 
-  order, 
-  onViewDetail, 
-  onMarkAsPaid, 
+export const OrderCard: React.FC<OrderCardProps> = ({
+  order,
+  onViewDetail,
+  onMarkAsPaid,
   onCancelOrder,
-  style
+  style,
 }) => {
-  // --- Double Click/Tap Logic ---
   const lastTap = useRef<number>(0);
+
   const handleCardInteraction = () => {
     const now = Date.now();
     if (now - lastTap.current < 300) {
@@ -61,55 +99,60 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     lastTap.current = now;
   };
 
-  // --- Lógica de Contenido ---
   const orderType = useMemo(() => {
     const items = order.items || [];
-    const hasBirds = items.some(i => i.type?.toUpperCase() === 'BIRD');
-    const hasItems = items.some(i => i.type?.toUpperCase() === 'ITEM');
+    const hasBirds = items.some((item) => item.type?.toUpperCase() === 'BIRD');
+    const hasItems = items.some((item) => item.type?.toUpperCase() === 'ITEM');
 
-    if (hasBirds && hasItems) return { label: 'Mixto', icon: <Layers size={10} strokeWidth={2.5} />, mainIcon: Layers };
-    if (hasBirds) return { label: 'Aves', icon: <Bird size={10} strokeWidth={2.5} />, mainIcon: Bird };
-    return { label: 'Artículos', icon: <ShoppingBag size={10} strokeWidth={2.5} />, mainIcon: ShoppingBag };
+    if (hasBirds && hasItems) return { label: 'Mixto', icon: Layers, mainIcon: Layers };
+    if (hasBirds) return { label: 'Aves', icon: Bird, mainIcon: Bird };
+    return { label: 'Artículos', icon: ShoppingBag, mainIcon: ShoppingBag };
   }, [order.items]);
 
-  // --- Configuración de Estados ---
-  const statusConfig = useMemo(() => {
+  const statusConfig = useMemo<{
+    cardOpacity: string;
+    iconVariant: 'emerald' | 'brand' | 'muted';
+    badgeVariant: NexusBadgeVariant;
+    icon: LucideIcon;
+    label: string;
+    showStatusPill: boolean;
+  }>(() => {
     switch (order.status) {
-      case 'paid': 
-        return { 
+      case 'paid':
+        return {
           cardOpacity: '',
-          iconVariant: 'emerald' as const,
-          pillStyle: 'bg-emerald-50 text-emerald-600 border-emerald-100', 
-          icon: <CheckCircle2 size={14} strokeWidth={2.5} />,
+          iconVariant: 'emerald',
+          badgeVariant: 'success',
+          icon: CheckCircle2,
           label: 'Pagada',
-          showStatusPill: true
+          showStatusPill: true,
         };
-      case 'pending': 
-        return { 
+      case 'pending':
+        return {
           cardOpacity: '',
-          iconVariant: 'brand' as const,
-          pillStyle: 'bg-amber-50 text-amber-600 border-amber-100', 
-          icon: <Clock size={14} strokeWidth={2.5} />,
+          iconVariant: 'brand',
+          badgeVariant: 'warning',
+          icon: Clock,
           label: 'Pendiente',
-          showStatusPill: false
+          showStatusPill: false,
         };
-      case 'cancelled': 
-        return { 
+      case 'cancelled':
+        return {
           cardOpacity: 'opacity-70 grayscale-[0.5]',
-          iconVariant: 'muted' as const,
-          pillStyle: 'bg-rose-50 text-rose-600 border-rose-100', 
-          icon: <CircleX size={14} strokeWidth={2.5} />,
+          iconVariant: 'muted',
+          badgeVariant: 'danger',
+          icon: CircleX,
           label: 'Cancelada',
-          showStatusPill: true
+          showStatusPill: true,
         };
-      default: 
-        return { 
+      default:
+        return {
           cardOpacity: '',
-          iconVariant: 'muted' as const,
-          pillStyle: 'bg-bg-muted text-text-muted border-border-main', 
-          icon: <Package size={14} strokeWidth={2.5} />,
+          iconVariant: 'muted',
+          badgeVariant: 'muted',
+          icon: Package,
           label: order.status,
-          showStatusPill: false
+          showStatusPill: false,
         };
     }
   }, [order.status]);
@@ -121,145 +164,138 @@ export const OrderCard: React.FC<OrderCardProps> = ({
       className={`group ${statusConfig.cardOpacity} animate-in fade-in duration-500`}
       style={style}
       customSwipeLeft={
-        <NexusAutonomousButton 
+        <NexusAutonomousButton
           onClick={() => onMarkAsPaid(order.id)}
           variant="success"
-          className="w-full h-full rounded-none flex flex-col items-center justify-center gap-1"
+          className="h-full w-full flex-col rounded-none"
           isIconOnly
           icon={Check}
-        >
-          <span className="text-[10px] font-black uppercase tracking-widest text-white mt-1">Pagada</span>
-        </NexusAutonomousButton>
+        />
       }
       customSwipeRight={
-        <NexusAutonomousButton 
+        <NexusAutonomousButton
           onClick={() => onCancelOrder(order.id)}
           variant="danger"
-          className="w-full h-full rounded-none flex flex-col items-center justify-center gap-1"
+          className="h-full w-full flex-col rounded-none"
           isIconOnly
           icon={CircleX}
-        >
-          <span className="text-[10px] font-black uppercase tracking-widest text-white mt-1">Cancelar</span>
-        </NexusAutonomousButton>
+        />
       }
     >
-      <div 
+      <div
         onClick={handleCardInteraction}
         onDoubleClick={() => onViewDetail(order)}
-        className="flex flex-row items-center w-full cursor-pointer select-none"
+        className="flex w-full cursor-pointer select-none flex-row items-center"
         style={{ gap: 'var(--space-md)' }}
       >
-        
-        {/* Thumbnail: Icono inteligente (Nivel 2 Radius) */}
-        <NexusAutonomousIcon 
-          icon={orderType.mainIcon} 
+        <NexusAutonomousIcon
+          icon={orderType.mainIcon}
           variant={statusConfig.iconVariant}
           isMuted={order.status === 'cancelled'}
         />
 
-        {/* Content Section */}
-        <div className="flex-1 min-w-0 flex flex-col lg:flex-row lg:items-center" style={{ gap: 'var(--space-md)' }}>
-          
-          {/* Block 1: Info Principal */}
-          <div className="flex-1 min-w-0 flex flex-col justify-center" style={{ gap: 'var(--space-xs)' }}>
-            <div className="flex items-center gap-2">
-              <div className="flex items-center" style={{ gap: 'var(--space-sm)' }}>
-                {/* Píldora de Tipo */}
-                <div 
-                  className="flex items-center gap-1.5 px-2 py-1 bg-bg-muted/80 text-text-muted border border-border-main/50 backdrop-blur-sm"
-                  style={{ borderRadius: 'var(--radius-card-nested)' }}
-                >
-                  {orderType.icon}
-                  <span className="text-label uppercase tracking-[0.15em]">{orderType.label}</span>
-                </div>
-                {/* Píldora de ID */}
-                <div 
-                  className="flex items-center gap-1.5 px-2 py-1 bg-brand-50/80 text-brand-600 border border-brand-100/50 backdrop-blur-sm"
-                  style={{ borderRadius: 'var(--radius-card-nested)' }}
-                >
-                  <Hash size={10} strokeWidth={2.5} />
-                  <span className="text-label uppercase tracking-[0.15em]">{order.id}</span>
-                </div>
-              </div>
+        <div className="flex min-w-0 flex-1 flex-col lg:flex-row lg:items-center" style={{ gap: 'var(--space-md)' }}>
+          <div className="flex min-w-0 flex-1 flex-col justify-center" style={{ gap: 'var(--space-sm)' }}>
+            <div className="flex items-center" style={{ gap: 'var(--space-sm)' }}>
+              <NexusAutonomousBadge
+                variant="muted"
+                icon={orderType.icon}
+                className="border-border-main/50 bg-bg-muted/80 backdrop-blur-sm"
+              >
+                {orderType.label}
+              </NexusAutonomousBadge>
+              <NexusAutonomousBadge
+                variant="brand"
+                icon={Hash}
+                className="border-brand-100/50 bg-brand-50/80 backdrop-blur-sm"
+              >
+                {order.id}
+              </NexusAutonomousBadge>
             </div>
-            
-            <h3 className="text-h2 text-text-main truncate mt-1 font-bold">
-              {order.customer}
-            </h3>
+
+            <h3 className="truncate text-h2 font-bold text-text-main">{order.customer}</h3>
           </div>
 
-          {/* Block 2: Metadata */}
-          <div className="flex flex-row items-center shrink-0 lg:border-l lg:border-border-main lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-lg)' }}>
-            {/* Columna Fecha */}
+          <div className="flex shrink-0 flex-row items-center lg:border-l lg:border-border-main lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-lg)' }}>
             <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
               <span className="text-label uppercase tracking-[0.15em] text-stone-400">Fecha</span>
-              <div className="flex items-center gap-1.5 text-secondary text-text-main font-bold">
+              <div className="flex items-center text-secondary font-bold text-text-main" style={{ gap: 'var(--space-xs)' }}>
                 <Calendar size={12} className="text-stone-300" strokeWidth={2.5} />
                 {formatDate(order.date)}
               </div>
             </div>
-            
-            {/* Columna Ubicación — ocultar en mobile */}
-            <div className="hidden sm:flex flex-col" style={{ gap: 'var(--space-xs)' }}>
+
+            <div className="hidden flex-col sm:flex" style={{ gap: 'var(--space-xs)' }}>
               <span className="text-label uppercase tracking-[0.15em] text-stone-400">Destino</span>
-              <div className="flex items-center gap-1.5 text-secondary text-text-main capitalize font-bold">
+              <div className="flex items-center text-secondary font-bold capitalize text-text-main" style={{ gap: 'var(--space-xs)' }}>
                 <MapPin size={12} className="text-stone-300" strokeWidth={2.5} />
                 {getStateAbbr(order.customerState)}
               </div>
             </div>
 
-            {/* Columna Precio */}
-            <div className="flex flex-col items-end lg:border-l lg:border-border-main lg:pl-[var(--space-md)] lg:min-w-[120px]" style={{ gap: 'var(--space-xs)' }}>
+            <div className="flex flex-col items-end lg:min-w-[120px] lg:border-l lg:border-border-main lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-xs)' }}>
               <span className="text-label uppercase tracking-[0.15em] text-stone-400">Total</span>
-              <div className="flex items-baseline text-h1 text-text-main font-black">
-                <span className="text-secondary mr-0.5 opacity-50">$</span>
+              <div className="flex items-baseline text-h1 font-black text-text-main">
+                <span className="mr-0.5 text-secondary opacity-50">$</span>
                 {order.total.toLocaleString('es-MX', { minimumFractionDigits: 0 })}
               </div>
             </div>
           </div>
 
-          {/* Block 3: Desktop Status & Actions */}
-          <div className="flex items-center justify-between lg:justify-end shrink-0 lg:border-l lg:border-border-main lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-sm)' }}>
+          <div className="flex shrink-0 items-center justify-between lg:justify-end lg:border-l lg:border-border-main lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-sm)' }}>
             {statusConfig.showStatusPill && (
-              <div 
-                className={`hidden sm:flex px-4 py-2 border items-center shadow-sm dark:shadow-none transition-colors duration-500 ${statusConfig.pillStyle}`}
-                style={{ borderRadius: 'var(--radius-card-inner)', gap: 'var(--space-sm)' }}
-              >
-                {statusConfig.icon}
-                <span className="text-label uppercase tracking-[0.15em] font-black">{statusConfig.label}</span>
+              <div className="hidden sm:block">
+                <NexusAutonomousBadge
+                  variant={statusConfig.badgeVariant}
+                  icon={statusConfig.icon}
+                  className="shadow-sm transition-colors duration-500 dark:shadow-none"
+                >
+                  {statusConfig.label}
+                </NexusAutonomousBadge>
               </div>
             )}
 
-            <div className="hidden sm:flex items-center ml-auto sm:ml-0" style={{ gap: 'var(--space-sm)' }}>
+            <div className="ml-auto hidden items-center sm:ml-0 sm:flex" style={{ gap: 'var(--space-sm)' }}>
               {order.status === 'pending' && (
-                <NexusAutonomousButton 
-                  onClick={(e) => { e.stopPropagation(); onMarkAsPaid(order.id); }}
+                <NexusAutonomousButton
+                  density="compact"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onMarkAsPaid(order.id);
+                  }}
                   variant="success"
                   isIconOnly
                   icon={Check}
-                  title="Marcar Pagada"
+                  title="Marcar pagada"
                 />
               )}
               {(order.status === 'pending' || order.status === 'paid') && (
-                <NexusAutonomousButton 
-                  onClick={(e) => { e.stopPropagation(); onCancelOrder(order.id); }}
+                <NexusAutonomousButton
+                  density="compact"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onCancelOrder(order.id);
+                  }}
                   variant="secondary"
                   isIconOnly
                   icon={CircleX}
-                  className="hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100"
+                  className="hover:border-rose-100 hover:bg-rose-50 hover:text-rose-600"
                   title="Cancelar"
                 />
               )}
-              <NexusAutonomousButton 
-                onClick={(e) => { e.stopPropagation(); onViewDetail(order); }}
+              <NexusAutonomousButton
+                density="compact"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  onViewDetail(order);
+                }}
                 variant="dark"
                 isIconOnly
                 icon={ChevronRight}
-                title="Ver Detalles"
+                title="Ver detalles"
               />
             </div>
           </div>
-
         </div>
       </div>
     </NexusAutonomousCard>

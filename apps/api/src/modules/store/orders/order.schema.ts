@@ -20,3 +20,7 @@ export const createOrderSchema = z.object({
 export const updateOrderStatusSchema = z.object({
   status: orderStatusEnum,
 });
+
+export const markOrdersReadSchema = z.object({
+  ids: z.array(z.number().int().positive()).min(1).max(200),
+});

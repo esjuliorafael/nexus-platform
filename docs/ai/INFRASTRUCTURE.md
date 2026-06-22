@@ -38,10 +38,10 @@ Usar un contenedor atómico para evitar conflictos de variables de entorno con o
 
 ```bash
 # Para Store
-docker run --rm --network nexus-network -e DATABASE_URL="postgres://${TENANT}:FraP0Ps7yTKAVkyM@nexus-postgres-global:5432/${TENANT}_store" esjuliorafael/nexus-api:latest sh -c "cd packages/db && pnpm prisma db push --schema=prisma/store/schema.prisma --accept-data-loss"
+docker run --rm --network nexus-network -e DATABASE_URL="postgres://${TENANT}:FraP0Ps7yTKAVkyM@nexus-postgres-global:5432/${TENANT}_store" esjuliorafael/nexus-api:latest sh -c "pnpm --dir packages/db exec prisma db push --schema=prisma/store/schema.prisma --accept-data-loss"
 
 # Para Raffle
-docker run --rm --network nexus-network -e RAFFLE_DATABASE_URL="postgres://${TENANT}:FraP0Ps7yTKAVkyM@nexus-postgres-global:5432/${TENANT}_raffle" esjuliorafael/nexus-api:latest sh -c "cd packages/db && pnpm prisma db push --schema=prisma/raffle/schema.prisma --accept-data-loss"
+docker run --rm --network nexus-network -e RAFFLE_DATABASE_URL="postgres://${TENANT}:FraP0Ps7yTKAVkyM@nexus-postgres-global:5432/${TENANT}_raffle" esjuliorafael/nexus-api:latest sh -c "DATABASE_URL=\$RAFFLE_DATABASE_URL pnpm --dir packages/db exec prisma db push --schema=prisma/raffle/schema.prisma --accept-data-loss"
 ```
 
 ### Paso 3: Usuario Maestro (Clonación de Hash)
@@ -81,14 +81,14 @@ Cada cliente utiliza múltiples bases de datos físicas dentro del motor global 
 ### Protocolo de Migraciones
 Prisma no detecta automáticamente cambios en múltiples esquemas durante el build de Docker. Si se añaden tablas a las Rifas, se debe ejecutar manualmente en el VPS:
 ```bash
-docker exec -it manzana-api sh -c "DATABASE_URL=\$RAFFLE_DATABASE_URL pnpm --filter @nexus/db exec prisma migrate deploy --schema=prisma/raffle/schema.prisma"
+docker exec -it manzana-api sh -c "DATABASE_URL=\$RAFFLE_DATABASE_URL pnpm --dir packages/db exec prisma migrate deploy --schema=prisma/raffle/schema.prisma"
 ```
 
 ## 3. Flujo de CI/CD
 
 El despliegue sigue este camino:
 1. **GitHub:** Push a la rama `master`.
-2. **GitHub Actions:** Construye imágenes Docker y las sube a Docker Hub (`esjuliorafael/nexus-*`).
+2. **GitHub Actions:** Construye imágenes Docker y las sube a Docker Hub (`esjuliorafael/nexus-*`) con tags `latest` y SHA de commit para rollback.
 3. **VPS (Manual):**
    ```bash
    cd /home/nexus/manzana

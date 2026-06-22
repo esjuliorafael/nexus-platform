@@ -141,7 +141,10 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
       {isLoading ? (
         <NexusSpinner label="Actualizando Inventario..." />
       ) : filtered.length > 0 ? (
-        <div className="flex flex-col gap-5 max-w-6xl mx-auto pb-32 sm:pb-12">
+        <div
+          className="flex flex-col max-w-6xl mx-auto"
+          style={{ gap: 'var(--space-md)', paddingBottom: 'var(--space-3xl)' }}
+        >
           {paginatedProducts.map((product, idx) => (
             <div 
               key={product.id}

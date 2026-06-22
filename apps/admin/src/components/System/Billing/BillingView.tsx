@@ -2,13 +2,13 @@ import React, { useState, useImperativeHandle, forwardRef, useEffect } from 'rea
 import { Server, Globe, Wrench, Receipt, Plus, Trash2, CheckCircle2, AlertCircle, Tag, Calendar as CalendarIcon, Pencil, Save, Check, ShieldCheck, Box, DollarSign, Wallet, History, FileText } from 'lucide-react';
 import { AnnualService, ExtraCharge, BillingPayment } from '../../../types';
 import { apiBilling } from '../../../api';
-import { NexusSectionButton, NexusCardButton } from '../../ui/NexusButton';
+import { NexusSectionButton, NexusCardButton, NexusAutonomousButton } from '../../ui/NexusButton';
 import { NexusInput, NexusSelect, NexusTextarea } from '../../ui/NexusInputs';
 import { EmptyState } from '../../ui/EmptyState';
 import { NexusSection } from '../../ui/NexusSection';
 import { NexusHero } from '../../ui/NexusHero';
 import { NexusSectionCard } from '../../ui/NexusCard';
-import { NexusModal } from '../../ui/NexusModal';
+import { NexusModal, NexusModalActions } from '../../ui/NexusModal';
 
 export interface BillingViewRef {
   handleSaveConfig: () => void;
@@ -43,12 +43,12 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
     const [services, setServices] = useState<AnnualService[]>([]);
     const [extraCharges, setExtraCharges] = useState<ExtraCharge[]>([]);
     const [payments, setPayments] = useState<BillingPayment[]>([]);
-    
+
     // Modales
     const [isServiceModalOpen, setIsServiceModalOpen] = useState(false);
     const [editingService, setEditingService] = useState<AnnualService | null>(null);
-    const [serviceFormData, setServiceFormData] = useState({ 
-      concept: '', description: '', amount: '', contractDate: '', dueDate: '', iconType: 'default' 
+    const [serviceFormData, setServiceFormData] = useState({
+      concept: '', description: '', amount: '', contractDate: '', dueDate: '', iconType: 'default'
     });
 
     const [isChargeModalOpen, setIsChargeModalOpen] = useState(false);
@@ -57,8 +57,8 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
 
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [editingPayment, setEditingPayment] = useState<BillingPayment | null>(null);
-    const [paymentFormData, setPaymentFormData] = useState({ 
-      concept: '', amount: '', notes: '', paymentDate: new Date().toISOString().split('T')[0] 
+    const [paymentFormData, setPaymentFormData] = useState({
+      concept: '', amount: '', notes: '', paymentDate: new Date().toISOString().split('T')[0]
     });
 
     // Permisos
@@ -90,13 +90,13 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
     const handleOpenServiceModal = (service?: AnnualService) => {
       if (service) {
         setEditingService(service);
-        setServiceFormData({ 
-          concept: service.concept, 
-          description: service.description || '', 
-          amount: service.amount.toString(), 
-          contractDate: formatDateForInput(service.contractDate), 
-          dueDate: formatDateForInput(service.dueDate), 
-          iconType: service.iconType 
+        setServiceFormData({
+          concept: service.concept,
+          description: service.description || '',
+          amount: service.amount.toString(),
+          contractDate: formatDateForInput(service.contractDate),
+          dueDate: formatDateForInput(service.dueDate),
+          iconType: service.iconType
         });
       } else {
         setEditingService(null);
@@ -118,7 +118,7 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
         };
         if (editingService) await apiBilling.updateService(editingService.id, payload);
         else await apiBilling.createService(payload);
-        
+
         showToast(editingService ? 'Servicio actualizado' : 'Servicio añadido');
         loadBillingData();
         setIsServiceModalOpen(false);
@@ -175,7 +175,7 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
         };
         if (editingCharge) await apiBilling.updateCharge(editingCharge.id, payload);
         else await apiBilling.createCharge(payload);
-        
+
         showToast(editingCharge ? 'Cargo actualizado' : 'Cargo añadido');
         loadBillingData();
         setIsChargeModalOpen(false);
@@ -216,21 +216,21 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
       // Si recibimos un evento (del botón) o nada, es un nuevo abono
       if (!payment || 'nativeEvent' in payment) {
         setEditingPayment(null);
-        setPaymentFormData({ 
-          concept: '', 
-          amount: '', 
-          notes: '', 
-          paymentDate: new Date().toISOString().split('T')[0] 
+        setPaymentFormData({
+          concept: '',
+          amount: '',
+          notes: '',
+          paymentDate: new Date().toISOString().split('T')[0]
         });
       } else {
         // Es un objeto BillingPayment real para editar
         const p = payment as BillingPayment;
         setEditingPayment(p);
-        setPaymentFormData({ 
-          concept: p.concept, 
-          amount: p.amount.toString(), 
-          notes: p.notes || '', 
-          paymentDate: formatDateForInput(p.paymentDate) 
+        setPaymentFormData({
+          concept: p.concept,
+          amount: p.amount.toString(),
+          notes: p.notes || '',
+          paymentDate: formatDateForInput(p.paymentDate)
         });
       }
       setIsPaymentModalOpen(true);
@@ -245,7 +245,7 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
           paymentDate: paymentFormData.paymentDate,
           notes: paymentFormData.notes || null
         };
-        
+
         if (editingPayment) {
           await apiBilling.updatePayment(editingPayment.id, payload);
           showToast('Abono actualizado con éxito', 'success');
@@ -253,7 +253,7 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
           await apiBilling.createPayment(payload);
           showToast('Abono registrado con éxito', 'success');
         }
-        
+
         loadBillingData();
         setIsPaymentModalOpen(false);
       } catch (error) {
@@ -282,10 +282,10 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
     // --- CÁLCULOS ---
     const totalObligations = services.filter(s => !s.isPaid).reduce((acc, s) => acc + s.amount, 0) +
                              extraCharges.filter(c => c.status === 'pending').reduce((acc, c) => acc + c.amount, 0);
-    
+
     const totalAbonado = payments.reduce((acc, p) => acc + p.amount, 0);
     const netBalance = Math.max(0, totalObligations - totalAbonado);
-    
+
     const nextDueDate = services.filter(s => !s.isPaid && s.dueDate)
                                 .sort((a, b) => new Date(a.dueDate).getTime() - new Date(b.dueDate).getTime())[0]?.dueDate;
 
@@ -309,7 +309,7 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
 
     return (
       <div key="billing-view-content" className="space-y-8 pb-12 animate-in fade-in duration-300">
-        
+
         <NexusHero
           title={`$${netBalance.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`}
           subtitle={netBalance > 0 ? 'Saldo Neto Pendiente' : 'Cuenta Liquidada'}
@@ -326,9 +326,9 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
           icon={Server}
           delay="200ms"
           action={isSuperadmin && (
-            <NexusSectionButton 
-              onClick={() => handleOpenServiceModal()} 
-              icon={Plus} 
+            <NexusSectionButton
+              onClick={() => handleOpenServiceModal()}
+              icon={Plus}
               variant="brand"
             >
               Nuevo Servicio
@@ -348,8 +348,8 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
                   isMuted={service.isPaid}
                   subtitle={
                     <div className="flex items-center gap-1.5 text-secondary">
-                      <CalendarIcon size={12} /> 
-                      {service.contractDate ? formatDate(service.contractDate) : 'S/F'} — 
+                      <CalendarIcon size={12} />
+                      {service.contractDate ? formatDate(service.contractDate) : 'S/F'} —
                       <span className={service.isPaid ? '' : 'text-brand-500 font-bold'}>
                         {service.dueDate ? formatDate(service.dueDate) : 'S/F'}
                       </span>
@@ -365,7 +365,7 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
                     </>
                   }
                   actions={isSuperadmin && (
-                    <NexusCardButton 
+                    <NexusCardButton
                       onClick={() => toggleServiceStatus(service.id)}
                       variant={service.isPaid ? 'secondary' : 'brand'}
                     >
@@ -388,9 +388,9 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
           icon={Receipt}
           delay="400ms"
           action={isSuperadmin && (
-            <NexusSectionButton 
-              onClick={() => handleOpenChargeModal()} 
-              icon={Plus} 
+            <NexusSectionButton
+              onClick={() => handleOpenChargeModal()}
+              icon={Plus}
               variant="brand"
             >
               Nuevo Cargo
@@ -423,7 +423,7 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
                     </>
                   }
                   actions={isSuperadmin && (
-                    <NexusCardButton 
+                    <NexusCardButton
                       onClick={() => toggleChargeStatus(charge.id)}
                       variant={charge.status === 'paid' ? 'secondary' : 'brand'}
                     >
@@ -446,9 +446,9 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
           icon={Wallet}
           delay="600ms"
           action={isSuperadmin && (
-            <NexusSectionButton 
-              onClick={handleOpenPaymentModal} 
-              icon={Plus} 
+            <NexusSectionButton
+              onClick={handleOpenPaymentModal}
+              icon={Plus}
               variant="success"
             >
               Nuevo Abono
@@ -493,11 +493,13 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
         {/* MODAL SERVICIO */}
         <NexusModal
           isOpen={isServiceModalOpen}
-          title={editingService ? 'Editar Servicio' : 'Nuevo Servicio'}
+          title={editingService ? serviceFormData.concept || 'Servicio anual' : 'Servicio anual'}
+          eyebrow={editingService ? 'Editar Servicio' : 'Nuevo Servicio'}
+          icon={Server}
           onClose={() => setIsServiceModalOpen(false)}
         >
-                <form onSubmit={handleSaveService} className="space-y-6">
-                  <div className="space-y-4">
+                <form onSubmit={handleSaveService} className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
+                  <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
                     <NexusSelect label="Icono" value={serviceFormData.iconType} onChange={(e) => setServiceFormData({...serviceFormData, iconType: e.target.value})}>
                       <option value="default">General</option>
                       <option value="globe">Web/SSL</option>
@@ -508,95 +510,99 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
                     <NexusInput label="Concepto" required value={serviceFormData.concept} onChange={(e) => setServiceFormData({...serviceFormData, concept: e.target.value})} icon={Tag} />
                     <NexusTextarea label="Descripción" rows={2} value={serviceFormData.description} onChange={(e) => setServiceFormData({...serviceFormData, description: e.target.value})} />
                     <NexusInput label="Monto (MXN)" type="number" required step="0.01" value={serviceFormData.amount} onChange={(e) => setServiceFormData({...serviceFormData, amount: e.target.value})} icon={DollarSign} />
-                    <div className="grid grid-cols-2 gap-4">
+                    <div className="grid grid-cols-2" style={{ gap: 'var(--space-md)' }}>
                       <NexusInput label="Inicio" type="date" value={serviceFormData.contractDate} onChange={(e) => setServiceFormData({...serviceFormData, contractDate: e.target.value})} />
                       <NexusInput label="Vencimiento" type="date" value={serviceFormData.dueDate} onChange={(e) => setServiceFormData({...serviceFormData, dueDate: e.target.value})} />
                     </div>
                   </div>
-                  <div className="flex gap-4 pt-4">
-                    <NexusSectionButton 
-                      type="button" 
-                      variant="secondary" 
-                      onClick={() => setIsServiceModalOpen(false)} 
+                  <NexusModalActions>
+                    <NexusAutonomousButton
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setIsServiceModalOpen(false)}
                       className="flex-1"
                     >
-                      Cerrar
-                    </NexusSectionButton>
-                    <NexusSectionButton 
-                      type="submit" 
-                      className="flex-[2]" 
+                      Cancelar
+                    </NexusAutonomousButton>
+                    <NexusAutonomousButton
+                      type="submit"
+                      className="flex-[2]"
                       icon={editingService ? Save : Check}
                       variant="brand"
                     >
                       {editingService ? 'Guardar' : 'Crear'}
-                    </NexusSectionButton>
-                  </div>
+                    </NexusAutonomousButton>
+                  </NexusModalActions>
                 </form>
         </NexusModal>
 
         {/* MODAL CARGO */}
         <NexusModal
           isOpen={isChargeModalOpen}
-          title={editingCharge ? 'Editar Cargo' : 'Nuevo Cargo'}
+          title={editingCharge ? chargeFormData.concept || 'Cargo adicional' : 'Cargo adicional'}
+          eyebrow={editingCharge ? 'Editar Cargo' : 'Nuevo Cargo'}
+          icon={Receipt}
           onClose={() => setIsChargeModalOpen(false)}
         >
-                <form onSubmit={handleSaveCharge} className="space-y-6">
-                  <div className="space-y-4">
+                <form onSubmit={handleSaveCharge} className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
+                  <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
                     <NexusInput label="Concepto" required value={chargeFormData.concept} onChange={(e) => setChargeFormData({...chargeFormData, concept: e.target.value})} icon={Tag} />
                     <NexusInput label="Monto (MXN)" type="number" required step="0.01" value={chargeFormData.amount} onChange={(e) => setChargeFormData({...chargeFormData, amount: e.target.value})} icon={DollarSign} />
                   </div>
-                  <div className="flex gap-4 pt-4">
-                    <NexusSectionButton 
-                      type="button" 
-                      variant="secondary" 
-                      onClick={() => setIsChargeModalOpen(false)} 
+                  <NexusModalActions>
+                    <NexusAutonomousButton
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setIsChargeModalOpen(false)}
                       className="flex-1"
                     >
-                      Cerrar
-                    </NexusSectionButton>
-                    <NexusSectionButton 
-                      type="submit" 
-                      className="flex-[2]" 
+                      Cancelar
+                    </NexusAutonomousButton>
+                    <NexusAutonomousButton
+                      type="submit"
+                      className="flex-[2]"
                       icon={editingCharge ? Save : Check}
                       variant="brand"
                     >
                       {editingCharge ? 'Guardar' : 'Crear'}
-                    </NexusSectionButton>
-                  </div>
+                    </NexusAutonomousButton>
+                  </NexusModalActions>
                 </form>
         </NexusModal>
 
         {/* MODAL ABONO (PAGO) */}
         <NexusModal
           isOpen={isPaymentModalOpen}
-          title={editingPayment ? 'Editar Abono' : 'Nuevo Abono'}
+          title={editingPayment ? paymentFormData.concept || 'Abono recibido' : 'Abono recibido'}
+          eyebrow={editingPayment ? 'Editar Abono' : 'Nuevo Abono'}
+          icon={Wallet}
           onClose={() => setIsPaymentModalOpen(false)}
         >
-                <form onSubmit={handleSavePayment} className="space-y-6">
-                  <div className="space-y-4">
+                <form onSubmit={handleSavePayment} className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
+                  <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
                     <NexusInput label="Concepto / Referencia" required value={paymentFormData.concept} onChange={(e) => setPaymentFormData({...paymentFormData, concept: e.target.value})} placeholder="Ej. Abono Quincenal, Transferencia..." icon={Wallet} />
                     <NexusInput label="Monto Recibido (MXN)" type="number" required step="0.01" value={paymentFormData.amount} onChange={(e) => setPaymentFormData({...paymentFormData, amount: e.target.value})} icon={DollarSign} />
                     <NexusInput label="Fecha de Pago" type="date" value={paymentFormData.paymentDate} onChange={(e) => setPaymentFormData({...paymentFormData, paymentDate: e.target.value})} />
                     <NexusTextarea label="Notas adicionales" rows={2} value={paymentFormData.notes} onChange={(e) => setPaymentFormData({...paymentFormData, notes: e.target.value})} placeholder="Banco, folio, etc." />
                   </div>
-                  <div className="flex gap-4 pt-4">
-                    <NexusSectionButton 
-                      type="button" 
-                      variant="secondary" 
-                      onClick={() => setIsPaymentModalOpen(false)} 
+                  <NexusModalActions>
+                    <NexusAutonomousButton
+                      type="button"
+                      variant="secondary"
+                      onClick={() => setIsPaymentModalOpen(false)}
                       className="flex-1"
                     >
-                      Cerrar
-                    </NexusSectionButton>
-                    <NexusSectionButton 
-                      type="submit" 
-                      className="flex-[2]" 
+                      Cancelar
+                    </NexusAutonomousButton>
+                    <NexusAutonomousButton
+                      type="submit"
+                      className="flex-[2]"
                       icon={editingPayment ? Save : Check}
                       variant="success"
                     >
                       {editingPayment ? 'Guardar Cambios' : 'Crear Abono'}
-                    </NexusSectionButton>
-                  </div>
+                    </NexusAutonomousButton>
+                  </NexusModalActions>
                 </form>
         </NexusModal>
       </div>

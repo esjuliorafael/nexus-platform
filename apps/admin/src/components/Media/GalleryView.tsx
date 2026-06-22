@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useMemo, useRef, useImperativeHandle } from 'react';
-import { ChevronLeft, ChevronRight, Search, Loader2 } from 'lucide-react';
+import { Search, Loader2 } from 'lucide-react';
 import { Media } from '../../types';
 import { MediaCard } from './MediaCard';
 import { MediaForm } from './MediaForm';
-import { CategoryForm } from './CategoryForm';
 import { CategoryView } from './CategoryView';
 import { apiGallery } from '../../api';
+import { EmptyState } from '../ui/EmptyState';
+import { NexusPaginator } from '../ui/NexusPaginator';
 
 interface GalleryViewProps {
   searchQuery: string;
@@ -28,18 +29,14 @@ export const GalleryView = React.forwardRef<GalleryViewRef, GalleryViewProps>(
     const [isLoading, setIsLoading] = useState(true);
     
     const [currentPage, setCurrentPage] = useState(1);
-    const [editingCategory, setEditingCategory] = useState<{id: string, name: string} | null>(null);
     const [editingMedia, setEditingMedia] = useState<Media | null>(null);
     const galleryTopRef = useRef<HTMLDivElement>(null);
     const mediaFormRef = useRef<{ handleSave: () => void }>(null);
-    const categoryFormRef = useRef<{ handleSave: () => void }>(null);
 
     useImperativeHandle(ref, () => ({
       handleSave: () => {
         if (viewMode === 'create' || viewMode === 'media_edit') {
           mediaFormRef.current?.handleSave();
-        } else if (viewMode === 'category_create' || viewMode === 'category_edit') {
-          categoryFormRef.current?.handleSave();
         }
       }
     }));
@@ -64,9 +61,6 @@ export const GalleryView = React.forwardRef<GalleryViewRef, GalleryViewProps>(
     useEffect(() => {
       if (viewMode === 'create') {
         setEditingMedia(null);
-      }
-      if (viewMode === 'category_create') {
-          setEditingCategory(null);
       }
     }, [viewMode]);
 
@@ -151,12 +145,6 @@ export const GalleryView = React.forwardRef<GalleryViewRef, GalleryViewProps>(
       setEditingMedia(null);
     };
 
-    const handleCategorySaveSuccess = (isEdit: boolean) => {
-        showToast(isEdit ? 'Categoría actualizada con éxito' : 'Categoría creada correctamente');
-        onSetViewMode?.('categories_list'); 
-        setEditingCategory(null);
-    };
-
     const renderMediaItem = (item: Media, indexInPage: number, isMobile: boolean) => {
       const isTall = isMobile 
         ? (indexInPage % 4 === 1) || (indexInPage % 4 === 2) 
@@ -194,60 +182,47 @@ export const GalleryView = React.forwardRef<GalleryViewRef, GalleryViewProps>(
       );
     }
 
-    if (viewMode === 'category_create') {
-      return (
-        <CategoryForm 
-          ref={categoryFormRef}
-          key="new-cat"
-          onCancel={() => onSetViewMode?.('list')} 
-          onSave={() => handleCategorySaveSuccess(false)} 
-          onValidationChange={onValidationChange}
-        />
-      );
-    }
-
-    if (viewMode === 'category_edit') {
-      return (
-        <CategoryForm 
-          ref={categoryFormRef}
-          key={editingCategory ? editingCategory.id : 'edit-cat'}
-          initialData={editingCategory || undefined}
-          onCancel={() => {
-              setEditingCategory(null);
-              onSetViewMode?.('categories_list');
-          }} 
-          onSave={() => handleCategorySaveSuccess(true)} 
-          onValidationChange={onValidationChange}
-        />
-      );
-    }
-
-    if (viewMode === 'categories_list') {
+    if (viewMode === 'categories_list' || viewMode === 'category_create' || viewMode === 'category_edit') {
       return (
         <CategoryView 
           searchQuery={searchQuery}
           showToast={showToast}
           setConfirmDialog={setConfirmDialog}
-          onEdit={(cat) => {
-            setEditingCategory(cat);
-            onSetViewMode?.('category_edit');
-          }}
+          openCreateDialog={viewMode === 'category_create'}
+          onCreateDialogClose={() => onSetViewMode?.('categories_list')}
         />
       );
     }
 
     return (
-      <div className="w-full flex flex-col gap-10" ref={galleryTopRef}>
+      <div
+        className="w-full flex flex-col"
+        ref={galleryTopRef}
+        style={{ gap: 'var(--space-lg)' }}
+      >
         {isLoading ? (
-          <div className="flex flex-col items-center justify-center py-32">
-             <Loader2 className="w-10 h-10 text-brand-500 animate-spin mb-4" />
+          <div
+            className="flex flex-col items-center justify-center"
+            style={{
+              gap: 'var(--space-md)',
+              paddingBlock: 'var(--space-2xl)'
+            }}
+          >
+             <Loader2 className="w-10 h-10 text-brand-500 animate-spin" />
              <p className="text-text-muted font-medium">Cargando galería...</p>
           </div>
         ) : filteredMedia.length > 0 ? (
           <div className="w-full">
-              <div className="hidden lg:grid grid-cols-3 gap-6 min-h-[500px]">
+              <div
+                className="hidden lg:grid grid-cols-3 min-h-[500px]"
+                style={{ gap: 'var(--space-lg)' }}
+              >
                   {columns3.map((colItems, colIdx) => (
-                  <div key={`col-3-${colIdx}`} className="flex flex-col gap-6">
+                  <div
+                    key={`col-3-${colIdx}`}
+                    className="flex flex-col"
+                    style={{ gap: 'var(--space-lg)' }}
+                  >
                       {colItems.map((item) => {
                       const originalIndex = paginatedMedia.indexOf(item);
                       return renderMediaItem(item, originalIndex, false);
@@ -256,9 +231,16 @@ export const GalleryView = React.forwardRef<GalleryViewRef, GalleryViewProps>(
                   ))}
               </div>
 
-              <div className="grid lg:hidden grid-cols-2 gap-4 sm:gap-6 min-h-[500px]">
+              <div
+                className="grid lg:hidden grid-cols-2 min-h-[500px]"
+                style={{ gap: 'var(--space-md)' }}
+              >
                   {columns2.map((colItems, colIdx) => (
-                  <div key={`col-2-${colIdx}`} className="flex flex-col gap-4 sm:gap-6">
+                  <div
+                    key={`col-2-${colIdx}`}
+                    className="flex flex-col"
+                    style={{ gap: 'var(--space-md)' }}
+                  >
                       {colItems.map((item) => {
                       const originalIndex = paginatedMedia.indexOf(item);
                       return renderMediaItem(item, originalIndex, true);
@@ -267,58 +249,18 @@ export const GalleryView = React.forwardRef<GalleryViewRef, GalleryViewProps>(
                   ))}
               </div>
 
-              {totalPages > 1 && (
-                <div className="flex items-center justify-center pt-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-                  <div className="flex items-center gap-2 bg-bg-card/90 backdrop-blur-xl p-2.5 rounded-full border border-white/80 shadow-xl shadow-stone-200/50">
-                    <button
-                      onClick={() => handlePageChange(Math.max(1, currentPage - 1))}
-                      disabled={currentPage === 1}
-                      className={`p-3 rounded-full transition-all ${
-                        currentPage === 1 
-                          ? 'text-stone-300 cursor-not-allowed opacity-50' 
-                          : 'text-stone-600 hover:bg-stone-100 active:scale-90 hover:text-brand-600'
-                      }`}
-                    >
-                      <ChevronLeft size={20} strokeWidth={3} />
-                    </button>
-                    <div className="flex items-center gap-1.5 px-2">
-                      {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
-                        <button
-                          key={pageNum}
-                          onClick={() => handlePageChange(pageNum)}
-                          className={`w-11 h-11 flex items-center justify-center rounded-full text-sm font-black transition-all duration-300 ${
-                            currentPage === pageNum
-                              ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/30 scale-110 z-10'
-                              : 'text-stone-400 hover:bg-bg-muted hover:text-text-main'
-                          }`}
-                        >
-                          {pageNum}
-                        </button>
-                      ))}
-                    </div>
-                    <button
-                      onClick={() => handlePageChange(Math.min(totalPages, currentPage + 1))}
-                      disabled={currentPage === totalPages}
-                      className={`p-3 rounded-full transition-all ${
-                        currentPage === totalPages 
-                          ? 'text-stone-300 cursor-not-allowed opacity-50' 
-                          : 'text-stone-600 hover:bg-stone-100 active:scale-90 hover:text-brand-600'
-                      }`}
-                    >
-                      <ChevronRight size={20} strokeWidth={3} />
-                    </button>
-                  </div>
-                </div>
-              )}
+              <NexusPaginator
+                currentPage={currentPage}
+                totalPages={totalPages}
+                onPageChange={handlePageChange}
+              />
           </div>
         ) : (
-          <div className="py-20 text-center">
-            <div className="w-20 h-20 bg-stone-100 rounded-full flex items-center justify-center mx-auto mb-4 text-stone-300">
-              <Search size={40} />
-            </div>
-            <h3 className="text-xl font-black text-text-main">No hay medios</h3>
-            <p className="text-text-muted">No se encontraron medios que coincidan con tu búsqueda.</p>
-          </div>
+          <EmptyState
+            icon={Search}
+            title="No hay medios"
+            description="No se encontraron medios que coincidan con tu búsqueda."
+          />
         )}
       </div>
     );

@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef, useContext } from 'react';
-import { LogOut, Sun, Moon } from 'lucide-react';
-import { apiSystem, ASSET_BASE_URL } from '../api';
-import { useFavicon } from './useFavicon';
-import { ThemeContext } from '../App';
+import React, { useContext, useEffect, useRef, useState } from "react";
+import { LogOut, Moon, Sun } from "lucide-react";
+import { apiSystem } from "../api";
+import { ThemeContext } from "../App";
+import { useFavicon } from "./useFavicon";
 
 interface HeaderProps {
   activeTab: string;
@@ -10,66 +10,68 @@ interface HeaderProps {
   onLogout: () => void;
   raffleEnabled?: boolean;
   hasBillingNotification?: boolean;
+  newOrdersCount?: number;
 }
 
-export const Header: React.FC<HeaderProps> = ({ 
-  activeTab, 
-  setActiveTab, 
-  onLogout, 
+export const Header: React.FC<HeaderProps> = ({
+  activeTab,
+  setActiveTab,
+  onLogout,
   raffleEnabled = false,
-  hasBillingNotification = false
+  hasBillingNotification = false,
+  newOrdersCount = 0,
 }) => {
   const { theme, toggleTheme } = useContext(ThemeContext);
   const [isScrolled, setIsScrolled] = useState(false);
   const [logoUrl, setLogoUrl] = useState<string | null>(null);
-  
+
   const containerRef = useRef<HTMLDivElement>(null);
   const activeTabElementRef = useRef<HTMLButtonElement>(null);
-  
+
   useFavicon(logoUrl);
 
   const navItems = [
-    'Inicio',
-    'Galería',
-    'Tienda',
-    ...(raffleEnabled ? ['Rifas'] : []),
-    'Sistema',
+    "Inicio",
+    "Medios",
+    "Tienda",
+    "Órdenes",
+    ...(raffleEnabled ? ["Rifas"] : []),
+    "Sistema",
   ];
 
   useEffect(() => {
     const handleScroll = () => {
       setIsScrolled(window.scrollY > 10);
     };
-    window.addEventListener('scroll', handleScroll);
-    return () => window.removeEventListener('scroll', handleScroll);
+    window.addEventListener("scroll", handleScroll);
+    return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
   useEffect(() => {
     const loadLogo = async () => {
       try {
         const config = await apiSystem.getConfig();
-        if (config['branding_logo_url']) {
-          setLogoUrl(config['branding_logo_url']);
+        if (config["branding_logo_url"]) {
+          setLogoUrl(config["branding_logo_url"]);
         }
       } catch (error) {
         console.error("Error cargando logo en el header:", error);
       }
     };
-    
+
     loadLogo();
 
     const handleLogoUpdate = () => loadLogo();
-    window.addEventListener('logoUpdated', handleLogoUpdate);
-    
-    return () => window.removeEventListener('logoUpdated', handleLogoUpdate);
+    window.addEventListener("logoUpdated", handleLogoUpdate);
+
+    return () => window.removeEventListener("logoUpdated", handleLogoUpdate);
   }, []);
 
-  // Efecto Mágico de Clip-Path (Emil Kowalski)
   useEffect(() => {
     const updateClipPath = () => {
       const container = containerRef.current;
       const activeElement = activeTabElementRef.current;
-      
+
       if (container && activeElement) {
         const containerRect = container.getBoundingClientRect();
         const activeRect = activeElement.getBoundingClientRect();
@@ -77,39 +79,50 @@ export const Header: React.FC<HeaderProps> = ({
         const leftOffset = activeRect.left - containerRect.left;
         const rightOffset = containerRect.right - activeRect.right;
 
-        const leftPercent = Math.max(0, (leftOffset / containerRect.width) * 100);
-        const rightPercent = Math.max(0, (rightOffset / containerRect.width) * 100);
+        const leftPercent = Math.max(
+          0,
+          (leftOffset / containerRect.width) * 100,
+        );
+        const rightPercent = Math.max(
+          0,
+          (rightOffset / containerRect.width) * 100,
+        );
 
-        // round 80px para asegurar forma de píldora perfecta
         container.style.clipPath = `inset(0 ${rightPercent.toFixed(4)}% 0 ${leftPercent.toFixed(4)}% round 80px)`;
       }
     };
 
     updateClipPath();
-    window.addEventListener('resize', updateClipPath);
-    return () => window.removeEventListener('resize', updateClipPath);
+    window.addEventListener("resize", updateClipPath);
+    return () => window.removeEventListener("resize", updateClipPath);
   }, [activeTab, navItems.length]);
 
   return (
-    <div className={`sticky top-0 z-50 w-full px-4 transition-all duration-500 ${isScrolled ? 'pt-0' : 'pt-4'}`}>
-      <header 
-        className="max-w-7xl mx-auto w-full bg-bg-card/95 backdrop-blur-xl border border-border-main shadow-xl dark:shadow-none transition-all duration-500 rounded-full"
-        style={{ transitionTimingFunction: 'var(--ease-emil)' }}
+    <div
+      className={`sticky top-0 z-50 w-full px-4 transition-all duration-500 ${
+        isScrolled ? "pt-0" : "pt-4"
+      }`}
+    >
+      <header
+        className="mx-auto w-full max-w-7xl rounded-full border border-border-main bg-bg-card/95 shadow-xl backdrop-blur-xl transition-all duration-500 dark:shadow-none"
+        style={{ transitionTimingFunction: "var(--ease-emil)" }}
       >
-        <div style={{ padding: 'var(--space-md)' }}>
+        <div style={{ padding: "var(--space-md)" }}>
           <div className="flex items-center justify-between">
-            
-            <div className="flex-shrink-0 flex items-center">
-              <div className="relative group">
-                <div 
-                  className="rounded-full bg-bg-card flex items-center justify-center overflow-hidden border border-border-main shadow-inner transition-all duration-300 group-hover:scale-110 active:scale-95"
-                  style={{ width: 'var(--size-button-section)', height: 'var(--size-button-section)' }}
+            <div className="flex flex-shrink-0 items-center">
+              <div className="group relative">
+                <div
+                  className="flex items-center justify-center overflow-hidden rounded-full border border-border-main bg-bg-card shadow-inner transition-all duration-300 group-hover:scale-110 active:scale-95"
+                  style={{
+                    width: "var(--size-button-section)",
+                    height: "var(--size-button-section)",
+                  }}
                 >
                   {logoUrl ? (
-                    <img 
-                      src={logoUrl} 
-                      alt="Logo del Sistema" 
-                      className="w-full h-full object-cover" 
+                    <img
+                      src={logoUrl}
+                      alt="Logo del Sistema"
+                      className="h-full w-full object-cover"
                     />
                   ) : (
                     <span className="text-label text-text-muted">NEXUS</span>
@@ -118,45 +131,56 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </div>
 
-            {/* NAVEGACIÓN CON EFECTO CLIP-PATH (EMIL KOWALSKI) */}
-            <nav className="hidden md:flex items-center justify-center bg-bg-muted rounded-full relative overflow-hidden mx-4" style={{ padding: 'var(--space-xs)' }}>
-              {/* Capa Base: Texto gris */}
-              <ul className="flex items-center relative z-10">
+            <nav
+              className="relative mx-4 hidden items-center justify-center overflow-hidden rounded-full bg-bg-muted md:flex"
+              style={{ padding: "var(--space-xs)" }}
+            >
+              <ul className="relative z-10 flex items-center">
                 {navItems.map((item) => (
                   <li key={item} className="relative">
                     <button
                       ref={activeTab === item ? activeTabElementRef : null}
                       onClick={() => setActiveTab(item)}
-                      className={`text-button-card px-8 rounded-full transition-colors duration-300 active:scale-95 flex items-center justify-center ${
-                        activeTab === item ? 'opacity-0' : 'text-text-muted hover:text-text-main'
+                      className={`flex items-center justify-center rounded-full px-8 text-button-card transition-colors duration-300 active:scale-95 ${
+                        activeTab === item
+                          ? "opacity-0"
+                          : "text-text-muted hover:text-text-main"
                       }`}
-                      style={{ height: 'var(--h-button-card)' }}
+                      style={{ height: "var(--h-button-card)" }}
                     >
                       {item}
                     </button>
-                    {item === 'Sistema' && hasBillingNotification && activeTab !== 'Sistema' && (
-                      <span className="absolute top-2 right-6 w-2.5 h-2.5 bg-brand-500 rounded-full border-2 border-bg-muted animate-pulse" />
-                    )}
+                    {item === "Sistema" &&
+                      hasBillingNotification &&
+                      activeTab !== "Sistema" && (
+                        <span className="absolute right-6 top-2 h-2.5 w-2.5 animate-pulse rounded-full border-2 border-bg-muted bg-brand-500" />
+                      )}
+                    {item === "Órdenes" &&
+                      newOrdersCount > 0 &&
+                      activeTab !== "Órdenes" && (
+                        <span className="absolute right-5 top-1 flex h-5 min-w-5 animate-pulse items-center justify-center rounded-full border-2 border-bg-muted bg-rose-500 px-1 text-[9px] font-black text-white">
+                          {newOrdersCount > 9 ? "9+" : newOrdersCount}
+                        </span>
+                      )}
                   </li>
                 ))}
               </ul>
 
-              {/* Capa de Superposición (Overlay): Revelada mediante clip-path */}
-              <div 
-                aria-hidden 
+              <div
+                aria-hidden
                 ref={containerRef}
-                className="absolute pointer-events-none transition-[clip-path] duration-500 z-20"
-                style={{ 
-                  inset: 'var(--space-xs)',
-                  transitionTimingFunction: 'var(--ease-emil)' 
+                className="pointer-events-none absolute z-20 transition-[clip-path] duration-500"
+                style={{
+                  inset: "var(--space-xs)",
+                  transitionTimingFunction: "var(--ease-emil)",
                 }}
               >
-                <ul className="flex items-center bg-bg-card h-full rounded-full">
+                <ul className="flex h-full items-center rounded-full bg-bg-card">
                   {navItems.map((item) => (
                     <li key={item}>
-                      <div 
-                        className="text-button-card text-brand-500 px-8 flex items-center justify-center whitespace-nowrap"
-                        style={{ height: 'var(--h-button-card)' }}
+                      <div
+                        className="flex items-center justify-center whitespace-nowrap px-8 text-button-card text-brand-500"
+                        style={{ height: "var(--h-button-card)" }}
                       >
                         {item}
                       </div>
@@ -166,35 +190,47 @@ export const Header: React.FC<HeaderProps> = ({
               </div>
             </nav>
 
-            <div className="flex items-center" style={{ gap: 'var(--space-sm)' }}>
-              <button 
+            <div
+              className="flex items-center"
+              style={{ gap: "var(--space-sm)" }}
+            >
+              <button
                 onClick={toggleTheme}
-                className="flex items-center justify-center rounded-full bg-bg-card text-text-main shadow-sm dark:shadow-none hover:bg-bg-muted transition-all border border-border-main group active:scale-90"
-                style={{ 
-                  width: 'var(--size-button-section)', 
-                  height: 'var(--size-button-section)',
-                  transitionTimingFunction: 'var(--ease-emil)' 
+                className="group flex items-center justify-center rounded-full border border-border-main bg-bg-card text-text-main shadow-sm transition-all hover:bg-bg-muted active:scale-90 dark:shadow-none"
+                style={{
+                  width: "var(--size-button-section)",
+                  height: "var(--size-button-section)",
+                  transitionTimingFunction: "var(--ease-emil)",
                 }}
-                title={theme === 'light' ? 'Modo Oscuro' : 'Modo Claro'}
+                title={theme === "light" ? "Modo Oscuro" : "Modo Claro"}
               >
-                {theme === 'light' ? (
-                  <Moon size={20} className="group-hover:-rotate-12 transition-transform duration-300" />
+                {theme === "light" ? (
+                  <Moon
+                    size={20}
+                    className="transition-transform duration-300 group-hover:-rotate-12"
+                  />
                 ) : (
-                  <Sun size={20} className="group-hover:rotate-45 transition-transform duration-300" />
+                  <Sun
+                    size={20}
+                    className="transition-transform duration-300 group-hover:rotate-45"
+                  />
                 )}
               </button>
 
-              <button 
+              <button
                 onClick={onLogout}
-                className="flex items-center justify-center rounded-full bg-bg-card text-text-main shadow-sm dark:shadow-none hover:bg-bg-muted hover:text-rose-500 transition-all border border-border-main group active:scale-90"
-                style={{ 
-                  width: 'var(--size-button-section)', 
-                  height: 'var(--size-button-section)',
-                  transitionTimingFunction: 'var(--ease-emil)' 
+                className="group flex items-center justify-center rounded-full border border-border-main bg-bg-card text-text-main shadow-sm transition-all hover:bg-bg-muted hover:text-rose-500 active:scale-90 dark:shadow-none"
+                style={{
+                  width: "var(--size-button-section)",
+                  height: "var(--size-button-section)",
+                  transitionTimingFunction: "var(--ease-emil)",
                 }}
                 title="Cerrar Sesión"
               >
-                <LogOut size={20} className="group-hover:translate-x-0.5 transition-transform" />
+                <LogOut
+                  size={20}
+                  className="transition-transform group-hover:translate-x-0.5"
+                />
               </button>
             </div>
           </div>

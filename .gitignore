@@ -54,3 +54,6 @@ reproduce_*.ts
 full_*.ts
 fix_*.ts
 
+# Independent media production projects
+rancho-las-trojes-video/
+

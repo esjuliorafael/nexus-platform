@@ -1,6 +1,6 @@
 export interface Product {
   id: number;
-  type: 'ITEM' | 'BIRD';
+  type: "ITEM" | "BIRD";
   name: string;
   description: string | null;
   price: string | number;
@@ -9,7 +9,7 @@ export interface Product {
   ringNumber: string | null;
   age: string | null;
   purpose: string | null;
-  saleStatus: 'AVAILABLE' | 'RESERVED' | 'SOLD';
+  saleStatus: "AVAILABLE" | "RESERVED" | "SOLD";
   active: boolean;
   expiresAt?: string | null;
   gallery?: ProductGallery[];
@@ -19,7 +19,7 @@ export interface ProductGallery {
   id: number;
   productId: number;
   filePath: string;
-  fileType: 'PHOTO' | 'VIDEO';
+  fileType: "PHOTO" | "VIDEO";
 }
 
 export interface Setting {
@@ -36,12 +36,35 @@ export interface Media {
   id: number;
   title: string;
   description: string | null;
-  type: 'PHOTO' | 'VIDEO';
+  type: "PHOTO" | "VIDEO";
   filePath: string;
   categoryId: number | null;
   subcategoryId: number | null;
   location: string | null;
   mediaDate: string | null;
+}
+
+export interface HomeSlide {
+  id: number;
+  type: "PHOTO" | "VIDEO";
+  mediaUrl: string;
+  desktopObjectPosition: string | null;
+  mobileObjectPosition: string | null;
+  posterUrl: string | null;
+  eyebrow: string | null;
+  title: string;
+  description: string | null;
+  displayDurationMs: number;
+  primaryText: string | null;
+  primaryHref: string | null;
+  secondaryText: string | null;
+  secondaryHref: string | null;
+  sortOrder: number;
+  active: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Raffle {
@@ -55,6 +78,6 @@ export interface Raffle {
   digits: number;
   drawDate: string | null;
   image: string | null;
-  status: 'ACTIVE' | 'FINISHED' | 'CANCELLED';
+  status: "ACTIVE" | "FINISHED" | "CANCELLED";
   gallery?: any[];
 }

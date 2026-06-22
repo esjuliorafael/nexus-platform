@@ -5,12 +5,41 @@ import { whatsappQueue } from "../../../queues/whatsapp.queue";
 import type { OrderKind, OrderItemPurpose } from "../../../services/evolution/channel.resolver";
 
 export const orderService = {
-  async getAll(status?: OrderStatus) {
-    return storePrisma.order.findMany({
+  async getAll(status: OrderStatus | undefined, userId: number) {
+    const orders = await storePrisma.order.findMany({
       where: status ? { status } : {},
-      include: { items: true },
+      include: {
+        items: true,
+        reads: {
+          where: { userId },
+          select: { readAt: true },
+          take: 1,
+        },
+      },
       orderBy: { createdAt: "desc" },
     });
+
+    return orders.map(({ reads, ...order }) => ({
+      ...order,
+      isRead: reads.length > 0,
+      readAt: reads[0]?.readAt ?? null,
+    }));
+  },
+
+  async markRead(ids: number[], userId: number) {
+    const orders = await storePrisma.order.findMany({
+      where: { id: { in: ids } },
+      select: { id: true },
+    });
+
+    if (orders.length === 0) return { count: 0 };
+
+    const result = await storePrisma.orderRead.createMany({
+      data: orders.map((order) => ({ orderId: order.id, userId })),
+      skipDuplicates: true,
+    });
+
+    return { count: result.count };
   },
 
   async getById(id: number) {

@@ -31,7 +31,9 @@ jobs:
           context: .
           file: ./apps/api/Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/nexus-api:latest
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/nexus-api:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/nexus-api:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=inline
 
@@ -42,7 +44,9 @@ jobs:
           context: .
           file: ./apps/storefront/Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/nexus-storefront:latest
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/nexus-storefront:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/nexus-storefront:${{ github.sha }}
           cache-from: type=gha
           cache-to: type=inline
 
@@ -53,7 +57,9 @@ jobs:
           context: .
           file: ./apps/admin/Dockerfile
           push: true
-          tags: ${{ secrets.DOCKERHUB_USERNAME }}/nexus-admin:latest
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/nexus-admin:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/nexus-admin:${{ github.sha }}
           build-args: |
             VITE_RAFFLE_ENABLED=true
           cache-from: type=gha

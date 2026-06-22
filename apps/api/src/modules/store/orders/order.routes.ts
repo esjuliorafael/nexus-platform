@@ -1,6 +1,10 @@
 import { FastifyInstance } from "fastify";
 import { orderService } from "./order.service";
-import { createOrderSchema, updateOrderStatusSchema } from "./order.schema";
+import {
+  createOrderSchema,
+  markOrdersReadSchema,
+  updateOrderStatusSchema,
+} from "./order.schema";
 import { OrderStatus } from "@prisma/client-store";
 
 export async function orderRoutes(server: FastifyInstance) {
@@ -28,9 +32,32 @@ export async function orderRoutes(server: FastifyInstance) {
   });
 
   // Admin Routes (Protected)
-  server.get("/admin", { preHandler: [server.authenticate] }, async (request) => {
+  server.get("/admin", { preHandler: [server.authenticate] }, async (request, reply) => {
     const { status } = request.query as { status?: OrderStatus };
-    return orderService.getAll(status);
+    const userId = Number((request.user as { id?: number })?.id);
+    if (!Number.isInteger(userId) || userId < 1) {
+      return reply.status(401).send({ message: "Invalid authentication payload" });
+    }
+    return orderService.getAll(status, userId);
+  });
+
+  server.post("/admin/read", { preHandler: [server.authenticate] }, async (request, reply) => {
+    try {
+      const body = markOrdersReadSchema.parse(request.body);
+      const userId = Number((request.user as { id?: number })?.id);
+      if (!Number.isInteger(userId) || userId < 1) {
+        return reply.status(401).send({ message: "Invalid authentication payload" });
+      }
+      return orderService.markRead(body.ids, userId);
+    } catch (error: any) {
+      if (error?.issues) {
+        return reply.status(400).send({
+          message: "Validation error",
+          errors: error.issues,
+        });
+      }
+      throw error;
+    }
   });
 
   server.get("/admin/:id", { preHandler: [server.authenticate] }, async (request, reply) => {

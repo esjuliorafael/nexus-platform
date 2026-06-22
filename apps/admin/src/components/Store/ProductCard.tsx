@@ -1,8 +1,9 @@
 import React, { useRef } from 'react';
-import { Edit2, Trash2, Box, Package, Hash, CircleCheck, Clock, CircleX, PlayCircle } from 'lucide-react';
+import { Edit2, Trash2, Box, Package, Hash, CircleCheck, Clock, CircleX, PlayCircle, type LucideIcon } from 'lucide-react';
 import { Product } from '../../types';
 import { NexusAutonomousButton } from '../ui/NexusButton';
 import { NexusAutonomousCard } from '../ui/NexusCard';
+import { NexusAutonomousBadge, type NexusBadgeVariant } from '../ui/NexusBadge';
 import { ASSET_BASE_URL } from '../../api';
 
 interface ProductCardProps {
@@ -49,7 +50,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
     }
   };
 
-  const getStatusConfig = (status?: string) => {
+  const getStatusConfig = (status?: string): {
+    innerStyles: string;
+    thumbOverlay: string;
+    thumbFilter: string;
+    isMuted: boolean;
+    badgeVariant: NexusBadgeVariant;
+    label?: string;
+    icon: LucideIcon;
+    showStatusPill: boolean;
+  } => {
     const s = (status || 'available').toLowerCase();
     switch (s) {
       case 'available': 
@@ -58,9 +68,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
           thumbOverlay: '',
           thumbFilter: '',
           isMuted: false,
-          pillStyle: 'bg-emerald-50 text-emerald-600 border-emerald-100', 
+          badgeVariant: 'success',
           label: 'Disponible',
-          icon: <CircleCheck size={14} strokeWidth={2.5} />,
+          icon: CircleCheck,
           showStatusPill: false
         };
       case 'reserved': 
@@ -69,9 +79,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
           thumbOverlay: 'bg-amber-400/[0.18]',
           thumbFilter: '',
           isMuted: false,
-          pillStyle: 'bg-amber-50 text-amber-600 border-amber-100', 
+          badgeVariant: 'warning',
           label: 'Reservado',
-          icon: <Clock size={14} strokeWidth={2.5} />,
+          icon: Clock,
           showStatusPill: true
         };
       case 'sold': 
@@ -80,9 +90,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
           thumbOverlay: 'bg-stone-500/[0.22]',
           thumbFilter: 'grayscale',
           isMuted: true,
-          pillStyle: 'bg-rose-50 text-rose-600 border-rose-100', 
+          badgeVariant: 'danger',
           label: 'Vendido',
-          icon: <CircleX size={14} strokeWidth={2.5} />,
+          icon: CircleX,
           showStatusPill: true
         };
       default: 
@@ -91,9 +101,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
           thumbOverlay: '',
           thumbFilter: '',
           isMuted: false,
-          pillStyle: 'bg-bg-muted text-text-muted border-border-main', 
+          badgeVariant: 'muted',
           label: status,
-          icon: <CircleCheck size={14} strokeWidth={2.5} />,
+          icon: CircleCheck,
           showStatusPill: false
         };
     }
@@ -139,7 +149,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
                   poster={!isVideo ? imageUrl : undefined}
                 />
                 {!isVideo && (
-                  <div className="absolute bottom-1.5 right-1.5 z-10 bg-black/40 backdrop-blur-md p-1 rounded-full text-white pointer-events-none group-hover/thumb:scale-110 transition-transform shadow-lg border border-white/10">
+                  <div
+                    className="absolute z-10 bg-black/40 backdrop-blur-md text-white pointer-events-none group-hover/thumb:scale-110 transition-transform shadow-lg border border-white/10"
+                    style={{
+                      right: 'var(--space-xs)',
+                      bottom: 'var(--space-xs)',
+                      padding: 'var(--space-xs)',
+                      borderRadius: 'var(--radius-card-nested)'
+                    }}
+                  >
                     <PlayCircle size={10} fill="currentColor" />
                   </div>
                 )}
@@ -165,25 +183,23 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
         <div className="flex-1 min-w-0 flex flex-col lg:flex-row lg:items-center" style={{ gap: 'var(--space-md)' }}>
           
           {/* Main Info */}
-          <div className="flex-1 min-w-0 flex flex-col justify-center" style={{ gap: 'var(--space-xs)' }}>
+          <div className="flex-1 min-w-0 flex flex-col justify-center" style={{ gap: 'var(--space-sm)' }}>
             <div className="flex items-center" style={{ gap: 'var(--space-sm)' }}>
-              <div 
-                className="flex items-center gap-1.5 px-2 py-1 bg-bg-muted/80 text-text-muted border border-border-main/50 backdrop-blur-sm"
-                style={{ borderRadius: 'var(--radius-card-nested)' }}
+              <NexusAutonomousBadge
+                variant="muted"
+                icon={product.type === 'BIRD' ? Box : Package}
+                className="bg-bg-muted/80 border-border-main/50 backdrop-blur-sm"
               >
-                {product.type === 'BIRD' ? <Box size={10} strokeWidth={2.5} /> : <Package size={10} strokeWidth={2.5} />}
-                <span className="text-label uppercase tracking-[0.15em]">
-                  {product.type === 'BIRD' ? 'Ave' : 'Art.'}
-                </span>
-              </div>
+                {product.type === 'BIRD' ? 'Ave' : 'Art.'}
+              </NexusAutonomousBadge>
               {product.type === 'BIRD' && product.ringNumber && (
-                <div 
-                  className="flex items-center gap-1.5 px-2 py-1 bg-brand-50/80 text-brand-600 border border-brand-100/50 backdrop-blur-sm"
-                  style={{ borderRadius: 'var(--radius-card-nested)' }}
+                <NexusAutonomousBadge
+                  variant="brand"
+                  icon={Hash}
+                  className="bg-brand-50/80 border-brand-100/50 backdrop-blur-sm"
                 >
-                  <Hash size={10} strokeWidth={2.5} />
-                  <span className="text-label uppercase tracking-[0.15em]">{product.ringNumber}</span>
-                </div>
+                  {product.ringNumber}
+                </NexusAutonomousBadge>
               )}
             </div>
             
@@ -225,17 +241,20 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
           {/* Status & Actions */}
           <div className="flex items-center justify-between lg:justify-end shrink-0 lg:border-l lg:border-border-main lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-sm)' }}>
             {statusConfig.showStatusPill && (
-              <div 
-                className={`hidden sm:flex px-4 py-2 border items-center shadow-sm dark:shadow-none transition-colors duration-500 ${statusConfig.pillStyle}`}
-                style={{ borderRadius: 'var(--radius-card-inner)', gap: 'var(--space-sm)' }}
-              >
-                {statusConfig.icon}
-                <span className="text-label uppercase tracking-[0.15em]">{statusConfig.label}</span>
+              <div className="hidden sm:block">
+                <NexusAutonomousBadge
+                  variant={statusConfig.badgeVariant}
+                  icon={statusConfig.icon}
+                  className="shadow-sm dark:shadow-none transition-colors duration-500"
+                >
+                  {statusConfig.label}
+                </NexusAutonomousBadge>
               </div>
             )}
 
             <div className="hidden sm:flex items-center ml-auto sm:ml-0" style={{ gap: 'var(--space-sm)' }}>
               <NexusAutonomousButton 
+                density="compact"
                 variant="secondary" 
                 isIconOnly
                 onClick={(e) => { e.stopPropagation(); onEdit(); }}
@@ -243,6 +262,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
                 className="hover:bg-brand-50 hover:text-brand-600 hover:border-brand-100"
               />
               <NexusAutonomousButton 
+                density="compact"
                 variant="secondary" 
                 isIconOnly
                 onClick={(e) => { e.stopPropagation(); onDelete(); }}

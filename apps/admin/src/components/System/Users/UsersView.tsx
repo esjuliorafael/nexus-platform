@@ -1,14 +1,15 @@
-import React, { useState, useImperativeHandle, forwardRef, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { Pencil, Trash2, X, Save, Check, User as UserIcon, Mail, Shield, Search, Users, AlertCircle, Edit2, ShieldCheck, UserPlus } from 'lucide-react';
+import React, { useState, useImperativeHandle, forwardRef, useEffect } from 'react';
+import { Save, Check, User as UserIcon, Mail, Shield, Users, ShieldCheck, UserPlus } from 'lucide-react';
 import { User } from '../../../types';
 import { apiUsers } from '../../../api';
-import { NexusSectionButton, NexusCardButton } from '../../ui/NexusButton';
+import { NexusSectionButton, NexusAutonomousButton } from '../../ui/NexusButton';
 import { NexusInput, NexusSelect } from '../../ui/NexusInputs';
 import { EmptyState } from '../../ui/EmptyState';
 import { NexusHero } from '../../ui/NexusHero';
 import { NexusSection } from '../../ui/NexusSection';
 import { NexusSectionCard } from '../../ui/NexusCard';
+import { NexusModal, NexusModalActions } from '../../ui/NexusModal';
+import { NexusCardBadge, type NexusBadgeVariant } from '../../ui/NexusBadge';
 
 interface UsersViewProps {
   showToast: (message: string, type?: 'success' | 'error') => void;
@@ -22,7 +23,7 @@ export interface UsersViewRef {
 export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, setConfirmDialog }, ref) => {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
+
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
 
@@ -51,17 +52,6 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
   useEffect(() => {
     fetchUsers();
   }, []);
-
-  useEffect(() => {
-    if (isModalOpen) {
-      document.body.classList.add('overflow-hidden');
-    } else {
-      document.body.classList.remove('overflow-hidden');
-    }
-    return () => {
-      document.body.classList.remove('overflow-hidden');
-    };
-  }, [isModalOpen]);
 
   useImperativeHandle(ref, () => ({
     handleCreateUser: () => {
@@ -105,7 +95,7 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
 
     try {
       await apiUsers.toggleStatus(id, !user.isActive);
-      setUsers(prev => prev.map(u => 
+      setUsers(prev => prev.map(u =>
         u.id === id ? { ...u, isActive: !u.isActive } : u
       ));
       showToast(`Usuario ${user.name} ${!user.isActive ? 'activado' : 'desactivado'}`, 'success');
@@ -136,6 +126,13 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
     }
   };
 
+  const getRoleBadgeVariant = (user: User): NexusBadgeVariant => {
+    if (!user.isActive) return 'muted';
+    if (user.role === 'superadmin') return 'brand';
+    if (user.role === 'admin') return 'info';
+    return 'muted';
+  };
+
   if (isLoading && users.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-40 animate-in fade-in duration-500">
@@ -150,7 +147,7 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
 
   return (
     <div key="users-view-content" className="space-y-8 pb-12 animate-in fade-in duration-300">
-      
+
       <NexusHero
         title="Miembros"
         subtitle="Control de Equipo"
@@ -166,7 +163,7 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
         icon={Users}
         delay="300ms"
         action={currentUser?.role !== 'staff' && (
-          <NexusSectionButton 
+          <NexusSectionButton
             onClick={() => {
               setEditingUser(null);
               setFormData({ name: '', email: '', username: '', password: '', role: 'staff' });
@@ -181,7 +178,7 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
       >
         <div className="flex flex-col gap-5">
           {users.length === 0 ? (
-            <EmptyState 
+            <EmptyState
               icon={Users}
               title="No hay usuarios"
               description="Comienza creando tu primer usuario para gestionar el sistema."
@@ -197,17 +194,15 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
                 isMuted={!user.isActive}
                 subtitle={
                   <div className="flex items-center gap-3">
-                    <span className="px-3 py-1 bg-bg-muted text-text-muted/60 rounded-full text-label">
+                    <NexusCardBadge variant="muted" className="text-text-muted/60">
                       @{user.username}
-                    </span>
-                    <span className={`px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest transition-all duration-500 ${
-                      !user.isActive ? 'bg-stone-100 text-stone-400' :
-                      user.role === 'superadmin' ? 'bg-purple-100 text-purple-700' :
-                      user.role === 'admin' ? 'bg-blue-100 text-blue-700' :
-                      'bg-stone-100 text-text-muted'
-                    }`}>
+                    </NexusCardBadge>
+                    <NexusCardBadge
+                      variant={getRoleBadgeVariant(user)}
+                      className={`transition-all duration-500 ${!user.isActive ? 'text-text-muted/40' : ''}`}
+                    >
                       {user.role}
-                    </span>
+                    </NexusCardBadge>
                   </div>
                 }
                 rightContent={
@@ -217,14 +212,15 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
                 }
                 actions={
                   <div className="flex items-center gap-4">
-                    <span className={`px-3 py-1 rounded-full text-label transition-all duration-500 ${
-                      user.isActive ? 'bg-emerald-100 text-emerald-700 border border-emerald-200/50' : 'bg-stone-100 text-text-muted/40 border border-stone-200/50'
-                    }`}>
+                    <NexusCardBadge
+                      variant={user.isActive ? 'success' : 'muted'}
+                      className={`transition-all duration-500 ${!user.isActive ? 'text-text-muted/40' : ''}`}
+                    >
                       {user.isActive ? 'Activo' : 'Inactivo'}
-                    </span>
-                    
+                    </NexusCardBadge>
+
                     {(currentUser?.role === 'superadmin' || user.role !== 'superadmin') && user.email !== currentUser?.email && (
-                      <button 
+                      <button
                         onClick={() => toggleStatus(user.id)}
                         className={`w-12 h-6 rounded-full transition-all relative active:scale-90 ${
                           user.isActive ? 'bg-brand-500 shadow-lg shadow-brand-500/20' : 'bg-stone-200'
@@ -245,27 +241,18 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
         </div>
       </NexusSection>
 
-      {isModalOpen && createPortal(
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-6 animate-in fade-in duration-300">
-          <div className="absolute inset-0 bg-stone-900/60 backdrop-blur-md" onClick={() => setIsModalOpen(false)} />
-          <div className="relative w-full max-w-lg bg-bg-card rounded-t-[3rem] sm:rounded-[3rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div className="p-8 sm:p-12">
-              <div className="flex items-center justify-between mb-10">
-                <h3 className="text-display text-text-main">
-                  {editingUser ? 'Editar Usuario' : 'Nuevo Miembro'}
-                </h3>
-                <button 
-                  onClick={() => setIsModalOpen(false)} 
-                  className="p-3 bg-bg-muted hover:bg-stone-200 text-text-muted rounded-2xl transition-all active:scale-90"
-                >
-                  <X size={20} strokeWidth={3} />
-                </button>
-              </div>
-
-              <form onSubmit={handleSubmit} className="space-y-8">
-                <div className="space-y-6">
-                  <div className="grid grid-cols-1 gap-4">
-                    <NexusInput 
+      <NexusModal
+        isOpen={isModalOpen}
+        title={editingUser ? formData.name || 'Miembro del equipo' : 'Miembro del equipo'}
+        eyebrow={editingUser ? 'Editar Usuario' : 'Nuevo Miembro'}
+        icon={UserPlus}
+        onClose={() => setIsModalOpen(false)}
+        maxWidth="lg"
+      >
+              <form onSubmit={handleSubmit} className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
+                <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
+                  <div className="grid grid-cols-1" style={{ gap: 'var(--space-md)' }}>
+                    <NexusInput
                       label="Nombre Completo *"
                       value={formData.name}
                       onChange={(e) => setFormData({ ...formData, name: e.target.value })}
@@ -273,8 +260,8 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
                       icon={UserIcon}
                       required
                     />
-                    
-                    <NexusInput 
+
+                    <NexusInput
                       label="Correo Electrónico *"
                       type="email"
                       value={formData.email}
@@ -285,8 +272,15 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
                     />
                   </div>
 
-                  <div className="p-6 bg-bg-muted rounded-[2rem] border border-border-main space-y-6">
-                    <NexusSelect 
+                  <div
+                    className="flex flex-col bg-bg-muted border border-border-main"
+                    style={{
+                      gap: 'var(--space-md)',
+                      padding: 'var(--padding-inner)',
+                      borderRadius: 'var(--radius-card-inner)'
+                    }}
+                  >
+                    <NexusSelect
                       label="Rol de Seguridad *"
                       value={formData.role}
                       onChange={(e) => setFormData({ ...formData, role: e.target.value as any })}
@@ -300,8 +294,8 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
                       <option value="staff">Personal de Apoyo (Staff)</option>
                     </NexusSelect>
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                      <NexusInput 
+                    <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 'var(--space-md)' }}>
+                      <NexusInput
                         label="Username *"
                         value={formData.username}
                         onChange={(e) => setFormData({ ...formData, username: e.target.value })}
@@ -309,8 +303,8 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
                         icon={() => <span className="font-bold text-sm">@</span>}
                         required
                       />
-                      
-                      <NexusInput 
+
+                      <NexusInput
                         label={editingUser ? "Nueva Clave (opcional)" : "Contraseña *"}
                         type="password"
                         value={formData.password}
@@ -322,30 +316,28 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
                     </div>
                   </div>
                 </div>
-                
-                <div className="flex gap-4 pt-4">
-                  <NexusSectionButton 
-                    type="button" 
-                    variant="ghost"
-                    onClick={() => setIsModalOpen(false)} 
-                    className="flex-1 bg-bg-muted border-border-main rounded-2xl"
+
+                <NexusModalActions>
+                  <NexusAutonomousButton
+                    type="button"
+                    variant="secondary"
+                    onClick={() => setIsModalOpen(false)}
+                    className="flex-1"
                   >
-                    Cerrar
-                  </NexusSectionButton>
-                  <NexusSectionButton 
-                    type="submit" 
-                    disabled={!(formData.name.trim() && formData.email.trim() && formData.username.trim() && (editingUser || formData.password.trim()))} 
-                    className="flex-[2] rounded-2xl shadow-lg shadow-brand-500/20"
+                    Cancelar
+                  </NexusAutonomousButton>
+                  <NexusAutonomousButton
+                    type="submit"
+                    disabled={!(formData.name.trim() && formData.email.trim() && formData.username.trim() && (editingUser || formData.password.trim()))}
+                    className="flex-[2]"
                     icon={editingUser ? Save : Check}
+                    variant="brand"
                   >
                     {editingUser ? 'Guardar Cambios' : 'Confirmar Registro'}
-                  </NexusSectionButton>
-                </div>
+                  </NexusAutonomousButton>
+                </NexusModalActions>
               </form>
-            </div>
-          </div>
-        </div>
-      , document.body)}
+      </NexusModal>
     </div>
   );
 });

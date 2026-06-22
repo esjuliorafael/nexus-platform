@@ -3,6 +3,7 @@ import { createPortal } from 'react-dom';
 import { Play, Heart, Edit2, Trash2, X } from 'lucide-react';
 import { Media } from '../../types';
 import { ASSET_BASE_URL } from '../../api';
+import { NexusAutonomousButton } from '../ui/NexusButton';
 
 interface MediaCardProps {
   media: Media;
@@ -73,10 +74,16 @@ export const MediaCard: React.FC<MediaCardProps> = ({ media, isTall, onEdit, onD
         {/* Icono de Play Indicador */}
         {isVideo && (
           <div 
-            className={`absolute top-4 right-4 z-10 w-12 h-12 bg-black/40 backdrop-blur-md flex items-center justify-center text-white border border-white/20 shadow-lg pointer-events-none transition-opacity duration-500 ${isHovered ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}
-            style={{ borderRadius: 'var(--radius-inner-visual)' }}
+            className={`absolute z-10 bg-black/40 backdrop-blur-md flex items-center justify-center text-white border border-white/20 shadow-lg pointer-events-none transition-opacity duration-500 ${isHovered ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}
+            style={{
+              top: 'var(--space-md)',
+              right: 'var(--space-md)',
+              width: 'var(--size-button-card)',
+              height: 'var(--size-button-card)',
+              borderRadius: 'var(--radius-card-inner)'
+            }}
           >
-            <Play size={20} fill="currentColor" className="ml-1" />
+            <Play size={20} fill="currentColor" style={{ marginLeft: 'var(--space-xs)' }} />
           </div>
         )}
 
@@ -113,15 +120,21 @@ export const MediaCard: React.FC<MediaCardProps> = ({ media, isTall, onEdit, onD
             <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
               <div className="flex items-center" style={{ gap: 'var(--space-sm)' }}>
                 <span 
-                  className="px-3 py-1 bg-brand-500 text-white text-label uppercase tracking-[0.15em] shadow-lg shadow-brand-500/20"
-                  style={{ borderRadius: 'var(--radius-card-nested)' }}
+                  className="bg-brand-500 text-white text-label uppercase tracking-[0.15em] shadow-lg shadow-brand-500/20"
+                  style={{
+                    borderRadius: 'var(--radius-card-nested)',
+                    padding: 'var(--space-xs) var(--space-base)'
+                  }}
                 >
                   {media.category}
                 </span>
                 {media.subcategory && (
                   <span 
-                    className="px-3 py-1 bg-white/20 text-white text-label uppercase tracking-[0.15em] backdrop-blur-sm border border-white/20"
-                    style={{ borderRadius: 'var(--radius-card-nested)' }}
+                    className="bg-white/20 text-white text-label uppercase tracking-[0.15em] backdrop-blur-sm border border-white/20"
+                    style={{
+                      borderRadius: 'var(--radius-card-nested)',
+                      padding: 'var(--space-xs) var(--space-base)'
+                    }}
                   >
                     {media.subcategory}
                   </span>
@@ -134,7 +147,10 @@ export const MediaCard: React.FC<MediaCardProps> = ({ media, isTall, onEdit, onD
               )}
             </div>
             
-            <div className="flex items-center justify-between mt-2">
+            <div
+              className="flex items-center justify-between"
+              style={{ marginTop: 'var(--space-sm)' }}
+            >
               <div className="flex items-center" style={{ gap: 'var(--space-md)' }}>
                 <div className="flex items-center" style={{ gap: 'var(--space-xs)' }}>
                   <Heart size={16} className={media.isFavorite ? "fill-brand-500 text-brand-500" : "text-white/80"} />
@@ -143,22 +159,24 @@ export const MediaCard: React.FC<MediaCardProps> = ({ media, isTall, onEdit, onD
               </div>
 
               <div className="flex items-center" style={{ gap: 'var(--space-sm)' }}>
-                <button 
+                <NexusAutonomousButton
+                  density="compact"
+                  variant="ghost"
+                  isIconOnly
+                  icon={Edit2}
                   onClick={(e) => { e.stopPropagation(); onEdit?.(); }}
-                  className="w-10 h-10 bg-white/10 hover:bg-white/20 backdrop-blur-md flex items-center justify-center text-white border border-white/20 transition-all active:scale-95"
+                  className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20"
                   title="Editar"
-                  style={{ borderRadius: 'var(--radius-card-nested)' }}
-                >
-                  <Edit2 size={16} />
-                </button>
-                <button 
+                />
+                <NexusAutonomousButton
+                  density="compact"
+                  variant="ghost"
+                  isIconOnly
+                  icon={Trash2}
                   onClick={(e) => { e.stopPropagation(); onDelete?.(); }}
-                  className="w-10 h-10 bg-white/10 hover:bg-rose-500/80 backdrop-blur-md flex items-center justify-center text-white border border-white/20 hover:border-rose-500 transition-all active:scale-95"
+                  className="bg-white/10 hover:bg-rose-500/80 backdrop-blur-md text-white border border-white/20 hover:border-rose-500"
                   title="Eliminar"
-                  style={{ borderRadius: 'var(--radius-card-nested)' }}
-                >
-                  <Trash2 size={16} />
-                </button>
+                />
               </div>
             </div>
           </div>
@@ -171,30 +189,32 @@ export const MediaCard: React.FC<MediaCardProps> = ({ media, isTall, onEdit, onD
           
           {/* Header del Preview */}
           <div className="absolute top-0 left-0 right-0 p-[var(--padding-inner)] flex items-start justify-between z-20 bg-gradient-to-b from-black/80 to-transparent">
-            <button 
+            <NexusAutonomousButton
+              variant="ghost"
+              isIconOnly
+              icon={X}
               onClick={() => setShowPreview(false)}
-              className="w-12 h-12 flex items-center justify-center bg-white/10 backdrop-blur-md text-white border border-white/20 hover:bg-white/20 active:scale-90 transition-all"
-              style={{ borderRadius: 'var(--radius-card-inner)' }}
-            >
-              <X size={24} />
-            </button>
+              className="bg-white/10 backdrop-blur-md text-white border border-white/20 hover:bg-white/20"
+              aria-label="Cerrar preview"
+            />
 
             <div className="flex items-center" style={{ gap: 'var(--space-sm)' }}>
-              <button 
+              <NexusAutonomousButton
+                variant="ghost"
+                icon={Edit2}
                 onClick={() => { setShowPreview(false); onEdit?.(); }}
-                className="px-5 h-12 bg-white/10 backdrop-blur-md text-white border border-white/20 hover:bg-white/20 active:scale-95 transition-all flex items-center gap-2"
-                style={{ borderRadius: 'var(--radius-card-inner)' }}
+                className="bg-white/10 backdrop-blur-md text-white border border-white/20 hover:bg-white/20"
               >
-                <Edit2 size={16} />
-                <span className="hidden sm:inline text-label uppercase tracking-[0.15em]">Editar</span>
-              </button>
-              <button 
+                Editar
+              </NexusAutonomousButton>
+              <NexusAutonomousButton
+                variant="ghost"
+                isIconOnly
+                icon={Trash2}
                 onClick={() => { setShowPreview(false); onDelete?.(); }}
-                className="w-12 h-12 flex items-center justify-center bg-rose-500/20 backdrop-blur-md text-white border border-rose-500/30 hover:bg-rose-500/40 active:scale-90 transition-all"
-                style={{ borderRadius: 'var(--radius-card-inner)' }}
-              >
-                <Trash2 size={18} />
-              </button>
+                className="bg-rose-500/20 backdrop-blur-md text-white border border-rose-500/30 hover:bg-rose-500/40"
+                aria-label="Eliminar medio"
+              />
             </div>
           </div>
 
@@ -219,20 +239,32 @@ export const MediaCard: React.FC<MediaCardProps> = ({ media, isTall, onEdit, onD
           </div>
 
           {/* Footer con Información */}
-          <div className="absolute bottom-0 left-0 right-0 p-[var(--padding-outer)] bg-gradient-to-t from-black via-black/90 to-transparent pt-20 z-20">
+          <div
+            className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent z-20"
+            style={{
+              padding: 'var(--padding-outer)',
+              paddingTop: 'var(--space-3xl)'
+            }}
+          >
             <div className="max-w-3xl mx-auto flex flex-col" style={{ gap: 'var(--space-md)' }}>
               <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
                 <div className="flex items-center" style={{ gap: 'var(--space-sm)' }}>
                   <span 
-                    className="px-3 py-1 bg-brand-500 text-white text-label uppercase tracking-[0.15em] shadow-lg shadow-brand-500/20"
-                    style={{ borderRadius: 'var(--radius-card-nested)' }}
+                    className="bg-brand-500 text-white text-label uppercase tracking-[0.15em] shadow-lg shadow-brand-500/20"
+                    style={{
+                      borderRadius: 'var(--radius-card-nested)',
+                      padding: 'var(--space-xs) var(--space-base)'
+                    }}
                   >
                     {media.category}
                   </span>
                   {media.subcategory && (
                     <span 
-                      className="px-3 py-1 bg-white/20 text-white text-label uppercase tracking-[0.15em] backdrop-blur-sm border border-white/20"
-                      style={{ borderRadius: 'var(--radius-card-nested)' }}
+                      className="bg-white/20 text-white text-label uppercase tracking-[0.15em] backdrop-blur-sm border border-white/20"
+                      style={{
+                        borderRadius: 'var(--radius-card-nested)',
+                        padding: 'var(--space-xs) var(--space-base)'
+                      }}
                     >
                       {media.subcategory}
                     </span>
@@ -248,7 +280,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({ media, isTall, onEdit, onD
                 </p>
               )}
 
-              <div className="flex items-center text-stone-400 mt-2" style={{ gap: 'var(--space-xs)' }}>
+              <div className="flex items-center text-stone-400" style={{ gap: 'var(--space-xs)', marginTop: 'var(--space-sm)' }}>
                 <Heart size={16} className={media.isFavorite ? "fill-brand-500 text-brand-500" : ""} />
                 <span className="text-secondary text-white font-bold">{media.likes} Me gusta</span>
               </div>

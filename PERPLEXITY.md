@@ -116,7 +116,7 @@ raffle module — which Claude had misunderstood:
 - Rejected first pass: splice mutation on const array was fragile.
   Fixed to declarative spread pattern:
   [...(VITE_RAFFLE_ENABLED === 'true' ? ['Rifas'] : []), 'Sistema']
-  Tab order confirmed: Inicio → Galería → Tienda → Órdenes → Rifas → Sistema.
+  Tab order confirmed: Inicio → Medios → Tienda → Órdenes → Rifas → Sistema.
 
 **BottomNav.tsx**
 - Approved. Interface updated to include 'Rifas' union type. Confirmed that

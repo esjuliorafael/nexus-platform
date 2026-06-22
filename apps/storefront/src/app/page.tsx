@@ -1,21 +1,21 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { HelpCircle, ShoppingBag, Sparkles } from 'lucide-react';
-import { mediaApi } from '../api/settings';
-import { ArticleShelf } from '../components/layout/ArticleShelf';
-import { BentoArrivals } from '../components/layout/BentoArrivals';
-import { BirdShowcase } from '../components/layout/BirdShowcase';
-import { GalleryFeatured } from '../components/layout/GalleryFeatured';
-import { HeroSlider } from '../components/layout/HeroSlider';
-import { RaffleSection } from '../components/layout/RaffleSection';
-import { EmptyState } from '../components/ui/EmptyState';
-import { FAQAccordion } from '../components/ui/FAQAccordion';
-import { SectionReveal, SkeletonBento } from '../components/ui/LayoutUtils';
-import { StorefrontSection } from '../components/ui/Section';
-import { useProducts } from '../hooks/useProducts';
-import { useSettings } from '../hooks/useSettings';
-import { Media } from '../types';
+import { useEffect, useState } from "react";
+import { HelpCircle, ShoppingBag, Sparkles } from "lucide-react";
+import { mediaApi } from "../api/settings";
+import { ArticleShelf } from "../components/layout/ArticleShelf";
+import { BentoArrivals } from "../components/layout/BentoArrivals";
+import { BirdShowcase } from "../components/layout/BirdShowcase";
+import { GalleryFeatured } from "../components/layout/GalleryFeatured";
+import { HeroSlider } from "../components/layout/HeroSlider";
+import { RaffleSection } from "../components/layout/RaffleSection";
+import { EmptyState } from "../components/ui/EmptyState";
+import { FAQAccordion } from "../components/ui/FAQAccordion";
+import { SectionReveal, SkeletonBento } from "../components/ui/LayoutUtils";
+import { StorefrontSection } from "../components/ui/Section";
+import { useProducts } from "../hooks/useProducts";
+import { useSettings } from "../hooks/useSettings";
+import { Media } from "../types";
 
 export default function HomePage() {
   const { products, loading } = useProducts();
@@ -23,25 +23,42 @@ export default function HomePage() {
   const [media, setMedia] = useState<Media[]>([]);
   const [loadingMedia, setLoadingMedia] = useState(true);
 
-  const showRaffles = isModuleEnabled('raffle_enabled') || process.env.NEXT_PUBLIC_RAFFLE_ENABLED === 'true';
+  const showRaffles =
+    isModuleEnabled("raffle_enabled") ||
+    process.env.NEXT_PUBLIC_RAFFLE_ENABLED === "true";
 
   const recentProducts = Array.isArray(products)
-    ? products.filter((product) => product.saleStatus === 'AVAILABLE').slice(0, 5)
+    ? products
+        .filter((product) => product.saleStatus === "AVAILABLE")
+        .slice(0, 5)
     : [];
 
   const articleProducts = Array.isArray(products)
-    ? products.filter((product) => product.type === 'ITEM' && product.saleStatus === 'AVAILABLE')
+    ? products.filter(
+        (product) =>
+          product.type === "ITEM" && product.saleStatus === "AVAILABLE",
+      )
     : [];
 
   const combatBirds = Array.isArray(products)
     ? products
-        .filter((product) => product.type === 'BIRD' && product.purpose === 'COMBAT' && product.saleStatus === 'AVAILABLE')
+        .filter(
+          (product) =>
+            product.type === "BIRD" &&
+            product.purpose === "COMBAT" &&
+            product.saleStatus === "AVAILABLE",
+        )
         .slice(0, 6)
     : [];
 
   const breedingBirds = Array.isArray(products)
     ? products
-        .filter((product) => product.type === 'BIRD' && product.purpose === 'BREEDING' && product.saleStatus === 'AVAILABLE')
+        .filter(
+          (product) =>
+            product.type === "BIRD" &&
+            product.purpose === "BREEDING" &&
+            product.saleStatus === "AVAILABLE",
+        )
         .slice(0, 6)
     : [];
 
@@ -50,11 +67,11 @@ export default function HomePage() {
       try {
         const data = await mediaApi.getAll();
         const photos = Array.isArray(data)
-          ? data.filter((item) => item.type === 'PHOTO').slice(0, 8)
+          ? data.filter((item) => item.type === "PHOTO").slice(0, 8)
           : [];
         setMedia(photos);
       } catch (err) {
-        console.error('Error fetching media in home:', err);
+        console.error("Error fetching media in home:", err);
       } finally {
         setLoadingMedia(false);
       }
@@ -64,7 +81,7 @@ export default function HomePage() {
   }, []);
 
   return (
-    <main className="w-full max-w-full overflow-x-hidden">
+    <div className="w-full max-w-full overflow-x-clip">
       <HeroSlider />
 
       <div className="space-y-[var(--sf-space-xl)] pb-[var(--sf-space-xl)] pt-[var(--sf-space-xl)]">
@@ -133,6 +150,6 @@ export default function HomePage() {
           </StorefrontSection>
         </SectionReveal>
       </div>
-    </main>
+    </div>
   );
 }

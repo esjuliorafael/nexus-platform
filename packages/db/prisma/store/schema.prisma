@@ -32,6 +32,7 @@ model User {
   notificationEmail    String?  @map("notification_email")
   receiveNotifications Boolean  @default(true) @map("receive_notifications")
   mustChangePassword   Boolean  @default(true) @map("must_change_password")
+  orderReads           OrderRead[]
 
   @@map("users")
 }
@@ -106,8 +107,21 @@ model Order {
   customerEmail   String?      @map("customer_email")
   expiresAt       DateTime?    @map("expires_at")
   items           OrderItem[]
+  reads           OrderRead[]
 
   @@map("orders")
+}
+
+model OrderRead {
+  orderId Int      @map("order_id")
+  userId  Int      @map("user_id")
+  readAt  DateTime @default(now()) @map("read_at")
+  order   Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  user    User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([orderId, userId])
+  @@index([userId, readAt])
+  @@map("order_reads")
 }
 
 model OrderItem {
@@ -141,6 +155,32 @@ model Media {
   subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id])
 
   @@map("media")
+}
+
+model HomeSlide {
+  id                    Int       @id @default(autoincrement())
+  active                Boolean   @default(true) @map("active")
+  createdAt             DateTime  @default(now()) @map("created_at")
+  desktopObjectPosition String    @default("50% 50%") @map("desktop_object_position")
+  description           String?   @map("description")
+  displayDurationMs     Int       @default(8000) @map("display_duration_ms")
+  eyebrow               String?   @map("eyebrow")
+  mediaUrl              String    @map("media_url")
+  mobileObjectPosition  String    @default("50% 44%") @map("mobile_object_position")
+  posterUrl             String?   @map("poster_url")
+  primaryHref           String?   @map("primary_href")
+  primaryText           String?   @map("primary_text")
+  secondaryHref         String?   @map("secondary_href")
+  secondaryText         String?   @map("secondary_text")
+  sortOrder             Int       @default(1) @map("sort_order")
+  startsAt              DateTime? @map("starts_at")
+  endsAt                DateTime? @map("ends_at")
+  title                 String    @map("title")
+  type                  MediaType @default(PHOTO) @map("type")
+  updatedAt             DateTime  @updatedAt @map("updated_at")
+
+  @@unique([sortOrder])
+  @@map("home_slides")
 }
 
 model PaymentChannel {

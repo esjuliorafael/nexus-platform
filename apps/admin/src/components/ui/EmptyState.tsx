@@ -23,7 +23,7 @@ export const EmptyState: React.FC<EmptyStateProps> = ({
   // Geometría Recursiva Estricta
   const iconRadius = isLevel1 ? 'var(--radius-inner-visual)' : 'var(--radius-nested-simple)';
   const titleClass = isLevel1 ? 'text-h1' : 'text-h2';
-  const paddingStyle = isLevel1 ? 'calc(var(--space-lg) * 2)' : 'var(--space-lg)';
+  const paddingStyle = isLevel1 ? 'var(--space-xl)' : 'var(--space-lg)';
   
   return (
     <div 

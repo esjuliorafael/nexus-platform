@@ -23,7 +23,7 @@ import {
 } from 'lucide-react';
 import { apiPayments, apiSystem, apiWhatsApp } from '../../../api';
 import { SalesChannel, WhatsAppChannel } from '../../../types';
-import { NexusSectionButton, NexusCardButton } from '../../ui/NexusButton';
+import { NexusSectionButton, NexusCardButton, NexusAutonomousButton } from '../../ui/NexusButton';
 import { NexusInput, NexusSelect, NexusTextarea } from '../../ui/NexusInputs';
 import { NexusSection } from '../../ui/NexusSection';
 import { NexusSectionCard } from '../../ui/NexusCard';
@@ -619,39 +619,39 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
 
       {modal === 'identity' && (
         <ModalShell title="Identidad del canal" subtitle="Edita el nombre visible. El proposito se mantiene estable para proteger historiales." onClose={() => setModal(null)}>
-          <div className="space-y-6">
+          <div className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
             <NexusInput label="Nombre del canal" value={generalData.name} onChange={(e) => setGeneralData({ ...generalData, name: e.target.value })} icon={Building2} />
             <NexusSelect label="Proposito" value={generalData.purpose} disabled>
               <option value="COMBAT">Combate</option>
               <option value="BREEDING">Cria</option>
               {RAFFLE_ENABLED && <option value="RAFFLES">Rifas</option>}
             </NexusSelect>
-            <NexusSectionButton onClick={saveIdentity} isLoading={isSaving} icon={Save} className="w-full">
+            <NexusAutonomousButton onClick={saveIdentity} isLoading={isSaving} icon={Save} className="w-full">
               Guardar Identidad
-            </NexusSectionButton>
+            </NexusAutonomousButton>
           </div>
         </ModalShell>
       )}
 
       {modal === 'bank' && (
         <ModalShell title="Informacion bancaria" subtitle="Estos datos se insertan en mensajes con la variable {{bank_info}}." onClose={() => setModal(null)}>
-          <div className="space-y-5">
+          <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
             <NexusInput label="Banco" value={paymentData.bank} onChange={(e) => setPaymentData({ ...paymentData, bank: e.target.value })} icon={Building2} />
             <NexusInput label="Beneficiario" value={paymentData.beneficiary} onChange={(e) => setPaymentData({ ...paymentData, beneficiary: e.target.value })} icon={User} />
             <NexusInput label="CLABE" value={paymentData.clabe} onChange={(e) => setPaymentData({ ...paymentData, clabe: e.target.value })} icon={Hash} />
             <NexusInput label="No. tarjeta" value={paymentData.card} onChange={(e) => setPaymentData({ ...paymentData, card: e.target.value })} icon={CreditCard} />
-            <NexusSectionButton onClick={saveBank} isLoading={isSaving} icon={Save} className="w-full">
+            <NexusAutonomousButton onClick={saveBank} isLoading={isSaving} icon={Save} className="w-full">
               Guardar Banco
-            </NexusSectionButton>
+            </NexusAutonomousButton>
           </div>
         </ModalShell>
       )}
 
       {modal === 'mercadopago' && (
         <ModalShell title="Mercado Pago" subtitle="Vincula una cuenta para cobros automatizados de este canal." onClose={() => setModal(null)}>
-          <div className="space-y-6">
-            <div className="bg-bg-muted border border-border-main rounded-[2rem] p-6 flex items-center gap-5">
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${mpReady ? 'bg-emerald-500 text-white' : 'bg-bg-card text-text-muted border border-border-main'}`}>
+          <div className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
+            <div className="bg-bg-muted border border-border-main flex items-center" style={{ gap: 'var(--space-md)', padding: 'var(--padding-inner)', borderRadius: 'var(--radius-inner-visual)' }}>
+              <div className={`flex items-center justify-center ${mpReady ? 'bg-emerald-500 text-white' : 'bg-bg-card text-text-muted border border-border-main'}`} style={{ width: 'var(--size-icon-autonomous)', height: 'var(--size-icon-autonomous)', borderRadius: 'var(--radius-card-inner)' }}>
                 {mpReady ? <CheckCircle2 size={26} /> : <CreditCard size={26} />}
               </div>
               <div>
@@ -659,18 +659,18 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
                 <p className="text-secondary text-text-muted">{mpReady ? `Usuario ${((paymentObj as any)?.mpUserId || 'sin id')}` : 'Mientras falte, se usara Mercado Pago Principal.'}</p>
               </div>
             </div>
-            <NexusSectionButton onClick={connectMercadoPago} icon={LinkIcon} className="w-full">
+            <NexusAutonomousButton onClick={connectMercadoPago} icon={LinkIcon} className="w-full">
               {mpReady ? 'Re-vincular Mercado Pago' : 'Vincular Mercado Pago'}
-            </NexusSectionButton>
+            </NexusAutonomousButton>
           </div>
         </ModalShell>
       )}
 
       {modal === 'whatsapp' && (
         <ModalShell title="Mensajeria WhatsApp" subtitle="Captura el numero antes de generar QR para evitar vincular el dispositivo equivocado." onClose={() => setModal(null)}>
-          <div className="space-y-6">
+          <div className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
             <NexusInput label="Numero de WhatsApp" value={whatsappData.phone} onChange={(e) => setWhatsappData({ ...whatsappData, phone: e.target.value })} icon={Smartphone} helperText="Incluye codigo de pais. Para Mexico suele iniciar con 521." />
-            <div className="bg-bg-muted border border-border-main rounded-[2rem] p-6 flex items-center justify-between gap-5">
+            <div className="bg-bg-muted border border-border-main flex items-center justify-between" style={{ gap: 'var(--space-md)', padding: 'var(--padding-inner)', borderRadius: 'var(--radius-inner-visual)' }}>
               <div>
                 <p className="text-h2 text-text-main">Notificaciones</p>
                 <p className="text-secondary text-text-muted">{whatsappData.active ? 'Canal habilitado para enviar mensajes' : 'Canal en pausa'}</p>
@@ -682,21 +682,21 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
                 <div className={`absolute top-1.5 w-5 h-5 rounded-full bg-white transition-all shadow-sm ${whatsappData.active ? 'left-9' : 'left-1.5'}`} />
               </button>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <NexusCardButton onClick={() => saveWhatsApp(true)} isLoading={isSaving} icon={Save} className="sm:col-span-1">
+            <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 'var(--space-base)' }}>
+              <NexusAutonomousButton density="compact" onClick={() => saveWhatsApp(true)} isLoading={isSaving} icon={Save} className="sm:col-span-1">
                 Guardar
-              </NexusCardButton>
-              <NexusCardButton onClick={openQrFlow} icon={QrCode} variant="success" className="sm:col-span-1">
+              </NexusAutonomousButton>
+              <NexusAutonomousButton density="compact" onClick={openQrFlow} icon={QrCode} variant="success" className="sm:col-span-1">
                 Vincular QR
-              </NexusCardButton>
-              <NexusCardButton onClick={() => checkInstanceStatus(instanceName)} icon={RefreshCw} variant="secondary" className="sm:col-span-1">
+              </NexusAutonomousButton>
+              <NexusAutonomousButton density="compact" onClick={() => checkInstanceStatus(instanceName)} icon={RefreshCw} variant="secondary" className="sm:col-span-1">
                 Revisar
-              </NexusCardButton>
+              </NexusAutonomousButton>
             </div>
             {instanceStatus === 'open' && (
-              <NexusSectionButton onClick={disconnectWhatsApp} icon={LogOut} variant="danger" className="w-full">
+              <NexusAutonomousButton onClick={disconnectWhatsApp} icon={LogOut} variant="danger" className="w-full">
                 Desvincular dispositivo
-              </NexusSectionButton>
+              </NexusAutonomousButton>
             )}
           </div>
         </ModalShell>
@@ -705,21 +705,24 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       {qrData && (
         <ModalShell title="Vinculacion por QR" subtitle="Escanea este codigo desde WhatsApp en el dispositivo confirmado." onClose={() => setQRData(null)}>
           <div className="text-center">
-            <div className="p-8 bg-white rounded-[3rem] inline-block border-8 border-bg-muted shadow-inner relative">
+            <div
+              className="inline-block bg-white border-8 border-bg-muted shadow-inner relative"
+              style={{ padding: 'var(--padding-outer)', borderRadius: 'var(--radius-outer)' }}
+            >
               {qrData.timeLeft === 0 ? (
                 <div className="w-[240px] h-[240px] flex items-center justify-center">
-                  <NexusCardButton onClick={openQrFlow} icon={QrCode}>Regenerar QR</NexusCardButton>
+                  <NexusAutonomousButton onClick={openQrFlow} icon={QrCode}>Regenerar QR</NexusAutonomousButton>
                 </div>
               ) : (
                 <>
-                  <img src={qrData.base64} alt="QR" className="w-[240px] h-[240px] rounded-[1.5rem]" />
+                  <img src={qrData.base64} alt="QR" className="w-[240px] h-[240px]" style={{ borderRadius: 'var(--radius-card-inner)' }} />
                   <div className="absolute -top-5 -right-5 w-14 h-14 bg-stone-950 text-white rounded-full flex items-center justify-center text-h2 font-black tabular-nums border-4 border-bg-card">
                     {qrData.timeLeft}
                   </div>
                 </>
               )}
             </div>
-            <p className="text-label text-emerald-600 mt-8">Esperando dispositivo...</p>
+            <p className="text-label text-emerald-600" style={{ marginTop: 'var(--space-lg)' }}>Esperando dispositivo...</p>
           </div>
         </ModalShell>
       )}

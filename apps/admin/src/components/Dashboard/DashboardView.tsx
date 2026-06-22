@@ -33,7 +33,7 @@ interface DashboardViewProps {
   billingCharges: ExtraCharge[];
   billingPayments: BillingPayment[];
   onNavigateToSystem: (mode: any) => void;
-  onNavigateToGallery: (mode: any) => void;
+  onNavigateToMedia: (mode: any) => void;
   onTabChange: (tab: any) => void;
 }
 
@@ -52,7 +52,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   billingCharges,
   billingPayments,
   onNavigateToSystem,
-  onNavigateToGallery,
+  onNavigateToMedia,
   onTabChange
 }) => {
   const products = stats?.products;
@@ -211,7 +211,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           <LatestMedia
             items={stats?.latestMedia || []}
             isLoading={isLoading}
-            onViewGallery={() => onNavigateToGallery('list')}
+            onViewGallery={() => onNavigateToMedia('list')}
           />
         </div>
       </section>

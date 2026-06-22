@@ -7,6 +7,7 @@ import { NexusInput, NexusSelect, NexusTextarea } from '../ui/NexusInputs';
 import { NexusAutonomousButton } from '../ui/NexusButton';
 import { NexusSection } from '../ui/NexusSection';
 import { InteractionStage } from '../ui/InteractionStage';
+import { UploadPreviewOverlay } from '../ui/UploadPreviewOverlay';
 
 interface ProductFormProps {
   initialData?: Product;
@@ -262,7 +263,12 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
   };
 
   return (
-    <form id="product-form" onSubmit={handleSubmit} className="flex flex-col animate-in fade-in duration-700 pb-12" style={{ gap: 'var(--space-lg)' }}>
+    <form
+      id="product-form"
+      onSubmit={handleSubmit}
+      className="flex flex-col animate-in fade-in duration-700"
+      style={{ gap: 'var(--space-lg)', paddingBottom: 'var(--space-xl)' }}
+    >
       
       {/* MASTER LAYOUT: 2 MAIN COLUMNS */}
       <div className="grid grid-cols-1 lg:grid-cols-12 items-start" style={{ gap: 'var(--space-lg)' }}>
@@ -278,8 +284,8 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                 size="normal"
                 className="aspect-video w-full shadow-sm"
                 icon={Upload}
-                title="Portada"
-                description="Imagen o video principal (16:9)."
+                title="Portada del Producto"
+                description="Imagen o video principal del producto (16:9 recomendado)."
                 onClick={() => !isProcessing && coverInputRef.current?.click()}
               />
             ) : (
@@ -293,12 +299,7 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                 ) : (
                   <img src={coverUrl} className="w-full h-full object-cover" alt="Portada" />
                 )}
-                <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex flex-col items-center justify-center" style={{ gap: 'var(--space-sm)' }}>
-                  <div className="bg-bg-card/20 backdrop-blur-xl p-4 rounded-full border border-white/30 text-white scale-90 group-hover:scale-100 transition-transform duration-500">
-                      <PlusCircle size={32} />
-                  </div>
-                  <span className="text-white text-label uppercase tracking-[0.15em]">Cambiar Portada</span>
-                </div>
+                <UploadPreviewOverlay label="Cambiar Portada" />
                 
                 {/* Controles Flotantes Nivel 2 (Autonomous Scale) */}
                 <div className="absolute top-0 inset-x-0 flex items-center justify-between z-20 pointer-events-none" style={{ padding: 'var(--padding-inner)' }}>
@@ -311,7 +312,7 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                       icon={isVideo ? Film : ImageIcon}
                       className="bg-black/40 backdrop-blur-md border border-white/10 text-white shadow-none pointer-events-none"
                     >
-                      Portada
+                      {isVideo ? 'Video' : 'Foto'}
                     </NexusAutonomousButton>
                   </div>
 
@@ -358,7 +359,13 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                         <img src={frame.url} className="w-full h-full object-cover" alt={`Opción ${idx + 1}`} />
                         {staticThumbUrl === frame.url && (
                           <div className="absolute inset-0 bg-brand-500/10 flex items-center justify-center">
-                            <div className="bg-brand-500 text-white p-1 rounded-full shadow-lg">
+                            <div
+                              className="bg-brand-500 text-white shadow-lg"
+                              style={{
+                                padding: 'var(--space-xs)',
+                                borderRadius: 'var(--radius-nested-simple)'
+                              }}
+                            >
                               <Check size={12} strokeWidth={4} />
                             </div>
                           </div>
@@ -381,19 +388,19 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                         <>
                           <img src={staticThumbUrl!} className="absolute inset-0 w-full h-full object-cover opacity-20" alt="Manual" />
                           <Check size={16} className="z-10 text-emerald-600" />
-                          <span className="text-[8px] uppercase font-black tracking-widest z-10 text-emerald-700">
+                          <span className="z-10 text-label uppercase tracking-[0.15em] text-emerald-700">
                             {staticThumbFile ? 'Manual' : 'Actual'}
                           </span>
                         </>
                       ) : (
                         <>
                           <div 
-                            className="p-2 bg-stone-100 text-stone-400 group-hover:bg-brand-100 group-hover:text-brand-500 transition-colors"
-                            style={{ borderRadius: 'var(--radius-nested-simple)' }}
+                            className="bg-stone-100 text-stone-400 group-hover:bg-brand-100 group-hover:text-brand-500 transition-colors"
+                            style={{ borderRadius: 'var(--radius-nested-simple)', padding: 'var(--space-sm)' }}
                           >
                             <Upload size={20} strokeWidth={2} />
                           </div>
-                          <span className="text-[8px] uppercase font-black tracking-widest text-text-muted group-hover:text-brand-600 transition-colors">Manual</span>
+                          <span className="text-label uppercase tracking-[0.15em] text-text-muted group-hover:text-brand-600 transition-colors">Manual</span>
                         </>
                       )}
                     </button>
@@ -439,8 +446,13 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                       <button 
                         type="button"
                         onClick={() => removeGalleryImage(idx)}
-                        className="absolute top-1.5 right-1.5 p-2 bg-rose-500 text-white opacity-0 group-hover:opacity-100 transition-all active:scale-90 backdrop-blur-sm z-20"
-                        style={{ borderRadius: 'var(--radius-nested-simple)' }}
+                        className="absolute bg-rose-500 text-white opacity-0 group-hover:opacity-100 transition-all active:scale-90 backdrop-blur-sm z-20"
+                        style={{
+                          top: 'var(--space-xs)',
+                          right: 'var(--space-xs)',
+                          borderRadius: 'var(--radius-nested-simple)',
+                          padding: 'var(--space-sm)'
+                        }}
                       >
                         <Trash2 size={12} />
                       </button>
@@ -456,12 +468,12 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                       style={{ borderRadius: 'var(--radius-inner-visual)', gap: 'var(--space-xs)' }}
                     >
                       <div 
-                        className="p-2 bg-stone-100 text-stone-400 group-hover:bg-brand-100 group-hover:text-brand-500 transition-colors"
-                        style={{ borderRadius: 'var(--radius-nested-simple)' }}
+                        className="bg-stone-100 text-stone-400 group-hover:bg-brand-100 group-hover:text-brand-500 transition-colors"
+                        style={{ borderRadius: 'var(--radius-nested-simple)', padding: 'var(--space-sm)' }}
                       >
                         <PlusCircle size={20} strokeWidth={2} />
                       </div>
-                      <span className="text-[8px] uppercase font-black tracking-widest text-text-muted group-hover:text-brand-600 transition-colors">Añadir</span>
+                      <span className="text-label uppercase tracking-[0.15em] text-text-muted group-hover:text-brand-600 transition-colors">Añadir</span>
                     </button>
                   )}
                 </div>
@@ -480,7 +492,7 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                 <button 
                   type="button" 
                   onClick={() => setProductType('BIRD')} 
-                  className={`flex items-center justify-center text-[10px] font-black uppercase tracking-[0.15em] transition-all border-2
+                  className={`flex items-center justify-center text-label uppercase tracking-[0.15em] transition-all border-2
                     ${productType === 'BIRD' ? 'border-brand-500 bg-brand-50/30 text-brand-600 shadow-sm shadow-brand-500/10' : 'border-border-main bg-bg-card text-text-muted hover:border-brand-300 hover:bg-bg-muted'}
                   `} 
                   style={{ borderRadius: 'var(--radius-inner-visual)', gap: 'var(--space-xs)', height: 'var(--h-input)' }}
@@ -490,7 +502,7 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                 <button 
                   type="button" 
                   onClick={() => setProductType('ITEM')} 
-                  className={`flex items-center justify-center text-[10px] font-black uppercase tracking-[0.15em] transition-all border-2
+                  className={`flex items-center justify-center text-label uppercase tracking-[0.15em] transition-all border-2
                     ${productType === 'ITEM' ? 'border-brand-500 bg-brand-50/30 text-brand-600 shadow-sm shadow-brand-500/10' : 'border-border-main bg-bg-card text-text-muted hover:border-brand-300 hover:bg-bg-muted'}
                   `} 
                   style={{ borderRadius: 'var(--radius-inner-visual)', gap: 'var(--space-xs)', height: 'var(--h-input)' }}
@@ -538,7 +550,14 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
               </div>
 
               {isSubmitting && (
-                <div className="flex items-center justify-center py-4 bg-brand-50 rounded-xl border border-brand-100 animate-pulse" style={{ gap: 'var(--space-sm)' }}>
+                <div
+                  className="flex items-center justify-center bg-brand-50 border border-brand-100 animate-pulse"
+                  style={{
+                    gap: 'var(--space-sm)',
+                    paddingBlock: 'var(--space-sm)',
+                    borderRadius: 'var(--radius-inner-visual)'
+                  }}
+                >
                   <div className="w-4 h-4 border-2 border-brand-500 border-t-transparent rounded-full animate-spin" />
                   <span className="text-label text-brand-700 uppercase tracking-widest">Guardando cambios...</span>
                 </div>

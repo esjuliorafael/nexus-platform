@@ -63,10 +63,15 @@ Typography is 100% fluid via `clamp()`.
 
 ### 3. Semantic Spacing (Gestalt Principles)
 Spaces reflect relationships between elements (Base 4 grid):
-- `--space-xs` (4px): Intimate (Label ↔ Value).
-- `--space-sm` (8px): Close (Button ↔ Button).
-- `--space-md` (Fluid 16-24px): Module (Icon ↔ Content).
-- `--space-lg` (Fluid 24-40px): Group Boundary (Block ↔ Block).
+Current expanded scale:
+- `--space-xs` (4px): Intimate (Label to Value).
+- `--space-sm` (8px): Close (Button to Button).
+- `--space-base` (12px): Compact groups (Badge to Badge, CTA to CTA).
+- `--space-md` (Fluid 16-24px): Module (Icon to Content).
+- `--space-lg` (Fluid 24-40px): Group Boundary (Block to Block).
+- `--space-xl` (Fluid 48-80px): Section breathing (Stage padding, large local whitespace).
+- `--space-2xl` (Fluid 72-120px): Page rhythm (loading states, page endings).
+- `--space-3xl` (Fluid 96-160px): Overlay depth (large gradients, empty state depth).
 
 ### 4. Component Standardization
 - **NexusButton:** Context-aware (`section` vs `card`). Automatically adjusts height (`--h-button-section` vs `--h-button-card`), radius and typography.
@@ -144,7 +149,8 @@ Spaces reflect relationships between elements (Base 4 grid):
 - **Golden Rule Implementation:** The rule "Everything in English" is now strictly enforced across the codebase.
 - **UI Strategy:** "English Backend, Spanish Frontend". Use translation maps/labels in the UI.
 - **Pre-migration Task (UI Audit):** Perform a comprehensive audit of all components in `apps/admin/src` to identify data-binding that relies on Spanish keys.
-  - **Scope:** `Auth/`, `Gallery/`, `Orders/`, `Raffle/`, `Store/`, `System/`, `Widgets/`, and root components (`BottomNav`, `Header`, `QuickActions`, `useFavicon`).
+  - **Scope:** `Auth/`, `Media/`, `Orders/`, `Raffle/`, `Store/`, `System/`, `Widgets/`, and root components (`BottomNav`, `Header`, `QuickActions`, `useFavicon`).
+  - **Admin naming:** `Medios` is the administrative module and navigation tab. `GalleryView` remains the specific view that manages the public Storefront gallery.
   - **Action:** Prepare labels/mappers for Enums (e.g., `BIRD` -> "Ave", `ITEM` -> "Artículo").
 
 ## WhatsApp Management Architecture (Deep Integration)

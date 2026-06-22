@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap");
 @import "tailwindcss";
 
 @theme {
@@ -30,17 +30,29 @@
 
   /* Level 2: Primary Children (Cards, Badges, Section Icons) */
   /* Formula Visual: inner = outer - (padding * 0.75) */
-  --radius-inner-visual: calc(var(--radius-outer) - (var(--padding-outer) * 0.75));
-  
+  --radius-inner-visual: calc(
+    var(--radius-outer) - (var(--padding-outer) * 0.75)
+  );
+
   /* Level 3: Nested Elements (Icons inside Cards) */
   /* Formula Simple: inner-nested = radius-inner-visual - padding-inner */
-  --radius-nested-simple: max(0.5rem, calc(var(--radius-inner-visual) - var(--padding-inner)));
+  --radius-nested-simple: max(
+    0.5rem,
+    calc(var(--radius-inner-visual) - var(--padding-inner))
+  );
   --padding-inner: clamp(1rem, 3vw, 1.5rem);
 
   /* Autonomous Cards Geometry (Level 1 containers using padding-inner) */
   --radius-card-inner: calc(var(--radius-outer) - (var(--padding-inner) * 0.75));
   --radius-card-nested: max(0.5rem, calc(var(--radius-card-inner) - var(--padding-inner)));
+  --padding-card-micro: var(--space-base);
+  --radius-card-micro-inner: calc(var(--radius-outer) - (var(--padding-card-micro) * 0.75));
+  --padding-card-rail: var(--space-base);
+  --radius-card-rail-inner: calc(var(--radius-outer) - (var(--padding-card-rail) * 0.75));
   --size-card-thumb: clamp(5rem, 8vw, 7rem); /* 80px to 112px */
+  --size-quick-action-mobile: clamp(5.75rem, 27vw, 7rem); /* 92px to 112px */
+  --size-slide-thumb-height: var(--size-card-thumb); /* Matches ProductCard thumbnail height */
+  --size-slide-thumb-width: calc(var(--size-slide-thumb-height) * 16 / 9);
 
   /* Fluid UI Components Heights & Semantic Sizes */
   --h-input: clamp(3rem, 4vw, 3.5rem); /* 48px to 56px */
@@ -50,23 +62,31 @@
   /* Semantic Component Sizes - Level Scale */
   --size-button-section: var(--h-button-section);
   --size-button-card: var(--h-button-card);
-  --size-button-autonomous: var(--h-button-section); /* Inherits from section level weight */
+  --size-button-autonomous: var(
+    --h-button-section
+  ); /* Inherits from section level weight */
 
   /* Icon Sizes - Linked to Component Scales */
   --size-icon-section: var(--h-button-section);
   --size-icon-card: var(--h-button-card);
-  --size-icon-autonomous: var(--h-button-section); /* Inherits from section level weight */
+  --size-icon-autonomous: var(
+    --h-button-section
+  ); /* Inherits from section level weight */
 
   /* Internal Icon Sizes - For Buttons and technical UI elements */
-  --size-inner-icon-section: 1.5rem;     /* 24px */
-  --size-inner-icon-autonomous: 1.5rem;  /* 24px */
-  --size-inner-icon-card: 1.25rem;       /* 20px */
+  --size-inner-icon-section: 1.5rem; /* 24px */
+  --size-inner-icon-autonomous: 1.5rem; /* 24px */
+  --size-inner-icon-card: 1.25rem; /* 20px */
 
   /* Space Tokens - Relational Hierarchy (Base 4) */
-  --space-xs: 0.25rem;  /* 4px: Intimate (Label -> Value) */
-  --space-sm: 0.5rem;   /* 8px: Close (Button -> Button) */
-  --space-md: clamp(1rem, 2vw, 1.5rem);  /* 16px-24px: Module (Icon -> Text) */
+  --space-xs: 0.25rem; /* 4px: Intimate (Label -> Value) */
+  --space-sm: 0.5rem; /* 8px: Close (Button -> Button) */
+  --space-base: 0.75rem; /* 12px: Compact groups (Badge -> Badge, CTA -> CTA) */
+  --space-md: clamp(1rem, 2vw, 1.5rem); /* 16px-24px: Module (Icon -> Text) */
   --space-lg: clamp(1.5rem, 4vw, 2.5rem); /* 24px-40px: Boundary (Group -> Group) */
+  --space-xl: calc(var(--space-lg) * 2); /* 48px-80px: Section breathing */
+  --space-2xl: calc(var(--space-lg) * 3); /* 72px-120px: Page vertical rhythm */
+  --space-3xl: calc(var(--space-lg) * 4); /* 96px-160px: Empty states and overlays */
 
   /* Emil's Easing */
   --ease-emil: cubic-bezier(0.23, 1, 0.32, 1);
@@ -74,18 +94,19 @@
 
   /* Typography Scale - Modular Scale (Major Third 1.25x) - Base 16px */
   /* Fluid Clamps - Refined for Desktop Balance */
-  --text-hero:      clamp(1.875rem, 5vw,  2.5rem);    /* 30px -> 40px */
-  --text-display:   clamp(1.5rem,   4vw,  2rem);       /* 24px -> 32px */
-  --text-h1:        clamp(1.2rem,   2.5vw, 1.5rem);   /* 19px -> 24px */
-  --text-h2:        clamp(1.05rem,  2vw,  1.25rem);   /* 16.8px -> 20px */
-  --text-body:      clamp(0.9375rem, 1.2vw, 1rem);    /* 15px -> 16px */
-  --text-secondary: clamp(0.8rem,   1vw,  0.875rem);  /* 12.8px -> 14px */
-  --text-label:     clamp(0.6rem,   0.7vw, 0.6875rem);/* 9.6px -> 11px */
+  --text-hero: clamp(1.875rem, 5vw, 2.5rem); /* 30px -> 40px */
+  --text-display: clamp(1.5rem, 4vw, 2rem); /* 24px -> 32px */
+  --text-h1: clamp(1.2rem, 2.5vw, 1.5rem); /* 19px -> 24px */
+  --text-h2: clamp(1.05rem, 2vw, 1.25rem); /* 16.8px -> 20px */
+  --text-body: clamp(0.9375rem, 1.2vw, 1rem); /* 15px -> 16px */
+  --text-secondary: clamp(0.8rem, 1vw, 0.875rem); /* 12.8px -> 14px */
+  --text-label: clamp(0.6rem, 0.7vw, 0.6875rem); /* 9.6px -> 11px */
+  --text-caption: clamp(0.55rem, 0.65vw, 0.625rem); /* 8.8px -> 10px */
 
   /* Button Typography - Derived from button heights */
-  --text-button-section:    clamp(0.875rem, 1.2vw, 1rem);     /* 14px -> 16px */
-  --text-button-autonomous: clamp(0.875rem, 1.2vw, 1rem);     /* 14px -> 16px */
-  --text-button-card:       clamp(0.75rem,  0.9vw, 0.8125rem);/* 12px -> 13px */
+  --text-button-section: clamp(0.875rem, 1.2vw, 1rem); /* 14px -> 16px */
+  --text-button-autonomous: clamp(0.875rem, 1.2vw, 1rem); /* 14px -> 16px */
+  --text-button-card: clamp(0.75rem, 0.9vw, 0.8125rem); /* 12px -> 13px */
 
   --size-widget-kpi-min: 9rem; /* 144px */
 
@@ -107,7 +128,7 @@
   font-size: var(--text-display);
   font-weight: 800;
   letter-spacing: -0.04em;
-  line-height: 1.0;
+  line-height: 1;
 }
 
 @utility text-h1 {
@@ -129,6 +150,13 @@
   font-weight: 700;
   letter-spacing: 0.08em;
   line-height: 1.4;
+}
+
+@utility text-caption {
+  font-size: var(--text-caption);
+  font-weight: 800;
+  letter-spacing: 0.1em;
+  line-height: 1;
 }
 
 @utility text-secondary {
@@ -185,24 +213,24 @@
 }
 
 .dark {
-  --bg-app: #0A0A0B;      /* Midnight profundo */
-  --bg-card: #161618;     /* Superficie elevada */
-  --bg-muted: #1E1E20;    /* Elementos secundarios */
-  --text-main: #ECEDEE;   /* Blanco suave */
-  --text-muted: #88888E;  /* Gris neutro */
-  --border-main: #1F1F22; /* Borde oscuro y sutil, NUNCA blanco */
+  --bg-app: #0a0a0b; /* Midnight profundo */
+  --bg-card: #161618; /* Superficie elevada */
+  --bg-muted: #1e1e20; /* Elementos secundarios */
+  --text-main: #ecedee; /* Blanco suave */
+  --text-muted: #88888e; /* Gris neutro */
+  --border-main: #1f1f22; /* Borde oscuro y sutil, NUNCA blanco */
 
   /* Desaturated brand for dark mode to avoid "vibration" */
-  --brand-50: #1A1614;
-  --brand-100: #261F1D;
-  --brand-200: #3D2D2A;
-  --brand-300: #5C433F;
-  --brand-400: #835E57;
-  --brand-500: #B47E74; 
-  --brand-600: #C48F85; 
-  --brand-700: #D4A096;
-  --brand-800: #E4B1A7;
-  --brand-900: #F4C2B8;
+  --brand-50: #1a1614;
+  --brand-100: #261f1d;
+  --brand-200: #3d2d2a;
+  --brand-300: #5c433f;
+  --brand-400: #835e57;
+  --brand-500: #b47e74;
+  --brand-600: #c48f85;
+  --brand-700: #d4a096;
+  --brand-800: #e4b1a7;
+  --brand-900: #f4c2b8;
 }
 
 /* 🛑 GLOBAL FORCED DARK MODE BORDERS */
@@ -211,24 +239,29 @@
 }
 
 /* Excepciones necesarias (colores de marca y estados) */
-.dark .border-brand-500, .dark .border-brand-400, .dark .border-brand-600 {
+.dark .border-brand-500,
+.dark .border-brand-400,
+.dark .border-brand-600 {
   border-color: var(--brand-500) !important;
 }
-.dark .border-emerald-500, .dark .border-emerald-200, .dark .border-emerald-100 {
+.dark .border-emerald-500,
+.dark .border-emerald-200,
+.dark .border-emerald-100 {
   border-color: rgba(16, 185, 129, 0.2) !important;
 }
-.dark .border-rose-500, .dark .border-rose-200, .dark .border-rose-100 {
+.dark .border-rose-500,
+.dark .border-rose-200,
+.dark .border-rose-100 {
   border-color: rgba(244, 63, 94, 0.2) !important;
 }
-.dark .border-amber-500, .dark .border-amber-200, .dark .border-amber-100 {
+.dark .border-amber-500,
+.dark .border-amber-200,
+.dark .border-amber-100 {
   border-color: rgba(245, 158, 11, 0.2) !important;
 }
 .dark .border-transparent {
   border-color: transparent !important;
 }
-
-
-
 
 body {
   @apply bg-bg-app text-text-main font-sans transition-colors duration-300;
@@ -260,14 +293,17 @@ body {
 
 /* Reveal Animation (Consistent direction for both) */
 @keyframes reveal-theme {
-  from { clip-path: inset(0 0 100% 0); }
-  to { clip-path: inset(0 0 0 0); }
+  from {
+    clip-path: inset(0 0 100% 0);
+  }
+  to {
+    clip-path: inset(0 0 0 0);
+  }
 }
 
 ::view-transition-new(root) {
   animation: reveal-theme 1s var(--ease-reveal);
 }
-
 
 /* Rest of existing components updated for themes */
 .btn-primary {
@@ -394,22 +430,52 @@ body {
   animation-name: slideInRight;
 }
 
-.duration-200 { animation-duration: 200ms; }
-.duration-300 { animation-duration: 300ms; }
-.duration-500 { animation-duration: 300ms; } /* Capped at 300ms for responsiveness */
-.duration-600 { animation-duration: 300ms; }
-.duration-700 { animation-duration: 300ms; }
+.duration-200 {
+  animation-duration: 200ms;
+}
+.duration-300 {
+  animation-duration: 300ms;
+}
+.duration-500 {
+  animation-duration: 300ms;
+} /* Capped at 300ms for responsiveness */
+.duration-600 {
+  animation-duration: 300ms;
+}
+.duration-700 {
+  animation-duration: 300ms;
+}
 
-.delay-70 { animation-delay: 70ms; }
-.delay-100 { animation-delay: 100ms; }
-.delay-150 { animation-delay: 150ms; }
-.delay-200 { animation-delay: 200ms; }
-.delay-300 { animation-delay: 300ms; }
-.delay-400 { animation-delay: 300ms; } /* Delays also compressed */
-.delay-500 { animation-delay: 300ms; }
-.delay-600 { animation-delay: 300ms; }
-.delay-700 { animation-delay: 300ms; }
-.delay-800 { animation-delay: 300ms; }
+.delay-70 {
+  animation-delay: 70ms;
+}
+.delay-100 {
+  animation-delay: 100ms;
+}
+.delay-150 {
+  animation-delay: 150ms;
+}
+.delay-200 {
+  animation-delay: 200ms;
+}
+.delay-300 {
+  animation-delay: 300ms;
+}
+.delay-400 {
+  animation-delay: 300ms;
+} /* Delays also compressed */
+.delay-500 {
+  animation-delay: 300ms;
+}
+.delay-600 {
+  animation-delay: 300ms;
+}
+.delay-700 {
+  animation-delay: 300ms;
+}
+.delay-800 {
+  animation-delay: 300ms;
+}
 
 .active\:scale-\[0\.99\]:active {
   transform: scale(0.99);
@@ -420,7 +486,7 @@ body {
 }
 
 .active\:scale-90:active {
-  transform: scale(0.90);
+  transform: scale(0.9);
 }
 
 /* Scrollbar styling - Homogenized for all themes */

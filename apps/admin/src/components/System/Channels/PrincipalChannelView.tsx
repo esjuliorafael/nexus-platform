@@ -21,7 +21,7 @@ import {
 import { apiSystem, apiWhatsApp } from '../../../api';
 import { NexusSection } from '../../ui/NexusSection';
 import { NexusSectionCard } from '../../ui/NexusCard';
-import { NexusCardButton, NexusSectionButton } from '../../ui/NexusButton';
+import { NexusAutonomousButton, NexusCardButton, NexusSectionButton } from '../../ui/NexusButton';
 import { NexusInput, NexusTextarea } from '../../ui/NexusInputs';
 import { NexusModal } from '../../ui/NexusModal';
 
@@ -333,12 +333,12 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
 
       {modal === 'bank' && (
         <NexusModal isOpen title="Informacion Bancaria Principal" onClose={() => setModal(null)}>
-          <div className="space-y-5">
+          <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
             <NexusInput label="Banco" value={config.bank_main_name || ''} onChange={(e) => setConfig({ ...config, bank_main_name: e.target.value })} icon={Banknote} />
             <NexusInput label="Beneficiario" value={config.bank_main_beneficiary || ''} onChange={(e) => setConfig({ ...config, bank_main_beneficiary: e.target.value })} icon={User} />
             <NexusInput label="CLABE" value={config.bank_main_clabe || ''} onChange={(e) => setConfig({ ...config, bank_main_clabe: e.target.value })} icon={Hash} />
             <NexusInput label="No. tarjeta" value={config.bank_main_card || ''} onChange={(e) => setConfig({ ...config, bank_main_card: e.target.value })} icon={CreditCard} />
-            <NexusSectionButton
+            <NexusAutonomousButton
               className="w-full"
               onClick={() => updateConfig({
                 bank_main_name: config.bank_main_name || '',
@@ -350,14 +350,14 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
               icon={Save}
             >
               Guardar Banco Principal
-            </NexusSectionButton>
+            </NexusAutonomousButton>
           </div>
         </NexusModal>
       )}
 
       {modal === 'mercadopago' && (
         <NexusModal isOpen title="Mercado Pago Principal" onClose={() => setModal(null)}>
-          <div className="space-y-6">
+          <div className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
             <NexusInput
               label="Identidad en Extracto"
               value={config.mp_statement_descriptor || ''}
@@ -365,8 +365,8 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
               icon={CreditCard}
               helperText="Texto que aparece en el extracto del cliente. Maximo 16 caracteres."
             />
-            <div className="bg-bg-muted border border-border-main rounded-[2rem] p-6 flex items-center gap-5">
-              <div className={`w-14 h-14 rounded-2xl flex items-center justify-center ${mpReady ? 'bg-emerald-500 text-white' : 'bg-bg-card text-text-muted border border-border-main'}`}>
+            <div className="bg-bg-muted border border-border-main flex items-center" style={{ gap: 'var(--space-md)', padding: 'var(--padding-inner)', borderRadius: 'var(--radius-inner-visual)' }}>
+              <div className={`flex items-center justify-center ${mpReady ? 'bg-emerald-500 text-white' : 'bg-bg-card text-text-muted border border-border-main'}`} style={{ width: 'var(--size-icon-autonomous)', height: 'var(--size-icon-autonomous)', borderRadius: 'var(--radius-card-inner)' }}>
                 <CheckCircle2 size={24} />
               </div>
               <div>
@@ -374,11 +374,11 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
                 <p className="text-secondary text-text-muted">{mpReady ? `Usuario ${config.mp_seller_user_id || 'sin id'}` : 'Vincula la pasarela principal para cobros por tarjeta.'}</p>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <NexusSectionButton onClick={() => updateConfig({ mp_statement_descriptor: config.mp_statement_descriptor || '' })} isLoading={isSaving} icon={Save}>
+            <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 'var(--space-md)' }}>
+              <NexusAutonomousButton onClick={() => updateConfig({ mp_statement_descriptor: config.mp_statement_descriptor || '' })} isLoading={isSaving} icon={Save}>
                 Guardar Extracto
-              </NexusSectionButton>
-              <NexusSectionButton
+              </NexusAutonomousButton>
+              <NexusAutonomousButton
                 icon={LinkIcon}
                 onClick={async () => {
                   const response = await fetch(`${import.meta.env.VITE_API_URL}/mp/auth-url`);
@@ -387,7 +387,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
                 }}
               >
                 {mpReady ? 'Re-vincular' : 'Vincular'}
-              </NexusSectionButton>
+              </NexusAutonomousButton>
             </div>
           </div>
         </NexusModal>
@@ -395,7 +395,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
 
       {modal === 'whatsapp' && (
         <NexusModal isOpen title="Mensajeria Principal" onClose={() => setModal(null)}>
-          <div className="space-y-6">
+          <div className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
             <NexusInput
               label="Numero de WhatsApp"
               value={config.whatsapp_main_phone || ''}
@@ -403,7 +403,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
               icon={Smartphone}
               helperText="Incluye codigo de pais. Este sera el telefono fisico que escaneara el QR."
             />
-            <div className="bg-bg-muted border border-border-main rounded-[2rem] p-6 flex items-center justify-between gap-5">
+            <div className="bg-bg-muted border border-border-main flex items-center justify-between" style={{ gap: 'var(--space-md)', padding: 'var(--padding-inner)', borderRadius: 'var(--radius-inner-visual)' }}>
               <div>
                 <p className="text-h2 text-text-main">Dispositivo principal</p>
                 <p className="text-secondary text-text-muted">
@@ -414,8 +414,9 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
                 {instanceStatus === 'loading' ? 'Revisando' : instanceStatus === 'open' ? 'En linea' : 'Desconectado'}
               </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <NexusCardButton
+            <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 'var(--space-base)' }}>
+              <NexusAutonomousButton
+                density="compact"
                 onClick={() => updateConfig({
                   whatsapp_main_phone: config.whatsapp_main_phone || '',
                   whatsapp_evolution_instance: principalInstance,
@@ -424,18 +425,18 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
                 icon={Save}
               >
                 Guardar
-              </NexusCardButton>
-              <NexusCardButton onClick={openQrFlow} icon={QrCode} variant="success">
+              </NexusAutonomousButton>
+              <NexusAutonomousButton density="compact" onClick={openQrFlow} icon={QrCode} variant="success">
                 Vincular QR
-              </NexusCardButton>
-              <NexusCardButton onClick={() => checkInstanceStatus()} icon={RefreshCw} variant="secondary">
+              </NexusAutonomousButton>
+              <NexusAutonomousButton density="compact" onClick={() => checkInstanceStatus()} icon={RefreshCw} variant="secondary">
                 Revisar
-              </NexusCardButton>
+              </NexusAutonomousButton>
             </div>
             {instanceStatus === 'open' && (
-              <NexusSectionButton onClick={disconnectWhatsApp} icon={LogOut} variant="danger" className="w-full">
+              <NexusAutonomousButton onClick={disconnectWhatsApp} icon={LogOut} variant="danger" className="w-full">
                 Desvincular Dispositivo
-              </NexusSectionButton>
+              </NexusAutonomousButton>
             )}
           </div>
         </NexusModal>
@@ -444,21 +445,21 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
       {qrData && (
         <NexusModal isOpen title="Vinculacion por QR" onClose={() => setQRData(null)} zIndex={260}>
           <div className="text-center">
-            <div className="p-8 bg-white rounded-[3rem] inline-block border-8 border-bg-muted shadow-inner relative">
+            <div className="bg-white inline-block border-8 border-bg-muted shadow-inner relative" style={{ padding: 'var(--padding-outer)', borderRadius: 'var(--radius-outer)' }}>
               {qrData.timeLeft === 0 ? (
                 <div className="w-[240px] h-[240px] flex items-center justify-center">
-                  <NexusCardButton onClick={openQrFlow} icon={QrCode}>Regenerar QR</NexusCardButton>
+                  <NexusAutonomousButton onClick={openQrFlow} icon={QrCode}>Regenerar QR</NexusAutonomousButton>
                 </div>
               ) : (
                 <>
-                  <img src={qrData.base64} alt="QR" className="w-[240px] h-[240px] rounded-[1.5rem]" />
+                  <img src={qrData.base64} alt="QR" className="w-[240px] h-[240px]" style={{ borderRadius: 'var(--radius-card-inner)' }} />
                   <div className="absolute -top-5 -right-5 w-14 h-14 bg-stone-950 text-white rounded-full flex items-center justify-center text-h2 font-black tabular-nums border-4 border-bg-card">
                     {qrData.timeLeft}
                   </div>
                 </>
               )}
             </div>
-            <p className="text-label text-emerald-600 mt-8">Esperando dispositivo...</p>
+            <p className="text-label text-emerald-600" style={{ marginTop: 'var(--space-lg)' }}>Esperando dispositivo...</p>
           </div>
         </NexusModal>
       )}

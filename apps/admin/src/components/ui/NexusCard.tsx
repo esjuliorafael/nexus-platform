@@ -6,6 +6,7 @@ import { NexusButton, NexusCardButton } from './NexusButton';
 interface NexusCardBaseProps {
   children: React.ReactNode;
   level: 1 | 2;
+  density?: 'default' | 'micro' | 'rail';
   swipeable?: boolean;
   onEdit?: () => void;
   onDelete?: () => void;
@@ -19,14 +20,14 @@ interface NexusCardBaseProps {
 }
 
 const NexusCardBase: React.FC<NexusCardBaseProps> = ({
-  children, level, swipeable, onEdit, onDelete, customSwipeLeft, customSwipeRight, isMuted, className = '', innerClassName = '', delay = '0ms', style
+  children, level, density = 'default', swipeable, onEdit, onDelete, customSwipeLeft, customSwipeRight, isMuted, className = '', innerClassName = '', delay = '0ms', style
 }) => {
   const [translateX, setTranslateX] = React.useState(0);
   const [isSwiping, setIsSwiping] = React.useState(false);
   const [activeSide, setActiveSide] = React.useState<'none' | 'left' | 'right'>('none');
   const touchStart = React.useRef(0);
   const touchX = React.useRef(0);
-  
+
   const resetSwipe = () => {
     setTranslateX(0);
     setActiveSide('none');
@@ -59,6 +60,13 @@ const NexusCardBase: React.FC<NexusCardBaseProps> = ({
   };
 
   const radiusToken = level === 1 ? 'var(--radius-outer)' : 'var(--radius-inner-visual)';
+  const paddingToken = level !== 1
+    ? 'var(--padding-inner)'
+    : density === 'micro'
+      ? 'var(--padding-card-micro)'
+      : density === 'rail'
+        ? 'var(--padding-card-rail)'
+        : 'var(--padding-inner)';
 
   return (
     <div className={`animate-in fade-in zoom-in-95 duration-300 [animation-fill-mode:both] ${className}`} style={{ animationDelay: delay, ...style }}>
@@ -72,7 +80,7 @@ const NexusCardBase: React.FC<NexusCardBaseProps> = ({
             ) : (
               onEdit && <NexusCardButton onClick={() => { onEdit?.(); resetSwipe(); }} variant="brand" isIconOnly icon={Edit2} className="absolute inset-y-0 left-0 w-[100px] h-full rounded-none" />
             )}
-            
+
             {customSwipeRight ? (
               <div className="absolute inset-y-0 right-0 w-[100px] h-full overflow-hidden" onClick={resetSwipe}>
                 {customSwipeRight}
@@ -83,11 +91,11 @@ const NexusCardBase: React.FC<NexusCardBaseProps> = ({
           </div>
         )}
         <div onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
-          style={{ 
-            transform: swipeable ? `translateX(${translateX}px)` : 'none', 
-            transition: isSwiping ? 'none' : 'transform 0.4s var(--ease-emil)', 
-            borderRadius: radiusToken, 
-            padding: 'var(--padding-inner)' 
+          style={{
+            transform: swipeable ? `translateX(${translateX}px)` : 'none',
+            transition: isSwiping ? 'none' : 'transform 0.4s var(--ease-emil)',
+            borderRadius: radiusToken,
+            padding: paddingToken
           }}
           className={`relative z-10 bg-bg-card border border-border-main transition-all duration-700 hover:shadow-xl hover:shadow-stone-200/30 overflow-hidden flex-1 flex flex-col shadow-sm ${innerClassName}`}
         >
@@ -102,19 +110,19 @@ const NexusCardBase: React.FC<NexusCardBaseProps> = ({
 };
 
 interface LegacyCardProps {
-  title: string | React.ReactNode; 
-  subtitle?: string | React.ReactNode; 
-  icon?: LucideIcon; 
+  title: string | React.ReactNode;
+  subtitle?: string | React.ReactNode;
+  icon?: LucideIcon;
   thumbnail?: string;
-  iconVariant?: any; 
-  isMuted?: boolean; 
-  delay?: string; 
-  rightContent?: React.ReactNode; 
-  actions?: React.ReactNode; 
-  onEdit?: () => void; 
-  onDelete?: () => void; 
+  iconVariant?: any;
+  isMuted?: boolean;
+  delay?: string;
+  rightContent?: React.ReactNode;
+  actions?: React.ReactNode;
+  onEdit?: () => void;
+  onDelete?: () => void;
   onClick?: () => void;
-  className?: string; 
+  className?: string;
   swipeable?: boolean;
 }
 
@@ -123,13 +131,13 @@ interface LegacyCardProps {
  * Diseñada para alta densidad dentro de Widgets (NexusAutonomousCard).
  * Usa la FÓRMULA SIMPLE: radius = max(0.5rem, calc(parent_radius - padding))
  */
-export const NexusWidgetCard: React.FC<LegacyCardProps> = ({ 
-  title, subtitle, icon, thumbnail, iconVariant, isMuted, delay, rightContent, actions, onClick, className 
+export const NexusWidgetCard: React.FC<LegacyCardProps> = ({
+  title, subtitle, icon, thumbnail, iconVariant, isMuted, delay, rightContent, actions, onClick, className
 }) => (
-  <div 
+  <div
     onClick={onClick}
     className={`animate-in fade-in zoom-in-95 duration-300 [animation-fill-mode:both] group/card relative overflow-hidden border border-border-main/50 bg-bg-card transition-all duration-500 hover:shadow-lg hover:shadow-stone-200/20 ${onClick ? 'cursor-pointer active:scale-[0.98]' : ''} ${isMuted ? 'opacity-60' : ''} ${className}`}
-    style={{ 
+    style={{
       animationDelay: delay,
       borderRadius: 'var(--radius-card-nested)',
       padding: 'var(--space-sm)'
@@ -167,9 +175,9 @@ export const NexusWidgetCard: React.FC<LegacyCardProps> = ({
 export const NexusControlRow: React.FC<LegacyCardProps & { statusColor?: string }> = ({
   title, subtitle, icon, statusColor, actions, className = '', delay, isMuted
 }) => (
-  <div 
+  <div
     className={`animate-in fade-in zoom-in-95 duration-300 [animation-fill-mode:both] group/card relative overflow-hidden border border-border-main/50 bg-bg-card transition-all duration-500 hover:shadow-lg hover:shadow-stone-200/20 ${isMuted ? 'opacity-60' : ''} ${className}`}
-    style={{ 
+    style={{
       animationDelay: delay,
       borderRadius: 'var(--radius-card-nested)',
       padding: 'var(--space-md)'
@@ -201,8 +209,8 @@ export const NexusControlRow: React.FC<LegacyCardProps & { statusColor?: string 
  * Diseñada para vivir dentro de una NexusSection.
  * Mantiene el espaciado y jerarquía visual de nivel medio.
  */
-export const NexusSectionCard: React.FC<LegacyCardProps> = ({ 
-  title, subtitle, icon, thumbnail, iconVariant, isMuted, delay, rightContent, actions, onEdit, onDelete, onClick, className, swipeable 
+export const NexusSectionCard: React.FC<LegacyCardProps> = ({
+  title, subtitle, icon, thumbnail, iconVariant, isMuted, delay, rightContent, actions, onEdit, onDelete, onClick, className, swipeable
 }) => (
   <NexusCardBase level={2} swipeable={swipeable} onEdit={onEdit} onDelete={onDelete} isMuted={isMuted} delay={delay} className={`${className} ${onClick ? 'cursor-pointer active:scale-[0.99] transition-transform' : ''}`}>
     <div onClick={onClick} className="flex flex-col md:flex-row md:items-center justify-between h-full" style={{ gap: 'var(--space-lg)' }}>
@@ -241,15 +249,16 @@ export const NexusSectionCard: React.FC<LegacyCardProps> = ({
  * NexusAutonomousCard: Tarjeta de Nivel 1 (Widget).
  * El contenedor raíz para bloques independientes.
  */
-export const NexusAutonomousCard: React.FC<{ 
-  children: React.ReactNode; 
-  className?: string; 
-  delay?: string; 
-  style?: React.CSSProperties; 
-  swipeable?: boolean; 
-  onEdit?: () => void; 
-  onDelete?: () => void; 
-  customSwipeLeft?: React.ReactNode; 
-  customSwipeRight?: React.ReactNode; 
+export const NexusAutonomousCard: React.FC<{
+  children: React.ReactNode;
+  density?: 'default' | 'micro' | 'rail';
+  className?: string;
+  delay?: string;
+  style?: React.CSSProperties;
+  swipeable?: boolean;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  customSwipeLeft?: React.ReactNode;
+  customSwipeRight?: React.ReactNode;
   isMuted?: boolean;
 }> = (props) => <NexusCardBase {...props} level={1} />;

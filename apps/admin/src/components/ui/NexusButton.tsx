@@ -18,6 +18,7 @@ export type NexusButtonContext = 'section' | 'card' | 'autonomous' | 'default';
 interface NexusButtonProps extends React.ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: NexusButtonVariant;
   context?: NexusButtonContext;
+  density?: 'default' | 'compact';
   size?: 'sm' | 'md' | 'lg' | 'icon';
   icon?: LucideIcon;
   isLoading?: boolean;
@@ -28,6 +29,7 @@ export const NexusButton: React.FC<NexusButtonProps> = ({
   children,
   variant = 'primary',
   context = 'default',
+  density = 'default',
   size = 'md',
   icon: Icon,
   isLoading,
@@ -39,10 +41,13 @@ export const NexusButton: React.FC<NexusButtonProps> = ({
   const isSection = context === 'section';
   const isCard = context === 'card';
   const isAutonomous = context === 'autonomous';
+  const isAutonomousCompact = isAutonomous && density === 'compact';
   
   const contextStyles = {
     section: 'h-[var(--size-button-section)] text-button-section',
-    autonomous: 'h-[var(--size-button-autonomous)] text-button-autonomous',
+    autonomous: isAutonomousCompact
+      ? 'h-[var(--size-button-card)] text-button-card'
+      : 'h-[var(--size-button-autonomous)] text-button-autonomous',
     card: 'h-[var(--size-button-card)] text-button-card',
     default: size === 'sm' ? 'h-9 text-button-card' : size === 'lg' ? 'h-[var(--size-button-section)] text-button-section' : 'h-[var(--size-button-section)] text-button-section'
   };
@@ -71,7 +76,7 @@ export const NexusButton: React.FC<NexusButtonProps> = ({
 
   const baseStyles = 'inline-flex items-center justify-center transition-all duration-300 active:scale-95 disabled:opacity-50 disabled:pointer-events-none select-none outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20 border-antialiased';
 
-  const iconSize = iconSizes[context];
+  const iconSize = isAutonomousCompact ? iconSizes.card : iconSizes[context];
 
   return (
     <button
@@ -90,9 +95,12 @@ export const NexusButton: React.FC<NexusButtonProps> = ({
             <div className="w-5 h-5 border-2 border-current border-t-transparent rounded-full animate-spin" />
           </div>
         )}
-        <div className={`flex items-center transition-all duration-300 ${isLoading ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}>
+        <div
+          className={`flex items-center transition-all duration-300 ${isLoading ? 'opacity-0 scale-90' : 'opacity-100 scale-100'}`}
+          style={{ gap: Icon && !isIconOnly && children ? 'var(--space-sm)' : undefined }}
+        >
           {Icon && (
-            <Icon size={iconSize} strokeWidth={2.5} className={(!isIconOnly && children) ? 'mr-2.5' : ''} />
+            <Icon size={iconSize} strokeWidth={2.5} />
           )}
           {!isIconOnly && children}
         </div>

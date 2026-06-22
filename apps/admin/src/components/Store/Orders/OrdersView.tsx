@@ -1,49 +1,38 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { Package } from 'lucide-react';
-import { Order } from '../../../types';
-import { OrderCard } from './OrderCard';
-import { OrderDetailView } from './OrderDetailView';
-import { apiOrders } from '../../../api';
-import { EmptyState } from '../../ui/EmptyState';
-import { NexusSpinner } from '../../ui/NexusSpinner';
-import { NexusPaginator } from '../../ui/NexusPaginator';
+import React, { useMemo, useRef, useState } from "react";
+import { Package } from "lucide-react";
+import { Order } from "../../../types";
+import { apiOrders } from "../../../api";
+import { EmptyState } from "../../ui/EmptyState";
+import { NexusPaginator } from "../../ui/NexusPaginator";
+import { NexusSpinner } from "../../ui/NexusSpinner";
+import { OrderCard } from "./OrderCard";
 
 interface OrdersViewProps {
+  orders: Order[];
+  isLoading: boolean;
+  onOrdersChange: (orders: Order[]) => void;
   onViewDetail: (order: Order) => void;
-  showToast: (message: string, type?: 'success' | 'error') => void;
+  showToast: (message: string, type?: "success" | "error") => void;
   setConfirmDialog: (dialog: any) => void;
 }
 
 const ITEMS_PER_PAGE = 8;
 
-export const OrdersView: React.FC<OrdersViewProps> = ({ 
-  onViewDetail, 
-  showToast, 
-  setConfirmDialog
+export const OrdersView: React.FC<OrdersViewProps> = ({
+  orders,
+  isLoading,
+  onOrdersChange,
+  onViewDetail,
+  showToast,
+  setConfirmDialog,
 }) => {
-  const [orders, setOrders] = useState<Order[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [swipedOrderId, setSwipedOrderId] = useState<string | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const ordersTopRef = useRef<HTMLDivElement>(null);
 
-  const loadOrders = async () => {
-    setIsLoading(true);
-    try {
-      const data = await apiOrders.getAll();
-      setOrders(data);
-    } catch (error) {
-      console.error("Error cargando órdenes:", error);
-      showToast('Error al cargar órdenes', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => { loadOrders(); }, []);
-
   const filtered = useMemo(() => {
-    return [...orders].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+    return [...orders].sort(
+      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
+    );
   }, [orders]);
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
@@ -55,32 +44,47 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   const handlePageChange = (pageNumber: number) => {
     if (pageNumber === currentPage) return;
     setCurrentPage(pageNumber);
-    ordersTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    ordersTopRef.current?.scrollIntoView({
+      behavior: "smooth",
+      block: "start",
+    });
   };
 
   const handleMarkAsPaid = async (id: string) => {
     try {
-      await apiOrders.updateStatus(id, 'PAID');
-      setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'paid' } : o));
-      showToast('Orden marcada como pagada');
-    } catch (error) { showToast('Error al actualizar estado', 'error'); }
+      await apiOrders.updateStatus(id, "PAID");
+      onOrdersChange(
+        orders.map((order) =>
+          order.id === id ? { ...order, status: "paid" } : order,
+        ),
+      );
+      showToast("Orden marcada como pagada");
+    } catch (error) {
+      showToast("Error al actualizar estado", "error");
+    }
   };
 
   const handleCancelOrder = (id: string) => {
     setConfirmDialog({
       isOpen: true,
-      title: '¿Cancelar Orden?',
-      message: 'Esta acción cancelará la orden y liberará el inventario.',
-      confirmLabel: 'Sí, Cancelar',
-      variant: 'danger',
+      title: "¿Cancelar Orden?",
+      message: "Esta acción cancelará la orden y liberará el inventario.",
+      confirmLabel: "Sí, Cancelar",
+      variant: "danger",
       onConfirm: async () => {
         try {
-          await apiOrders.updateStatus(id, 'CANCELLED');
-          setOrders(prev => prev.map(o => o.id === id ? { ...o, status: 'cancelled' } : o));
-          showToast('Orden cancelada correctamente');
-        } catch (error) { showToast('Error al cancelar', 'error'); }
+          await apiOrders.updateStatus(id, "CANCELLED");
+          onOrdersChange(
+            orders.map((order) =>
+              order.id === id ? { ...order, status: "cancelled" } : order,
+            ),
+          );
+          showToast("Orden cancelada correctamente");
+        } catch (error) {
+          showToast("Error al cancelar", "error");
+        }
         setConfirmDialog({ isOpen: false });
-      }
+      },
     });
   };
 
@@ -89,11 +93,18 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
       {isLoading ? (
         <NexusSpinner label="Cargando órdenes..." />
       ) : filtered.length > 0 ? (
-        <div className="flex flex-col gap-5 max-w-6xl mx-auto pb-32 sm:pb-12">
+        <div
+          className="mx-auto flex max-w-6xl flex-col"
+          style={{ gap: "var(--space-md)", paddingBottom: "var(--space-3xl)" }}
+        >
           {paginatedOrders.map((order, idx) => (
-            <div key={order.id} className="animate-card-enter" style={{ animationDelay: `${idx * 60}ms` }}>
-              <OrderCard 
-                order={order} 
+            <div
+              key={order.id}
+              className="animate-card-enter"
+              style={{ animationDelay: `${idx * 60}ms` }}
+            >
+              <OrderCard
+                order={order}
                 onViewDetail={onViewDetail}
                 onMarkAsPaid={handleMarkAsPaid}
                 onCancelOrder={handleCancelOrder}
@@ -101,14 +112,14 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
             </div>
           ))}
 
-          <NexusPaginator 
+          <NexusPaginator
             currentPage={currentPage}
             totalPages={totalPages}
             onPageChange={handlePageChange}
           />
         </div>
       ) : (
-        <EmptyState 
+        <EmptyState
           icon={Package}
           title="No hay órdenes"
           description="Aún no se han registrado órdenes en la tienda. Todas las transacciones de tus clientes aparecerán en este listado."

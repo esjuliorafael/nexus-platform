@@ -33,7 +33,7 @@ export const InteractionStage: React.FC<InteractionStageProps> = ({
   // Fórmulas de Geometría y Estilo por Nivel
   const containerRadius = isLevel1 ? 'var(--radius-outer)' : 'var(--radius-inner-visual)';
   const iconContainerRadius = isLevel1 ? 'var(--radius-inner-visual)' : 'var(--radius-nested-simple)';
-  const paddingStyle = isLevel1 ? 'calc(var(--space-lg) * 2)' : 'var(--space-lg)';
+  const paddingStyle = isLevel1 ? 'var(--space-xl)' : 'var(--space-lg)';
   const titleClass = isLevel1 ? 'text-h1' : 'text-h2';
 
   return (

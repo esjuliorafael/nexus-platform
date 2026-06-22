@@ -8,9 +8,10 @@ import {
 import { apiPayments, apiWhatsApp, apiSystem } from '../../../api';
 import { SalesChannel, WhatsAppChannel } from '../../../types';
 import { NexusInput, NexusSelect } from '../../ui/NexusInputs';
-import { NexusButton } from '../../ui/NexusButton';
+import { NexusAutonomousButton, NexusButton } from '../../ui/NexusButton';
 import { NexusSection } from '../../ui/NexusSection';
 import { NexusHero } from '../../ui/NexusHero';
+import { NexusModal } from '../../ui/NexusModal';
 
 export interface ChannelFormRef {
   handleSubmit: () => void;
@@ -373,42 +374,80 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
         )}
       </div>
 
-      {/* QR MODAL (Nested for focus) */}
-      {isQRModalOpen && qrData && (
-        <div className="fixed inset-0 z-[300] flex items-center justify-center p-4 animate-in fade-in duration-500">
-          <div className="absolute inset-0 bg-stone-950/95 backdrop-blur-2xl" />
-          <div className="relative w-full max-w-md bg-bg-card rounded-[4rem] shadow-2xl p-16 text-center animate-in zoom-in-95 duration-500 border border-white/5">
-             <div className="w-20 h-20 bg-brand-500 rounded-3xl mx-auto mb-10 flex items-center justify-center text-white shadow-2xl shadow-brand-500/20 rotate-6">
-                <QrCode size={40} />
-             </div>
-             <h3 className="text-display text-text-main mb-4 leading-tight">Emparejamiento</h3>
-             <p className="text-secondary text-text-muted mb-12">Escanea este código desde la app de WhatsApp para activar la automatización.</p>
-             
-             <div className="p-10 bg-white rounded-[3.5rem] inline-block border-8 border-bg-muted shadow-inner relative group transition-transform duration-700 hover:scale-[1.02]">
-                {qrData.timeLeft === 0 ? (
-                  <div className="w-[240px] h-[240px] flex flex-col items-center justify-center gap-6">
-                     <AlertCircle size={56} className="text-amber-500 animate-bounce" />
-                     <NexusButton onClick={handleConnectWhatsApp} size="sm">Regenerar</NexusButton>
+      <NexusModal
+        isOpen={isQRModalOpen && !!qrData}
+        title="Emparejamiento"
+        subtitle="Escanea este codigo desde la app de WhatsApp para activar la automatizacion."
+        eyebrow="Vinculacion por QR"
+        icon={QrCode}
+        onClose={() => setIsQRModalOpen(false)}
+        maxWidth="md"
+        zIndex={300}
+      >
+        {qrData && (
+          <div className="flex flex-col items-center text-center" style={{ gap: 'var(--space-lg)' }}>
+            <div
+              className="inline-block border-8 border-bg-muted bg-white shadow-inner transition-transform duration-700 hover:scale-[1.02]"
+              style={{
+                padding: 'var(--padding-inner)',
+                borderRadius: 'var(--radius-card-inner)'
+              }}
+            >
+              {qrData.timeLeft === 0 ? (
+                <div className="flex h-[240px] w-[240px] flex-col items-center justify-center" style={{ gap: 'var(--space-md)' }}>
+                  <AlertCircle size={56} className="text-amber-500" />
+                  <NexusAutonomousButton onClick={handleConnectWhatsApp} density="compact" variant="brand">
+                    Regenerar
+                  </NexusAutonomousButton>
+                </div>
+              ) : (
+                <div className="relative">
+                  <img
+                    src={qrData.base64}
+                    alt="QR"
+                    className="h-[240px] w-[240px]"
+                    style={{ borderRadius: 'var(--radius-card-nested)' }}
+                  />
+                  <div
+                    className="absolute flex items-center justify-center bg-stone-950 text-h2 font-black tabular-nums text-white shadow-2xl"
+                    style={{
+                      top: 'calc(var(--space-md) * -1)',
+                      right: 'calc(var(--space-md) * -1)',
+                      width: 'var(--size-icon-autonomous)',
+                      height: 'var(--size-icon-autonomous)',
+                      border: '6px solid var(--bg-card)',
+                      borderRadius: 'var(--radius-card-inner)'
+                    }}
+                  >
+                    {qrData.timeLeft}
                   </div>
-                ) : (
-                  <>
-                    <img src={qrData.base64} alt="QR" className="w-[240px] h-[240px] rounded-[1.5rem]" />
-                    <div className="absolute -top-6 -right-6 w-16 h-16 bg-stone-950 text-white rounded-full flex items-center justify-center text-h2 font-black tabular-nums border-8 border-bg-card shadow-2xl">
-                      {qrData.timeLeft}
-                    </div>
-                  </>
-                )}
-             </div>
-             
-             <div className="mt-12 flex items-center justify-center gap-4 text-emerald-500 bg-emerald-50/50 py-4 px-8 rounded-full inline-flex">
-                <div className="w-2.5 h-2.5 rounded-full bg-current animate-pulse shadow-[0_0_10px_currentColor]" />
-                <p className="text-label font-black">Esperando dispositivo...</p>
-             </div>
-             
-             <NexusButton onClick={() => setIsQRModalOpen(false)} variant="secondary" className="mt-16 w-full h-16 rounded-[1.5rem]">Cerrar</NexusButton>
+                </div>
+              )}
+            </div>
+
+            <div
+              className="inline-flex items-center justify-center bg-emerald-50/50 text-emerald-500"
+              style={{
+                gap: 'var(--space-sm)',
+                paddingBlock: 'var(--space-sm)',
+                paddingInline: 'var(--space-md)',
+                borderRadius: 'var(--radius-card-inner)'
+              }}
+            >
+              <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-current shadow-[0_0_10px_currentColor]" />
+              <p className="text-label font-black">Esperando dispositivo...</p>
+            </div>
+
+            <NexusAutonomousButton
+              onClick={() => setIsQRModalOpen(false)}
+              variant="secondary"
+              className="w-full"
+            >
+              Cerrar
+            </NexusAutonomousButton>
           </div>
-        </div>
-      )}
+        )}
+      </NexusModal>
     </div>
   );
 });

@@ -4,6 +4,7 @@ import { Category } from '../../types';
 import { NexusAutonomousButton } from '../ui/NexusButton';
 import { NexusAutonomousIcon } from '../ui/NexusIcon';
 import { NexusAutonomousCard } from '../ui/NexusCard';
+import { NexusAutonomousBadge } from '../ui/NexusBadge';
 
 interface CategoryCardProps {
   category: Category;
@@ -40,6 +41,7 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
           
           <div className="hidden sm:flex items-center opacity-0 group-hover/card:opacity-100 transition-opacity duration-300" style={{ gap: 'var(--space-sm)' }}>
             <NexusAutonomousButton 
+              density="compact"
               variant="secondary"
               isIconOnly
               onClick={() => onEdit(category)}
@@ -47,6 +49,7 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
               title="Editar Categoría"
             />
             <NexusAutonomousButton 
+              density="compact"
               variant="secondary"
               isIconOnly
               onClick={() => onDelete(category.id)}
@@ -63,23 +66,19 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
             {category.name}
           </h4>
           <div className="flex items-center" style={{ gap: 'var(--space-sm)' }}>
-            <div 
-              className="flex items-center px-2 py-1 bg-stone-100/80 text-stone-500 border border-border-main/50 backdrop-blur-sm"
-              style={{ borderRadius: 'var(--radius-card-nested)' }}
+            <NexusAutonomousBadge
+              variant="muted"
+              className="bg-stone-100/80 text-stone-500 border-border-main/50 backdrop-blur-sm"
             >
-              <span className="text-label uppercase tracking-[0.15em]">
-                {category.count || 0} medios
-              </span>
-            </div>
+              {category.count || 0} medios
+            </NexusAutonomousBadge>
             
-            <div 
-              className="flex items-center px-2 py-1 bg-stone-100/80 text-stone-400 border border-border-main/50 backdrop-blur-sm"
-              style={{ borderRadius: 'var(--radius-card-nested)' }}
+            <NexusAutonomousBadge
+              variant="muted"
+              className="bg-stone-100/80 text-stone-400 border-border-main/50 backdrop-blur-sm"
             >
-              <span className="text-label uppercase tracking-[0.15em]">
-                {category.subcategories ? category.subcategories.length : 0} subs
-              </span>
-            </div>
+              {category.subcategories ? category.subcategories.length : 0} subs
+            </NexusAutonomousBadge>
           </div>
         </div>
       </div>
@@ -87,6 +86,7 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
       {/* Botones de Acción (Gestión de Subcategorías) */}
       <div className="grid grid-cols-2" style={{ gap: 'var(--space-sm)', marginTop: 'var(--space-lg)' }}>
         <NexusAutonomousButton 
+          density="compact"
           variant="secondary"
           onClick={() => onManage(category, false)}
           icon={Layers}
@@ -95,6 +95,7 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
           Ver Subs
         </NexusAutonomousButton>
         <NexusAutonomousButton 
+          density="compact"
           variant="brand"
           onClick={() => onManage(category, true)}
           icon={Plus}

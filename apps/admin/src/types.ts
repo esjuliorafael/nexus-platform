@@ -1,9 +1,9 @@
-import React from 'react';
+import React from "react";
 
 export interface OrderItem {
   id: string;
   name: string;
-  type: 'BIRD' | 'ITEM';
+  type: "BIRD" | "ITEM";
   price: number;
   quantity: number;
 }
@@ -16,21 +16,23 @@ export interface Order {
   customerAddress?: string;
   items: OrderItem[];
   total: number;
-  status: 'paid' | 'pending' | 'cancelled' | 'shipped' | 'delivered';
+  status: "paid" | "pending" | "cancelled" | "shipped" | "delivered";
   date: string;
+  isRead: boolean;
+  readAt?: string;
 }
 
 export interface Product {
   id: string;
   name: string;
   price: number;
-  status: 'available' | 'reserved' | 'sold';
+  status: "available" | "reserved" | "sold";
   createdAt: string;
   imageUrl: string;
-  type: 'BIRD' | 'ITEM';
+  type: "BIRD" | "ITEM";
   ringNumber?: string;
-  age?: 'COCK' | 'STAG' | 'HEN' | 'PULLET';
-  purpose?: 'COMBAT' | 'BREEDING';
+  age?: "COCK" | "STAG" | "HEN" | "PULLET";
+  purpose?: "COMBAT" | "BREEDING";
   stock?: number;
   description: string;
   gallery: string[];
@@ -40,9 +42,9 @@ export interface Media {
   id: string;
   title: string;
   description: string;
-  type: 'image' | 'video';
+  type: "image" | "video";
   category: string;
-  categoryId?: string | number; 
+  categoryId?: string | number;
   subcategory: string;
   subcategoryId?: string | number;
   url: string;
@@ -50,7 +52,30 @@ export interface Media {
   location?: string;
   likes: number;
   isFavorite: boolean;
-  createdAt: string; 
+  createdAt: string;
+}
+
+export interface HomeSlide {
+  id: string;
+  type: "PHOTO" | "VIDEO";
+  mediaUrl: string;
+  desktopObjectPosition?: string | null;
+  mobileObjectPosition?: string | null;
+  posterUrl?: string | null;
+  eyebrow?: string | null;
+  title: string;
+  description?: string | null;
+  displayDurationMs: number;
+  primaryText?: string | null;
+  primaryHref?: string | null;
+  secondaryText?: string | null;
+  secondaryHref?: string | null;
+  sortOrder: number;
+  active: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface Subcategory {
@@ -77,7 +102,7 @@ export interface User {
   createdAt: string;
   receiveNotifications?: boolean;
   notificationEmail?: string;
-  role: 'superadmin' | 'admin' | 'staff';
+  role: "superadmin" | "admin" | "staff";
 }
 
 export interface StatCardProps {
@@ -85,12 +110,18 @@ export interface StatCardProps {
   value: string | number;
   subtitle?: string;
   icon?: React.ReactNode;
-  trend?: 'up' | 'down' | 'neutral';
+  trend?: "up" | "down" | "neutral";
   trendValue?: string;
   className?: string;
 }
 
-export type QuickActionGroup = 'Galería' | 'Tienda' | 'Órdenes' | 'Diseño' | 'Sistema' | 'Rifas';
+export type QuickActionGroup =
+  | "Medios"
+  | "Tienda"
+  | "Órdenes"
+  | "Diseño"
+  | "Sistema"
+  | "Rifas";
 
 export interface QuickActionItem {
   id: string;
@@ -99,7 +130,7 @@ export interface QuickActionItem {
   group: QuickActionGroup;
 }
 
-export type ShippingZone = 'STANDARD' | 'EXTENDED';
+export type ShippingZone = "STANDARD" | "EXTENDED";
 
 export interface StateZone {
   id: string;
@@ -121,7 +152,7 @@ export interface ExtraCharge {
   id: string;
   concept: string;
   amount: number;
-  status: 'pending' | 'paid';
+  status: "pending" | "paid";
   date: string;
 }
 
@@ -133,7 +164,7 @@ export interface AnnualService {
   isPaid: boolean;
   contractDate: string;
   dueDate: string;
-  iconType: 'globe' | 'server' | 'wrench' | 'shield' | 'default';
+  iconType: "globe" | "server" | "wrench" | "shield" | "default";
 }
 
 export interface BillingPayment {
@@ -160,7 +191,7 @@ export interface SalesChannel extends BankDetails {
   purpose: string;
 }
 
-export type TemplateType = 'RESERVATION' | 'RELEASE' | 'PAYMENT_CONFIRMED';
+export type TemplateType = "RESERVATION" | "RELEASE" | "PAYMENT_CONFIRMED";
 
 export interface WhatsAppTemplate {
   id: string;
@@ -219,12 +250,12 @@ export interface Raffle {
   ticketPrice: number;
   ticketQuantity: number;
   opportunities: number;
-  distribution: 'LINEAR' | 'RANDOM';
+  distribution: "LINEAR" | "RANDOM";
   useZero: boolean;
   digits: number;
   drawDate?: string;
   image?: string;
-  status: 'ACTIVE' | 'FINISHED' | 'CANCELLED';
+  status: "ACTIVE" | "FINISHED" | "CANCELLED";
   createdAt: string;
   ticketStats?: {
     total: number;
@@ -241,19 +272,19 @@ export interface TicketSale {
   customerName: string;
   customerPhone: string;
   customerState?: string;
-  status: 'PENDING' | 'PAID' | 'CANCELLED';
+  status: "PENDING" | "PAID" | "CANCELLED";
   paymentMethod?: string;
   createdAt: string;
 }
 
 export type RaffleParticipantSegment =
-  | 'VIP_PAYERS'
-  | 'REPEAT_ACTIVE'
-  | 'HIGH_VOLUME'
-  | 'PROMISING_NEW'
-  | 'DORMANT'
-  | 'NON_PAYER'
-  | 'LOW_ACTIVITY';
+  | "VIP_PAYERS"
+  | "REPEAT_ACTIVE"
+  | "HIGH_VOLUME"
+  | "PROMISING_NEW"
+  | "DORMANT"
+  | "NON_PAYER"
+  | "LOW_ACTIVITY";
 
 export interface RaffleParticipantIntelligence {
   phone: string;
@@ -336,9 +367,9 @@ export interface ChannelTemplateStatus extends ChannelReadiness {
 }
 
 export interface PrincipalChannelOverview {
-  id: 'principal';
+  id: "principal";
   name: string;
-  purpose: 'PRINCIPAL';
+  purpose: "PRINCIPAL";
   bank: ChannelBankStatus;
   mercadoPago: ChannelMercadoPagoStatus;
   whatsapp: ChannelWhatsappStatus;
