@@ -53,6 +53,11 @@ function joinPublicUrl(publicDomain: string, key: string) {
 }
 
 export const storageService = {
+  async publicUrlForKey(key: string) {
+    const { publicDomain } = await getConfiguredStorage();
+    return joinPublicUrl(publicDomain, key);
+  },
+
   async uploadObject(
     body: Buffer | Readable,
     key: string,

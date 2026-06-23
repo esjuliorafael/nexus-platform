@@ -19,27 +19,22 @@ export const mediaProcessingWorker = new Worker<MediaProcessingJobData>(
       const asset = isFinalAttempt
         ? await storePrisma.mediaAsset.findUnique({
             where: { id: job.data.assetId },
-            select: { sourceKey: true },
+            select: { mediaUrl: true, sourceKey: true },
           })
         : null;
-
-      let sourceCleaned = true;
-      if (asset?.sourceKey) {
-        await storageService.deleteKey(asset.sourceKey).catch((cleanupError) => {
-          sourceCleaned = false;
-          console.error(
-            `[Media] No se pudo limpiar el original fallido ${asset.sourceKey}:`,
-            cleanupError,
-          );
-        });
-      }
+      const fallbackMediaUrl =
+        asset?.mediaUrl ||
+        (asset?.sourceKey
+          ? await storageService.publicUrlForKey(asset.sourceKey)
+          : undefined);
 
       await storePrisma.mediaAsset.update({
         where: { id: job.data.assetId },
         data: {
-          status: isFinalAttempt ? "FAILED" : "PROCESSING",
-          ...(isFinalAttempt && sourceCleaned ? { sourceKey: null } : {}),
-          errorMessage: error?.message || "No se pudo procesar el video",
+          ...(isFinalAttempt ? { sourceKey: null } : {}),
+          ...(fallbackMediaUrl ? { mediaUrl: fallbackMediaUrl } : {}),
+          status: "READY",
+          errorMessage: null,
         },
       });
       throw error;

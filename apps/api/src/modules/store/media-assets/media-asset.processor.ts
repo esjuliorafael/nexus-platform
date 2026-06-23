@@ -51,64 +51,26 @@ export async function processVideoAsset(assetId: string) {
   const asset = await storePrisma.mediaAsset.findUnique({ where: { id: assetId } });
   if (!asset || !asset.sourceKey) throw new Error("Asset de video incompleto");
 
-  await storePrisma.mediaAsset.update({
-    where: { id: assetId },
-    data: { status: "PROCESSING", errorMessage: null },
-  });
-
   const workDir = await mkdtemp(path.join(tmpdir(), "nexus-media-"));
   const sourceExtension = path.extname(asset.sourceKey) || ".bin";
   const inputPath = path.join(workDir, `source${sourceExtension}`);
-  const outputPath = path.join(workDir, "media.mp4");
   const posterPath = path.join(workDir, "poster.webp");
-  const mediaKey = createStorageKey(asset.id, "mp4");
   const posterKey = createStorageKey(asset.id, "webp", "-poster");
-  let mediaUrl: string | null = null;
   let posterUrl: string | null = null;
 
   try {
     await storageService.downloadObjectToFile(asset.sourceKey, inputPath);
-    await probeVideo(inputPath);
-
-    await run(ffmpegPath, [
-      "-y",
-      "-i",
-      inputPath,
-      "-map",
-      "0:v:0",
-      "-map",
-      "0:a?",
-      "-vf",
-      "scale=w='min(1920,iw)':h='min(1920,ih)':force_original_aspect_ratio=decrease:force_divisible_by=2:flags=lanczos",
-      "-c:v",
-      "libx264",
-      "-preset",
-      "veryfast",
-      "-crf",
-      "22",
-      "-pix_fmt",
-      "yuv420p",
-      "-c:a",
-      "aac",
-      "-b:a",
-      "128k",
-      "-movflags",
-      "+faststart",
-      outputPath,
-    ]);
-
-    const normalized = await probeVideo(outputPath);
+    const metadata = await probeVideo(inputPath);
     const posterSecond = Math.min(
-      Math.max(normalized.durationSeconds * 0.2, 0.2),
+      Math.max(metadata.durationSeconds * 0.2, 0.2),
       5,
     );
-
     const posterArgs = (seekSecond: number) => [
       "-y",
       "-ss",
       seekSecond.toFixed(3),
       "-i",
-      outputPath,
+      inputPath,
       "-frames:v",
       "1",
       "-vf",
@@ -124,36 +86,40 @@ export async function processVideoAsset(assetId: string) {
       await run(ffmpegPath, posterArgs(0));
     }
 
-    const [videoBuffer, posterBuffer] = await Promise.all([
-      readFile(outputPath),
-      readFile(posterPath),
-    ]);
+    posterUrl = await storageService.uploadObject(
+      await readFile(posterPath),
+      posterKey,
+      "image/webp",
+    );
+    const mediaUrl =
+      asset.mediaUrl || (await storageService.publicUrlForKey(asset.sourceKey));
 
-    mediaUrl = await storageService.uploadObject(videoBuffer, mediaKey, "video/mp4");
-    posterUrl = await storageService.uploadObject(posterBuffer, posterKey, "image/webp");
-
-    const readyAsset = await storePrisma.mediaAsset.update({
+    await storePrisma.mediaAsset.update({
       where: { id: assetId },
       data: {
         mediaUrl,
-        posterUrl,
         sourceKey: null,
-        mimeType: "video/mp4",
         status: "READY",
         errorMessage: null,
-        durationMs: Math.round(normalized.durationSeconds * 1000),
-        width: normalized.width,
-        height: normalized.height,
-        sizeBytes: videoBuffer.length,
+        durationMs: Math.round(metadata.durationSeconds * 1000),
+        width: metadata.width,
+        height: metadata.height,
       },
     });
-
-    await storageService.deleteKey(asset.sourceKey).catch((error) => {
-      console.error(`[Media] No se pudo limpiar el original ${asset.sourceKey}:`, error);
+    const posterAssignment = await storePrisma.mediaAsset.updateMany({
+      where: { id: assetId, posterUrl: null },
+      data: { posterUrl },
     });
-    return readyAsset;
-  } catch (error: any) {
-    if (mediaUrl) await storageService.deleteFile(mediaUrl);
+
+    if (posterAssignment.count === 0) {
+      await storageService.deleteFile(posterUrl);
+      posterUrl = null;
+    }
+
+    return await storePrisma.mediaAsset.findUniqueOrThrow({
+      where: { id: assetId },
+    });
+  } catch (error) {
     if (posterUrl) await storageService.deleteFile(posterUrl);
     throw error;
   } finally {

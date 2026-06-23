@@ -4,6 +4,7 @@ import { stat } from "fs/promises";
 import { fromFile } from "file-type";
 import sharp from "sharp";
 import { storePrisma } from "@nexus/db/store";
+import type { MediaAsset } from "@prisma/client-store";
 import { mediaProcessingQueue } from "../../../queues/media-processing.queue";
 import { storageService } from "../../../services/storage.service";
 import {
@@ -79,30 +80,38 @@ async function createVideoAsset(
   extension: string,
 ) {
   const assetId = randomUUID();
-  const sourceKey = createStorageKey(assetId, extension, "-source");
-  let sourceUrl: string | null = null;
+  const sourceKey = createStorageKey(assetId, extension);
+  let mediaUrl: string | null = null;
+  let asset: MediaAsset;
 
   try {
     const fileStats = await stat(inputPath);
-    sourceUrl = await storageService.uploadObject(
+    mediaUrl = await storageService.uploadObject(
       createReadStream(inputPath),
       sourceKey,
       mimeType,
     );
-    const asset = await storePrisma.mediaAsset.create({
+    asset = await storePrisma.mediaAsset.create({
       data: {
         id: assetId,
+        mediaUrl,
         sourceKey,
         mediaType: "VIDEO",
         mimeType,
         originalName: normalizeOriginalName(originalName),
-        status: "PROCESSING",
+        status: "READY",
         sizeBytes: fileStats.size,
       },
     });
+  } catch (error) {
+    if (mediaUrl) await storageService.deleteFile(mediaUrl);
+    await storePrisma.mediaAsset.delete({ where: { id: assetId } }).catch(() => undefined);
+    throw error;
+  }
 
+  try {
     await mediaProcessingQueue.add(
-      "normalize-video",
+      "enrich-video",
       { assetId },
       {
         jobId: assetId,
@@ -112,13 +121,15 @@ async function createVideoAsset(
         removeOnFail: 200,
       },
     );
-
-    return asset;
   } catch (error) {
-    if (sourceUrl) await storageService.deleteFile(sourceUrl);
-    await storePrisma.mediaAsset.delete({ where: { id: assetId } }).catch(() => undefined);
-    throw error;
+    console.error(`[Media] No se pudo programar el poster de ${assetId}:`, error);
+    asset = await storePrisma.mediaAsset.update({
+      where: { id: assetId },
+      data: { sourceKey: null },
+    });
   }
+
+  return asset;
 }
 
 export const mediaAssetService = {
