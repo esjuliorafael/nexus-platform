@@ -61,6 +61,19 @@ export const api = axios.create({
   baseURL: API_BASE_URL,
 });
 
+export interface MediaUploadResult {
+  assetId: string;
+  status: "PROCESSING" | "READY" | "FAILED";
+  type: "PHOTO" | "VIDEO";
+  mimeType: string;
+  url: string | null;
+  posterUrl: string | null;
+  durationMs: number | null;
+  width: number | null;
+  height: number | null;
+  error: string | null;
+}
+
 api.interceptors.request.use((config) => {
   try {
     const session = localStorage.getItem("admin_session");
@@ -77,7 +90,7 @@ api.interceptors.request.use((config) => {
 });
 
 export const apiUpload = {
-  upload: async (file: File): Promise<{ url: string }> => {
+  upload: async (file: File): Promise<MediaUploadResult> => {
     const formData = new FormData();
     formData.append("file", file);
     const res = await api.post("/admin/uploads", formData, {
@@ -85,8 +98,26 @@ export const apiUpload = {
         "Content-Type": "multipart/form-data",
       },
     });
-    return res.data;
+    let asset = res.data as MediaUploadResult;
+    const deadline = Date.now() + 5 * 60 * 1000;
+
+    while (asset.status === "PROCESSING" && Date.now() < deadline) {
+      await new Promise((resolve) => window.setTimeout(resolve, 1200));
+      const statusResponse = await api.get(`/admin/uploads/${asset.assetId}`);
+      asset = statusResponse.data as MediaUploadResult;
+    }
+
+    if (asset.status === "FAILED") {
+      await api.delete(`/admin/uploads/${asset.assetId}`).catch(() => undefined);
+      throw new Error(asset.error || "No se pudo procesar el video.");
+    }
+    if (asset.status !== "READY" || !asset.url) {
+      throw new Error("El procesamiento del medio excedio el tiempo permitido.");
+    }
+
+    return asset;
   },
+  remove: async (assetId: string) => api.delete(`/admin/uploads/${assetId}`),
 };
 
 export const apiDashboard = {
@@ -127,7 +158,20 @@ export const apiProducts = {
       description: item.description || "",
       imageUrl: item.thumbnail || "",
       thumbnail: item.thumbnail || "",
-      gallery: item.gallery ? item.gallery.map((g: any) => g.filePath) : [],
+      coverAssetId: item.coverAssetId,
+      coverMediaUrl: item.coverMediaUrl,
+      coverPosterUrl: item.coverPosterUrl,
+      coverMediaType: item.coverMediaType,
+      gallery: item.gallery
+        ? item.gallery.map((g: any) => ({
+            id: g.id?.toString(),
+            assetId: g.assetId,
+            mediaUrl: g.mediaUrl,
+            posterUrl: g.posterUrl,
+            mediaType: g.mediaType,
+            mimeType: g.mimeType,
+          }))
+        : [],
       createdAt: item.createdAt,
     }));
   },
@@ -154,9 +198,13 @@ export const apiGallery = {
       id: item.id.toString(),
       title: item.title,
       description: item.description,
-      type: item.type === "PHOTO" ? "image" : "video",
-      url: item.filePath,
-      thumbnail: item.type === "VIDEO" ? item.filePath : undefined,
+      type: item.mediaType === "PHOTO" ? "image" : "video",
+      assetId: item.assetId,
+      mediaUrl: item.mediaUrl,
+      posterUrl: item.posterUrl,
+      mediaType: item.mediaType,
+      url: item.mediaUrl,
+      thumbnail: item.posterUrl || undefined,
       category: item.category?.name,
       categoryId: item.categoryId,
       subcategory: item.subcategory?.name,

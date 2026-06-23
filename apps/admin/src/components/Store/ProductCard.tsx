@@ -24,16 +24,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
     return `${ASSET_BASE_URL}${cleanPath}`;
   };
 
-  const imageUrl = getFullUrl(product.imageUrl || (product as any).thumbnail);
-
-  // Buscar si hay un video en la galería para el hover preview (la galería en Admin es string[])
-  const videoUrlFromGallery = product.gallery?.find(g => typeof g === 'string' && g.toLowerCase().match(/\.(mp4|mov|webm)$/));
-
-  const isVideo = imageUrl.toLowerCase().split('?')[0].endsWith('.mp4') || 
-                  imageUrl.toLowerCase().split('?')[0].endsWith('.mov') || 
-                  imageUrl.toLowerCase().split('?')[0].endsWith('.webm');
-
-  const finalVideoUrl = videoUrlFromGallery ? getFullUrl(videoUrlFromGallery) : (isVideo ? imageUrl : null);
+  const imageUrl = getFullUrl(product.coverPosterUrl || product.coverMediaUrl || product.imageUrl);
+  const finalVideoUrl = product.coverMediaType === 'VIDEO'
+    ? getFullUrl(product.coverMediaUrl || undefined)
+    : null;
 
   // --- HANDLERS ---
   const handleMouseEnter = () => {
@@ -146,9 +140,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
                   loop
                   playsInline
                   preload="metadata"
-                  poster={!isVideo ? imageUrl : undefined}
+                  poster={imageUrl || undefined}
                 />
-                {!isVideo && (
+                {finalVideoUrl && (
                   <div
                     className="absolute z-10 bg-black/40 backdrop-blur-md text-white pointer-events-none group-hover/thumb:scale-110 transition-transform shadow-lg border border-white/10"
                     style={{

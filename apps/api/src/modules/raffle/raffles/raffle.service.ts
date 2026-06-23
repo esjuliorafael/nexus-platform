@@ -1,6 +1,6 @@
 import { PrismaClient, RaffleStatus, RaffleDistribution } from "@prisma/client-raffle";
 import { ticketService } from "../tickets/ticket.service";
-import { storageService } from "../../../services/storage.service";
+import { mediaAssetService } from "../../store/media-assets/media-asset.service";
 
 export const raffleService = {
   async getAllActive(prisma: PrismaClient) {
@@ -52,7 +52,7 @@ export const raffleService = {
     if (data.image) {
       const current = await prisma.raffle.findUnique({ where: { id } });
       if (current?.image && current.image !== data.image) {
-        await storageService.deleteFile(current.image);
+        await mediaAssetService.releaseByUrlIfUnreferenced(current.image);
       }
     }
 
@@ -72,11 +72,11 @@ export const raffleService = {
     if (raffle) {
       // 2. Borrar portada de R2
       if (raffle.image) {
-        await storageService.deleteFile(raffle.image);
+        await mediaAssetService.releaseByUrlIfUnreferenced(raffle.image);
       }
       // 3. Borrar galería de R2
       for (const item of raffle.gallery) {
-        await storageService.deleteFile(item.filePath);
+        await mediaAssetService.releaseByUrlIfUnreferenced(item.filePath);
       }
     }
 

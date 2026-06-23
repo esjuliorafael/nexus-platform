@@ -8,6 +8,7 @@ export type NexusBadgeVariant =
   | "warning"
   | "danger"
   | "muted"
+  | "overlayBrand"
   | "overlay"
   | "overlaySuccess";
 
@@ -31,7 +32,9 @@ const variantStyles: Record<NexusBadgeVariant, string> = {
   warning: "border border-amber-200/70 bg-amber-50 text-amber-700",
   danger: "border border-rose-200/70 bg-rose-50 text-rose-700",
   muted: "border border-border-main bg-bg-muted text-text-muted",
-  overlay: "border border-white/10 bg-black/45 text-white backdrop-blur-md",
+  overlayBrand:
+    "border border-brand-400/30 bg-brand-500 text-white backdrop-blur-md",
+  overlay: "border border-white/10 bg-stone-950/45 text-white backdrop-blur-md",
   overlaySuccess:
     "border border-emerald-400/20 bg-emerald-500 text-white backdrop-blur-md",
 };
@@ -53,7 +56,7 @@ export const NexusBadge: React.FC<NexusBadgeProps> = ({
   ...props
 }) => (
   <span
-    className={`inline-flex items-center text-label uppercase tracking-[0.15em] ${variantStyles[variant]} ${className}`}
+    className={`inline-flex items-center text-label uppercase ${variantStyles[variant]} ${className}`}
     style={{
       gap: "var(--space-xs)",
       padding: "var(--space-xs) calc(var(--space-sm) * 1.5)",
@@ -62,7 +65,15 @@ export const NexusBadge: React.FC<NexusBadgeProps> = ({
     }}
     {...props}
   >
-    {Icon && <Icon size={12} strokeWidth={2.5} />}
+    {Icon && (
+      <Icon
+        strokeWidth={2.5}
+        style={{
+          width: "var(--size-inner-icon-badge)",
+          height: "var(--size-inner-icon-badge)",
+        }}
+      />
+    )}
     {children}
   </span>
 );

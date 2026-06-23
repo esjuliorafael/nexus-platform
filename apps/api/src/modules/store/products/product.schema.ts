@@ -1,32 +1,31 @@
 import { z } from "zod";
 
 export const productTypeEnum = z.preprocess(
-  (val) => (typeof val === "string" ? val.toUpperCase() : val),
-  z.enum(["ITEM", "BIRD"])
+  (value) => (typeof value === "string" ? value.toUpperCase() : value),
+  z.enum(["ITEM", "BIRD"]),
 );
 
 export const saleStatusEnum = z.preprocess(
-  (val) => (typeof val === "string" ? val.toUpperCase() : val),
-  z.enum(["AVAILABLE", "RESERVED", "SOLD"])
+  (value) => (typeof value === "string" ? value.toUpperCase() : value),
+  z.enum(["AVAILABLE", "RESERVED", "SOLD"]),
 );
+
+const productGalleryAssetSchema = z.object({
+  assetId: z.string().uuid(),
+});
 
 export const createProductSchema = z.object({
   type: productTypeEnum,
   name: z.string().min(1),
   description: z.string().optional(),
   price: z.number().min(0),
-  thumbnail: z.string().optional(),
+  coverAssetId: z.string().uuid().nullable().optional(),
+  coverPosterAssetId: z.string().uuid().optional(),
   stock: z.number().int().min(0).default(1),
   ringNumber: z.string().optional(),
   age: z.string().optional(),
   purpose: z.string().optional(),
-  gallery: z.array(z.union([
-    z.string(),
-    z.object({
-      url: z.string(),
-      type: z.enum(["PHOTO", "VIDEO"])
-    })
-  ])).optional(),
+  gallery: z.array(productGalleryAssetSchema).optional(),
   saleStatus: saleStatusEnum.optional(),
 });
 

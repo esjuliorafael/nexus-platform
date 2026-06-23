@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { Product } from '../../../types';
 import { Button } from '../../../components/ui/Button';
@@ -22,38 +22,32 @@ const trustItems = [
 ];
 
 export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
-  const [activeMedia, setActiveMedia] = useState<{ url: string; type: 'PHOTO' | 'VIDEO' } | null>(
-    product.thumbnail 
-      ? { 
-          url: getAssetUrl(product.thumbnail), 
-          type: product.thumbnail.toLowerCase().match(/\.(mp4|mov|webm)$/) ? 'VIDEO' : 'PHOTO' 
-        } 
+  const [activeMedia, setActiveMedia] = useState<{ url: string; posterUrl?: string; type: 'PHOTO' | 'VIDEO' } | null>(
+    product.coverMediaUrl
+      ? {
+          url: getAssetUrl(product.coverMediaUrl),
+          posterUrl: getAssetUrl(product.coverPosterUrl),
+          type: product.coverMediaType || 'PHOTO',
+        }
       : null
   );
   const addItem = useCartStore((state) => state.addItem);
 
   const isAvailable = product.saleStatus === 'AVAILABLE';
   const galleryItems = [
-    ...(product.thumbnail ? [{ 
-      id: 'thumbnail', 
-      filePath: getAssetUrl(product.thumbnail), 
-      fileType: (product.thumbnail.toLowerCase().match(/\.(mp4|mov|webm)$/) ? 'VIDEO' : 'PHOTO') as 'PHOTO' | 'VIDEO'
+    ...(product.coverMediaUrl ? [{
+      id: 'cover',
+      mediaUrl: getAssetUrl(product.coverMediaUrl),
+      posterUrl: getAssetUrl(product.coverPosterUrl),
+      mediaType: (product.coverMediaType || 'PHOTO') as 'PHOTO' | 'VIDEO',
     }] : []),
-    ...(product.gallery ?? []).map((item) => ({ 
-      id: item.id.toString(), 
-      filePath: getAssetUrl(item.filePath), 
-      fileType: item.fileType 
+    ...(product.gallery ?? []).map((item) => ({
+      id: item.id.toString(),
+      mediaUrl: getAssetUrl(item.mediaUrl),
+      posterUrl: getAssetUrl(item.posterUrl),
+      mediaType: item.mediaType,
     })),
   ];
-
-  // Si la galería tiene un video en la primera posición real (no el thumbnail), lo priorizamos
-  // Esto es para el nuevo flujo donde la portada (video) se guarda en la galería[0]
-  useEffect(() => {
-    const firstVideo = product.gallery?.find((item, idx) => idx === 0 && item.fileType === 'VIDEO');
-    if (firstVideo) {
-      setActiveMedia({ url: getAssetUrl(firstVideo.filePath), type: 'VIDEO' });
-    }
-  }, [product.gallery]);
 
   const handleAddToCart = () => {
     addItem({
@@ -61,7 +55,7 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
       name: product.name,
       price: Number(product.price),
       quantity: 1,
-      thumbnail: getAssetUrl(product.thumbnail),
+      thumbnail: getAssetUrl(product.coverPosterUrl || product.coverMediaUrl || product.thumbnail),
       type: product.type.toLowerCase() as 'bird' | 'item',
     });
   };
@@ -85,6 +79,7 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
                 activeMedia.type === 'VIDEO' ? (
                   <video 
                     src={activeMedia.url} 
+                    poster={activeMedia.posterUrl || undefined}
                     className="h-full w-full object-cover" 
                     controls 
                     autoPlay 
@@ -108,9 +103,9 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
                 {galleryItems.map((item) => (
                   <button
                     key={item.id}
-                    onClick={() => setActiveMedia({ url: item.filePath, type: item.fileType })}
+                    onClick={() => setActiveMedia({ url: item.mediaUrl, posterUrl: item.posterUrl, type: item.mediaType })}
                     className={`relative aspect-square overflow-hidden border-2 transition-all duration-300 ${
-                      activeMedia?.url === item.filePath
+                      activeMedia?.url === item.mediaUrl
                         ? 'border-brand-500 opacity-100 shadow-lg shadow-brand-500/10'
                         : 'border-transparent opacity-60 hover:opacity-100'
                     }`}
@@ -120,20 +115,19 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
                     }}
                     aria-label="Cambiar imagen del producto"
                   >
-                    {item.fileType === 'VIDEO' ? (
+                    {item.mediaType === 'VIDEO' ? (
                       <div className="relative h-full w-full">
-                        <video 
-                          src={`${item.filePath}#t=0.5`} 
-                          className="h-full w-full object-cover" 
-                          preload="metadata" 
-                          playsInline
-                        />
+                        {item.posterUrl ? (
+                          <img src={item.posterUrl} className="h-full w-full object-cover" alt="Miniatura del video" />
+                        ) : (
+                          <video src={item.mediaUrl} className="h-full w-full object-cover" preload="metadata" playsInline />
+                        )}
                         <div className="absolute inset-0 flex items-center justify-center bg-black/20">
                           <PlayCircle className="text-white drop-shadow-md" size={24} fill="currentColor" />
                         </div>
                       </div>
                     ) : (
-                      <img src={item.filePath} className="h-full w-full object-cover" alt="Imagen del producto" />
+                      <img src={item.mediaUrl} className="h-full w-full object-cover" alt="Imagen del producto" />
                     )}
                   </button>
                 ))}

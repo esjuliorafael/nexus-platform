@@ -178,6 +178,7 @@ export const GalleryView = React.forwardRef<GalleryViewRef, GalleryViewProps>(
           }} 
           onSave={handleSaveSuccess} 
           onValidationChange={onValidationChange}
+          showToast={showToast}
         />
       );
     }

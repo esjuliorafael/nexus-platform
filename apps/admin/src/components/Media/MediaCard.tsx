@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { createPortal } from 'react-dom';
-import { Play, Heart, Edit2, Trash2, X } from 'lucide-react';
+import React, { useState, useRef } from 'react';
+import { Play, Heart, Edit2, Trash2 } from 'lucide-react';
 import { Media } from '../../types';
 import { ASSET_BASE_URL } from '../../api';
 import { NexusAutonomousButton } from '../ui/NexusButton';
+import { NexusMediaViewer } from '../ui/NexusMediaViewer';
 
 interface MediaCardProps {
   media: Media;
@@ -28,18 +28,9 @@ export const MediaCard: React.FC<MediaCardProps> = ({ media, isTall, onEdit, onD
   };
 
   const mediaUrl = getFullUrl(media.url);
-  const isVideo = media.type === 'VIDEO' || mediaUrl.toLowerCase().split('?')[0].endsWith('.mp4');
+  const isVideo = media.mediaType === 'VIDEO';
 
   // Bloquear scroll cuando el preview está abierto
-  useEffect(() => {
-    if (showPreview) {
-      document.body.classList.add('overflow-hidden');
-    } else {
-      document.body.classList.remove('overflow-hidden');
-    }
-    return () => document.body.classList.remove('overflow-hidden');
-  }, [showPreview]);
-
   // Manejadores para el efecto "Hover to Play"
   const handleMouseEnter = () => {
     setIsHovered(true);
@@ -63,10 +54,18 @@ export const MediaCard: React.FC<MediaCardProps> = ({ media, isTall, onEdit, onD
     <>
       {/* --- TARJETA DEL GRID --- */}
       <div 
+        role="button"
+        tabIndex={0}
+        aria-label={`Previsualizar medio ${media.title}`}
         onClick={() => setShowPreview(true)}
+        onKeyDown={(event) => {
+          if (event.key !== 'Enter' && event.key !== ' ') return;
+          event.preventDefault();
+          setShowPreview(true);
+        }}
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        className={`relative group cursor-pointer break-inside-avoid overflow-hidden transition-all duration-500 shadow-sm dark:shadow-none hover:shadow-xl border border-border-main bg-bg-card ${
+        className={`relative group cursor-pointer break-inside-avoid overflow-hidden transition-all duration-500 shadow-sm dark:shadow-none hover:shadow-xl border border-border-main bg-bg-card outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20 ${
           isTall ? 'aspect-[3/4]' : 'aspect-square'
         }`}
         style={{ borderRadius: 'var(--radius-outer)' }}
@@ -92,7 +91,7 @@ export const MediaCard: React.FC<MediaCardProps> = ({ media, isTall, onEdit, onD
           <video
             ref={videoRef}
             src={mediaUrl}
-            poster={getFullUrl(media.thumbnail)} 
+            poster={getFullUrl(media.posterUrl || media.thumbnail)}
             muted
             loop
             playsInline
@@ -184,110 +183,38 @@ export const MediaCard: React.FC<MediaCardProps> = ({ media, isTall, onEdit, onD
       </div>
 
       {/* --- MODAL PREVIEW TIPO INSTAGRAM (MÓVIL Y CLICK DESKTOP) --- */}
-      {showPreview && createPortal(
-        <div className="fixed inset-0 z-[200] bg-black/95 backdrop-blur-xl flex flex-col animate-in fade-in duration-300">
-          
-          {/* Header del Preview */}
-          <div className="absolute top-0 left-0 right-0 p-[var(--padding-inner)] flex items-start justify-between z-20 bg-gradient-to-b from-black/80 to-transparent">
-            <NexusAutonomousButton
-              variant="ghost"
-              isIconOnly
-              icon={X}
-              onClick={() => setShowPreview(false)}
-              className="bg-white/10 backdrop-blur-md text-white border border-white/20 hover:bg-white/20"
-              aria-label="Cerrar preview"
-            />
-
-            <div className="flex items-center" style={{ gap: 'var(--space-sm)' }}>
-              <NexusAutonomousButton
-                variant="ghost"
-                icon={Edit2}
-                onClick={() => { setShowPreview(false); onEdit?.(); }}
-                className="bg-white/10 backdrop-blur-md text-white border border-white/20 hover:bg-white/20"
-              >
-                Editar
-              </NexusAutonomousButton>
-              <NexusAutonomousButton
-                variant="ghost"
-                isIconOnly
-                icon={Trash2}
-                onClick={() => { setShowPreview(false); onDelete?.(); }}
-                className="bg-rose-500/20 backdrop-blur-md text-white border border-rose-500/30 hover:bg-rose-500/40"
-                aria-label="Eliminar medio"
+      <NexusMediaViewer
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        mediaType={isVideo ? 'VIDEO' : 'PHOTO'}
+        src={mediaUrl}
+        poster={getFullUrl(media.posterUrl || media.thumbnail) || undefined}
+        alt={media.title}
+        presentation="gallery"
+        onEdit={onEdit}
+        onDelete={onDelete}
+        editLabel="Editar medio"
+        deleteLabel="Eliminar medio"
+        gallery={{
+          category: media.category,
+          subcategory: media.subcategory,
+          title: media.title,
+          description: media.description || undefined,
+          metadata: {
+            icon: (
+              <Heart
+                className={media.isFavorite ? 'fill-brand-500 text-brand-500' : ''}
+                style={{
+                  width: 'var(--size-inner-icon-metadata)',
+                  height: 'var(--size-inner-icon-metadata)',
+                }}
               />
-            </div>
-          </div>
-
-          {/* Contenido Central (Imagen/Video) */}
-          <div className="flex-1 flex items-center justify-center p-0 sm:p-[var(--padding-outer)] relative">
-            {isVideo ? (
-              <video 
-                src={mediaUrl} 
-                controls 
-                autoPlay 
-                className="w-full h-full object-contain max-h-[80vh]"
-                style={{ borderRadius: 'var(--radius-outer)' }}
-              />
-            ) : (
-              <img 
-                src={mediaUrl} 
-                alt={media.title} 
-                className="w-full h-full object-contain max-h-[85vh]"
-                style={{ borderRadius: 'var(--radius-outer)' }}
-              />
-            )}
-          </div>
-
-          {/* Footer con Información */}
-          <div
-            className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black via-black/90 to-transparent z-20"
-            style={{
-              padding: 'var(--padding-outer)',
-              paddingTop: 'var(--space-3xl)'
-            }}
-          >
-            <div className="max-w-3xl mx-auto flex flex-col" style={{ gap: 'var(--space-md)' }}>
-              <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                <div className="flex items-center" style={{ gap: 'var(--space-sm)' }}>
-                  <span 
-                    className="bg-brand-500 text-white text-label uppercase tracking-[0.15em] shadow-lg shadow-brand-500/20"
-                    style={{
-                      borderRadius: 'var(--radius-card-nested)',
-                      padding: 'var(--space-xs) var(--space-base)'
-                    }}
-                  >
-                    {media.category}
-                  </span>
-                  {media.subcategory && (
-                    <span 
-                      className="bg-white/20 text-white text-label uppercase tracking-[0.15em] backdrop-blur-sm border border-white/20"
-                      style={{
-                        borderRadius: 'var(--radius-card-nested)',
-                        padding: 'var(--space-xs) var(--space-base)'
-                      }}
-                    >
-                      {media.subcategory}
-                    </span>
-                  )}
-                </div>
-                
-                <h2 className="text-white text-h1 drop-shadow-md">{media.title}</h2>
-              </div>
-              
-              {media.description && (
-                <p className="text-stone-300 text-secondary leading-relaxed max-w-2xl">
-                  {media.description}
-                </p>
-              )}
-
-              <div className="flex items-center text-stone-400" style={{ gap: 'var(--space-xs)', marginTop: 'var(--space-sm)' }}>
-                <Heart size={16} className={media.isFavorite ? "fill-brand-500 text-brand-500" : ""} />
-                <span className="text-secondary text-white font-bold">{media.likes} Me gusta</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      , document.body)}
+            ),
+            value: media.likes,
+            label: 'Me gusta',
+          },
+        }}
+      />
     </>
   );
 };

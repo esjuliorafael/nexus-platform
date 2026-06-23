@@ -13,15 +13,35 @@ export async function mediaRoutes(server: FastifyInstance) {
     });
   });
 
-  server.post("/", { preHandler: [server.authenticate] }, async (request) => {
-    const validated = createMediaSchema.parse(request.body);
-    return mediaService.create(validated);
+  server.post("/", { preHandler: [server.authenticate] }, async (request, reply) => {
+    try {
+      const validated = createMediaSchema.parse(request.body);
+      return mediaService.create(validated);
+    } catch (error: any) {
+      if (error?.issues) {
+        return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      }
+      if (error?.statusCode) {
+        return reply.status(error.statusCode).send({ message: error.message });
+      }
+      throw error;
+    }
   });
 
-  server.put("/:id", { preHandler: [server.authenticate] }, async (request) => {
+  server.put("/:id", { preHandler: [server.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const validated = updateMediaSchema.parse(request.body);
-    return mediaService.update(parseInt(id), validated);
+    try {
+      const validated = updateMediaSchema.parse(request.body);
+      return mediaService.update(parseInt(id), validated);
+    } catch (error: any) {
+      if (error?.issues) {
+        return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      }
+      if (error?.statusCode) {
+        return reply.status(error.statusCode).send({ message: error.message });
+      }
+      throw error;
+    }
   });
 
   server.delete("/:id", { preHandler: [server.authenticate] }, async (request) => {

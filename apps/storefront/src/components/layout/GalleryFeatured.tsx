@@ -12,6 +12,29 @@ interface GalleryFeaturedProps {
   items: Media[];
 }
 
+function GalleryMediaVisual({ item }: { item: Media }) {
+  if (item.mediaType === 'VIDEO' && !item.posterUrl) {
+    return (
+      <video
+        src={item.mediaUrl}
+        className="h-full w-full object-cover transition-transform duration-1000 group-hover:scale-[1.08]"
+        muted
+        playsInline
+        preload="metadata"
+      />
+    );
+  }
+
+  return (
+    <SmartImage
+      src={item.posterUrl || item.mediaUrl || item.filePath}
+      alt={item.title}
+      wrapperClassName="w-full h-full"
+      className="transition-transform duration-1000 group-hover:scale-[1.08]"
+    />
+  );
+}
+
 function FloatingCard({ item, index }: { item: Media; index: number }) {
   const x = useMotionValue(0);
   const y = useMotionValue(0);
@@ -47,12 +70,7 @@ function FloatingCard({ item, index }: { item: Media; index: number }) {
       transition={{ duration: 0.45, delay: index * 0.08, ease: [0.23, 1, 0.32, 1] }}
       className="perspective-1000 group relative aspect-[3/4] cursor-pointer overflow-hidden border border-white/5 bg-stone-900 shadow-2xl"
     >
-      <SmartImage
-        src={item.filePath}
-        alt={item.title}
-        wrapperClassName="w-full h-full"
-        className="transition-transform duration-1000 group-hover:scale-[1.08]"
-      />
+      <GalleryMediaVisual item={item} />
 
       <div
         className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black via-black/20 to-transparent opacity-0 transition-all duration-500 group-hover:opacity-100"
@@ -102,7 +120,7 @@ export function GalleryFeatured({ items }: GalleryFeaturedProps) {
                 className="relative aspect-[3/4] min-w-[80vw] snap-center overflow-hidden border border-white/5 bg-stone-900 shadow-2xl"
                 style={{ borderRadius: 'var(--sf-radius-card-inner)' }}
               >
-                <SmartImage src={item.filePath} alt={item.title} wrapperClassName="w-full h-full" />
+                <GalleryMediaVisual item={item} />
                 <div
                   className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 via-transparent to-transparent text-white"
                   style={{ padding: 'var(--sf-padding-inner)' }}

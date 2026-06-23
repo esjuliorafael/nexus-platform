@@ -21,17 +21,17 @@ model Setting {
 }
 
 model User {
-  id                   Int      @id @default(autoincrement())
-  username             String   @unique
-  passwordHash         String   @map("password_hash")
+  id                   Int         @id @default(autoincrement())
+  username             String      @unique
+  passwordHash         String      @map("password_hash")
   name                 String
   email                String?
-  role                 Role     @default(STAFF)
-  active               Boolean  @default(true)
-  createdAt            DateTime @default(now()) @map("created_at")
-  notificationEmail    String?  @map("notification_email")
-  receiveNotifications Boolean  @default(true) @map("receive_notifications")
-  mustChangePassword   Boolean  @default(true) @map("must_change_password")
+  role                 Role        @default(STAFF)
+  active               Boolean     @default(true)
+  createdAt            DateTime    @default(now()) @map("created_at")
+  notificationEmail    String?     @map("notification_email")
+  receiveNotifications Boolean     @default(true) @map("receive_notifications")
+  mustChangePassword   Boolean     @default(true) @map("must_change_password")
   orderReads           OrderRead[]
 
   @@map("users")
@@ -61,34 +61,37 @@ model Subcategory {
 }
 
 model Product {
-  id          Int              @id @default(autoincrement())
-  stock       Int              @default(1)
-  active      Boolean          @default(true) @map("active")
-  createdAt   DateTime         @default(now()) @map("created_at")
-  description String?          @map("description")
-  name        String           @map("name")
-  price       Decimal          @default(0.00) @map("price")
-  ringNumber  String?          @map("ring_number")
-  saleStatus  SaleStatus       @default(AVAILABLE) @map("sale_status")
-  thumbnail   String?          @map("thumbnail")
-  type        ProductType      @map("type")
-  updated_at  DateTime         @default(now()) @map("updated_at")
-  age         BirdAge?         @map("age")
-  purpose     BirdPurpose?     @map("purpose")
-  orderItems  OrderItem[]
-  gallery     ProductGallery[]
+  id           Int              @id @default(autoincrement())
+  stock        Int              @default(1)
+  active       Boolean          @default(true) @map("active")
+  createdAt    DateTime         @default(now()) @map("created_at")
+  description  String?          @map("description")
+  name         String           @map("name")
+  price        Decimal          @default(0.00) @map("price")
+  ringNumber   String?          @map("ring_number")
+  saleStatus   SaleStatus       @default(AVAILABLE) @map("sale_status")
+  coverAssetId String?          @map("cover_asset_id") @db.Uuid
+  type         ProductType      @map("type")
+  updated_at   DateTime         @default(now()) @map("updated_at")
+  age          BirdAge?         @map("age")
+  purpose      BirdPurpose?     @map("purpose")
+  orderItems   OrderItem[]
+  gallery      ProductGallery[]
+  coverAsset   MediaAsset?      @relation("ProductCoverAsset", fields: [coverAssetId], references: [id], onDelete: SetNull)
 
+  @@index([coverAssetId])
   @@map("products")
 }
 
 model ProductGallery {
-  id        Int       @id @default(autoincrement())
-  createdAt DateTime  @default(now()) @map("created_at")
-  filePath  String    @map("file_path")
-  fileType  MediaType @default(PHOTO) @map("file_type")
-  productId Int       @map("product_id")
-  product   Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id        Int        @id @default(autoincrement())
+  assetId   String     @map("asset_id") @db.Uuid
+  createdAt DateTime   @default(now()) @map("created_at")
+  productId Int        @map("product_id")
+  asset     MediaAsset @relation(fields: [assetId], references: [id])
+  product   Product    @relation(fields: [productId], references: [id], onDelete: Cascade)
 
+  @@index([assetId])
   @@map("product_gallery")
 }
 
@@ -145,42 +148,68 @@ model Media {
   categoryId    Int?         @map("category_id")
   createdAt     DateTime     @default(now()) @map("created_at")
   description   String?      @map("description")
-  filePath      String       @map("file_path")
+  assetId       String       @map("asset_id") @db.Uuid
   location      String?      @map("location")
   mediaDate     DateTime?    @map("media_date")
   subcategoryId Int?         @map("subcategory_id")
   title         String       @map("title")
-  type          MediaType    @map("type")
+  asset         MediaAsset   @relation(fields: [assetId], references: [id])
   category      Category?    @relation(fields: [categoryId], references: [id])
   subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id])
 
+  @@index([assetId])
   @@map("media")
 }
 
 model HomeSlide {
-  id                    Int       @id @default(autoincrement())
-  active                Boolean   @default(true) @map("active")
-  createdAt             DateTime  @default(now()) @map("created_at")
-  desktopObjectPosition String    @default("50% 50%") @map("desktop_object_position")
-  description           String?   @map("description")
-  displayDurationMs     Int       @default(8000) @map("display_duration_ms")
-  eyebrow               String?   @map("eyebrow")
-  mediaUrl              String    @map("media_url")
-  mobileObjectPosition  String    @default("50% 44%") @map("mobile_object_position")
-  posterUrl             String?   @map("poster_url")
-  primaryHref           String?   @map("primary_href")
-  primaryText           String?   @map("primary_text")
-  secondaryHref         String?   @map("secondary_href")
-  secondaryText         String?   @map("secondary_text")
-  sortOrder             Int       @default(1) @map("sort_order")
-  startsAt              DateTime? @map("starts_at")
-  endsAt                DateTime? @map("ends_at")
-  title                 String    @map("title")
-  type                  MediaType @default(PHOTO) @map("type")
-  updatedAt             DateTime  @updatedAt @map("updated_at")
+  id                    Int        @id @default(autoincrement())
+  active                Boolean    @default(true) @map("active")
+  createdAt             DateTime   @default(now()) @map("created_at")
+  desktopObjectPosition String     @default("50% 50%") @map("desktop_object_position")
+  description           String?    @map("description")
+  displayDurationMs     Int        @default(8000) @map("display_duration_ms")
+  eyebrow               String?    @map("eyebrow")
+  assetId               String     @map("asset_id") @db.Uuid
+  mobileObjectPosition  String     @default("50% 44%") @map("mobile_object_position")
+  primaryHref           String?    @map("primary_href")
+  primaryText           String?    @map("primary_text")
+  secondaryHref         String?    @map("secondary_href")
+  secondaryText         String?    @map("secondary_text")
+  sortOrder             Int        @default(1) @map("sort_order")
+  startsAt              DateTime?  @map("starts_at")
+  endsAt                DateTime?  @map("ends_at")
+  title                 String     @map("title")
+  asset                 MediaAsset @relation(fields: [assetId], references: [id])
+  updatedAt             DateTime   @updatedAt @map("updated_at")
 
   @@unique([sortOrder])
+  @@index([assetId])
   @@map("home_slides")
+}
+
+model MediaAsset {
+  id             String           @id @default(uuid()) @db.Uuid
+  mediaUrl       String?          @unique @map("media_url")
+  posterUrl      String?          @map("poster_url")
+  sourceKey      String?          @map("source_key")
+  mediaType      MediaType        @map("media_type")
+  mimeType       String           @map("mime_type")
+  originalName   String?          @map("original_name")
+  status         MediaAssetStatus @default(PROCESSING)
+  errorMessage   String?          @map("error_message")
+  durationMs     Int?             @map("duration_ms")
+  width          Int?
+  height         Int?
+  sizeBytes      Int?             @map("size_bytes")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  coverProducts  Product[]        @relation("ProductCoverAsset")
+  productGallery ProductGallery[]
+  mediaEntries   Media[]
+  homeSlides     HomeSlide[]
+
+  @@index([status, createdAt])
+  @@map("media_assets")
 }
 
 model PaymentChannel {
@@ -334,6 +363,12 @@ enum OrderStatus {
 enum MediaType {
   PHOTO @map("photo")
   VIDEO @map("video")
+}
+
+enum MediaAssetStatus {
+  PROCESSING @map("processing")
+  READY      @map("ready")
+  FAILED     @map("failed")
 }
 
 enum TemplateType {

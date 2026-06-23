@@ -1,23 +1,36 @@
-/**
- * Sanitiza un nombre de archivo para que sea seguro para URLs y consistente.
- * Convierte a minúsculas, elimina acentos, reemplaza caracteres especiales por guiones
- * y añade un timestamp para evitar colisiones.
- */
-export function sanitizeFileName(fileName: string): string {
-  const parts = fileName.split('.');
-  const extension = parts.pop()?.toLowerCase() || '';
-  const name = parts.join('.');
+import path from "path";
 
-  const sanitized = name
-    .toLowerCase()
-    .normalize('NFD') // Descompone caracteres con acentos
-    .replace(/[\u0300-\u036f]/g, '') // Elimina los acentos
-    .replace(/[^a-z0-9]/g, '-') // Reemplaza cualquier cosa que no sea letra o número por un guion
-    .replace(/-+/g, '-') // Reemplaza múltiples guiones seguidos por uno solo
-    .replace(/^-|-$/g, ''); // Elimina guiones al principio o al final
+const MIME_EXTENSIONS: Record<string, string> = {
+  "image/jpeg": "jpg",
+  "image/png": "png",
+  "image/webp": "webp",
+  "image/gif": "gif",
+  "image/heic": "heic",
+  "image/heif": "heif",
+  "video/mp4": "mp4",
+  "video/quicktime": "mov",
+  "video/webm": "webm",
+  "video/x-matroska": "mkv",
+  "video/3gpp": "3gp",
+  "video/3gpp2": "3g2",
+};
 
-  // Si el nombre quedó vacío después de la sanitización, usamos 'file'
-  const finalName = sanitized || 'file';
+export function extensionForMime(mimeType: string, fallback = "bin") {
+  return MIME_EXTENSIONS[mimeType.toLowerCase()] || fallback;
+}
 
-  return `${finalName}-${Date.now()}.${extension}`;
+export function createStorageKey(
+  assetId: string,
+  extension: string,
+  suffix = "",
+  date = new Date(),
+) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const normalizedExtension = extension.replace(/^\./, "").toLowerCase();
+  return `media/${year}/${month}/${assetId}${suffix}.${normalizedExtension}`;
+}
+
+export function normalizeOriginalName(fileName: string) {
+  return path.basename(fileName).replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 255);
 }

@@ -1,6 +1,6 @@
 import { storePrisma } from "@nexus/db/store";
 import { MediaType } from "@prisma/client-store";
-import { storageService } from "../../../services/storage.service";
+import { mediaAssetService } from "../media-assets/media-asset.service";
 
 export interface MediaFilters {
   categoryId?: number;
@@ -8,52 +8,78 @@ export interface MediaFilters {
   type?: MediaType;
 }
 
+const mediaInclude = {
+  asset: true,
+  category: true,
+  subcategory: true,
+};
+
+function serializeMedia(entry: any) {
+  const { asset, ...data } = entry;
+  return {
+    ...data,
+    mediaUrl: asset.mediaUrl,
+    posterUrl: asset.posterUrl,
+    mediaType: asset.mediaType,
+    mimeType: asset.mimeType,
+    filePath: asset.mediaUrl,
+    type: asset.mediaType,
+  };
+}
+
+async function assertAssetReady(assetId: string) {
+  const asset = await storePrisma.mediaAsset.findFirst({
+    where: { id: assetId, status: "READY", mediaUrl: { not: null } },
+  });
+  if (!asset) {
+    const error = new Error("El medio aun no esta listo.") as Error & {
+      statusCode?: number;
+    };
+    error.statusCode = 409;
+    throw error;
+  }
+}
+
 export const mediaService = {
   async getAll(filters: MediaFilters) {
     const where: any = { active: true };
     if (filters.categoryId) where.categoryId = filters.categoryId;
     if (filters.subcategoryId) where.subcategoryId = filters.subcategoryId;
-    if (filters.type) where.type = filters.type;
+    if (filters.type) where.asset = { mediaType: filters.type };
 
-    return storePrisma.media.findMany({
+    const entries = await storePrisma.media.findMany({
       where,
+      include: mediaInclude,
       orderBy: { createdAt: "desc" },
     });
+    return entries.map(serializeMedia);
   },
 
   async create(data: any) {
-    return storePrisma.media.create({ data });
+    await assertAssetReady(data.assetId);
+    const entry = await storePrisma.media.create({ data, include: mediaInclude });
+    return serializeMedia(entry);
   },
 
   async update(id: number, data: any) {
-    // 1. Si el filePath cambió, borrar el anterior de R2
-    if (data.filePath) {
-      const current = await storePrisma.media.findUnique({ where: { id } });
-      if (current?.filePath && current.filePath !== data.filePath) {
-        await storageService.deleteFile(current.filePath);
-      }
-    }
+    const current = await storePrisma.media.findUnique({ where: { id } });
+    if (!current) throw new Error("Media not found");
+    if (data.assetId) await assertAssetReady(data.assetId);
 
-    return storePrisma.media.update({
+    const entry = await storePrisma.media.update({
       where: { id },
       data,
+      include: mediaInclude,
     });
+    if (data.assetId && data.assetId !== current.assetId) {
+      await mediaAssetService.releaseIfUnreferenced(current.assetId);
+    }
+    return serializeMedia(entry);
   },
 
   async delete(id: number) {
-    // 1. Buscar el medio para obtener la URL del archivo
-    const media = await storePrisma.media.findUnique({
-      where: { id }
-    });
-
-    if (media && media.filePath) {
-      // 2. Borrar de R2
-      await storageService.deleteFile(media.filePath);
-    }
-
-    // 3. Borrado físico de la base de datos
-    return storePrisma.media.delete({
-      where: { id },
-    });
+    const entry = await storePrisma.media.delete({ where: { id } });
+    await mediaAssetService.releaseIfUnreferenced(entry.assetId);
+    return entry;
   },
 };

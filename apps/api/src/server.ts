@@ -19,6 +19,7 @@ import { rafflePlugin } from "./modules/raffle/raffle.plugin";
 import { orderReleaseWorker } from "./queues/order-release.queue";
 import { ticketReleaseWorker } from "./queues/ticket-release.queue";
 import { whatsappWorker } from "./workers/whatsapp.worker";
+import { mediaProcessingWorker } from "./workers/media-processing.worker";
 
 const server = fastify({
   logger: true,
@@ -46,7 +47,7 @@ async function bootstrap() {
     await server.register(authPlugin);
     await server.register(multipart, {
       limits: {
-        fileSize: 100 * 1024 * 1024, // 100MB
+        fileSize: 500 * 1024 * 1024,
       },
     });
 
@@ -143,6 +144,10 @@ async function bootstrap() {
 
     whatsappWorker.on("failed", (job, err) => {
       server.log.error(`WhatsApp notification job ${job?.id} failed: ${err.message}`);
+    });
+
+    mediaProcessingWorker.on("failed", (job, err) => {
+      server.log.error(`Media processing job ${job?.id} failed: ${err.message}`);
     });
 
     // Start Server

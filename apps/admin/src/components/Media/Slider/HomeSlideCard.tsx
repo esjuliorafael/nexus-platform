@@ -1,11 +1,11 @@
-import React, { useEffect, useRef, useState } from "react";
-import { createPortal } from "react-dom";
-import { ArrowDown, ArrowUp, Edit2, Play, Trash2, X } from "lucide-react";
+import React, { useRef, useState } from "react";
+import { ArrowDown, ArrowUp, Edit2, Play, Trash2 } from "lucide-react";
 import { ASSET_BASE_URL } from "../../../api";
 import { HomeSlide } from "../../../types";
-import { NexusAutonomousBadge, NexusBadge } from "../../ui/NexusBadge";
+import { NexusAutonomousBadge } from "../../ui/NexusBadge";
 import { NexusAutonomousButton } from "../../ui/NexusButton";
 import { NexusAutonomousCard } from "../../ui/NexusCard";
+import { NexusMediaViewer } from "../../ui/NexusMediaViewer";
 import { NexusSwitch } from "../../ui/NexusSwitch";
 
 interface HomeSlideCardProps {
@@ -50,16 +50,6 @@ export const HomeSlideCard: React.FC<HomeSlideCardProps> = ({
 
   const mediaUrl = getFullUrl(slide.mediaUrl);
   const posterUrl = getFullUrl(slide.posterUrl);
-
-  useEffect(() => {
-    if (showPreview) {
-      document.body.classList.add("overflow-hidden");
-    } else {
-      document.body.classList.remove("overflow-hidden");
-    }
-
-    return () => document.body.classList.remove("overflow-hidden");
-  }, [showPreview]);
 
   const handleMouseEnter = () => {
     if (!isVideo || !videoRef.current) return;
@@ -237,162 +227,28 @@ export const HomeSlideCard: React.FC<HomeSlideCardProps> = ({
         </div>
       </NexusAutonomousCard>
 
-      {showPreview &&
-        createPortal(
-          <div className="fixed inset-0 z-[200] flex flex-col bg-black/95 backdrop-blur-xl animate-in fade-in duration-300">
-            <div className="absolute left-0 right-0 top-0 z-20 flex items-start justify-between bg-gradient-to-b from-black/80 to-transparent p-[var(--padding-inner)]">
-              <button
-                type="button"
-                onClick={() => setShowPreview(false)}
-                className="flex items-center justify-center border border-white/20 bg-white/10 text-white backdrop-blur-md transition-all hover:bg-white/20 active:scale-90"
-                style={{
-                  width: "var(--size-button-section)",
-                  height: "var(--size-button-section)",
-                  borderRadius: "var(--radius-card-inner)",
-                }}
-                aria-label="Cerrar preview"
-              >
-                <X size={24} />
-              </button>
-
-              <div
-                className="flex items-center"
-                style={{ gap: "var(--space-sm)" }}
-              >
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowPreview(false);
-                    onEdit();
-                  }}
-                  className="flex items-center border border-white/20 bg-white/10 text-white backdrop-blur-md transition-all hover:bg-white/20 active:scale-95"
-                  style={{
-                    height: "var(--size-button-section)",
-                    gap: "var(--space-sm)",
-                    paddingInline: "var(--space-md)",
-                    borderRadius: "var(--radius-card-inner)",
-                  }}
-                >
-                  <Edit2 size={16} />
-                  <span className="hidden text-label uppercase tracking-[0.15em] sm:inline">
-                    Editar
-                  </span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setShowPreview(false);
-                    onDelete();
-                  }}
-                  className="flex items-center justify-center border border-rose-500/30 bg-rose-500/20 text-white backdrop-blur-md transition-all hover:bg-rose-500/40 active:scale-90"
-                  style={{
-                    width: "var(--size-button-section)",
-                    height: "var(--size-button-section)",
-                    borderRadius: "var(--radius-card-inner)",
-                  }}
-                  aria-label="Eliminar slide"
-                >
-                  <Trash2 size={18} />
-                </button>
-              </div>
-            </div>
-
-            <div className="relative flex flex-1 items-center overflow-hidden">
-              {isVideo ? (
-                <video
-                  src={mediaUrl}
-                  poster={posterUrl || undefined}
-                  autoPlay
-                  muted
-                  loop
-                  playsInline
-                  className="absolute inset-0 h-full w-full object-cover opacity-70"
-                />
-              ) : (
-                <img
-                  src={mediaUrl}
-                  alt={slide.title}
-                  className="absolute inset-0 h-full w-full object-cover opacity-70"
-                />
-              )}
-
-              <div className="absolute inset-0 bg-gradient-to-r from-black via-black/60 to-transparent" />
-              <div
-                className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black to-transparent"
-                style={{ height: "var(--space-3xl)" }}
-              />
-
-              <div
-                className="relative z-10 mx-auto flex w-full max-w-5xl flex-col px-[var(--padding-outer)]"
-                style={{ gap: "var(--space-lg)" }}
-              >
-                <div
-                  className="flex flex-wrap items-center"
-                  style={{ gap: "var(--space-sm)" }}
-                >
-                  <NexusBadge
-                    variant={slide.active ? "overlaySuccess" : "overlay"}
-                  >
-                    {slide.active ? "Publicado" : "Pausado"}
-                  </NexusBadge>
-                  <NexusBadge variant="overlay">
-                    Orden {slide.sortOrder}
-                  </NexusBadge>
-                </div>
-
-                <div
-                  className="flex max-w-3xl flex-col"
-                  style={{ gap: "var(--space-md)" }}
-                >
-                  {slide.eyebrow && (
-                    <p className="text-label uppercase tracking-[0.15em] text-brand-300">
-                      {slide.eyebrow}
-                    </p>
-                  )}
-                  <h2 className="max-w-4xl text-4xl font-black uppercase leading-none tracking-tight text-white drop-shadow-md sm:text-6xl">
-                    {slide.title}
-                  </h2>
-                  {slide.description && (
-                    <p className="max-w-2xl text-body leading-relaxed text-stone-300">
-                      {slide.description}
-                    </p>
-                  )}
-                </div>
-
-                {(slide.primaryText || slide.secondaryText) && (
-                  <div
-                    className="flex flex-wrap"
-                    style={{ gap: "var(--space-base)" }}
-                  >
-                    {slide.primaryText && (
-                      <span
-                        className="inline-flex h-[var(--size-button-section)] items-center justify-center bg-brand-500 text-button-section text-white shadow-lg shadow-brand-500/20"
-                        style={{
-                          paddingInline: "var(--space-lg)",
-                          borderRadius: "var(--radius-inner-visual)",
-                        }}
-                      >
-                        {slide.primaryText}
-                      </span>
-                    )}
-                    {slide.secondaryText && (
-                      <span
-                        className="inline-flex h-[var(--size-button-section)] items-center justify-center border border-white/20 bg-white/10 text-button-section text-white backdrop-blur-md"
-                        style={{
-                          paddingInline: "var(--space-lg)",
-                          borderRadius: "var(--radius-inner-visual)",
-                        }}
-                      >
-                        {slide.secondaryText}
-                      </span>
-                    )}
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>,
-          document.body,
-        )}
+      <NexusMediaViewer
+        isOpen={showPreview}
+        onClose={() => setShowPreview(false)}
+        mediaType={isVideo ? "VIDEO" : "PHOTO"}
+        src={mediaUrl}
+        poster={posterUrl || undefined}
+        alt={slide.title}
+        presentation="hero"
+        onEdit={onEdit}
+        onDelete={onDelete}
+        editLabel="Editar slide"
+        deleteLabel="Eliminar slide"
+        hero={{
+          eyebrow: slide.eyebrow || undefined,
+          title: slide.title,
+          description: slide.description || undefined,
+          primaryText: slide.primaryText || "Ver Catalogo",
+          secondaryText: slide.secondaryText || "Explorar Rancho",
+          desktopObjectPosition: slide.desktopObjectPosition || "50% 50%",
+          mobileObjectPosition: slide.mobileObjectPosition || "50% 44%",
+        }}
+      />
     </>
   );
 };

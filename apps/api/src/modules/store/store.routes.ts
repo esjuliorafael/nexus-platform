@@ -69,9 +69,9 @@ export async function storeRoutes(server: FastifyInstance) {
       });
 
       if (currentLogo?.value && currentLogo.value !== logoUrl) {
-        const { storageService } =
-          await import("../../services/storage.service");
-        await storageService.deleteFile(currentLogo.value);
+        const { mediaAssetService } =
+          await import("./media-assets/media-asset.service");
+        await mediaAssetService.releaseByUrlIfUnreferenced(currentLogo.value);
       }
 
       await server.storePrisma.setting.upsert({

@@ -43,15 +43,24 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
     
     const [stock, setStock] = useState(initialData?.stock?.toString() || '');
 
-    const [coverUrl, setCoverUrl] = useState<string | null>(getFullUrl(initialData?.imageUrl) || null);
+    const [coverUrl, setCoverUrl] = useState<string | null>(
+      getFullUrl(initialData?.coverMediaUrl || initialData?.imageUrl) || null,
+    );
     const [coverFile, setCoverFile] = useState<File | null>(null);
+    const [coverAssetId, setCoverAssetId] = useState<string | null>(initialData?.coverAssetId || null);
+    const [coverMediaType, setCoverMediaType] = useState<'PHOTO' | 'VIDEO' | null>(initialData?.coverMediaType || null);
 
-    const [staticThumbUrl, setStaticThumbUrl] = useState<string | null>(getFullUrl(initialData?.thumbnail) || null);
+    const [staticThumbUrl, setStaticThumbUrl] = useState<string | null>(
+      getFullUrl(initialData?.coverPosterUrl || initialData?.thumbnail) || null,
+    );
     const [staticThumbFile, setStaticThumbFile] = useState<File | null>(null);
     const [suggestedThumbs, setSuggestedThumbs] = useState<{ blob: Blob, url: string }[]>([]);
     const [isGeneratingThumbs, setIsGeneratingThumbs] = useState(false);
 
-    const [galleryUrls, setGalleryUrls] = useState<string[]>(initialData?.gallery?.map(g => getFullUrl(typeof g === 'string' ? g : (g as any).filePath)!) || []);
+    const [galleryAssets, setGalleryAssets] = useState<Product['gallery']>(initialData?.gallery || []);
+    const [galleryUrls, setGalleryUrls] = useState<string[]>(
+      initialData?.gallery?.map((item) => getFullUrl(item.mediaUrl)!).filter(Boolean) || [],
+    );
     const [galleryFiles, setGalleryFiles] = useState<File[]>([]); 
 
     const coverInputRef = useRef<HTMLInputElement>(null);
@@ -60,34 +69,10 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
 
     const isVideo = useMemo(() => {
       if (coverFile) return coverFile.type.startsWith('video/');
-      if (coverUrl) {
-         const urlWithoutParams = coverUrl.split('?')[0].toLowerCase();
-         return urlWithoutParams.endsWith('.mp4') || urlWithoutParams.endsWith('.mov') || urlWithoutParams.endsWith('.webm');
-      }
-      return false;
-    }, [coverFile, coverUrl]);
+      return coverMediaType === 'VIDEO';
+    }, [coverFile, coverMediaType]);
 
-    const isFormValid = !!coverUrl && !!name && !!price && (productType === 'BIRD' ? !!ringNumber : !!stock) && !isProcessing && (!isVideo || !!staticThumbUrl);
-
-    // Inicialización inteligente para productos con video de portada
-    useEffect(() => {
-      if (initialData?.gallery && initialData.gallery.length > 0) {
-        const firstAsset = initialData.gallery[0];
-        const rawUrl = typeof firstAsset === 'string' ? firstAsset : (firstAsset as any).filePath;
-        const url = getFullUrl(rawUrl);
-        
-        if (url) {
-          const urlWithoutParams = url.split('?')[0].toLowerCase();
-          const isFirstAssetVideo = urlWithoutParams.match(/\.(mp4|mov|webm)$/);
-
-          if (isFirstAssetVideo) {
-            setCoverUrl(url);
-            setStaticThumbUrl(getFullUrl(initialData.thumbnail) || null);
-            setGalleryUrls(initialData.gallery.slice(1).map(g => getFullUrl(typeof g === 'string' ? g : (g as any).filePath)!));
-          }
-        }
-      }
-    }, [initialData]);
+    const isFormValid = !!coverUrl && !!name && !!price && (productType === 'BIRD' ? !!ringNumber : !!stock) && !isProcessing;
 
     // Generar miniaturas sugeridas automáticamente si la portada es un video (para edición)
     useEffect(() => {
@@ -136,6 +121,8 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
       try {
         setCoverFile(file);
         setCoverUrl(URL.createObjectURL(file));
+        setCoverAssetId(null);
+        setCoverMediaType(file.type.startsWith('video/') ? 'VIDEO' : 'PHOTO');
 
         if (file.type.startsWith('video/')) {
           setIsGeneratingThumbs(true);
@@ -151,8 +138,9 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
           setStaticThumbFile(null);
         }
       } catch (error) {
-        console.error('Error al procesar el archivo:', error);
-        showToast?.('Error al procesar el multimedia.', 'error');
+        console.info('El navegador no pudo extraer fotogramas; se usará el poster del servidor.', error);
+        setStaticThumbUrl(null);
+        setStaticThumbFile(null);
       } finally {
         setIsProcessing(false);
         setIsGeneratingThumbs(false);
@@ -189,12 +177,24 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
   };
 
   const removeGalleryImage = (index: number) => {
-    const existingCount = (initialData?.gallery?.length || 0);
+    const existingCount = galleryAssets.length;
     if (index >= existingCount) {
         const fileIndex = index - existingCount;
         setGalleryFiles(prev => prev.filter((_, i) => i !== fileIndex));
+    } else {
+        setGalleryAssets(prev => prev.filter((_, i) => i !== index));
     }
     setGalleryUrls(prev => prev.filter((_, i) => i !== index));
+  };
+
+  const isGalleryVideo = (url: string, index: number) => {
+    if (index < galleryAssets.length) return galleryAssets[index].mediaType === 'VIDEO';
+    return galleryFiles[index - galleryAssets.length]?.type.startsWith('video/') || isVideoUrl(url);
+  };
+
+  const galleryPosterUrl = (index: number) => {
+    if (index >= galleryAssets.length) return null;
+    return getFullUrl(galleryAssets[index].posterUrl);
   };
 
   const handleSubmit = async (e?: React.FormEvent) => {
@@ -202,32 +202,29 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
     if (!isFormValid || isSubmitting) return;
     setIsSubmitting(true);
     try {
-      let finalCoverUrl = coverUrl;
-      let finalStaticThumbUrl = staticThumbUrl;
+      let finalCoverAssetId = coverAssetId;
+      let coverPosterAssetId: string | undefined;
 
       if (coverFile) {
         const uploadRes = await apiUpload.upload(coverFile);
-        finalCoverUrl = uploadRes.url;
+        finalCoverAssetId = uploadRes.assetId;
+        setCoverAssetId(uploadRes.assetId);
       }
+
+      if (!finalCoverAssetId) throw new Error('Selecciona una portada para el producto.');
 
       if (isVideo && staticThumbFile) {
         const uploadRes = await apiUpload.upload(staticThumbFile);
-        finalStaticThumbUrl = uploadRes.url;
+        coverPosterAssetId = uploadRes.assetId;
       }
 
-      const finalGallery = galleryUrls.filter(url => !url.startsWith('blob:')).map(url => ({
-        url,
-        type: isVideoUrl(url) ? 'VIDEO' : 'PHOTO'
-      }));
-
-      if (isVideo && finalCoverUrl) {
-        finalGallery.unshift({ url: finalCoverUrl, type: 'VIDEO' });
-      }
-
-      for (const file of galleryFiles) {
-        const uploadRes = await apiUpload.upload(file);
-        finalGallery.push({ url: uploadRes.url, type: file.type.startsWith('video/') ? 'VIDEO' : 'PHOTO' });
-      }
+      const uploadedGallery = await Promise.all(
+        galleryFiles.map((file) => apiUpload.upload(file)),
+      );
+      const finalGallery = [
+        ...galleryAssets.map((item) => ({ assetId: item.assetId })),
+        ...uploadedGallery.map((item) => ({ assetId: item.assetId })),
+      ];
 
       const payload: any = {
         type: productType,
@@ -235,7 +232,8 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
         price: parseFloat(price),
         description,
         saleStatus: status.toUpperCase(),
-        thumbnail: isVideo ? finalStaticThumbUrl : finalCoverUrl,
+        coverAssetId: finalCoverAssetId,
+        ...(coverPosterAssetId ? { coverPosterAssetId } : {}),
         gallery: finalGallery
       };
 
@@ -256,7 +254,7 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
       onSave();
     } catch (error) {
       console.error(error);
-      showToast?.('Error al guardar el producto.', 'error');
+      showToast?.(error instanceof Error ? error.message : 'Error al guardar el producto.', 'error');
     } finally {
       setIsSubmitting(false);
     }
@@ -323,7 +321,7 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                       variant="ghost" 
                       isIconOnly
                       icon={X}
-                      onClick={(e) => { e.stopPropagation(); setCoverUrl(null); setCoverFile(null); setStaticThumbUrl(null); if(coverInputRef.current) coverInputRef.current.value = ''; }}
+                      onClick={(e) => { e.stopPropagation(); setCoverUrl(null); setCoverFile(null); setCoverAssetId(null); setCoverMediaType(null); setStaticThumbUrl(null); if(coverInputRef.current) coverInputRef.current.value = ''; }}
                       className="bg-black/40 hover:bg-rose-500 backdrop-blur-md border border-white/10 text-white shadow-none"
                     />
                   </div>
@@ -428,7 +426,9 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                       className="relative aspect-square overflow-hidden group border border-border-main shadow-sm bg-bg-card hover:scale-[1.05] transition-transform duration-500"
                       style={{ borderRadius: 'var(--radius-inner-visual)' }}
                     >
-                      {isVideoUrl(url) ? (
+                      {isGalleryVideo(url, idx) && galleryPosterUrl(idx) ? (
+                        <img src={galleryPosterUrl(idx)!} className="w-full h-full object-cover" alt={`Video ${idx + 1}`} />
+                      ) : isGalleryVideo(url, idx) ? (
                         <video 
                           src={`${url}#t=0.5`} 
                           className="w-full h-full object-cover" 
@@ -438,7 +438,7 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                       ) : (
                         <img src={url} className="w-full h-full object-cover" alt={`Gallery ${idx}`} />
                       )}
-                      {isVideoUrl(url) && (
+                      {isGalleryVideo(url, idx) && (
                         <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
                             <PlayCircle className="text-white/80 w-8 h-8 drop-shadow-lg" />
                         </div>

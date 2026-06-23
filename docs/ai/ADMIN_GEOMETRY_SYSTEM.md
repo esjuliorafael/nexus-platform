@@ -37,6 +37,12 @@ This document defines how Admin UI components should use the recursive geometry 
 `--radius-card-rail-inner`
 : Level 2 radius inside an autonomous rail/toolstrip. Formula: `--radius-outer - (--padding-card-rail * 0.75)`.
 
+`--padding-button-card-inline`
+: Horizontal inset for card-context buttons. Formula: `--space-base * 2` (24px).
+
+`--padding-button-inline`
+: Horizontal inset for section and autonomous buttons. Formula: `(--space-base * 2) + --space-sm` (32px).
+
 ## Level Model
 
 The Admin uses three visual levels:
@@ -115,7 +121,15 @@ Example: the loaded media area in `HomeSlideForm`, `MediaForm`, and `ProductForm
 
 `NexusModal` uses `--padding-inner`, not `--padding-outer`, because it behaves like an autonomous card. `NexusModalActions` centralizes the footer action gap so each modal does not invent its own spacing.
 
-Use `NexusModal` for content and form modals. Use `NexusConfirmModal` for decision dialogs such as discard changes, delete, cancel, or blocking confirmations. Confirm dialogs keep the same modal geometry but use a centered composition, no close X, and direct cancel/confirm actions.
+Use `NexusModal` for operational content and forms. Use `NexusConfirmModal` for decision dialogs such as discard changes, delete, cancel, or blocking confirmations. Confirm dialogs keep the same modal geometry but use a centered composition, no close X, and direct cancel/confirm actions.
+
+Use `NexusMediaViewer` for image or video inspection. It is a viewport-level surface rather than an autonomous card, so it has no rounded modal shell. The component owns the portal, scroll lock, Escape behavior, focus restoration, media rendering, and every top action. Consumers pass `onEdit` and `onDelete`; they must not rebuild or restyle the close, edit, or delete controls.
+
+`presentation="gallery"` is an inspection canvas aligned to one Admin rail (`mx-auto w-full max-w-7xl`). That rail constrains the media width, while the stage shrink-wraps the rendered media and the metadata lives inside it as a bottom overlay with a legibility gradient and `--padding-inner`. Gallery inspection must never introduce viewport scroll. Use bidirectional containment: the media has `width: auto`, `height: auto`, `max-width: 100%`, and a token-derived `max-height` based on `100dvh` minus viewer chrome. Its vertical geometry is explicit: `--padding-inner` places the controls, `--space-md` separates the controls from the media, and another `--space-md` separates the media from the viewport bottom. The viewer viewport is level 1 and remains square because it fills the screen; the media stage is its direct level 2 child and uses `--radius-inner-visual` with `overflow-hidden` to clip the media, gradient, and metadata together. Do not add an autonomous-card border or shadow. Inside the overlay use `--space-base` between badges and the text group, `--space-xs` between title and description, `--space-md` between the text group and metadata, and `--space-xs` between metadata icon, value, and label. The title uses `text-h1`, while description, value, and label use `text-secondary`; only the numeric value is bold. Badge typography remains owned globally by `NexusBadge`. Video overlays reserve additional bottom space for native controls.
+
+`presentation="hero"` is a faithful Storefront hero preview. It owns responsive `object-position`, mobile and desktop vignette treatment, media opacity, content placement, eyebrow, title, description, and CTA representation. Its editorial rhythm is modular: eyebrow to text group uses `--space-md`, title to description uses `--space-base`, text group to CTAs uses `--space-lg`, and CTA to CTA uses `--space-sm`. The Admin and Storefront scales intentionally mirror each other: hero title uses `text-hero`, description uses `text-body`, CTA labels use `text-button-section`, and the eyebrow remains owned by `NexusBadge` through `text-label`. Do not add local font sizes, extra line-height overrides, or administrative badges such as publication state and sort order.
+
+All viewer controls use `NexusAutonomousButton` with the same size, radius, border, translucent surface, and spacing. They belong to the viewport chrome, never to the `max-w-7xl` content rail: close occupies the upper-left corner, while edit and delete occupy the upper-right corner. Delete may add a semantic rose hover/focus response, but its default geometry and visual weight remain identical to close and edit. Initial focus belongs to the dialog container (`tabIndex="-1"`), not to the close button, so pointer-opened viewers do not show an arbitrary button focus ring. Keyboard users still receive the standard `focus-visible` ring after pressing Tab. Viewer chrome uses `--padding-inner`, action groups use `--space-sm`, and gallery content uses the App shell rail and spacing tokens.
 
 ### App Shell Branch
 

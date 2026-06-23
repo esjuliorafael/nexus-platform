@@ -33,10 +33,11 @@ interface MediaFormProps {
   onCancel: () => void;
   onSave: () => void;
   onValidationChange?: (isValid: boolean) => void;
+  showToast: (message: string, type?: "success" | "error") => void;
 }
 
 export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
-  ({ initialData, onSave, onValidationChange }, ref) => {
+  ({ initialData, onSave, onValidationChange, showToast }, ref) => {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isLoadingCategories, setIsLoadingCategories] = useState(false);
@@ -54,6 +55,9 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
     const [location, setLocation] = useState(initialData?.location || "");
 
     const [file, setFile] = useState<File | null>(null);
+    const [assetId, setAssetId] = useState<string | null>(
+      initialData?.assetId || null,
+    );
     const [previewUrl, setPreviewUrl] = useState<string | null>(
       initialData?.url || null,
     );
@@ -106,12 +110,11 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
 
     const isVideo = useMemo(() => {
       if (file) return file.type.startsWith("video/");
-      if (!previewUrl) return false;
-      return /\.(mp4|mov|webm)(\?.*)?$/i.test(previewUrl);
-    }, [file, previewUrl]);
+      return initialData?.mediaType === "VIDEO";
+    }, [file, initialData?.mediaType]);
 
     const isFormValid =
-      (!!file || !!initialData?.url) &&
+      (!!file || !!assetId) &&
       title.trim().length > 0 &&
       category !== "" &&
       !isProcessing;
@@ -178,11 +181,13 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
       setIsSubmitting(true);
 
       try {
-        let finalFilePath = initialData?.url || "";
+        let finalAssetId = assetId;
         if (file) {
           const uploadRes = await apiUpload.upload(file);
-          finalFilePath = uploadRes.url;
+          finalAssetId = uploadRes.assetId;
+          setAssetId(uploadRes.assetId);
         }
+        if (!finalAssetId) throw new Error("Selecciona un medio.");
 
         const mediaData = {
           title,
@@ -190,8 +195,7 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
           categoryId: parseInt(category),
           subcategoryId: subcategory ? parseInt(subcategory) : undefined,
           location,
-          type: isVideo ? "VIDEO" : "PHOTO",
-          filePath: finalFilePath,
+          assetId: finalAssetId,
         };
 
         if (initialData?.id) {
@@ -201,6 +205,9 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
         }
 
         onSave();
+      } catch (error: any) {
+        const message = error?.response?.data?.message || error?.message || "No se pudo guardar el medio.";
+        showToast(message, "error");
       } finally {
         setIsSubmitting(false);
       }
@@ -287,6 +294,7 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
                             event.stopPropagation();
                             setFile(null);
                             setPreviewUrl(null);
+                            setAssetId(null);
                             if (fileInputRef.current)
                               fileInputRef.current.value = "";
                           }}

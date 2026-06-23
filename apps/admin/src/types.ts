@@ -29,13 +29,27 @@ export interface Product {
   status: "available" | "reserved" | "sold";
   createdAt: string;
   imageUrl: string;
+  coverAssetId?: string | null;
+  coverMediaUrl?: string | null;
+  coverPosterUrl?: string | null;
+  coverMediaType?: "PHOTO" | "VIDEO" | null;
+  thumbnail?: string;
   type: "BIRD" | "ITEM";
   ringNumber?: string;
   age?: "COCK" | "STAG" | "HEN" | "PULLET";
   purpose?: "COMBAT" | "BREEDING";
   stock?: number;
   description: string;
-  gallery: string[];
+  gallery: ProductGalleryAsset[];
+}
+
+export interface ProductGalleryAsset {
+  id?: string;
+  assetId: string;
+  mediaUrl: string;
+  posterUrl?: string | null;
+  mediaType: "PHOTO" | "VIDEO";
+  mimeType?: string;
 }
 
 export interface Media {
@@ -48,6 +62,10 @@ export interface Media {
   subcategory: string;
   subcategoryId?: string | number;
   url: string;
+  assetId: string;
+  mediaUrl: string;
+  posterUrl?: string | null;
+  mediaType: "PHOTO" | "VIDEO";
   thumbnail?: string;
   location?: string;
   likes: number;
@@ -57,6 +75,7 @@ export interface Media {
 
 export interface HomeSlide {
   id: string;
+  assetId: string;
   type: "PHOTO" | "VIDEO";
   mediaUrl: string;
   desktopObjectPosition?: string | null;

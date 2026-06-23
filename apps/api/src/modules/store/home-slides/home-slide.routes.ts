@@ -29,6 +29,9 @@ export async function homeSlideAdminRoutes(server: FastifyInstance) {
           .status(400)
           .send({ message: "Validation error", errors: error.issues });
       }
+      if (error?.statusCode) {
+        return reply.status(error.statusCode).send({ message: error.message });
+      }
       throw error;
     }
   });
@@ -42,6 +45,9 @@ export async function homeSlideAdminRoutes(server: FastifyInstance) {
         return reply
           .status(400)
           .send({ message: "Validation error", errors: error.issues });
+      }
+      if (error?.statusCode) {
+        return reply.status(error.statusCode).send({ message: error.message });
       }
       throw error;
     }
@@ -61,6 +67,9 @@ export async function homeSlideAdminRoutes(server: FastifyInstance) {
         return reply
           .status(400)
           .send({ message: "Validation error", errors: error.issues });
+      }
+      if (error?.statusCode) {
+        return reply.status(error.statusCode).send({ message: error.message });
       }
       throw error;
     }

@@ -5,6 +5,10 @@ export interface Product {
   description: string | null;
   price: string | number;
   thumbnail: string | null;
+  coverAssetId: string | null;
+  coverMediaUrl: string | null;
+  coverPosterUrl: string | null;
+  coverMediaType: "PHOTO" | "VIDEO" | null;
   stock: number;
   ringNumber: string | null;
   age: string | null;
@@ -20,6 +24,11 @@ export interface ProductGallery {
   productId: number;
   filePath: string;
   fileType: "PHOTO" | "VIDEO";
+  assetId: string;
+  mediaUrl: string;
+  posterUrl: string | null;
+  mediaType: "PHOTO" | "VIDEO";
+  mimeType?: string;
 }
 
 export interface Setting {
@@ -38,6 +47,10 @@ export interface Media {
   description: string | null;
   type: "PHOTO" | "VIDEO";
   filePath: string;
+  assetId: string;
+  mediaUrl: string;
+  posterUrl: string | null;
+  mediaType: "PHOTO" | "VIDEO";
   categoryId: number | null;
   subcategoryId: number | null;
   location: string | null;

@@ -52,7 +52,14 @@ export const NexusButton: React.FC<NexusButtonProps> = ({
     default: size === 'sm' ? 'h-9 text-button-card' : size === 'lg' ? 'h-[var(--size-button-section)] text-button-section' : 'h-[var(--size-button-section)] text-button-section'
   };
 
-  const shapeStyles = isIconOnly ? 'px-0 aspect-square' : (isCard ? 'px-6' : 'px-8');
+  const shapeStyles = isIconOnly ? 'px-0 aspect-square' : '';
+  const paddingStyle = isIconOnly
+    ? {}
+    : {
+        paddingInline: isCard
+          ? 'var(--padding-button-card-inline)'
+          : 'var(--padding-button-inline)',
+      };
 
   const radiusStyle = isSection 
     ? { borderRadius: 'var(--radius-inner-visual)' } 
@@ -85,6 +92,7 @@ export const NexusButton: React.FC<NexusButtonProps> = ({
       style={{
         transitionTimingFunction: 'var(--ease-emil)',
         ...radiusStyle,
+        ...paddingStyle,
         ...props.style
       }}
       {...props}

@@ -1,5 +1,5 @@
 import { storePrisma } from "@nexus/db/store";
-import { storageService } from "../../../services/storage.service";
+import { mediaAssetService } from "../media-assets/media-asset.service";
 
 const normalizeDates = (data: any) => ({
   ...data,
@@ -7,10 +7,31 @@ const normalizeDates = (data: any) => ({
   endsAt: data.endsAt ? new Date(data.endsAt) : data.endsAt,
 });
 
-const assertSortOrderAvailable = async (
-  sortOrder: number,
-  currentId?: number,
-) => {
+function serializeSlide(slide: any) {
+  const { asset, ...data } = slide;
+  return {
+    ...data,
+    mediaUrl: asset.mediaUrl,
+    posterUrl: asset.posterUrl,
+    type: asset.mediaType,
+    mimeType: asset.mimeType,
+  };
+}
+
+async function assertAssetReady(assetId: string) {
+  const asset = await storePrisma.mediaAsset.findFirst({
+    where: { id: assetId, status: "READY", mediaUrl: { not: null } },
+  });
+  if (!asset) {
+    const error = new Error("El medio del slide aun no esta listo.") as Error & {
+      statusCode?: number;
+    };
+    error.statusCode = 409;
+    throw error;
+  }
+}
+
+const assertSortOrderAvailable = async (sortOrder: number, currentId?: number) => {
   const existing = await storePrisma.homeSlide.findFirst({
     where: {
       sortOrder,
@@ -18,7 +39,6 @@ const assertSortOrderAvailable = async (
     },
     select: { id: true },
   });
-
   if (existing) {
     const error = new Error("Ya existe un slide con ese orden.") as Error & {
       statusCode?: number;
@@ -31,65 +51,57 @@ const assertSortOrderAvailable = async (
 export const homeSlideService = {
   async getPublic() {
     const now = new Date();
-
-    return storePrisma.homeSlide.findMany({
+    const slides = await storePrisma.homeSlide.findMany({
       where: {
         active: true,
         OR: [{ startsAt: null }, { startsAt: { lte: now } }],
         AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: now } }] }],
       },
+      include: { asset: true },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     });
+    return slides.map(serializeSlide);
   },
 
   async getAdmin() {
-    return storePrisma.homeSlide.findMany({
+    const slides = await storePrisma.homeSlide.findMany({
+      include: { asset: true },
       orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
     });
+    return slides.map(serializeSlide);
   },
 
   async create(data: any) {
-    if (typeof data.sortOrder === "number") {
-      await assertSortOrderAvailable(data.sortOrder);
-    }
-
-    return storePrisma.homeSlide.create({
+    await assertAssetReady(data.assetId);
+    if (typeof data.sortOrder === "number") await assertSortOrderAvailable(data.sortOrder);
+    const slide = await storePrisma.homeSlide.create({
       data: normalizeDates(data),
+      include: { asset: true },
     });
+    return serializeSlide(slide);
   },
 
   async update(id: number, data: any) {
     const current = await storePrisma.homeSlide.findUnique({ where: { id } });
+    if (!current) throw new Error("Slide not found");
+    if (data.assetId) await assertAssetReady(data.assetId);
+    if (typeof data.sortOrder === "number") await assertSortOrderAvailable(data.sortOrder, id);
 
-    if (typeof data.sortOrder === "number") {
-      await assertSortOrderAvailable(data.sortOrder, id);
-    }
-
-    if (current && data.mediaUrl && current.mediaUrl !== data.mediaUrl) {
-      await storageService.deleteFile(current.mediaUrl);
-    }
-
-    if (
-      current &&
-      data.posterUrl &&
-      current.posterUrl !== data.posterUrl &&
-      current.posterUrl
-    ) {
-      await storageService.deleteFile(current.posterUrl);
-    }
-
-    return storePrisma.homeSlide.update({
+    const slide = await storePrisma.homeSlide.update({
       where: { id },
       data: normalizeDates(data),
+      include: { asset: true },
     });
+    if (data.assetId && data.assetId !== current.assetId) {
+      await mediaAssetService.releaseIfUnreferenced(current.assetId);
+    }
+    return serializeSlide(slide);
   },
 
   async reorder(ids: number[]) {
     const uniqueIds = Array.from(new Set(ids));
     if (uniqueIds.length !== ids.length) {
-      const error = new Error(
-        "La lista de slides contiene duplicados.",
-      ) as Error & {
+      const error = new Error("La lista de slides contiene duplicados.") as Error & {
         statusCode?: number;
       };
       error.statusCode = 400;
@@ -100,14 +112,8 @@ export const homeSlideService = {
       select: { id: true, sortOrder: true },
     });
     const existingIds = new Set(existingSlides.map((slide) => slide.id));
-
-    if (
-      ids.length !== existingSlides.length ||
-      ids.some((id) => !existingIds.has(id))
-    ) {
-      const error = new Error(
-        "La lista de slides no coincide con los registros actuales.",
-      ) as Error & {
+    if (ids.length !== existingSlides.length || ids.some((id) => !existingIds.has(id))) {
+      const error = new Error("La lista de slides no coincide con los registros actuales.") as Error & {
         statusCode?: number;
       };
       error.statusCode = 400;
@@ -122,38 +128,25 @@ export const homeSlideService = {
 
     await storePrisma.$transaction(async (tx) => {
       for (let index = 0; index < ids.length; index += 1) {
-        const id = ids[index];
         await tx.homeSlide.update({
-          where: { id },
+          where: { id: ids[index] },
           data: { sortOrder: tempStart + index },
         });
       }
-
       for (let index = 0; index < ids.length; index += 1) {
-        const id = ids[index];
         await tx.homeSlide.update({
-          where: { id },
+          where: { id: ids[index] },
           data: { sortOrder: index + 1 },
         });
       }
     });
 
-    return storePrisma.homeSlide.findMany({
-      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
-    });
+    return this.getAdmin();
   },
 
   async delete(id: number) {
-    const slide = await storePrisma.homeSlide.findUnique({ where: { id } });
-
-    if (slide?.mediaUrl) {
-      await storageService.deleteFile(slide.mediaUrl);
-    }
-
-    if (slide?.posterUrl) {
-      await storageService.deleteFile(slide.posterUrl);
-    }
-
-    return storePrisma.homeSlide.delete({ where: { id } });
+    const slide = await storePrisma.homeSlide.delete({ where: { id } });
+    await mediaAssetService.releaseIfUnreferenced(slide.assetId);
+    return slide;
   },
 };

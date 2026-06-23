@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-export const homeSlideTypeEnum = z.enum(["PHOTO", "VIDEO"]);
-
 const emptyToUndefined = (value: unknown) => {
   if (typeof value !== "string") return value;
   const trimmed = value.trim();
@@ -22,11 +20,9 @@ const optionalDate = z.preprocess((value) => {
 }, z.string().datetime().optional());
 
 export const createHomeSlideSchema = z.object({
-  type: homeSlideTypeEnum.default("PHOTO"),
-  mediaUrl: z.string().min(1),
+  assetId: z.string().uuid(),
   desktopObjectPosition: objectPositionSchema.default("50% 50%"),
   mobileObjectPosition: objectPositionSchema.default("50% 44%"),
-  posterUrl: optionalString,
   eyebrow: optionalString,
   title: z.string().min(1),
   description: optionalString,

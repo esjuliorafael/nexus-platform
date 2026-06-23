@@ -16,8 +16,11 @@ export function ProductCard({ product }: { product: Product }) {
 
   const isAvailable = product.saleStatus === 'AVAILABLE';
 
-  const thumbnailUrl = getAssetUrl(product.thumbnail);
-  const isVideo = thumbnailUrl.toLowerCase().match(/\.(mp4|mov|webm)$/);
+  const thumbnailUrl = getAssetUrl(
+    product.coverPosterUrl || product.coverMediaUrl || product.thumbnail,
+  );
+  const coverMediaUrl = getAssetUrl(product.coverMediaUrl);
+  const isVideo = product.coverMediaType === 'VIDEO';
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -56,7 +59,8 @@ export function ProductCard({ product }: { product: Product }) {
         {thumbnailUrl ? (
           isVideo ? (
             <video
-              src={`${thumbnailUrl}#t=0.5`}
+              src={coverMediaUrl}
+              poster={thumbnailUrl || undefined}
               className="h-full w-full object-cover transition-transform duration-1000 ease-out group-hover:scale-[1.1]"
               muted
               loop

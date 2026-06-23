@@ -42,6 +42,7 @@ function ImmersiveProductCard({ product, priority = false }: { product: Product,
   const showToast = useToastStore((state) => state.showToast);
 
   const isAvailable = product.saleStatus === 'AVAILABLE';
+  const displayImage = product.coverPosterUrl || product.coverMediaUrl || product.thumbnail;
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -51,7 +52,7 @@ function ImmersiveProductCard({ product, priority = false }: { product: Product,
       name: product.name,
       price: Number(product.price),
       quantity: 1,
-      thumbnail: product.thumbnail,
+      thumbnail: displayImage,
       type: product.type.toLowerCase() as 'bird' | 'item',
     });
     showToast(`${product.name} añadido al carrito`, 'success');
@@ -77,9 +78,9 @@ function ImmersiveProductCard({ product, priority = false }: { product: Product,
     >
       {/* Background Image (Full blood) */}
       <div className="absolute inset-0 z-0 select-none">
-        {product.thumbnail ? (
+        {displayImage ? (
           <img
-            src={product.thumbnail}
+            src={displayImage}
             alt={product.name}
             className="h-full w-full object-cover transition-transform duration-1000 ease-out group-hover:scale-[1.1]"
           />

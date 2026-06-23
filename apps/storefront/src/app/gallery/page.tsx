@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useMemo } from 'react';
+import { useCallback, useEffect, useState, useMemo } from 'react';
 import { Camera, LayoutGrid, PlayCircle, Video, Image as ImageIcon } from 'lucide-react';
 import { mediaApi } from '../../api/settings';
 import { Media } from '../../types';
@@ -8,15 +8,18 @@ import { Spinner } from '../../components/ui/Spinner';
 import { Button } from '../../components/ui/Button';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { StorefrontIcon } from '../../components/ui/Icon';
+import { MediaViewer } from '../../components/ui/MediaViewer';
 import { motion, AnimatePresence } from 'framer-motion';
 import { getAssetUrl } from '../../utils/formatters';
 
 type GalleryFilter = 'ALL' | 'PHOTO' | 'VIDEO';
+type PositionedMedia = { item: Media; index: number };
 
 export default function GalleryPage() {
   const [media, setMedia] = useState<Media[]>([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState<GalleryFilter>('ALL');
+  const [selectedMedia, setSelectedMedia] = useState<Media | null>(null);
 
   useEffect(() => {
     const loadMedia = async () => {
@@ -33,8 +36,65 @@ export default function GalleryPage() {
   }, []);
 
   const filteredMedia = useMemo(() => {
-    return media.filter((item) => filter === 'ALL' || item.type === filter);
+    return media.filter((item) => filter === 'ALL' || item.mediaType === filter);
   }, [media, filter]);
+
+  const selectedMediaIndex = selectedMedia
+    ? filteredMedia.findIndex((item) => item.id === selectedMedia.id)
+    : -1;
+  const canNavigateMedia = filteredMedia.length > 1 && selectedMediaIndex >= 0;
+
+  const closeMediaViewer = useCallback(() => {
+    setSelectedMedia(null);
+  }, []);
+
+  const showRelativeMedia = useCallback(
+    (offset: number) => {
+      if (filteredMedia.length <= 1 || selectedMediaIndex < 0) return;
+      const nextIndex =
+        (selectedMediaIndex + offset + filteredMedia.length) %
+        filteredMedia.length;
+      setSelectedMedia(filteredMedia[nextIndex]);
+    },
+    [filteredMedia, selectedMediaIndex],
+  );
+  const showPreviousMedia = useCallback(() => {
+    showRelativeMedia(-1);
+  }, [showRelativeMedia]);
+  const showNextMedia = useCallback(() => {
+    showRelativeMedia(1);
+  }, [showRelativeMedia]);
+
+  const desktopColumns = useMemo(() => {
+    const columns: PositionedMedia[][] = [[], [], []];
+    filteredMedia.forEach((item, index) => {
+      columns[index % 3].push({ item, index });
+    });
+    return columns;
+  }, [filteredMedia]);
+
+  const mobileColumns = useMemo(() => {
+    const columns: PositionedMedia[][] = [[], []];
+    filteredMedia.forEach((item, index) => {
+      columns[index % 2].push({ item, index });
+    });
+    return columns;
+  }, [filteredMedia]);
+
+  const renderMediaCard = (item: Media, index: number, mobile: boolean) => {
+    const isTall = mobile
+      ? index % 4 === 1 || index % 4 === 2
+      : index % 2 === 1;
+
+    return (
+      <MediaCard
+        key={item.id}
+        item={item}
+        isTall={isTall}
+        onOpen={() => setSelectedMedia(item)}
+      />
+    );
+  };
 
   return (
     <div className="mx-auto max-w-7xl px-6" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
@@ -70,18 +130,58 @@ export default function GalleryPage() {
             />
           </div>
         ) : (
-          <motion.div 
-            layout
-            className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 md:gap-6"
-          >
-            <AnimatePresence mode='popLayout'>
-              {filteredMedia.map((item) => (
-                <MediaCard key={item.id} item={item} />
+          <div>
+            <motion.div
+              layout
+              className="hidden grid-cols-3 lg:grid"
+              style={{ gap: 'var(--sf-space-md)' }}
+            >
+              {desktopColumns.map((column, columnIndex) => (
+                <div
+                  key={`desktop-column-${columnIndex}`}
+                  className="flex flex-col"
+                  style={{ gap: 'var(--sf-space-md)' }}
+                >
+                  <AnimatePresence mode="popLayout">
+                    {column.map(({ item, index }) =>
+                      renderMediaCard(item, index, false),
+                    )}
+                  </AnimatePresence>
+                </div>
               ))}
-            </AnimatePresence>
-          </motion.div>
+            </motion.div>
+
+            <motion.div
+              layout
+              className="grid grid-cols-2 lg:hidden"
+              style={{ gap: 'var(--sf-space-sm)' }}
+            >
+              {mobileColumns.map((column, columnIndex) => (
+                <div
+                  key={`mobile-column-${columnIndex}`}
+                  className="flex flex-col"
+                  style={{ gap: 'var(--sf-space-sm)' }}
+                >
+                  <AnimatePresence mode="popLayout">
+                    {column.map(({ item, index }) =>
+                      renderMediaCard(item, index, true),
+                    )}
+                  </AnimatePresence>
+                </div>
+              ))}
+            </motion.div>
+          </div>
         )}
       </div>
+
+      <MediaViewer
+        isOpen={Boolean(selectedMedia)}
+        media={selectedMedia}
+        onClose={closeMediaViewer}
+        onPrevious={showPreviousMedia}
+        onNext={showNextMedia}
+        canNavigate={canNavigateMedia}
+      />
     </div>
   );
 }
@@ -100,26 +200,49 @@ function FilterButton({ active, onClick, icon: Icon, label }: { active: boolean;
   );
 }
 
-function MediaCard({ item }: { item: Media }) {
+function MediaCard({
+  item,
+  isTall,
+  onOpen,
+}: {
+  item: Media;
+  isTall: boolean;
+  onOpen: () => void;
+}) {
   return (
-    <motion.div
+    <motion.button
+      type="button"
+      onClick={onOpen}
       layout
       initial={{ opacity: 0, scale: 0.9 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.9 }}
       transition={{ duration: 0.4, ease: [0.16, 1, 0.3, 1] }}
-      className="group relative aspect-square overflow-hidden bg-stone-100 cursor-pointer border border-stone-200/50"
+      className={`group relative w-full cursor-pointer overflow-hidden border border-stone-200/50 bg-stone-100 text-left outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20 ${
+        isTall ? 'aspect-[3/4]' : 'aspect-square'
+      }`}
       style={{ borderRadius: 'var(--sf-radius-inner)' }}
+      aria-label={`Ver ${item.title}`}
     >
-      <img
-        src={getAssetUrl(item.filePath)}
-        className="h-full w-full object-cover transition-transform duration-1000 ease-out group-hover:scale-[1.15]"
-        alt={item.title}
-        loading="lazy"
-      />
+      {item.mediaType === 'VIDEO' && !item.posterUrl ? (
+        <video
+          src={getAssetUrl(item.mediaUrl)}
+          className="h-full w-full object-cover transition-transform duration-1000 ease-out group-hover:scale-[1.15]"
+          muted
+          playsInline
+          preload="metadata"
+        />
+      ) : (
+        <img
+          src={getAssetUrl(item.posterUrl || item.mediaUrl || item.filePath)}
+          className="h-full w-full object-cover transition-transform duration-1000 ease-out group-hover:scale-[1.15]"
+          alt={item.title}
+          loading="lazy"
+        />
+      )}
 
       {/* Type Indicator (Video) */}
-      {item.type === 'VIDEO' && (
+      {item.mediaType === 'VIDEO' && (
         <div className="absolute top-4 right-4 z-10 text-white drop-shadow-lg opacity-90 group-hover:opacity-0 transition-opacity">
           <PlayCircle size={20} strokeWidth={2} />
         </div>
@@ -131,9 +254,9 @@ function MediaCard({ item }: { item: Media }) {
       >
         <div className="translate-y-4 transition-transform duration-500 ease-emil group-hover:translate-y-0">
           <div className="flex items-center gap-2 mb-1">
-             {item.type === 'VIDEO' ? <Video size={12} className="text-brand-400" /> : <Camera size={12} className="text-brand-400" />}
+             {item.mediaType === 'VIDEO' ? <Video size={12} className="text-brand-400" /> : <Camera size={12} className="text-brand-400" />}
              <span className="text-[9px] font-black uppercase tracking-[0.2em] text-white/60">
-               {item.type === 'VIDEO' ? 'Reel / Video' : 'Fotografía'}
+               {item.mediaType === 'VIDEO' ? 'Reel / Video' : 'Fotografía'}
              </span>
           </div>
           <h4 className="sf-text-h2 text-white line-clamp-2 leading-tight uppercase tracking-tight">{item.title}</h4>
@@ -145,6 +268,6 @@ function MediaCard({ item }: { item: Media }) {
       
       {/* Subtle Border Overlay */}
       <div className="pointer-events-none absolute inset-0 border border-black/5 rounded-[var(--sf-radius-inner)]" />
-    </motion.div>
+    </motion.button>
   );
 }

@@ -77,6 +77,8 @@
   --size-inner-icon-section: 1.5rem; /* 24px */
   --size-inner-icon-autonomous: 1.5rem; /* 24px */
   --size-inner-icon-card: 1.25rem; /* 20px */
+  --size-inner-icon-metadata: 1rem; /* 16px */
+  --size-inner-icon-badge: var(--space-base); /* 12px */
 
   /* Space Tokens - Relational Hierarchy (Base 4) */
   --space-xs: 0.25rem; /* 4px: Intimate (Label -> Value) */
@@ -87,6 +89,10 @@
   --space-xl: calc(var(--space-lg) * 2); /* 48px-80px: Section breathing */
   --space-2xl: calc(var(--space-lg) * 3); /* 72px-120px: Page vertical rhythm */
   --space-3xl: calc(var(--space-lg) * 4); /* 96px-160px: Empty states and overlays */
+
+  /* Button Insets - Derived without changing the existing 24px / 32px geometry */
+  --padding-button-card-inline: calc(var(--space-base) * 2);
+  --padding-button-inline: calc((var(--space-base) * 2) + var(--space-sm));
 
   /* Emil's Easing */
   --ease-emil: cubic-bezier(0.23, 1, 0.32, 1);
@@ -506,4 +512,46 @@ body {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--border-main);
+}
+
+/* NexusMediaViewer hero preview mirrors the Storefront framing rules. */
+.nexus-media-viewer-hero-stage::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse at center 36%,
+      transparent 0%,
+      transparent 34%,
+      rgba(12, 10, 9, 0.36) 62%,
+      rgba(12, 10, 9, 0.92) 100%
+    ),
+    linear-gradient(
+      to bottom,
+      rgba(12, 10, 9, 0.08) 0%,
+      rgba(12, 10, 9, 0.22) 36%,
+      rgba(12, 10, 9, 0.9) 72%,
+      rgba(12, 10, 9, 0.98) 100%
+    );
+}
+
+.nexus-media-viewer-hero-media {
+  object-position: var(--nexus-viewer-mobile-object-position, 50% 44%);
+}
+
+@media (min-width: 768px) {
+  .nexus-media-viewer-hero-stage::after {
+    background: linear-gradient(
+      to right,
+      rgba(12, 10, 9, 0.74) 0%,
+      rgba(12, 10, 9, 0.45) 44%,
+      transparent 100%
+    );
+  }
+
+  .nexus-media-viewer-hero-media {
+    object-position: var(--nexus-viewer-desktop-object-position, 50% 50%);
+  }
 }

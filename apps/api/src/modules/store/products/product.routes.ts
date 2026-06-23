@@ -47,7 +47,7 @@ export async function productAdminRoutes(server: FastifyInstance) {
         return reply.status(400).send({ message: "Validation error", errors: err.issues });
       }
 
-      return reply.status(500).send({ 
+      return reply.status(err?.statusCode || 500).send({
         message: "Error creating product", 
         error: err.message,
         details: err instanceof Error ? err.stack : undefined
@@ -66,7 +66,7 @@ export async function productAdminRoutes(server: FastifyInstance) {
         return reply.status(400).send({ message: "Validation error", errors: err.issues });
       }
 
-      return reply.status(500).send({ 
+      return reply.status(err?.statusCode || 500).send({
         message: "Error updating product", 
         error: err.message,
         details: err instanceof Error ? err.stack : undefined

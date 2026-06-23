@@ -162,6 +162,9 @@ export const HomeSlideForm = forwardRef<
       toDateTimeLocalValue(initialData?.endsAt),
     );
     const [file, setFile] = useState<File | null>(null);
+    const [assetId, setAssetId] = useState<string | null>(
+      initialData?.assetId || null,
+    );
     const [previewUrl, setPreviewUrl] = useState<string | null>(
       initialData?.mediaUrl || null,
     );
@@ -196,7 +199,7 @@ export const HomeSlideForm = forwardRef<
     const desktopObjectPosition = `${desktopFocalX} ${desktopFocalY}`;
     const mobileObjectPosition = `${mobileFocalX} ${mobileFocalY}`;
     const isFormValid =
-      !!previewUrl && title.trim().length > 0 && !isSubmitting;
+      (!!assetId || !!file) && !!previewUrl && title.trim().length > 0 && !isSubmitting;
 
     useEffect(() => {
       onValidationChange?.(isFormValid);
@@ -243,16 +246,18 @@ export const HomeSlideForm = forwardRef<
       setIsSubmitting(true);
 
       try {
-        let mediaUrl = initialData?.mediaUrl || "";
+        let finalAssetId = assetId;
 
         if (file) {
           const uploadRes = await apiUpload.upload(file);
-          mediaUrl = uploadRes.url;
+          finalAssetId = uploadRes.assetId;
+          setAssetId(uploadRes.assetId);
         }
 
+        if (!finalAssetId) throw new Error("Selecciona un medio para el slide.");
+
         const payload = {
-          type,
-          mediaUrl,
+          assetId: finalAssetId,
           title: title.trim(),
           eyebrow: eyebrow.trim() || undefined,
           description: description.trim() || undefined,
@@ -278,7 +283,7 @@ export const HomeSlideForm = forwardRef<
         onSave();
       } catch (error: any) {
         const message =
-          error?.response?.data?.message || "No se pudo guardar el slide.";
+          error?.response?.data?.message || error?.message || "No se pudo guardar el slide.";
         showToast(message, "error");
       } finally {
         setIsSubmitting(false);
@@ -365,6 +370,7 @@ export const HomeSlideForm = forwardRef<
                             event.stopPropagation();
                             setFile(null);
                             setPreviewUrl(null);
+                            setAssetId(null);
                             if (fileInputRef.current)
                               fileInputRef.current.value = "";
                           }}

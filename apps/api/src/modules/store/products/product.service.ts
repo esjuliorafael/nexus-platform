@@ -1,6 +1,6 @@
 import { storePrisma } from "@nexus/db/store";
 import { ProductType, SaleStatus } from "@prisma/client-store";
-import { storageService } from "../../../services/storage.service";
+import { mediaAssetService } from "../media-assets/media-asset.service";
 
 export interface ProductFilters {
   type?: ProductType;
@@ -9,10 +9,67 @@ export interface ProductFilters {
   onlyActive?: boolean;
 }
 
+const productInclude = {
+  coverAsset: true,
+  gallery: { include: { asset: true } },
+  orderItems: {
+    where: { order: { status: "PENDING" as const } },
+    include: { order: { select: { expiresAt: true } } },
+    take: 1,
+  },
+};
+
+function serializeProduct(product: any) {
+  const pendingOrder = product.orderItems?.[0]?.order;
+  const cover = product.coverAsset;
+  const gallery = (product.gallery || []).map((item: any) => ({
+    id: item.id,
+    productId: item.productId,
+    assetId: item.assetId,
+    mediaUrl: item.asset.mediaUrl,
+    posterUrl: item.asset.posterUrl,
+    mediaType: item.asset.mediaType,
+    mimeType: item.asset.mimeType,
+    createdAt: item.createdAt,
+    filePath: item.asset.mediaUrl,
+    fileType: item.asset.mediaType,
+  }));
+  const { orderItems, coverAsset, ...productData } = product;
+  const displayImage = cover?.posterUrl || cover?.mediaUrl || null;
+
+  return {
+    ...productData,
+    gallery,
+    expiresAt: pendingOrder?.expiresAt || null,
+    coverMediaUrl: cover?.mediaUrl || null,
+    coverPosterUrl: cover?.posterUrl || null,
+    coverMediaType: cover?.mediaType || null,
+    thumbnail: displayImage,
+  };
+}
+
+async function assertAssetsReady(ids: string[]) {
+  const uniqueIds = Array.from(new Set(ids));
+  if (uniqueIds.length === 0) return;
+  const readyCount = await storePrisma.mediaAsset.count({
+    where: {
+      id: { in: uniqueIds },
+      status: "READY",
+      mediaUrl: { not: null },
+    },
+  });
+  if (readyCount !== uniqueIds.length) {
+    const error = new Error("Uno o mas medios aun no estan listos.") as Error & {
+      statusCode?: number;
+    };
+    error.statusCode = 409;
+    throw error;
+  }
+}
+
 export const productService = {
   async getAll(filters: ProductFilters) {
     const where: any = {};
-    
     if (filters.onlyActive !== false) where.active = true;
     if (filters.type) where.type = filters.type;
     if (filters.status) where.saleStatus = filters.status;
@@ -25,191 +82,126 @@ export const productService = {
 
     const products = await storePrisma.product.findMany({
       where,
-      include: { 
-        gallery: true,
-        orderItems: {
-          where: {
-            order: {
-              status: "PENDING"
-            }
-          },
-          include: {
-            order: {
-              select: {
-                expiresAt: true
-              }
-            }
-          },
-          take: 1
-        }
-      },
+      include: productInclude,
       orderBy: { createdAt: "desc" },
     });
-
-    return products.map(p => {
-      const pendingOrder = p.orderItems[0]?.order;
-      const { orderItems, ...productData } = p as any;
-      return {
-        ...productData,
-        expiresAt: pendingOrder?.expiresAt || null
-      };
-    });
+    return products.map(serializeProduct);
   },
 
   async getById(id: number) {
     const product = await storePrisma.product.findUnique({
       where: { id },
-      include: { 
-        gallery: true,
-        orderItems: {
-          where: {
-            order: {
-              status: "PENDING"
-            }
-          },
-          include: {
-            order: {
-              select: {
-                expiresAt: true
-              }
-            }
-          },
-          take: 1
-        }
-      },
+      include: productInclude,
     });
-
-    if (!product) return null;
-
-    const pendingOrder = product.orderItems[0]?.order;
-    const { orderItems, ...productData } = product as any;
-    return {
-      ...productData,
-      expiresAt: pendingOrder?.expiresAt || null
-    };
+    return product ? serializeProduct(product) : null;
   },
 
   async create(data: any) {
-    const { gallery, ...productData } = data;
-    
-    return storePrisma.$transaction(async (tx) => {
-      const product = await tx.product.create({
-        data: {
-          ...productData,
-          updated_at: new Date()
-        },
-      });
+    const { gallery = [], coverPosterAssetId, ...productData } = data;
+    const assetIds = [
+      ...(productData.coverAssetId ? [productData.coverAssetId] : []),
+      ...gallery.map((item: any) => item.assetId),
+    ];
+    await assertAssetsReady(assetIds);
 
-      if (gallery && Array.isArray(gallery) && gallery.length > 0) {
+    if (coverPosterAssetId && productData.coverAssetId) {
+      await mediaAssetService.adoptPoster(productData.coverAssetId, coverPosterAssetId);
+    }
+
+    const product = await storePrisma.$transaction(async (tx) => {
+      const created = await tx.product.create({
+        data: { ...productData, updated_at: new Date() },
+      });
+      if (gallery.length > 0) {
         await tx.productGallery.createMany({
-          data: gallery.map((item: any) => {
-            const url = typeof item === 'string' ? item : item.url;
-            const type = (typeof item === 'object' && item.type) ? item.type : 
-                         (url.toLowerCase().match(/\.(mp4|mov|webm)$/) ? "VIDEO" : "PHOTO");
-            
-            return {
-              productId: product.id,
-              filePath: url,
-              fileType: type,
-            };
-          }),
+          data: gallery.map((item: any) => ({
+            productId: created.id,
+            assetId: item.assetId,
+          })),
         });
       }
-
-      return tx.product.findUnique({
-        where: { id: product.id },
-        include: { gallery: true },
-      });
+      return tx.product.findUnique({ where: { id: created.id }, include: productInclude });
     });
+
+    return serializeProduct(product);
   },
 
   async update(id: number, data: any) {
-    const { gallery, ...productData } = data;
-
-    // Obtener el producto actual para comparar archivos
-    const currentProduct = await storePrisma.product.findUnique({
+    const { gallery, coverPosterAssetId, ...productData } = data;
+    const current = await storePrisma.product.findUnique({
       where: { id },
-      include: { gallery: true }
+      include: { gallery: true },
     });
+    if (!current) throw new Error("Product not found");
 
-    if (!currentProduct) throw new Error("Product not found");
+    const nextGallery = gallery || null;
+    const assetIds = [
+      ...(productData.coverAssetId ? [productData.coverAssetId] : []),
+      ...(nextGallery ? nextGallery.map((item: any) => item.assetId) : []),
+    ];
+    await assertAssetsReady(assetIds);
 
-    return storePrisma.$transaction(async (tx) => {
-      // 1. Si la portada cambió, borrar la anterior de R2
-      if (productData.thumbnail && currentProduct.thumbnail && productData.thumbnail !== currentProduct.thumbnail) {
-        await storageService.deleteFile(currentProduct.thumbnail);
-      }
+    if (coverPosterAssetId && productData.coverAssetId) {
+      await mediaAssetService.adoptPoster(productData.coverAssetId, coverPosterAssetId);
+    }
 
-      const product = await tx.product.update({
+    const previousAssetIds = [
+      ...(current.coverAssetId ? [current.coverAssetId] : []),
+      ...current.gallery.map((item) => item.assetId),
+    ];
+
+    const product = await storePrisma.$transaction(async (tx) => {
+      await tx.product.update({
         where: { id },
-        data: {
-          ...productData,
-          updated_at: new Date()
-        },
+        data: { ...productData, updated_at: new Date() },
       });
 
-      if (gallery !== undefined && Array.isArray(gallery)) {
-        // 2. Identificar archivos de la galería que se van a eliminar
-        const currentGalleryUrls = currentProduct.gallery.map(g => g.filePath);
-        const newGalleryItems = gallery as any[];
-        const newGalleryUrls = newGalleryItems.map(item => typeof item === 'string' ? item : item.url);
-        
-        const urlsToDelete = currentGalleryUrls.filter(url => !newGalleryUrls.includes(url));
-
-        // 3. Borrar archivos de R2
-        for (const url of urlsToDelete) {
-          await storageService.deleteFile(url);
-        }
-
-        // 4. Actualizar base de datos
-        await tx.productGallery.deleteMany({
-          where: { productId: id },
-        });
-
-        if (newGalleryItems.length > 0) {
+      if (nextGallery) {
+        await tx.productGallery.deleteMany({ where: { productId: id } });
+        if (nextGallery.length > 0) {
           await tx.productGallery.createMany({
-            data: newGalleryItems.map((item: any) => {
-              const url = typeof item === 'string' ? item : item.url;
-              const type = (typeof item === 'object' && item.type) ? item.type : 
-                           (url.toLowerCase().match(/\.(mp4|mov|webm)$/) ? "VIDEO" : "PHOTO");
-
-              return {
-                productId: id,
-                filePath: url,
-                fileType: type,
-              };
-            }),
+            data: nextGallery.map((item: any) => ({ productId: id, assetId: item.assetId })),
           });
         }
       }
 
-      return tx.product.findUnique({
-        where: { id: id },
-        include: { gallery: true },
-      });
+      return tx.product.findUnique({ where: { id }, include: productInclude });
     });
+
+    const retainedIds = new Set([
+      productData.coverAssetId ?? current.coverAssetId,
+      ...(nextGallery ? nextGallery.map((item: any) => item.assetId) : current.gallery.map((item) => item.assetId)),
+    ].filter(Boolean));
+    await Promise.all(
+      previousAssetIds
+        .filter((assetId) => !retainedIds.has(assetId))
+        .map((assetId) => mediaAssetService.releaseIfUnreferenced(assetId)),
+    );
+
+    return serializeProduct(product);
   },
 
   async softDelete(id: number) {
-    // 1. Buscar para obtener archivos
     const product = await storePrisma.product.findUnique({
       where: { id },
-      include: { gallery: true }
+      include: { gallery: true },
+    });
+    if (!product) throw new Error("Product not found");
+
+    const assetIds = [
+      ...(product.coverAssetId ? [product.coverAssetId] : []),
+      ...product.gallery.map((item) => item.assetId),
+    ];
+
+    const result = await storePrisma.$transaction(async (tx) => {
+      await tx.productGallery.deleteMany({ where: { productId: id } });
+      return tx.product.update({
+        where: { id },
+        data: { active: false, coverAssetId: null },
+      });
     });
 
-    if (product) {
-      // 2. Borrar de R2 (Aunque sea soft delete en DB, el usuario espera limpieza en R2)
-      if (product.thumbnail) {
-        await storageService.deleteFile(product.thumbnail);
-      }
-      for (const item of product.gallery) {
-        await storageService.deleteFile(item.filePath);
-      }
-    }
-
-    return storePrisma.product.update({
-      where: { id },
-      data: { active: false },
-    });
+    await Promise.all(assetIds.map((assetId) => mediaAssetService.releaseIfUnreferenced(assetId)));
+    return result;
   },
 };
