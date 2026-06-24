@@ -45,6 +45,10 @@
   /* Autonomous Cards Geometry (Level 1 containers using padding-inner) */
   --radius-card-inner: calc(var(--radius-outer) - (var(--padding-inner) * 0.75));
   --radius-card-nested: max(0.5rem, calc(var(--radius-card-inner) - var(--padding-inner)));
+  --radius-card-nested-compact: max(
+    0.5rem,
+    calc(var(--radius-card-inner) - var(--space-base))
+  );
   --padding-card-micro: var(--space-base);
   --radius-card-micro-inner: calc(var(--radius-outer) - (var(--padding-card-micro) * 0.75));
   --padding-card-rail: var(--space-base);
@@ -53,6 +57,12 @@
   --size-quick-action-mobile: clamp(5.75rem, 27vw, 7rem); /* 92px to 112px */
   --size-slide-thumb-height: var(--size-card-thumb); /* Matches ProductCard thumbnail height */
   --size-slide-thumb-width: calc(var(--size-slide-thumb-height) * 16 / 9);
+
+  /* Modal Widths - Semantic desktop tiers */
+  --width-modal-compact: 28rem;
+  --width-modal-standard: 32rem;
+  --width-modal-wide: 42rem;
+  --modal-backdrop: rgb(12 10 9 / 0.72);
 
   /* Fluid UI Components Heights & Semantic Sizes */
   --h-input: clamp(3rem, 4vw, 3.5rem); /* 48px to 56px */

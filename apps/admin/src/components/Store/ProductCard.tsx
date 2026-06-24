@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Edit2, Trash2, Box, Package, Hash, CircleCheck, Clock, CircleX, PlayCircle, type LucideIcon } from 'lucide-react';
+import { Edit2, Trash2, Box, Package, Hash, CircleCheck, Clock, CircleX, PlayCircle, UploadCloud, XCircle, type LucideIcon } from 'lucide-react';
 import { Product } from '../../types';
 import { NexusAutonomousButton } from '../ui/NexusButton';
 import { NexusAutonomousCard } from '../ui/NexusCard';
@@ -28,17 +28,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
   const finalVideoUrl = product.coverMediaType === 'VIDEO'
     ? getFullUrl(product.coverMediaUrl || undefined)
     : null;
+  const mediaStatus = product.coverAssetStatus || 'READY';
+  const isMediaReady = mediaStatus === 'READY';
+  const isMediaFailed = mediaStatus === 'FAILED';
+  const isMediaPending = mediaStatus === 'UPLOADING' || mediaStatus === 'PROCESSING';
 
   // --- HANDLERS ---
   const handleMouseEnter = () => {
-    if (finalVideoUrl && videoRef.current) {
+    if (isMediaReady && finalVideoUrl && videoRef.current) {
       const playPromise = videoRef.current.play();
       if (playPromise !== undefined) playPromise.catch(() => {});
     }
   };
 
   const handleMouseLeave = () => {
-    if (finalVideoUrl && videoRef.current) {
+    if (isMediaReady && finalVideoUrl && videoRef.current) {
       videoRef.current.pause();
       videoRef.current.currentTime = 0;
     }
@@ -103,7 +107,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
     }
   };
 
-  const statusConfig = getStatusConfig(product.saleStatus);
+  const statusConfig = getStatusConfig(product.status);
 
   return (
     <NexusAutonomousCard
@@ -130,7 +134,30 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
           }}
         >
           <div className={`absolute inset-0 ${statusConfig.thumbFilter}`}>
-            {finalVideoUrl ? (
+            {!isMediaReady ? (
+              <div
+                className="flex h-full w-full flex-col items-center justify-center bg-bg-muted text-text-muted"
+                style={{ gap: 'var(--space-xs)' }}
+              >
+                <div
+                  className="grid place-items-center bg-bg-card border border-border-main"
+                  style={{
+                    width: 'var(--size-icon-card)',
+                    height: 'var(--size-icon-card)',
+                    borderRadius: 'var(--radius-card-nested-compact)',
+                  }}
+                >
+                  {isMediaFailed ? (
+                    <XCircle size={18} className="text-rose-600" />
+                  ) : (
+                    <UploadCloud size={18} className="text-brand-600" />
+                  )}
+                </div>
+                <span className="text-caption text-center font-bold uppercase tracking-[0.08em]">
+                  {isMediaFailed ? 'Error' : 'Subiendo'}
+                </span>
+              </div>
+            ) : finalVideoUrl ? (
               <>
                 <video
                   ref={videoRef}

@@ -59,15 +59,15 @@ Do not choose a radius by visual size alone. Choose it from the parent/child lev
 
 Use this when content lives inside `NexusSection`.
 
-| Surface | Component | Radius |
-| --- | --- | --- |
-| Section shell | `NexusSection` | `--radius-outer` |
-| Section header icon | `NexusSectionIcon` | `--radius-inner-visual` |
-| Main section action | `NexusSectionButton` | `--radius-inner-visual` |
-| Card inside section | `NexusSectionCard` | `--radius-inner-visual` |
-| Icon/button/badge inside section card | `NexusCardIcon`, `NexusCardButton`, `NexusCardBadge` | `--radius-nested-simple` |
-| Passive empty state icon, level 1 | `EmptyState level={1}` | `--radius-inner-visual` |
-| Interactive empty/upload stage, level 1 | `InteractionStage level={1}` icon | `--radius-inner-visual` |
+| Surface                                 | Component                                            | Radius                   |
+| --------------------------------------- | ---------------------------------------------------- | ------------------------ |
+| Section shell                           | `NexusSection`                                       | `--radius-outer`         |
+| Section header icon                     | `NexusSectionIcon`                                   | `--radius-inner-visual`  |
+| Main section action                     | `NexusSectionButton`                                 | `--radius-inner-visual`  |
+| Card inside section                     | `NexusSectionCard`                                   | `--radius-inner-visual`  |
+| Icon/button/badge inside section card   | `NexusCardIcon`, `NexusCardButton`, `NexusCardBadge` | `--radius-nested-simple` |
+| Passive empty state icon, level 1       | `EmptyState level={1}`                               | `--radius-inner-visual`  |
+| Interactive empty/upload stage, level 1 | `InteractionStage level={1}` icon                    | `--radius-inner-visual`  |
 
 Example: `BillingView` uses `NexusSection` as the root surface, then `NexusSectionCard` for service rows and `NexusSectionButton` for the primary section action.
 
@@ -75,22 +75,22 @@ Example: `BillingView` uses `NexusSection` as the root surface, then `NexusSecti
 
 Use this when a card or media container lives as its own level 1 surface, not inside the visual hierarchy of a `NexusSection`.
 
-| Surface | Component | Radius |
-| --- | --- | --- |
-| Autonomous card shell | `NexusAutonomousCard` or custom media card | `--radius-outer` |
-| Main autonomous action/icon/badge | `NexusAutonomousButton`, `NexusAutonomousIcon`, `NexusAutonomousBadge` | `--radius-card-inner` |
-| Compact action inside autonomous card | `NexusAutonomousButton density="compact"` | `--radius-card-inner` |
-| Widget card inside autonomous card | `NexusWidgetCard`, `NexusControlRow` | `--radius-card-nested` |
-| Loaded upload change affordance | `UploadPreviewOverlay context="autonomous"` | `--radius-card-inner` |
+| Surface                               | Component                                                              | Radius                 |
+| ------------------------------------- | ---------------------------------------------------------------------- | ---------------------- |
+| Autonomous card shell                 | `NexusAutonomousCard` or custom media card                             | `--radius-outer`       |
+| Main autonomous action/icon/badge     | `NexusAutonomousButton`, `NexusAutonomousIcon`, `NexusAutonomousBadge` | `--radius-card-inner`  |
+| Compact action inside autonomous card | `NexusAutonomousButton density="compact"`                              | `--radius-card-inner`  |
+| Widget card inside autonomous card    | `NexusWidgetCard`, `NexusControlRow`                                   | `--radius-card-nested` |
+| Loaded upload change affordance       | `UploadPreviewOverlay context="autonomous"`                            | `--radius-card-inner`  |
 
 ### Micro Autonomous Branch
 
 Use this when an element behaves like a standalone autonomous card but needs denser padding than a standard `NexusAutonomousCard`.
 
-| Surface | Component | Radius |
-| --- | --- | --- |
-| Micro autonomous shell | `NexusAutonomousCard density="micro"` or semantic button with the same tokens | `--radius-outer` |
-| Direct child inside micro autonomous shell | Icon container, compact metadata | `--radius-card-micro-inner` |
+| Surface                                    | Component                                                                     | Radius                      |
+| ------------------------------------------ | ----------------------------------------------------------------------------- | --------------------------- |
+| Micro autonomous shell                     | `NexusAutonomousCard density="micro"` or semantic button with the same tokens | `--radius-outer`            |
+| Direct child inside micro autonomous shell | Icon container, compact metadata                                              | `--radius-card-micro-inner` |
 
 Example: mobile `QuickActions` cards are micro autonomous surfaces. Their shell uses `--radius-outer`, their padding uses `--padding-card-micro`, and their icon container uses `--radius-card-micro-inner`.
 
@@ -98,10 +98,10 @@ Example: mobile `QuickActions` cards are micro autonomous surfaces. Their shell 
 
 Use this when an element behaves like a compact autonomous toolbar or rail.
 
-| Surface | Component | Radius |
-| --- | --- | --- |
-| Rail shell | `NexusAutonomousCard density="rail"` or semantic toolbar with the same tokens | `--radius-outer` |
-| Direct action inside rail | Icon-only rail button, rail tooltip | `--radius-card-rail-inner` |
+| Surface                   | Component                                                                     | Radius                     |
+| ------------------------- | ----------------------------------------------------------------------------- | -------------------------- |
+| Rail shell                | `NexusAutonomousCard density="rail"` or semantic toolbar with the same tokens | `--radius-outer`           |
+| Direct action inside rail | Icon-only rail button, rail tooltip                                           | `--radius-card-rail-inner` |
 
 Example: desktop `QuickActions` is an autonomous rail. Its shell uses `--radius-outer`, its padding uses `--padding-card-rail`, and its buttons/tooltips use `--radius-card-rail-inner`.
 
@@ -111,15 +111,23 @@ Example: the loaded media area in `HomeSlideForm`, `MediaForm`, and `ProductForm
 
 `NexusModal` is treated as a level 1 autonomous surface, not as a `NexusSection`.
 
-| Surface | Component | Radius |
-| --- | --- | --- |
-| Modal shell | `NexusModal` | `--radius-outer` |
-| Modal header icon | `NexusModal iconTone` | `--radius-card-inner` |
-| Close button | `NexusAutonomousButton density="compact"` | `--radius-card-inner` |
-| Modal footer actions | `NexusModalActions` + `NexusAutonomousButton` | `--radius-card-inner` |
-| Nested panels inside modal | Local cards/panels | `--radius-card-inner` or `--radius-card-nested`, depending on level |
+| Surface                    | Component                                     | Radius                                                              |
+| -------------------------- | --------------------------------------------- | ------------------------------------------------------------------- |
+| Modal shell                | `NexusModal`                                  | `--radius-outer`                                                    |
+| Modal header icon          | `NexusModal iconTone`                         | `--radius-card-inner`                                               |
+| Close button               | `NexusAutonomousButton density="compact"`     | `--radius-card-inner`                                               |
+| Modal footer actions       | `NexusModalActions` + `NexusAutonomousButton` | `--radius-card-inner`                                               |
+| Nested panels inside modal | Local cards/panels                            | `--radius-card-inner` or `--radius-card-nested`, depending on level |
+
+Compact controls nested inside a level 2 modal row must derive their radius from the row's real padding. `NexusCheckboxRow` uses `--space-base`, so its level 3 checkbox indicator uses `--radius-card-nested-compact`, not `--radius-card-nested` (which assumes `--padding-inner`).
 
 `NexusModal` uses `--padding-inner`, not `--padding-outer`, because it behaves like an autonomous card. `NexusModalActions` centralizes the footer action gap so each modal does not invent its own spacing.
+
+Desktop modal width is semantic rather than consumer-defined. Use `size="standard"` (the default, `--width-modal-standard`) for operational forms and selection dialogs, `size="compact"` (`--width-modal-compact`) only for focused content such as QR flows, and `size="wide"` (`--width-modal-wide`) for complex editors. Consumers must not add local `max-w-*` utilities or numeric widths. `NexusConfirmModal` owns the compact width independently because its decision-focused composition is intentionally smaller.
+
+On mobile, `NexusModal` and `NexusConfirmModal` become bottom sheets. The top corners retain `--radius-outer`; the bottom corners are square so the surface terminates flush against the viewport. Bottom padding includes `env(safe-area-inset-bottom)` and must not be replaced by a visual gap below the sheet.
+
+The viewport backdrop uses `--modal-backdrop` as a uniform translucent color. Do not apply `backdrop-filter` or full-screen blur: large blurred surfaces amplify underlying borders and shadows and can expose GPU raster seams. Blur remains valid only for small, bounded overlay controls where it does not span compositor tiles.
 
 Use `NexusModal` for operational content and forms. Use `NexusConfirmModal` for decision dialogs such as discard changes, delete, cancel, or blocking confirmations. Confirm dialogs keep the same modal geometry but use a centered composition, no close X, and direct cancel/confirm actions.
 
@@ -135,14 +143,14 @@ All viewer controls use `NexusAutonomousButton` with the same size, radius, bord
 
 `App.tsx` is the Admin composition shell. It owns spacing between page regions, but it should not invent local component geometry.
 
-| Responsibility | Rule |
-| --- | --- |
-| Page padding | Use space tokens for main shell padding, such as `--space-md` and `--space-lg`. |
-| Region gaps | Use space tokens for gaps between `PageHeader`, `QuickActions`, and the active view. |
-| QuickActions rail placement | The shell wrapper centers or places the rail; `QuickActions` owns only its internal rail/card geometry. |
-| Global confirm dialogs | Use `NexusConfirmModal`. |
-| Global fallback cards | Use `NexusAutonomousCard` instead of hand-rolled page-level cards. |
-| Global toast | Treat the toast as a temporary autonomous surface and use autonomous child radius/buttons for its internal controls. |
+| Responsibility              | Rule                                                                                                                 |
+| --------------------------- | -------------------------------------------------------------------------------------------------------------------- |
+| Page padding                | Use space tokens for main shell padding, such as `--space-md` and `--space-lg`.                                      |
+| Region gaps                 | Use space tokens for gaps between `PageHeader`, `QuickActions`, and the active view.                                 |
+| QuickActions rail placement | The shell wrapper centers or places the rail; `QuickActions` owns only its internal rail/card geometry.              |
+| Global confirm dialogs      | Use `NexusConfirmModal`.                                                                                             |
+| Global fallback cards       | Use `NexusAutonomousCard` instead of hand-rolled page-level cards.                                                   |
+| Global toast                | Treat the toast as a temporary autonomous surface and use autonomous child radius/buttons for its internal controls. |
 
 Avoid adding external margins inside reusable components to solve page composition. The parent shell or owning view should create the gap between sibling regions.
 
@@ -164,12 +172,12 @@ Avoid adding external margins inside reusable components to solve page compositi
 
 `NexusBadge` is context-aware. Prefer wrappers over passing `context` manually:
 
-| Wrapper | Context | Radius | Use case |
-| --- | --- | --- | --- |
-| `NexusSectionBadge` | `section` | `--radius-inner-visual` | Direct badge/action metadata owned by a section-level surface. |
-| `NexusCardBadge` | `card` | `--radius-nested-simple` | Badge inside `NexusSectionCard`, such as `UsersView` username, role, and active state. |
-| `NexusAutonomousBadge` | `autonomous` | `--radius-card-inner` | Direct badge inside `NexusAutonomousCard`, such as `ProductCard`, `HomeSlideCard`, and `CategoryCard` metadata. |
-| `NexusBadge` default | `default` | `--radius-nested-simple` | Fallback only. Prefer an explicit wrapper. |
+| Wrapper                | Context      | Radius                   | Use case                                                                                                        |
+| ---------------------- | ------------ | ------------------------ | --------------------------------------------------------------------------------------------------------------- |
+| `NexusSectionBadge`    | `section`    | `--radius-inner-visual`  | Direct badge/action metadata owned by a section-level surface.                                                  |
+| `NexusCardBadge`       | `card`       | `--radius-nested-simple` | Badge inside `NexusSectionCard`, such as `UsersView` username, role, and active state.                          |
+| `NexusAutonomousBadge` | `autonomous` | `--radius-card-inner`    | Direct badge inside `NexusAutonomousCard`, such as `ProductCard`, `HomeSlideCard`, and `CategoryCard` metadata. |
+| `NexusBadge` default   | `default`    | `--radius-nested-simple` | Fallback only. Prefer an explicit wrapper.                                                                      |
 
 Do not expose or use a generic `nested` badge context unless there is a concrete level 3 badge case. Most metadata badges in autonomous cards are level 2, not level 3.
 

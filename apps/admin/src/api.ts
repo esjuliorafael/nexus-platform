@@ -63,7 +63,7 @@ export const api = axios.create({
 
 export interface MediaUploadResult {
   assetId: string;
-  status: "PROCESSING" | "READY" | "FAILED";
+  status: "UPLOADING" | "PROCESSING" | "READY" | "FAILED";
   type: "PHOTO" | "VIDEO";
   mimeType: string;
   url: string | null;
@@ -72,6 +72,12 @@ export interface MediaUploadResult {
   width: number | null;
   height: number | null;
   error: string | null;
+}
+
+export interface DirectUploadResult {
+  asset: MediaUploadResult;
+  uploadUrl: string;
+  expiresInSeconds: number;
 }
 
 api.interceptors.request.use((config) => {
@@ -90,6 +96,36 @@ api.interceptors.request.use((config) => {
 });
 
 export const apiUpload = {
+  createDirectVideoUpload: async (file: File): Promise<DirectUploadResult> => {
+    const res = await api.post("/admin/uploads/direct", {
+      fileName: file.name,
+      mimeType: file.type,
+      sizeBytes: file.size,
+    });
+    return {
+      ...res.data,
+      asset: normalizeUploadResult(res.data.asset),
+    } as DirectUploadResult;
+  },
+  uploadToSignedUrl: async (
+    uploadUrl: string,
+    file: File,
+    onProgress?: (progress: number) => void,
+  ) => {
+    await axios.put(uploadUrl, file, {
+      headers: {
+        "Content-Type": file.type,
+      },
+      onUploadProgress: (event) => {
+        if (!event.total) return;
+        onProgress?.(Math.round((event.loaded / event.total) * 100));
+      },
+    });
+  },
+  completeDirectUpload: async (assetId: string): Promise<MediaUploadResult> => {
+    const res = await api.post(`/admin/uploads/${assetId}/complete`);
+    return normalizeUploadResult(res.data);
+  },
   upload: async (file: File): Promise<MediaUploadResult> => {
     const formData = new FormData();
     formData.append("file", file);
@@ -98,27 +134,46 @@ export const apiUpload = {
         "Content-Type": "multipart/form-data",
       },
     });
-    let asset = res.data as MediaUploadResult;
+    let asset = normalizeUploadResult(res.data);
     const deadline = Date.now() + 5 * 60 * 1000;
 
     while (asset.status === "PROCESSING" && Date.now() < deadline) {
       await new Promise((resolve) => window.setTimeout(resolve, 1200));
       const statusResponse = await api.get(`/admin/uploads/${asset.assetId}`);
-      asset = statusResponse.data as MediaUploadResult;
+      asset = normalizeUploadResult(statusResponse.data);
     }
 
     if (asset.status === "FAILED") {
-      await api.delete(`/admin/uploads/${asset.assetId}`).catch(() => undefined);
+      await api
+        .delete(`/admin/uploads/${asset.assetId}`)
+        .catch(() => undefined);
       throw new Error(asset.error || "No se pudo procesar el video.");
     }
     if (asset.status !== "READY" || !asset.url) {
-      throw new Error("El procesamiento del medio excedio el tiempo permitido.");
+      throw new Error(
+        "El procesamiento del medio excedio el tiempo permitido.",
+      );
     }
 
     return asset;
   },
   remove: async (assetId: string) => api.delete(`/admin/uploads/${assetId}`),
 };
+
+function normalizeUploadResult(data: any): MediaUploadResult {
+  return {
+    assetId: data.assetId || data.id,
+    status: data.status,
+    type: data.type || data.mediaType,
+    mimeType: data.mimeType,
+    url: data.url ?? data.mediaUrl ?? null,
+    posterUrl: data.posterUrl ?? null,
+    durationMs: data.durationMs ?? null,
+    width: data.width ?? null,
+    height: data.height ?? null,
+    error: data.error ?? data.errorMessage ?? null,
+  };
+}
 
 export const apiDashboard = {
   getStats: async (): Promise<DashboardStats> => {
@@ -162,6 +217,7 @@ export const apiProducts = {
       coverMediaUrl: item.coverMediaUrl,
       coverPosterUrl: item.coverPosterUrl,
       coverMediaType: item.coverMediaType,
+      coverAssetStatus: item.coverAssetStatus,
       gallery: item.gallery
         ? item.gallery.map((g: any) => ({
             id: g.id?.toString(),
@@ -194,25 +250,39 @@ export const apiProducts = {
 export const apiGallery = {
   getAll: async (): Promise<Media[]> => {
     const res = await api.get("/admin/media");
-    return res.data.map((item: any) => ({
-      id: item.id.toString(),
-      title: item.title,
-      description: item.description,
-      type: item.mediaType === "PHOTO" ? "image" : "video",
-      assetId: item.assetId,
-      mediaUrl: item.mediaUrl,
-      posterUrl: item.posterUrl,
-      mediaType: item.mediaType,
-      url: item.mediaUrl,
-      thumbnail: item.posterUrl || undefined,
-      category: item.category?.name,
-      categoryId: item.categoryId,
-      subcategory: item.subcategory?.name,
-      subcategoryId: item.subcategoryId,
-      location: item.location || "",
-      likes: item.likes || 0,
-      createdAt: item.mediaDate || item.createdAt,
-    }));
+    return res.data.map((item: any) => {
+      const subcategories = Array.isArray(item.subcategories)
+        ? item.subcategories
+        : item.subcategory
+          ? [item.subcategory]
+          : [];
+      return {
+        id: item.id.toString(),
+        title: item.title,
+        description: item.description,
+        type: item.mediaType === "PHOTO" ? "image" : "video",
+        assetId: item.assetId,
+        mediaUrl: item.mediaUrl,
+        posterUrl: item.posterUrl,
+        assetStatus: item.assetStatus,
+        mediaType: item.mediaType,
+        url: item.mediaUrl,
+        thumbnail: item.posterUrl || undefined,
+        category: item.category?.name,
+        categoryId: item.categoryId,
+        subcategory: subcategories.map((sub: any) => sub.name).join(", "),
+        subcategoryId: subcategories[0]?.id,
+        subcategories: subcategories.map((sub: any) => ({
+          id: sub.id.toString(),
+          name: sub.name,
+          categoryId: sub.categoryId.toString(),
+        })),
+        subcategoryIds: subcategories.map((sub: any) => sub.id.toString()),
+        location: item.location || "",
+        likes: item.likes || 0,
+        createdAt: item.mediaDate || item.createdAt,
+      };
+    });
   },
   create: async (data: any) => {
     return api.post("/admin/media", data);

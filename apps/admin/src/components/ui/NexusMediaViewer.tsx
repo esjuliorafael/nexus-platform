@@ -8,7 +8,7 @@ type NexusMediaViewerPresentation = "gallery" | "hero";
 
 interface NexusMediaViewerGalleryContent {
   category?: string;
-  subcategory?: string;
+  subcategories?: string[];
   title: string;
   description?: string;
   metadata?: {
@@ -84,7 +84,9 @@ export const NexusMediaViewer: React.FC<NexusMediaViewerProps> = ({
       ) as HTMLElement[];
       if (focusable.length === 0) return;
 
-      const activeIndex = focusable.indexOf(document.activeElement as HTMLElement);
+      const activeIndex = focusable.indexOf(
+        document.activeElement as HTMLElement,
+      );
       const nextIndex = event.shiftKey
         ? activeIndex <= 0
           ? focusable.length - 1
@@ -340,7 +342,7 @@ export const NexusMediaViewer: React.FC<NexusMediaViewerProps> = ({
                       className="flex min-w-0 flex-col"
                       style={{ gap: "var(--space-base)" }}
                     >
-                      {(gallery.category || gallery.subcategory) && (
+                      {(gallery.category || gallery.subcategories?.length) && (
                         <div
                           className="flex flex-wrap items-center"
                           style={{ gap: "var(--space-sm)" }}
@@ -350,11 +352,11 @@ export const NexusMediaViewer: React.FC<NexusMediaViewerProps> = ({
                               {gallery.category}
                             </NexusCardBadge>
                           )}
-                          {gallery.subcategory && (
-                            <NexusCardBadge variant="overlay">
-                              {gallery.subcategory}
+                          {gallery.subcategories?.map((subcategory) => (
+                            <NexusCardBadge key={subcategory} variant="overlay">
+                              {subcategory}
                             </NexusCardBadge>
-                          )}
+                          ))}
                         </div>
                       )}
 

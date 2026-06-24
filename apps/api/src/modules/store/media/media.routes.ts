@@ -3,17 +3,30 @@ import { mediaService } from "./media.service";
 import { createMediaSchema, updateMediaSchema } from "./media.schema";
 import { MediaType } from "@prisma/client-store";
 
-export async function mediaRoutes(server: FastifyInstance) {
+function parseMediaFilters(query: any, onlyReadyMedia: boolean) {
+  const { categoryId, subcategoryId, type } = query;
+  return {
+    categoryId: categoryId ? parseInt(categoryId) : undefined,
+    subcategoryId: subcategoryId ? parseInt(subcategoryId) : undefined,
+    type: type as MediaType,
+    onlyReadyMedia,
+  };
+}
+
+export async function mediaPublicRoutes(server: FastifyInstance) {
   server.get("/", async (request) => {
-    const { categoryId, subcategoryId, type } = request.query as any;
-    return mediaService.getAll({
-      categoryId: categoryId ? parseInt(categoryId) : undefined,
-      subcategoryId: subcategoryId ? parseInt(subcategoryId) : undefined,
-      type: type as MediaType,
-    });
+    return mediaService.getAll(parseMediaFilters(request.query as any, true));
+  });
+}
+
+export async function mediaRoutes(server: FastifyInstance) {
+  server.addHook("preHandler", server.authenticate);
+
+  server.get("/", async (request) => {
+    return mediaService.getAll(parseMediaFilters(request.query as any, false));
   });
 
-  server.post("/", { preHandler: [server.authenticate] }, async (request, reply) => {
+  server.post("/", async (request, reply) => {
     try {
       const validated = createMediaSchema.parse(request.body);
       return mediaService.create(validated);
@@ -28,7 +41,7 @@ export async function mediaRoutes(server: FastifyInstance) {
     }
   });
 
-  server.put("/:id", { preHandler: [server.authenticate] }, async (request, reply) => {
+  server.put("/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
     try {
       const validated = updateMediaSchema.parse(request.body);
@@ -44,7 +57,7 @@ export async function mediaRoutes(server: FastifyInstance) {
     }
   });
 
-  server.delete("/:id", { preHandler: [server.authenticate] }, async (request) => {
+  server.delete("/:id", async (request) => {
     const { id } = request.params as { id: string };
     return mediaService.delete(parseInt(id));
   });

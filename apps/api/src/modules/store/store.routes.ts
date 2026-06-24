@@ -5,7 +5,7 @@ import {
   categoryRoutes,
   subcategoryRoutes,
 } from "./categories/category.routes";
-import { mediaRoutes } from "./media/media.routes";
+import { mediaPublicRoutes, mediaRoutes } from "./media/media.routes";
 import { settingRoutes } from "./settings/setting.routes";
 import { paymentChannelRoutes } from "./payment-channels/payment-channel.routes";
 import { whatsappChannelRoutes } from "./whatsapp-channels/whatsapp-channel.routes";
@@ -28,6 +28,7 @@ export async function storeRoutes(server: FastifyInstance) {
   await server.register(homeSlidePublicRoutes, {
     prefix: "/store/home-slides",
   });
+  await server.register(mediaPublicRoutes, { prefix: "/store/media" });
   await server.register(orderRoutes, { prefix: "/store/orders" });
   await server.register(mpRoutes, { prefix: "/mp" });
 

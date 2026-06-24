@@ -65,7 +65,6 @@ export const CategoryDialog: React.FC<CategoryDialogProps> = ({
       eyebrow={isEdit ? 'Editar Categoria' : 'Nueva Categoria'}
       icon={FolderPlus}
       onClose={onClose}
-      maxWidth="lg"
       zIndex={180}
     >
         <form

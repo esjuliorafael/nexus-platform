@@ -381,7 +381,7 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
         eyebrow="Vinculacion por QR"
         icon={QrCode}
         onClose={() => setIsQRModalOpen(false)}
-        maxWidth="md"
+        size="compact"
         zIndex={300}
       >
         {qrData && (

@@ -1,9 +1,12 @@
 import {
   DeleteObjectCommand,
   GetObjectCommand,
+  HeadObjectCommand,
+  PutObjectCommand,
   S3Client,
 } from "@aws-sdk/client-s3";
 import { Upload } from "@aws-sdk/lib-storage";
+import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { createWriteStream } from "fs";
 import { Readable } from "stream";
 import { pipeline } from "stream/promises";
@@ -77,6 +80,28 @@ export const storageService = {
 
     await upload.done();
     return joinPublicUrl(publicDomain, key);
+  },
+
+  async createSignedPutUrl(key: string, contentType: string) {
+    const { bucketName, publicDomain, client } = await getConfiguredStorage();
+    const command = new PutObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+      ContentType: contentType,
+      CacheControl: "public, max-age=31536000, immutable",
+    });
+
+    const uploadUrl = await getSignedUrl(client, command, { expiresIn: 15 * 60 });
+    return {
+      uploadUrl,
+      publicUrl: joinPublicUrl(publicDomain, key),
+      expiresInSeconds: 15 * 60,
+    };
+  },
+
+  async headObject(key: string) {
+    const { bucketName, client } = await getConfiguredStorage();
+    return client.send(new HeadObjectCommand({ Bucket: bucketName, Key: key }));
   },
 
   async downloadObjectToFile(key: string, destination: string) {

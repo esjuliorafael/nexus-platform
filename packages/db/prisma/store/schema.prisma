@@ -50,12 +50,12 @@ model Category {
 }
 
 model Subcategory {
-  id         Int      @id @default(autoincrement())
-  active     Boolean  @default(true) @map("active")
-  categoryId Int      @map("category_id")
-  name       String   @map("name")
-  media      Media[]
-  category   Category @relation(fields: [categoryId], references: [id])
+  id         Int                @id @default(autoincrement())
+  active     Boolean            @default(true) @map("active")
+  categoryId Int                @map("category_id")
+  name       String             @map("name")
+  mediaLinks MediaSubcategory[]
+  category   Category           @relation(fields: [categoryId], references: [id])
 
   @@map("subcategories")
 }
@@ -142,23 +142,33 @@ model OrderItem {
 }
 
 model Media {
-  id            Int          @id @default(autoincrement())
-  likes         Int          @default(0) @map("likes")
-  active        Boolean      @default(true) @map("active")
-  categoryId    Int?         @map("category_id")
-  createdAt     DateTime     @default(now()) @map("created_at")
-  description   String?      @map("description")
-  assetId       String       @map("asset_id") @db.Uuid
-  location      String?      @map("location")
-  mediaDate     DateTime?    @map("media_date")
-  subcategoryId Int?         @map("subcategory_id")
-  title         String       @map("title")
-  asset         MediaAsset   @relation(fields: [assetId], references: [id])
-  category      Category?    @relation(fields: [categoryId], references: [id])
-  subcategory   Subcategory? @relation(fields: [subcategoryId], references: [id])
+  id               Int                @id @default(autoincrement())
+  likes            Int                @default(0) @map("likes")
+  active           Boolean            @default(true) @map("active")
+  categoryId       Int?               @map("category_id")
+  createdAt        DateTime           @default(now()) @map("created_at")
+  description      String?            @map("description")
+  assetId          String             @map("asset_id") @db.Uuid
+  location         String?            @map("location")
+  mediaDate        DateTime?          @map("media_date")
+  title            String             @map("title")
+  asset            MediaAsset         @relation(fields: [assetId], references: [id])
+  category         Category?          @relation(fields: [categoryId], references: [id])
+  subcategoryLinks MediaSubcategory[]
 
   @@index([assetId])
   @@map("media")
+}
+
+model MediaSubcategory {
+  mediaId       Int         @map("media_id")
+  subcategoryId Int         @map("subcategory_id")
+  media         Media       @relation(fields: [mediaId], references: [id], onDelete: Cascade)
+  subcategory   Subcategory @relation(fields: [subcategoryId], references: [id], onDelete: Cascade)
+
+  @@id([mediaId, subcategoryId])
+  @@index([subcategoryId, mediaId])
+  @@map("media_subcategories")
 }
 
 model HomeSlide {
@@ -366,6 +376,7 @@ enum MediaType {
 }
 
 enum MediaAssetStatus {
+  UPLOADING  @map("uploading")
   PROCESSING @map("processing")
   READY      @map("ready")
   FAILED     @map("failed")

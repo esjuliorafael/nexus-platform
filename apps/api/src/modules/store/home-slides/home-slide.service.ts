@@ -13,17 +13,22 @@ function serializeSlide(slide: any) {
     ...data,
     mediaUrl: asset.mediaUrl,
     posterUrl: asset.posterUrl,
+    assetStatus: asset.status,
     type: asset.mediaType,
     mimeType: asset.mimeType,
   };
 }
 
-async function assertAssetReady(assetId: string) {
+async function assertAssetUsable(assetId: string) {
   const asset = await storePrisma.mediaAsset.findFirst({
-    where: { id: assetId, status: "READY", mediaUrl: { not: null } },
+    where: {
+      id: assetId,
+      status: { in: ["UPLOADING", "READY"] },
+      mediaUrl: { not: null },
+    },
   });
   if (!asset) {
-    const error = new Error("El medio del slide aun no esta listo.") as Error & {
+    const error = new Error("El medio del slide no esta disponible.") as Error & {
       statusCode?: number;
     };
     error.statusCode = 409;
@@ -54,6 +59,7 @@ export const homeSlideService = {
     const slides = await storePrisma.homeSlide.findMany({
       where: {
         active: true,
+        asset: { status: "READY", mediaUrl: { not: null } },
         OR: [{ startsAt: null }, { startsAt: { lte: now } }],
         AND: [{ OR: [{ endsAt: null }, { endsAt: { gte: now } }] }],
       },
@@ -72,7 +78,7 @@ export const homeSlideService = {
   },
 
   async create(data: any) {
-    await assertAssetReady(data.assetId);
+    await assertAssetUsable(data.assetId);
     if (typeof data.sortOrder === "number") await assertSortOrderAvailable(data.sortOrder);
     const slide = await storePrisma.homeSlide.create({
       data: normalizeDates(data),
@@ -84,7 +90,7 @@ export const homeSlideService = {
   async update(id: number, data: any) {
     const current = await storePrisma.homeSlide.findUnique({ where: { id } });
     if (!current) throw new Error("Slide not found");
-    if (data.assetId) await assertAssetReady(data.assetId);
+    if (data.assetId) await assertAssetUsable(data.assetId);
     if (typeof data.sortOrder === "number") await assertSortOrderAvailable(data.sortOrder, id);
 
     const slide = await storePrisma.homeSlide.update({

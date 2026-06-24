@@ -247,7 +247,6 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
         eyebrow={editingUser ? 'Editar Usuario' : 'Nuevo Miembro'}
         icon={UserPlus}
         onClose={() => setIsModalOpen(false)}
-        maxWidth="lg"
       >
               <form onSubmit={handleSubmit} className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
                 <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>

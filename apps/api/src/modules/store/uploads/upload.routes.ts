@@ -8,6 +8,11 @@ import { z } from "zod";
 import { mediaAssetService } from "../media-assets/media-asset.service";
 
 const assetParamsSchema = z.object({ id: z.string().uuid() });
+const directUploadSchema = z.object({
+  fileName: z.string().min(1).max(255),
+  mimeType: z.string().min(1).max(120),
+  sizeBytes: z.number().int().positive().optional(),
+});
 
 export async function uploadRoutes(server: FastifyInstance) {
   server.addHook("preHandler", server.authenticate);
@@ -32,6 +37,41 @@ export async function uploadRoutes(server: FastifyInstance) {
       });
     } finally {
       await rm(workDir, { recursive: true, force: true });
+    }
+  });
+
+  server.post("/direct", async (request, reply) => {
+    try {
+      const body = directUploadSchema.parse(request.body);
+      const result = await mediaAssetService.createDirectVideoUpload(body);
+      return {
+        asset: result.asset,
+        uploadUrl: result.uploadUrl,
+        expiresInSeconds: result.expiresInSeconds,
+      };
+    } catch (error: any) {
+      if (error?.issues) {
+        return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      }
+      const statusCode = error?.statusCode || 500;
+      return reply.status(statusCode).send({
+        message: error?.message || "No se pudo iniciar la carga directa.",
+      });
+    }
+  });
+
+  server.post("/:id/complete", async (request, reply) => {
+    try {
+      const { id } = assetParamsSchema.parse(request.params);
+      return await mediaAssetService.completeDirectUpload(id);
+    } catch (error: any) {
+      if (error?.issues) {
+        return reply.status(400).send({ message: "Identificador de asset invalido." });
+      }
+      const statusCode = error?.statusCode || 500;
+      return reply.status(statusCode).send({
+        message: error?.message || "No se pudo finalizar la carga directa.",
+      });
     }
   });
 

@@ -59,6 +59,18 @@ export const GalleryView = React.forwardRef<GalleryViewRef, GalleryViewProps>(
     }, []);
 
     useEffect(() => {
+      const handleMediaUploadChange = () => {
+        void loadMedia();
+      };
+      window.addEventListener('nexus:media-upload-complete', handleMediaUploadChange);
+      window.addEventListener('nexus:media-upload-failed', handleMediaUploadChange);
+      return () => {
+        window.removeEventListener('nexus:media-upload-complete', handleMediaUploadChange);
+        window.removeEventListener('nexus:media-upload-failed', handleMediaUploadChange);
+      };
+    }, []);
+
+    useEffect(() => {
       if (viewMode === 'create') {
         setEditingMedia(null);
       }

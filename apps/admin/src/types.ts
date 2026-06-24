@@ -33,6 +33,7 @@ export interface Product {
   coverMediaUrl?: string | null;
   coverPosterUrl?: string | null;
   coverMediaType?: "PHOTO" | "VIDEO" | null;
+  coverAssetStatus?: "UPLOADING" | "PROCESSING" | "READY" | "FAILED" | null;
   thumbnail?: string;
   type: "BIRD" | "ITEM";
   ringNumber?: string;
@@ -48,6 +49,7 @@ export interface ProductGalleryAsset {
   assetId: string;
   mediaUrl: string;
   posterUrl?: string | null;
+  assetStatus?: "UPLOADING" | "PROCESSING" | "READY" | "FAILED" | null;
   mediaType: "PHOTO" | "VIDEO";
   mimeType?: string;
 }
@@ -61,6 +63,8 @@ export interface Media {
   categoryId?: string | number;
   subcategory: string;
   subcategoryId?: string | number;
+  subcategories: Subcategory[];
+  subcategoryIds: Array<string | number>;
   url: string;
   assetId: string;
   mediaUrl: string;
@@ -81,6 +85,7 @@ export interface HomeSlide {
   desktopObjectPosition?: string | null;
   mobileObjectPosition?: string | null;
   posterUrl?: string | null;
+  assetStatus?: "UPLOADING" | "PROCESSING" | "READY" | "FAILED" | null;
   eyebrow?: string | null;
   title: string;
   description?: string | null;

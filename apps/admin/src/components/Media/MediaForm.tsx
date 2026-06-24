@@ -8,8 +8,10 @@ import React, {
 } from "react";
 import {
   Check,
+  ChevronDown,
   Film,
   Image as ImageIcon,
+  ListChecks,
   MapPin,
   Plus,
   Upload,
@@ -18,15 +20,15 @@ import {
 import { apiCategories, apiGallery, apiUpload } from "../../api";
 import { Category, Media } from "../../types";
 import { NexusInput, NexusSelect, NexusTextarea } from "../ui/NexusInputs";
-import {
-  NexusAutonomousButton,
-  NexusCardButton,
-} from "../ui/NexusButton";
+import { NexusAutonomousButton, NexusSectionButton } from "../ui/NexusButton";
 import { NexusSection } from "../ui/NexusSection";
 import { NexusSpinner } from "../ui/NexusSpinner";
 import { InteractionStage } from "../ui/InteractionStage";
 import { UploadPreviewOverlay } from "../ui/UploadPreviewOverlay";
 import { NexusModal, NexusModalActions } from "../ui/NexusModal";
+import { NexusSectionBadge } from "../ui/NexusBadge";
+import { NexusCheckboxRow } from "../ui/NexusCheckboxRow";
+import { useUploadQueue } from "../uploads/UploadQueueProvider";
 
 interface MediaFormProps {
   initialData?: Media;
@@ -38,6 +40,7 @@ interface MediaFormProps {
 
 export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
   ({ initialData, onSave, onValidationChange, showToast }, ref) => {
+    const { startDirectVideoUpload } = useUploadQueue();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     const [isLoadingCategories, setIsLoadingCategories] = useState(false);
@@ -49,8 +52,16 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
     const [category, setCategory] = useState(
       initialData?.categoryId?.toString() || "",
     );
-    const [subcategory, setSubcategory] = useState(
-      initialData?.subcategoryId?.toString() || "",
+    const [selectedSubcategoryIds, setSelectedSubcategoryIds] = useState<
+      string[]
+    >(
+      initialData?.subcategoryIds?.map(String) ||
+        initialData?.subcategories?.map((subcategory) =>
+          subcategory.id.toString(),
+        ) ||
+        (initialData?.subcategoryId
+          ? [initialData.subcategoryId.toString()]
+          : []),
     );
     const [location, setLocation] = useState(initialData?.location || "");
 
@@ -66,6 +77,9 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const [isSubModalOpen, setIsSubModalOpen] = useState(false);
+    const [isSubcategoryPickerOpen, setIsSubcategoryPickerOpen] =
+      useState(false);
+    const [subcategoryDraft, setSubcategoryDraft] = useState<string[]>([]);
     const [newSubName, setNewSubName] = useState("");
     const [isSavingSub, setIsSavingSub] = useState(false);
 
@@ -83,11 +97,26 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
       return selectedCat?.subcategories || [];
     }, [category, categories]);
 
-    useEffect(() => {
-      if (category && initialData?.categoryId?.toString() !== category) {
-        setSubcategory("");
-      }
-    }, [category, initialData?.categoryId]);
+    const selectedSubcategories = useMemo(
+      () =>
+        availableSubcategories.filter((subcategory) =>
+          selectedSubcategoryIds.includes(subcategory.id.toString()),
+        ),
+      [availableSubcategories, selectedSubcategoryIds],
+    );
+
+    const openSubcategoryPicker = () => {
+      setSubcategoryDraft(selectedSubcategoryIds);
+      setIsSubcategoryPickerOpen(true);
+    };
+
+    const toggleDraftSubcategory = (id: string) => {
+      setSubcategoryDraft((current) =>
+        current.includes(id)
+          ? current.filter((subcategoryId) => subcategoryId !== id)
+          : [...current, id],
+      );
+    };
 
     const loadCategories = async () => {
       setIsLoadingCategories(true);
@@ -139,6 +168,13 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
       }, 400);
     };
 
+    const uploadMediaFile = async (selectedFile: File) => {
+      if (selectedFile.type.startsWith("video/")) {
+        return startDirectVideoUpload(selectedFile, { label: "Video de galeria" });
+      }
+      return apiUpload.upload(selectedFile);
+    };
+
     const handleQuickSaveSubcategory = async (event: React.FormEvent) => {
       event.preventDefault();
       if (!newSubName.trim() || !category) return;
@@ -167,7 +203,11 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
           (sub) => sub.name.toLowerCase() === newSubName.trim().toLowerCase(),
         );
 
-        if (createdSub) setSubcategory(createdSub.id);
+        if (createdSub) {
+          setSelectedSubcategoryIds((current) => [
+            ...Array.from(new Set([...current, createdSub.id.toString()])),
+          ]);
+        }
         setIsSubModalOpen(false);
         setNewSubName("");
       } finally {
@@ -183,7 +223,7 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
       try {
         let finalAssetId = assetId;
         if (file) {
-          const uploadRes = await apiUpload.upload(file);
+          const uploadRes = await uploadMediaFile(file);
           finalAssetId = uploadRes.assetId;
           setAssetId(uploadRes.assetId);
         }
@@ -193,7 +233,7 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
           title,
           description,
           categoryId: parseInt(category),
-          subcategoryId: subcategory ? parseInt(subcategory) : undefined,
+          subcategoryIds: selectedSubcategoryIds.map((id) => parseInt(id)),
           location,
           assetId: finalAssetId,
         };
@@ -206,7 +246,10 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
 
         onSave();
       } catch (error: any) {
-        const message = error?.response?.data?.message || error?.message || "No se pudo guardar el medio.";
+        const message =
+          error?.response?.data?.message ||
+          error?.message ||
+          "No se pudo guardar el medio.";
         showToast(message, "error");
       } finally {
         setIsSubmitting(false);
@@ -303,21 +346,6 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
                       </div>
                     </div>
 
-                    <div
-                      className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/75 via-black/30 to-transparent"
-                      style={{ padding: "var(--padding-inner)" }}
-                    >
-                      <p className="text-label text-brand-300">
-                        {location || "Galeria"}
-                      </p>
-                      <h3
-                        className="text-3xl font-black uppercase leading-none tracking-tight text-white sm:text-5xl"
-                        style={{ marginTop: "var(--space-sm)" }}
-                      >
-                        {title || "Titulo del medio"}
-                      </h3>
-                    </div>
-
                     {isProcessing && (
                       <div className="absolute inset-0 z-30 flex flex-col items-center justify-center bg-bg-card/80 backdrop-blur-sm animate-in fade-in duration-200">
                         <NexusSpinner
@@ -358,14 +386,17 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
                   />
 
                   <div
-                    className="grid grid-cols-1 sm:grid-cols-2"
+                    className="grid grid-cols-1"
                     style={{ gap: "var(--space-md)" }}
                   >
                     <NexusSelect
                       label="Categoria *"
                       value={category}
                       disabled={isLoadingCategories}
-                      onChange={(event) => setCategory(event.target.value)}
+                      onChange={(event) => {
+                        setCategory(event.target.value);
+                        setSelectedSubcategoryIds([]);
+                      }}
                     >
                       <option value="">Seleccionar...</option>
                       {categories.map((cat) => (
@@ -376,51 +407,81 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
                     </NexusSelect>
 
                     <div
-                      className="flex flex-col"
-                      style={{ gap: "var(--space-xs)" }}
+                      className="grid min-w-0 items-end"
+                      style={{
+                        gridTemplateColumns:
+                          "minmax(0, 1fr) var(--h-button-section)",
+                        gap: "var(--space-sm)",
+                      }}
                     >
-                      <label
-                        className="text-label uppercase tracking-[0.15em] text-text-muted"
-                        style={{ marginLeft: "var(--space-xs)" }}
+                      <div
+                        className="group flex min-w-0 flex-col"
+                        style={{ gap: "var(--space-xs)" }}
                       >
-                        Subcategoria
-                      </label>
-                      <div className="flex" style={{ gap: "var(--space-sm)" }}>
-                        <NexusSelect
-                          label=""
-                          value={subcategory}
-                          onChange={(event) =>
-                            setSubcategory(event.target.value)
-                          }
+                        <span
+                          id="media-subcategories-label"
+                          className="text-label uppercase tracking-[0.15em] text-text-muted"
+                          style={{ marginLeft: "var(--space-xs)" }}
+                        >
+                          Subcategorias
+                        </span>
+                        <button
+                          type="button"
+                          aria-labelledby="media-subcategories-label"
+                          aria-haspopup="dialog"
+                          onClick={openSubcategoryPicker}
+                          className="flex w-full min-w-0 items-center justify-between border border-border-main bg-bg-muted pl-5 pr-5 font-medium text-text-main transition-all duration-300 focus:outline-none focus:ring-4 focus:ring-brand-500/5 focus:border-brand-500/50 disabled:cursor-not-allowed disabled:opacity-50"
+                          style={{
+                            height: "var(--h-input)",
+                            borderRadius: "var(--radius-inner-visual)",
+                            gap: "var(--space-sm)",
+                          }}
                           disabled={
                             !category || availableSubcategories.length === 0
                           }
-                          className="flex-1"
                         >
-                          {availableSubcategories.length > 0 ? (
-                            <>
-                              <option value="">Ninguna</option>
-                              {availableSubcategories.map((sub) => (
-                                <option key={sub.id} value={sub.id}>
-                                  {sub.name}
-                                </option>
-                              ))}
-                            </>
-                          ) : (
-                            <option value="">Sin definir</option>
-                          )}
-                        </NexusSelect>
-                        <NexusCardButton
-                          type="button"
-                          variant="secondary"
-                          onClick={() => setIsSubModalOpen(true)}
-                          disabled={!category}
-                          isIconOnly
-                          icon={Plus}
-                          className="h-[var(--h-input)] w-[var(--h-input)]"
-                        />
+                          <span className="truncate">
+                            {!category || availableSubcategories.length === 0
+                              ? "Sin definir"
+                              : selectedSubcategoryIds.length === 0
+                                ? "Seleccionar..."
+                                : `${selectedSubcategoryIds.length} seleccionada${selectedSubcategoryIds.length === 1 ? "" : "s"}`}
+                          </span>
+                          <ChevronDown
+                            className="shrink-0 text-text-muted"
+                            style={{
+                              width: "var(--size-inner-icon-metadata)",
+                              height: "var(--size-inner-icon-metadata)",
+                            }}
+                          />
+                        </button>
                       </div>
+                      <NexusSectionButton
+                        type="button"
+                        variant="secondary"
+                        onClick={() => setIsSubModalOpen(true)}
+                        disabled={!category}
+                        isIconOnly
+                        icon={Plus}
+                        aria-label="Crear subcategoria"
+                      />
                     </div>
+
+                    {selectedSubcategories.length > 0 && (
+                      <div
+                        className="flex flex-wrap items-center"
+                        style={{ gap: "var(--space-sm)" }}
+                      >
+                        {selectedSubcategories.map((subcategory) => (
+                          <NexusSectionBadge
+                            key={subcategory.id}
+                            variant="brand"
+                          >
+                            {subcategory.name}
+                          </NexusSectionBadge>
+                        ))}
+                      </div>
+                    )}
                   </div>
 
                   <NexusInput
@@ -461,20 +522,72 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
         </form>
 
         <NexusModal
+          isOpen={isSubcategoryPickerOpen}
+          title="Seleccionar Subcategorias"
+          eyebrow={
+            categories.find((cat) => cat.id.toString() === category)?.name
+          }
+          icon={ListChecks}
+          onClose={() => setIsSubcategoryPickerOpen(false)}
+          zIndex={200}
+        >
+          <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
+            <div
+              className="flex max-h-[min(50vh,24rem)] flex-col overflow-y-auto"
+              role="group"
+              aria-label="Subcategorias disponibles"
+              style={{ gap: "var(--space-sm)" }}
+            >
+              {availableSubcategories.map((subcategory) => {
+                const id = subcategory.id.toString();
+                const isChecked = subcategoryDraft.includes(id);
+                return (
+                  <NexusCheckboxRow
+                    key={subcategory.id}
+                    checked={isChecked}
+                    onChange={() => toggleDraftSubcategory(id)}
+                    label={subcategory.name}
+                  />
+                );
+              })}
+            </div>
+
+            <NexusModalActions>
+              <NexusAutonomousButton
+                type="button"
+                variant="secondary"
+                onClick={() => setIsSubcategoryPickerOpen(false)}
+                className="flex-1"
+              >
+                Cancelar
+              </NexusAutonomousButton>
+              <NexusAutonomousButton
+                type="button"
+                variant="brand"
+                icon={Check}
+                onClick={() => {
+                  setSelectedSubcategoryIds(subcategoryDraft);
+                  setIsSubcategoryPickerOpen(false);
+                }}
+                className="flex-[2]"
+              >
+                Aplicar Seleccion
+              </NexusAutonomousButton>
+            </NexusModalActions>
+          </div>
+        </NexusModal>
+
+        <NexusModal
           isOpen={isSubModalOpen}
           title={
             <>
               En{" "}
-              {
-                categories.find((cat) => cat.id.toString() === category)
-                  ?.name
-              }
+              {categories.find((cat) => cat.id.toString() === category)?.name}
             </>
           }
           eyebrow="Nueva Subcategoria"
           icon={Plus}
           onClose={() => setIsSubModalOpen(false)}
-          maxWidth="lg"
           zIndex={200}
         >
           <form

@@ -7,6 +7,7 @@ export interface ProductFilters {
   status?: SaleStatus;
   search?: string;
   onlyActive?: boolean;
+  onlyReadyMedia?: boolean;
 }
 
 const productInclude = {
@@ -44,22 +45,23 @@ function serializeProduct(product: any) {
     coverMediaUrl: cover?.mediaUrl || null,
     coverPosterUrl: cover?.posterUrl || null,
     coverMediaType: cover?.mediaType || null,
+    coverAssetStatus: cover?.status || null,
     thumbnail: displayImage,
   };
 }
 
-async function assertAssetsReady(ids: string[]) {
+async function assertAssetsUsable(ids: string[]) {
   const uniqueIds = Array.from(new Set(ids));
   if (uniqueIds.length === 0) return;
-  const readyCount = await storePrisma.mediaAsset.count({
+  const usableCount = await storePrisma.mediaAsset.count({
     where: {
       id: { in: uniqueIds },
-      status: "READY",
+      status: { in: ["UPLOADING", "READY"] },
       mediaUrl: { not: null },
     },
   });
-  if (readyCount !== uniqueIds.length) {
-    const error = new Error("Uno o mas medios aun no estan listos.") as Error & {
+  if (usableCount !== uniqueIds.length) {
+    const error = new Error("Uno o mas medios no estan disponibles para asociarse.") as Error & {
       statusCode?: number;
     };
     error.statusCode = 409;
@@ -71,6 +73,12 @@ export const productService = {
   async getAll(filters: ProductFilters) {
     const where: any = {};
     if (filters.onlyActive !== false) where.active = true;
+    if (filters.onlyReadyMedia) {
+      where.coverAsset = {
+        status: "READY",
+        mediaUrl: { not: null },
+      };
+    }
     if (filters.type) where.type = filters.type;
     if (filters.status) where.saleStatus = filters.status;
     if (filters.search) {
@@ -88,9 +96,19 @@ export const productService = {
     return products.map(serializeProduct);
   },
 
-  async getById(id: number) {
-    const product = await storePrisma.product.findUnique({
-      where: { id },
+  async getById(id: number, options: { onlyReadyMedia?: boolean } = {}) {
+    const product = await storePrisma.product.findFirst({
+      where: {
+        id,
+        ...(options.onlyReadyMedia
+          ? {
+              coverAsset: {
+                status: "READY",
+                mediaUrl: { not: null },
+              },
+            }
+          : {}),
+      },
       include: productInclude,
     });
     return product ? serializeProduct(product) : null;
@@ -102,7 +120,7 @@ export const productService = {
       ...(productData.coverAssetId ? [productData.coverAssetId] : []),
       ...gallery.map((item: any) => item.assetId),
     ];
-    await assertAssetsReady(assetIds);
+    await assertAssetsUsable(assetIds);
 
     if (coverPosterAssetId && productData.coverAssetId) {
       await mediaAssetService.adoptPoster(productData.coverAssetId, coverPosterAssetId);
@@ -139,7 +157,7 @@ export const productService = {
       ...(productData.coverAssetId ? [productData.coverAssetId] : []),
       ...(nextGallery ? nextGallery.map((item: any) => item.assetId) : []),
     ];
-    await assertAssetsReady(assetIds);
+    await assertAssetsUsable(assetIds);
 
     if (coverPosterAssetId && productData.coverAssetId) {
       await mediaAssetService.adoptPoster(productData.coverAssetId, coverPosterAssetId);

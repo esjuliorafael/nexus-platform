@@ -53,6 +53,12 @@ export interface Media {
   mediaType: "PHOTO" | "VIDEO";
   categoryId: number | null;
   subcategoryId: number | null;
+  subcategoryIds: number[];
+  subcategories: Array<{
+    id: number;
+    name: string;
+    categoryId: number;
+  }>;
   location: string | null;
   mediaDate: string | null;
 }

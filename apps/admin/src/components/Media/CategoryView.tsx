@@ -271,7 +271,6 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
           }
           icon={Layers}
           onClose={closeManager}
-          maxWidth="lg"
         >
           <div
             className="overflow-y-auto"

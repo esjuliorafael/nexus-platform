@@ -64,6 +64,18 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
     loadProducts();
   }, []);
 
+  useEffect(() => {
+    const handleMediaUploadChange = () => {
+      void loadProducts();
+    };
+    window.addEventListener('nexus:media-upload-complete', handleMediaUploadChange);
+    window.addEventListener('nexus:media-upload-failed', handleMediaUploadChange);
+    return () => {
+      window.removeEventListener('nexus:media-upload-complete', handleMediaUploadChange);
+      window.removeEventListener('nexus:media-upload-failed', handleMediaUploadChange);
+    };
+  }, []);
+
   const filtered = useMemo(() => {
     return products.filter(p => 
       p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||

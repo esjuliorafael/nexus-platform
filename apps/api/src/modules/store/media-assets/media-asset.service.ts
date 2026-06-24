@@ -9,6 +9,7 @@ import { mediaProcessingQueue } from "../../../queues/media-processing.queue";
 import { storageService } from "../../../services/storage.service";
 import {
   createStorageKey,
+  extensionForMime,
   normalizeOriginalName,
 } from "../../../utils/file.utils";
 import { serializeMediaAsset } from "./media-asset.types";
@@ -31,10 +32,19 @@ const ACCEPTED_VIDEO_MIMES = new Set([
   "video/3gpp2",
 ]);
 
+const DIRECT_UPLOAD_VIDEO_MIMES = ACCEPTED_VIDEO_MIMES;
+
 function unsupportedMedia(message: string) {
   const error = new Error(message) as Error & { statusCode?: number };
   error.statusCode = 415;
   return error;
+}
+
+function extensionForDirectUpload(fileName: string, mimeType: string) {
+  const extensionFromMime = extensionForMime(mimeType, "");
+  if (extensionFromMime) return extensionFromMime;
+  const extensionFromName = fileName.split(".").pop()?.trim().toLowerCase();
+  return extensionFromName || "bin";
 }
 
 async function createImageAsset(inputPath: string, originalName: string) {
@@ -133,6 +143,100 @@ async function createVideoAsset(
 }
 
 export const mediaAssetService = {
+  async createDirectVideoUpload(input: {
+    fileName: string;
+    mimeType: string;
+    sizeBytes?: number | null;
+  }) {
+    const mimeType = input.mimeType.toLowerCase();
+    if (!DIRECT_UPLOAD_VIDEO_MIMES.has(mimeType)) {
+      throw unsupportedMedia("Solo se permite carga directa de video.");
+    }
+
+    const assetId = randomUUID();
+    const extension = extensionForDirectUpload(input.fileName, mimeType);
+    const sourceKey = createStorageKey(assetId, extension);
+    const signedUpload = await storageService.createSignedPutUrl(sourceKey, mimeType);
+
+    const asset = await storePrisma.mediaAsset.create({
+      data: {
+        id: assetId,
+        mediaUrl: signedUpload.publicUrl,
+        sourceKey,
+        mediaType: "VIDEO",
+        mimeType,
+        originalName: normalizeOriginalName(input.fileName),
+        status: "UPLOADING",
+        sizeBytes: input.sizeBytes || null,
+      },
+    });
+
+    return {
+      asset,
+      uploadUrl: signedUpload.uploadUrl,
+      expiresInSeconds: signedUpload.expiresInSeconds,
+    };
+  },
+
+  async completeDirectUpload(assetId: string) {
+    const asset = await storePrisma.mediaAsset.findUnique({ where: { id: assetId } });
+    if (!asset) {
+      const error = new Error("Asset no encontrado.") as Error & { statusCode?: number };
+      error.statusCode = 404;
+      throw error;
+    }
+    if (!asset.sourceKey || asset.status !== "UPLOADING") {
+      const error = new Error("El asset no espera una carga directa.") as Error & {
+        statusCode?: number;
+      };
+      error.statusCode = 409;
+      throw error;
+    }
+
+    try {
+      const head = await storageService.headObject(asset.sourceKey);
+      const completed = await storePrisma.mediaAsset.update({
+        where: { id: assetId },
+        data: {
+          status: "READY",
+          sizeBytes: Number(head.ContentLength || asset.sizeBytes || 0) || asset.sizeBytes,
+          errorMessage: null,
+        },
+      });
+
+      try {
+        await mediaProcessingQueue.add(
+          "enrich-video",
+          { assetId },
+          {
+            jobId: assetId,
+            attempts: 2,
+            backoff: { type: "exponential", delay: 3000 },
+            removeOnComplete: 100,
+            removeOnFail: 200,
+          },
+        );
+      } catch (error) {
+        console.error(`[Media] No se pudo programar el poster de ${assetId}:`, error);
+        await storePrisma.mediaAsset.update({
+          where: { id: assetId },
+          data: { sourceKey: null },
+        });
+      }
+
+      return completed;
+    } catch (error) {
+      await storePrisma.mediaAsset.update({
+        where: { id: assetId },
+        data: {
+          status: "FAILED",
+          errorMessage: "No fue posible confirmar la carga directa.",
+        },
+      }).catch(() => undefined);
+      throw error;
+    }
+  },
+
   async createFromFile(inputPath: string, originalName: string) {
     const detected = await fromFile(inputPath);
     if (!detected) {

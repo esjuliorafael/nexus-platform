@@ -12,12 +12,13 @@ export async function productRoutes(server: FastifyInstance) {
       status: status as SaleStatus,
       search,
       onlyActive: true,
+      onlyReadyMedia: true,
     });
   });
 
   server.get("/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
-    const product = await productService.getById(parseInt(id));
+    const product = await productService.getById(parseInt(id), { onlyReadyMedia: true });
     if (!product) return reply.status(404).send({ message: "Product not found" });
     return product;
   });

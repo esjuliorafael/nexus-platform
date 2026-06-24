@@ -73,6 +73,7 @@ import {
 import { NexusAutonomousCard } from "./components/ui/NexusCard";
 import { NexusAutonomousIcon } from "./components/ui/NexusIcon";
 import { NexusConfirmModal } from "./components/ui/NexusConfirmModal";
+import { UploadQueueProvider } from "./components/uploads/UploadQueueProvider";
 
 export const ThemeContext = createContext<{
   theme: "light" | "dark";
@@ -1075,6 +1076,7 @@ function App() {
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
+      <UploadQueueProvider showToast={showToast}>
       <div className="min-h-screen bg-bg-app font-sans pb-[var(--space-3xl)] text-stone-900 transition-colors duration-500 dark:text-stone-100 md:pb-[var(--space-lg)]">
         <Header
           activeTab={activeTab}
@@ -1340,6 +1342,7 @@ function App() {
           />
         )}
       </div>
+      </UploadQueueProvider>
     </ThemeContext.Provider>
   );
 }

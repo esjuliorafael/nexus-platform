@@ -8,6 +8,7 @@ import { NexusAutonomousButton } from '../ui/NexusButton';
 import { NexusSection } from '../ui/NexusSection';
 import { InteractionStage } from '../ui/InteractionStage';
 import { UploadPreviewOverlay } from '../ui/UploadPreviewOverlay';
+import { useUploadQueue } from '../uploads/UploadQueueProvider';
 
 interface ProductFormProps {
   initialData?: Product;
@@ -28,6 +29,7 @@ const getFullUrl = (path: string | null | undefined) => {
 
 export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormProps>(
   ({ initialData, onCancel, onSave, onValidationChange, showToast }, ref) => {
+    const { startDirectVideoUpload } = useUploadQueue();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isProcessing, setIsProcessing] = useState(false);
     
@@ -197,6 +199,13 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
     return getFullUrl(galleryAssets[index].posterUrl);
   };
 
+  const uploadProductFile = async (file: File, label: string) => {
+    if (file.type.startsWith('video/')) {
+      return startDirectVideoUpload(file, { label });
+    }
+    return apiUpload.upload(file);
+  };
+
   const handleSubmit = async (e?: React.FormEvent) => {
     e?.preventDefault();
     if (!isFormValid || isSubmitting) return;
@@ -206,7 +215,7 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
       let coverPosterAssetId: string | undefined;
 
       if (coverFile) {
-        const uploadRes = await apiUpload.upload(coverFile);
+        const uploadRes = await uploadProductFile(coverFile, 'Portada del producto');
         finalCoverAssetId = uploadRes.assetId;
         setCoverAssetId(uploadRes.assetId);
       }
@@ -219,7 +228,7 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
       }
 
       const uploadedGallery = await Promise.all(
-        galleryFiles.map((file) => apiUpload.upload(file)),
+        galleryFiles.map((file) => uploadProductFile(file, 'Video de galería')),
       );
       const finalGallery = [
         ...galleryAssets.map((item) => ({ assetId: item.assetId })),

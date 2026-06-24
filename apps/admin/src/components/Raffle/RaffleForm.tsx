@@ -524,7 +524,10 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
       </div>
 
       {isSubmitting && (
-        <div className="fixed inset-0 bg-stone-900/20 backdrop-blur-[4px] z-[300] flex items-center justify-center animate-in fade-in duration-300">
+        <div
+          className="fixed inset-0 z-[300] flex items-center justify-center animate-in fade-in duration-300"
+          style={{ backgroundColor: 'var(--modal-backdrop)' }}
+        >
           <div className="bg-bg-card p-8 rounded-[2.5rem] shadow-2xl flex flex-col items-center gap-4 border border-border-main animate-in zoom-in-95 duration-300">
             <Loader2 className="w-10 h-10 text-brand-500 animate-spin" />
             <span className="font-black text-text-main uppercase tracking-[0.2em] text-[10px]">Guardando Rifa...</span>

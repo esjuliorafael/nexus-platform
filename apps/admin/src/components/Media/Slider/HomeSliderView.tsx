@@ -75,6 +75,18 @@ export const HomeSliderView = forwardRef<
     }, []);
 
     useEffect(() => {
+      const handleMediaUploadChange = () => {
+        void loadSlides();
+      };
+      window.addEventListener("nexus:media-upload-complete", handleMediaUploadChange);
+      window.addEventListener("nexus:media-upload-failed", handleMediaUploadChange);
+      return () => {
+        window.removeEventListener("nexus:media-upload-complete", handleMediaUploadChange);
+        window.removeEventListener("nexus:media-upload-failed", handleMediaUploadChange);
+      };
+    }, []);
+
+    useEffect(() => {
       if (viewMode === "slide_create") setEditingSlide(null);
     }, [viewMode]);
 

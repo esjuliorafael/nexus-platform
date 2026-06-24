@@ -22,6 +22,7 @@ import { NexusAutonomousButton } from "../../ui/NexusButton";
 import { NexusSection } from "../../ui/NexusSection";
 import { InteractionStage } from "../../ui/InteractionStage";
 import { UploadPreviewOverlay } from "../../ui/UploadPreviewOverlay";
+import { useUploadQueue } from "../../uploads/UploadQueueProvider";
 
 const toDateTimeLocalValue = (value?: string | null) => {
   if (!value) return "";
@@ -107,6 +108,7 @@ export const HomeSlideForm = forwardRef<
     { initialData, existingSlides = [], onSave, showToast, onValidationChange },
     ref,
   ) => {
+    const { startDirectVideoUpload } = useUploadQueue();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [type, setType] = useState<"PHOTO" | "VIDEO">(
       initialData?.type || "PHOTO",
@@ -224,6 +226,13 @@ export const HomeSlideForm = forwardRef<
       setType(selected.type.startsWith("video/") ? "VIDEO" : "PHOTO");
     };
 
+    const uploadSlideFile = async (selectedFile: File) => {
+      if (selectedFile.type.startsWith("video/")) {
+        return startDirectVideoUpload(selectedFile, { label: "Video del slide" });
+      }
+      return apiUpload.upload(selectedFile);
+    };
+
     const handleSubmit = async () => {
       if (!isFormValid || isSubmitting) return;
       if (!isSortOrderValid) {
@@ -249,7 +258,7 @@ export const HomeSlideForm = forwardRef<
         let finalAssetId = assetId;
 
         if (file) {
-          const uploadRes = await apiUpload.upload(file);
+          const uploadRes = await uploadSlideFile(file);
           finalAssetId = uploadRes.assetId;
           setAssetId(uploadRes.assetId);
         }

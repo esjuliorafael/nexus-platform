@@ -147,7 +147,7 @@ export const NexusSelect: React.FC<SelectProps> = ({
 }) => {
   return (
     <div 
-      className="group flex flex-col animate-in fade-in zoom-in-95 duration-200"
+      className="group flex w-full min-w-0 flex-col animate-in fade-in zoom-in-95 duration-200"
       style={{ animationDelay, animationTimingFunction: 'var(--ease-emil)', animationFillMode: 'both', gap: 'var(--space-xs)' }}
     >
       <label className="text-label uppercase tracking-[0.15em] text-text-muted ml-1 group-focus-within:text-brand-500 transition-colors">
@@ -155,7 +155,7 @@ export const NexusSelect: React.FC<SelectProps> = ({
       </label>
       <div className="relative flex items-center h-[var(--h-input)]">
         <select 
-          className={`w-full h-full bg-bg-muted border border-border-main px-5 focus:outline-none focus:ring-4 focus:ring-brand-500/5 focus:border-brand-500/50 focus:bg-bg-card transition-all duration-300 font-medium text-text-main appearance-none cursor-pointer ${className}`}
+          className={`h-full w-full min-w-0 appearance-none border border-border-main bg-bg-muted pl-5 pr-12 font-medium text-text-main transition-all duration-300 cursor-pointer focus:outline-none focus:ring-4 focus:ring-brand-500/5 focus:border-brand-500/50 focus:bg-bg-card ${className}`}
           style={{ borderRadius: 'var(--radius-inner-visual)' }}
           {...props}
         >

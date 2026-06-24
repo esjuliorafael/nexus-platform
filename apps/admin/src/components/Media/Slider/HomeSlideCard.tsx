@@ -1,5 +1,5 @@
 import React, { useRef, useState } from "react";
-import { ArrowDown, ArrowUp, Edit2, Play, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, Edit2, Play, Trash2, UploadCloud, XCircle } from "lucide-react";
 import { ASSET_BASE_URL } from "../../../api";
 import { HomeSlide } from "../../../types";
 import { NexusAutonomousBadge } from "../../ui/NexusBadge";
@@ -34,6 +34,9 @@ export const HomeSlideCard: React.FC<HomeSlideCardProps> = ({
   const [showPreview, setShowPreview] = useState(false);
   const videoRef = useRef<HTMLVideoElement>(null);
   const isVideo = slide.type === "VIDEO";
+  const assetStatus = slide.assetStatus || "READY";
+  const isAssetReady = assetStatus === "READY";
+  const isAssetFailed = assetStatus === "FAILED";
 
   const getFullUrl = (path?: string | null) => {
     if (!path) return "";
@@ -52,13 +55,13 @@ export const HomeSlideCard: React.FC<HomeSlideCardProps> = ({
   const posterUrl = getFullUrl(slide.posterUrl);
 
   const handleMouseEnter = () => {
-    if (!isVideo || !videoRef.current) return;
+    if (!isAssetReady || !isVideo || !videoRef.current) return;
     const playPromise = videoRef.current.play();
     if (playPromise !== undefined) playPromise.catch(() => {});
   };
 
   const handleMouseLeave = () => {
-    if (!isVideo || !videoRef.current) return;
+    if (!isAssetReady || !isVideo || !videoRef.current) return;
     videoRef.current.pause();
     videoRef.current.currentTime = 0;
   };
@@ -77,14 +80,49 @@ export const HomeSlideCard: React.FC<HomeSlideCardProps> = ({
         >
           <button
             type="button"
-            onClick={() => setShowPreview(true)}
+            onClick={() => {
+              if (isAssetReady) setShowPreview(true);
+            }}
             onMouseEnter={handleMouseEnter}
             onMouseLeave={handleMouseLeave}
             className="relative aspect-video w-full overflow-hidden bg-stone-950 text-left shadow-inner outline-none transition-transform duration-500 active:scale-[0.99] focus-visible:ring-4 focus-visible:ring-brand-500/20 lg:h-[var(--size-slide-thumb-height)]"
             style={{ borderRadius: "var(--radius-card-inner)" }}
             aria-label={`Previsualizar slide ${slide.title}`}
           >
-            {isVideo ? (
+            {!isAssetReady ? (
+              <div
+                className="flex h-full w-full flex-col items-center justify-center bg-bg-muted text-text-muted"
+                style={{ gap: "var(--space-xs)" }}
+              >
+                <span
+                  className="inline-flex items-center justify-center bg-bg-card border border-border-main"
+                  style={{
+                    width: "var(--size-button-card)",
+                    height: "var(--size-button-card)",
+                    borderRadius: "var(--radius-card-nested-compact)",
+                  }}
+                >
+                  {isAssetFailed ? (
+                    <XCircle
+                      style={{
+                        width: "var(--size-inner-icon-card)",
+                        height: "var(--size-inner-icon-card)",
+                      }}
+                    />
+                  ) : (
+                    <UploadCloud
+                      style={{
+                        width: "var(--size-inner-icon-card)",
+                        height: "var(--size-inner-icon-card)",
+                      }}
+                    />
+                  )}
+                </span>
+                <span className="text-caption font-bold uppercase tracking-[0.08em]">
+                  {isAssetFailed ? "Error" : "Subiendo"}
+                </span>
+              </div>
+            ) : isVideo ? (
               <video
                 ref={videoRef}
                 src={mediaUrl}
@@ -103,9 +141,11 @@ export const HomeSlideCard: React.FC<HomeSlideCardProps> = ({
               />
             )}
 
-            <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+            {isAssetReady && (
+              <div className="absolute inset-0 bg-gradient-to-t from-black/85 via-black/25 to-transparent" />
+            )}
 
-            {isVideo && (
+            {isAssetReady && isVideo && (
               <div
                 className="absolute flex items-center"
                 style={{
@@ -132,10 +172,12 @@ export const HomeSlideCard: React.FC<HomeSlideCardProps> = ({
               </div>
             )}
 
-            <div
-              className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent"
-              style={{ height: "var(--space-xl)" }}
-            />
+            {isAssetReady && (
+              <div
+                className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/70 to-transparent"
+                style={{ height: "var(--space-xl)" }}
+              />
+            )}
           </button>
 
           <div

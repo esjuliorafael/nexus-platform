@@ -8,5 +8,5 @@ export const settingsApi = {
 };
 
 export const mediaApi = {
-  getAll: () => client.get<Media[]>('/admin/media').then(res => res.data),
+  getAll: () => client.get<Media[]>('/store/media').then(res => res.data),
 };
