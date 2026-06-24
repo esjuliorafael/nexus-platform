@@ -6,6 +6,7 @@
 - `ContactProfile` is the optional public projection of a user.
 - `ContactChannel` stores one or more explicit WhatsApp or phone channels.
 - There is no independent contacts CRUD. Administrators manage another user's contact projection from `UsersView`; each user manages their own profile from `Mi Perfil`.
+- User contact editing uses the same `PublicContactView` surface as self-service profile contact editing. Do not open a separate modal for this workflow; selecting contact from a user card should navigate into the full contact editor and return to `UsersView` after saving.
 
 ## Admin Information Architecture
 
@@ -36,8 +37,9 @@ The public response exposes only editorial contact fields and active channels. I
 
 ## Permissions
 
-- `SUPERADMIN` can manage every user role.
+- `SUPERADMIN` can manage every user role and can edit public contact profiles for `ADMIN` and `STAFF` users.
 - `ADMIN` can create and manage only `STAFF` accounts.
+- `ADMIN` can edit public contact profiles for `STAFF` users.
 - `STAFF` cannot access user administration routes.
 - A user cannot delete their own account through the users endpoint.
 - Generic user updates do not change another user's notification preferences.

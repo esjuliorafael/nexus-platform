@@ -1,5 +1,5 @@
 import React, { useState, useImperativeHandle, forwardRef, useEffect } from 'react';
-import { Save, Check, User as UserIcon, Mail, Shield, Users, ShieldCheck, UserPlus, Phone, MessageCircle } from 'lucide-react';
+import { ArrowLeft, Save, Check, User as UserIcon, Mail, Shield, Users, ShieldCheck, UserPlus, Phone, MessageCircle, Edit2, Trash2 } from 'lucide-react';
 import { User } from '../../../types';
 import { apiUsers } from '../../../api';
 import { NexusSectionButton, NexusAutonomousButton, NexusCardButton } from '../../ui/NexusButton';
@@ -10,7 +10,9 @@ import { NexusSection } from '../../ui/NexusSection';
 import { NexusSectionCard } from '../../ui/NexusCard';
 import { NexusModal, NexusModalActions } from '../../ui/NexusModal';
 import { NexusCardBadge, type NexusBadgeVariant } from '../../ui/NexusBadge';
-import { UserContactModal } from './UserContactModal';
+import { NexusSwitch } from '../../ui/NexusSwitch';
+import { PublicContactView } from '../../Profile/PublicContactView';
+import type { ContactProfileOwner } from '../../Profile/profileTypes';
 
 interface UsersViewProps {
   showToast: (message: string, type?: 'success' | 'error') => void;
@@ -37,6 +39,18 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
 
   const currentUserString = localStorage.getItem('admin_session');
   const currentUser = currentUserString ? JSON.parse(currentUserString) : null;
+  const currentUserRole = String(currentUser?.role || 'staff').toLowerCase();
+  const normalizeRole = (role: unknown): 'superadmin' | 'admin' | 'staff' => {
+    const normalized = String(role || 'staff').toLowerCase();
+    if (normalized === 'superadmin' || normalized === 'admin') return normalized;
+    return 'staff';
+  };
+  const getRoleLabel = (role: unknown) => {
+    const normalized = normalizeRole(role);
+    if (normalized === 'superadmin') return 'Superadmin';
+    if (normalized === 'admin') return 'Admin';
+    return 'Staff';
+  };
 
   const fetchUsers = async () => {
     setIsLoading(true);
@@ -66,7 +80,7 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
   const handleEdit = (user: User) => {
     setEditingUser(user);
     setFormData({
-      name: user.name, email: user.email, phone: user.phone || '', username: user.username, password: '', role: user.role
+      name: user.name, email: user.email, phone: user.phone || '', username: user.username, password: '', role: normalizeRole(user.role)
     });
     setIsModalOpen(true);
   };
@@ -133,11 +147,33 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
   };
 
   const getRoleBadgeVariant = (user: User): NexusBadgeVariant => {
+    const role = normalizeRole(user.role);
     if (!user.isActive) return 'muted';
-    if (user.role === 'superadmin') return 'brand';
-    if (user.role === 'admin') return 'info';
+    if (role === 'superadmin') return 'brand';
+    if (role === 'admin') return 'info';
     return 'muted';
   };
+
+  const canManageUser = (user: User) => {
+    const role = normalizeRole(user.role);
+    if (currentUserRole === 'superadmin') return true;
+    return currentUserRole === 'admin' && role === 'staff';
+  };
+
+  const canEditPublicContact = (user: User) => {
+    const role = normalizeRole(user.role);
+    if (currentUserRole === 'superadmin') return role === 'admin' || role === 'staff';
+    return currentUserRole === 'admin' && role === 'staff';
+  };
+
+  const isCurrentUser = (user: User) => user.id === String(currentUser?.id);
+
+  const toContactProfileOwner = (user: User): ContactProfileOwner => ({
+    id: user.id,
+    name: user.name,
+    role: user.role.toUpperCase() as ContactProfileOwner['role'],
+    contactProfile: user.contactProfile,
+  });
 
   if (isLoading && users.length === 0) {
     return (
@@ -147,6 +183,34 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
             <div className="absolute inset-0 border-4 border-brand-500 border-t-transparent rounded-[2rem] animate-spin" style={{ animationDuration: '1s', animationTimingFunction: 'var(--ease-emil)' }} />
          </div>
          <p className="text-label text-text-muted">Sincronizando Equipo...</p>
+      </div>
+    );
+  }
+
+  if (contactUser) {
+    return (
+      <div className="flex flex-col pb-12 animate-in fade-in duration-300" style={{ gap: 'var(--space-lg)' }}>
+        <div>
+          <NexusSectionButton
+            type="button"
+            variant="secondary"
+            icon={ArrowLeft}
+            onClick={() => setContactUser(null)}
+          >
+            Volver a usuarios
+          </NexusSectionButton>
+        </div>
+        <PublicContactView
+          profile={toContactProfileOwner(contactUser)}
+          showToast={showToast}
+          saveLabel="Guardar y volver"
+          successMessage="Contacto publico actualizado"
+          saveContact={(data) => apiUsers.updateContact(contactUser.id, data)}
+          onSaved={async () => {
+            await fetchUsers();
+            setContactUser(null);
+          }}
+        />
       </div>
     );
   }
@@ -168,7 +232,7 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
         subtitle="Administradores y Staff con acceso al sistema"
         icon={Users}
         delay="300ms"
-        action={currentUser?.role !== 'staff' && (
+        action={currentUserRole !== 'staff' && (
           <NexusSectionButton
             onClick={() => {
               setEditingUser(null);
@@ -196,61 +260,90 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
                 delay={`${idx * 70}ms`}
                 icon={UserIcon}
                 iconVariant="muted"
-                title={user.name}
-                isMuted={!user.isActive}
-                subtitle={
-                  <div className="flex items-center gap-3">
-                    <NexusCardBadge variant="muted" className="text-text-muted/60">
-                      @{user.username}
-                    </NexusCardBadge>
-                    <NexusCardBadge
-                      variant={getRoleBadgeVariant(user)}
-                      className={`transition-all duration-500 ${!user.isActive ? 'text-text-muted/40' : ''}`}
-                    >
-                      {user.role}
-                    </NexusCardBadge>
-
-                    {(currentUser?.role === 'superadmin' || user.role === 'staff') && (
-                      <NexusCardButton
-                        variant="secondary"
-                        isIconOnly
-                        icon={MessageCircle}
-                        onClick={() => setContactUser(user)}
-                        aria-label={`Configurar contacto público de ${user.name}`}
-                        title="Contacto público"
-                      />
-                    )}
-                  </div>
-                }
-                rightContent={
-                  <p className={`text-secondary transition-colors duration-500 ${user.isActive ? 'text-text-muted' : 'text-text-muted/40'}`}>
-                    {user.email}
-                  </p>
-                }
-                actions={
-                  <div className="flex items-center gap-4">
-                    <NexusCardBadge
-                      variant={user.isActive ? 'success' : 'muted'}
-                      className={`transition-all duration-500 ${!user.isActive ? 'text-text-muted/40' : ''}`}
-                    >
-                      {user.isActive ? 'Activo' : 'Inactivo'}
-                    </NexusCardBadge>
-
-                    {(currentUser?.role === 'superadmin' || user.role === 'staff') && user.id !== String(currentUser?.id) && (
-                      <button
-                        onClick={() => toggleStatus(user.id)}
-                        className={`w-12 h-6 rounded-full transition-all relative active:scale-90 ${
-                          user.isActive ? 'bg-brand-500 shadow-lg shadow-brand-500/20' : 'bg-stone-200'
-                        }`}
-                        style={{ transitionTimingFunction: 'var(--ease-emil)' }}
+                title={
+                  <div className="flex min-w-0 flex-col" style={{ gap: 'var(--space-xs)' }}>
+                    <div className="flex min-w-0 flex-wrap items-center" style={{ gap: 'var(--space-sm)' }}>
+                      <h4 className={`truncate text-h2 transition-colors duration-500 ${user.isActive ? 'text-text-main' : 'text-text-muted'}`}>
+                        {user.name}
+                      </h4>
+                      <NexusCardBadge
+                        variant={getRoleBadgeVariant(user)}
+                        className={`transition-all duration-500 ${!user.isActive ? 'text-text-muted/40' : ''}`}
                       >
-                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-bg-card shadow-sm dark:shadow-none transition-all ${user.isActive ? 'left-7' : 'left-1'}`} />
-                      </button>
-                    )}
+                        {getRoleLabel(user.role)}
+                      </NexusCardBadge>
+                    </div>
+
+                    <div className="flex min-w-0 flex-wrap items-center" style={{ gap: 'var(--space-sm)' }}>
+                      <NexusCardBadge variant="muted" className="text-text-muted/60">
+                        @{user.username}
+                      </NexusCardBadge>
+                      {user.email && (
+                        <span className={`truncate text-secondary transition-colors duration-500 ${user.isActive ? 'text-text-muted' : 'text-text-muted/40'}`}>
+                          {user.email}
+                        </span>
+                      )}
+                    </div>
                   </div>
                 }
-                onEdit={(currentUser?.role === 'superadmin' || user.role === 'staff') ? () => handleEdit(user) : undefined}
-                onDelete={(currentUser?.role === 'superadmin' || user.role === 'staff') && user.id !== String(currentUser?.id) ? () => handleDeleteClick(user) : undefined}
+                isMuted={!user.isActive}
+                actions={
+                  <div
+                    className="flex w-full items-center justify-between md:justify-end"
+                    style={{ gap: 'var(--space-md)' }}
+                  >
+                    <div
+                      className="flex flex-col items-center"
+                      style={{ gap: 'var(--space-xs)' }}
+                    >
+                      <NexusSwitch
+                        checked={user.isActive}
+                        onChange={() => toggleStatus(user.id)}
+                        disabled={!canManageUser(user) || isCurrentUser(user)}
+                        aria-label={user.isActive ? `Desactivar ${user.name}` : `Activar ${user.name}`}
+                      />
+                      <span className={`text-label uppercase tracking-[0.15em] transition-colors duration-500 ${user.isActive ? 'text-text-muted' : 'text-text-muted/40'}`}>
+                        {user.isActive ? 'Activo' : 'Inactivo'}
+                      </span>
+                    </div>
+
+                    <div className="flex shrink-0 items-center" style={{ gap: 'var(--space-sm)' }}>
+                      {canEditPublicContact(user) && (
+                        <NexusCardButton
+                          variant="secondary"
+                          isIconOnly
+                          icon={MessageCircle}
+                          onClick={() => setContactUser(user)}
+                          aria-label={`Configurar contacto publico de ${user.name}`}
+                          title="Contacto publico"
+                        />
+                      )}
+
+                      {canManageUser(user) && (
+                        <NexusCardButton
+                          variant="secondary"
+                          isIconOnly
+                          icon={Edit2}
+                          onClick={() => handleEdit(user)}
+                          aria-label={`Editar ${user.name}`}
+                          title="Editar"
+                        />
+                      )}
+
+                      {canManageUser(user) && !isCurrentUser(user) && (
+                        <NexusCardButton
+                          variant="secondary"
+                          isIconOnly
+                          icon={Trash2}
+                          onClick={() => handleDeleteClick(user)}
+                          aria-label={`Eliminar ${user.name}`}
+                          title="Eliminar"
+                          className="hover:border-rose-200 hover:bg-rose-50 hover:text-rose-500"
+                        />
+                      )}
+                    </div>
+                  </div>
+                }
                 swipeable={true}
               />
             ))
@@ -312,10 +405,10 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
                       icon={Shield}
                       required
                     >
-                      {currentUser?.role === 'superadmin' && (
+                      {currentUserRole === 'superadmin' && (
                         <option value="superadmin">Super Administrador</option>
                       )}
-                      {currentUser?.role === 'superadmin' && (
+                      {currentUserRole === 'superadmin' && (
                         <option value="admin">Administrador de Tienda</option>
                       )}
                       <option value="staff">Personal de Apoyo (Staff)</option>
@@ -373,12 +466,6 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
               </form>
       </NexusModal>
 
-      <UserContactModal
-        user={contactUser}
-        onClose={() => setContactUser(null)}
-        onSaved={fetchUsers}
-        showToast={showToast}
-      />
     </div>
   );
 });

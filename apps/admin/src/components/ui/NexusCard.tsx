@@ -231,7 +231,7 @@ export const NexusSectionCard: React.FC<LegacyCardProps> = ({
       </div>
       <div className="flex items-center justify-between md:justify-end shrink-0 border-t md:border-t-0 border-border-main pt-[var(--space-md)] md:pt-0" style={{ gap: 'var(--space-lg)' }}>
         {rightContent && <div className="text-left md:text-right flex flex-col items-start md:items-end" style={{ gap: 'var(--space-xs)' }}>{rightContent}</div>}
-        <div className="flex items-center" style={{ gap: 'var(--space-sm)' }}>
+        <div className="flex w-full items-center md:w-auto" style={{ gap: 'var(--space-sm)' }}>
           {actions}
           {(onEdit || onDelete) && (
             <div className="hidden sm:flex opacity-0 group-hover/card:opacity-100 transition-all duration-500 translate-x-2 group-hover/card:translate-x-0" style={{ gap: 'var(--space-sm)' }}>
