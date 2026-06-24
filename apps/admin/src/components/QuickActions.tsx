@@ -24,6 +24,8 @@ import {
   TicketPlus,
   Brain,
   MonitorPlay,
+  UserRound,
+  KeyRound,
 } from "lucide-react";
 import { QuickActionGroup } from "../types";
 
@@ -84,16 +86,26 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
         ...(userRole?.toLowerCase() === "superadmin"
           ? [{ icon: <Settings size={20} />, label: "Plataforma" }]
           : []),
-        { icon: <Users size={20} />, label: "Usuarios" },
+        ...(userRole?.toLowerCase() === "superadmin" || userRole?.toLowerCase() === "admin"
+          ? [{ icon: <Users size={20} />, label: "Usuarios" }]
+          : []),
         { icon: <LayoutGrid size={20} />, label: "Departamentos" },
         { icon: <Truck size={20} />, label: "Configurar Envíos" },
         { icon: <Ticket size={20} />, label: "Activar Rifas" },
         ...(userRole?.toLowerCase() === "superadmin"
           ? [{ icon: <Brain size={20} />, label: "Audiencias" }]
           : []),
-        { icon: <Bell size={20} />, label: "Notificaciones" },
         { icon: <Timer size={20} />, label: "Lib. Inventario" },
         { icon: <PenTool size={20} />, label: "Añadir Logo" },
+      ],
+    },
+    {
+      group: "Mi Perfil",
+      items: [
+        { icon: <UserRound size={20} />, label: "Datos Personales" },
+        { icon: <MessageCircle size={20} />, label: "Contacto Público" },
+        { icon: <Bell size={20} />, label: "Notificaciones" },
+        { icon: <KeyRound size={20} />, label: "Seguridad" },
       ],
     },
   ];

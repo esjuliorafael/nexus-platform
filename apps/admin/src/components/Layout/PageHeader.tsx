@@ -21,6 +21,7 @@ interface PageHeaderProps {
   isEditingRaffle: boolean;
   // System states
   systemViewMode: string;
+  profileViewMode: string;
   shippingSubView: string;
   channelsViewMode: string;
   // Dynamic Actions
@@ -43,6 +44,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   isCreatingRaffle,
   isEditingRaffle,
   systemViewMode,
+  profileViewMode,
   shippingSubView,
   channelsViewMode,
   actionAddon,
@@ -50,6 +52,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   const isMediaMode = activeTab === "Medios";
   const isStoreMode = activeTab === "Tienda";
   const isSystemMode = activeTab === "Sistema";
+  const isProfileMode = activeTab === "Mi Perfil";
   const isRafflesMode = activeTab === "Rifas";
   const isOrdersMode =
     isStoreMode &&
@@ -218,12 +221,6 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             Ajustes de <span className="text-text-muted">Inventario</span>
           </>
         );
-      if (systemViewMode === "notifications")
-        return (
-          <>
-            Alertas y <span className="text-text-muted">Notificaciones</span>
-          </>
-        );
       if (systemViewMode === "billing")
         return (
           <>
@@ -247,6 +244,16 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           Ajustes del <span className="text-text-muted">Sistema</span>
         </>
       );
+    }
+
+    if (isProfileMode) {
+      if (profileViewMode === "contact")
+        return <>Contacto <span className="text-text-muted">Público</span></>;
+      if (profileViewMode === "notifications")
+        return <>Mis <span className="text-text-muted">Notificaciones</span></>;
+      if (profileViewMode === "security")
+        return <>Cuenta y <span className="text-text-muted">Seguridad</span></>;
+      return <>Mi <span className="text-text-muted">Perfil</span></>;
     }
 
     return (
@@ -304,8 +311,6 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       }
       if (systemViewMode === "inventory")
         return "Configura la cancelación automática de órdenes vencidas para liberar el stock.";
-      if (systemViewMode === "notifications")
-        return "Administra los avisos por correo electrónico para mantenerte informado de tus ventas.";
       if (systemViewMode === "billing")
         return "Monitorea la vigencia de tu licenciamiento y gestiona los cargos por servicios adicionales.";
       if (systemViewMode === "intelligence")
@@ -313,6 +318,15 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       if (systemViewMode === "config")
         return "Administra los parámetros globales de infraestructura, zonificación y staff.";
       return "Controla los parámetros globales de infraestructura, zonificación y staff.";
+    }
+    if (isProfileMode) {
+      if (profileViewMode === "contact")
+        return "Administra la información de atención que puede mostrarse en el Storefront.";
+      if (profileViewMode === "notifications")
+        return "Define cómo quieres recibir avisos relacionados con la operación.";
+      if (profileViewMode === "security")
+        return "Protege tu cuenta y actualiza tus credenciales personales.";
+      return "Actualiza tu identidad y datos personales dentro de Nexus.";
     }
     return "Gestiona el inventario, ventas y medios desde tu panel central.";
   };

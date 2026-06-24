@@ -21,6 +21,7 @@ import {
   homeSlideAdminRoutes,
   homeSlidePublicRoutes,
 } from "./home-slides/home-slide.routes";
+import { publicContactRoutes } from "./profile/profile.routes";
 
 export async function storeRoutes(server: FastifyInstance) {
   // Public Storefront Routes
@@ -29,6 +30,7 @@ export async function storeRoutes(server: FastifyInstance) {
     prefix: "/store/home-slides",
   });
   await server.register(mediaPublicRoutes, { prefix: "/store/media" });
+  await server.register(publicContactRoutes, { prefix: "/store/contacts" });
   await server.register(orderRoutes, { prefix: "/store/orders" });
   await server.register(mpRoutes, { prefix: "/mp" });
 

@@ -86,6 +86,22 @@ export interface HomeSlide {
   updatedAt: string;
 }
 
+export interface PublicContactChannel {
+  id: number;
+  type: "WHATSAPP" | "PHONE";
+  phoneNumber: string;
+  label: string | null;
+}
+
+export interface PublicContact {
+  id: number;
+  displayName: string;
+  responsibility: string;
+  description: string | null;
+  scheduleText: string | null;
+  channels: PublicContactChannel[];
+}
+
 export interface Raffle {
   id: number;
   title: string;

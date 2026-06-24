@@ -1,5 +1,5 @@
 import React, { useContext, useEffect, useRef, useState } from "react";
-import { LogOut, Moon, Sun } from "lucide-react";
+import { LogOut, Moon, Sun, UserRound } from "lucide-react";
 import { apiSystem } from "../api";
 import { ThemeContext } from "../App";
 import { useFavicon } from "./useFavicon";
@@ -11,6 +11,7 @@ interface HeaderProps {
   raffleEnabled?: boolean;
   hasBillingNotification?: boolean;
   newOrdersCount?: number;
+  onOpenProfile: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -20,6 +21,7 @@ export const Header: React.FC<HeaderProps> = ({
   raffleEnabled = false,
   hasBillingNotification = false,
   newOrdersCount = 0,
+  onOpenProfile,
 }) => {
   const { theme, toggleTheme } = useContext(ThemeContext);
   const [isScrolled, setIsScrolled] = useState(false);
@@ -194,6 +196,23 @@ export const Header: React.FC<HeaderProps> = ({
               className="flex items-center"
               style={{ gap: "var(--space-sm)" }}
             >
+              <button
+                onClick={onOpenProfile}
+                className={`group flex items-center justify-center rounded-full border shadow-sm transition-all active:scale-90 dark:shadow-none ${
+                  activeTab === "Mi Perfil"
+                    ? "border-brand-200 bg-brand-50 text-brand-600"
+                    : "border-border-main bg-bg-card text-text-main hover:bg-bg-muted"
+                }`}
+                style={{
+                  width: "var(--size-button-section)",
+                  height: "var(--size-button-section)",
+                  transitionTimingFunction: "var(--ease-emil)",
+                }}
+                title="Mi perfil"
+                aria-label="Abrir mi perfil"
+              >
+                <UserRound size={20} />
+              </button>
               <button
                 onClick={toggleTheme}
                 className="group flex items-center justify-center rounded-full border border-border-main bg-bg-card text-text-main shadow-sm transition-all hover:bg-bg-muted active:scale-90 dark:shadow-none"

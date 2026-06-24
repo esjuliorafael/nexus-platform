@@ -26,6 +26,7 @@ model User {
   passwordHash         String      @map("password_hash")
   name                 String
   email                String?
+  phone                String?
   role                 Role        @default(STAFF)
   active               Boolean     @default(true)
   createdAt            DateTime    @default(now()) @map("created_at")
@@ -33,8 +34,42 @@ model User {
   receiveNotifications Boolean     @default(true) @map("receive_notifications")
   mustChangePassword   Boolean     @default(true) @map("must_change_password")
   orderReads           OrderRead[]
+  contactProfile       ContactProfile?
 
   @@map("users")
+}
+
+model ContactProfile {
+  id             Int              @id @default(autoincrement())
+  userId         Int              @unique @map("user_id")
+  displayName    String?          @map("display_name")
+  responsibility String
+  description    String?
+  scheduleText   String?          @map("schedule_text")
+  published      Boolean          @default(false)
+  sortOrder      Int              @default(0) @map("sort_order")
+  createdAt      DateTime         @default(now()) @map("created_at")
+  updatedAt      DateTime         @updatedAt @map("updated_at")
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  channels       ContactChannel[]
+
+  @@index([published, sortOrder])
+  @@map("contact_profiles")
+}
+
+model ContactChannel {
+  id               Int                @id @default(autoincrement())
+  contactProfileId Int                @map("contact_profile_id")
+  type             ContactChannelType
+  phoneNumber      String             @map("phone_number")
+  label            String?
+  active           Boolean            @default(true)
+  sortOrder        Int                @default(0) @map("sort_order")
+  contactProfile   ContactProfile     @relation(fields: [contactProfileId], references: [id], onDelete: Cascade)
+
+  @@unique([contactProfileId, type, phoneNumber])
+  @@index([contactProfileId, active, sortOrder])
+  @@map("contact_channels")
 }
 
 model Category {
@@ -380,6 +415,11 @@ enum MediaAssetStatus {
   PROCESSING @map("processing")
   READY      @map("ready")
   FAILED     @map("failed")
+}
+
+enum ContactChannelType {
+  WHATSAPP @map("whatsapp")
+  PHONE    @map("phone")
 }
 
 enum TemplateType {

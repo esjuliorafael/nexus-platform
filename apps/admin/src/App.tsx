@@ -46,10 +46,6 @@ import {
   InventorySettingsViewRef,
 } from "./components/System/Inventory/InventorySettingsView";
 import {
-  NotificationSettingsView,
-  NotificationSettingsViewRef,
-} from "./components/System/Notifications/NotificationSettingsView";
-import {
   BillingView,
   BillingViewRef,
 } from "./components/System/Billing/BillingView";
@@ -74,6 +70,8 @@ import { NexusAutonomousCard } from "./components/ui/NexusCard";
 import { NexusAutonomousIcon } from "./components/ui/NexusIcon";
 import { NexusConfirmModal } from "./components/ui/NexusConfirmModal";
 import { UploadQueueProvider } from "./components/uploads/UploadQueueProvider";
+import { ProfileView, ProfileViewMode } from "./components/Profile/ProfileView";
+import type { OwnProfile } from "./types";
 
 export const ThemeContext = createContext<{
   theme: "light" | "dark";
@@ -90,7 +88,6 @@ type SystemViewType =
   | "identity"
   | "channels"
   | "inventory"
-  | "notifications"
   | "billing"
   | "raffle"
   | "intelligence";
@@ -101,6 +98,7 @@ type ActiveTabType =
   | "Tienda"
   | "Órdenes"
   | "Sistema"
+  | "Mi Perfil"
   | "Rifas";
 
 type MediaModeType =
@@ -122,6 +120,7 @@ const ACTIVE_TABS: ActiveTabType[] = [
   "Tienda",
   "Órdenes",
   "Sistema",
+  "Mi Perfil",
   "Rifas",
 ];
 
@@ -382,6 +381,13 @@ function App() {
   const [raffleViewMode, setRaffleViewMode] = useState<RaffleModeType>(() =>
     getStoredEnum("admin_raffle_view_mode", RAFFLE_MODES, "list"),
   );
+  const [profileViewMode, setProfileViewMode] = useState<ProfileViewMode>(() =>
+    getStoredEnum(
+      "admin_profile_view_mode",
+      ["details", "contact", "notifications", "security"] as const,
+      "details",
+    ),
+  );
   const [systemViewMode, setSystemViewMode] = useState<SystemViewType>(() => {
     const saved = localStorage.getItem("last_system_view");
     const validModes: SystemViewType[] = [
@@ -391,7 +397,6 @@ function App() {
       "identity",
       "channels",
       "inventory",
-      "notifications",
       "billing",
       "raffle",
       "intelligence",
@@ -427,6 +432,10 @@ function App() {
     localStorage.setItem("admin_raffle_view_mode", raffleViewMode);
   }, [raffleViewMode]);
 
+  useEffect(() => {
+    localStorage.setItem("admin_profile_view_mode", profileViewMode);
+  }, [profileViewMode]);
+
   const [shippingSubView, setShippingSubView] = useState<"config" | "zones">(
     "config",
   );
@@ -451,7 +460,6 @@ function App() {
   const identityRef = React.useRef<IdentityViewRef>(null);
   const channelFormRef = React.useRef<{ handleSave: () => void }>(null);
   const inventoryRef = React.useRef<InventorySettingsViewRef>(null);
-  const notificationsRef = React.useRef<NotificationSettingsViewRef>(null);
   const billingRef = React.useRef<BillingViewRef>(null);
   const raffleSettingsRef = React.useRef<{ handleSave: () => void }>(null);
   const platformSettingsRef = React.useRef<{ handleSave: () => void }>(null);
@@ -604,6 +612,8 @@ function App() {
     const authData = {
       loggedIn: true,
       token: jwtToken,
+      id: userData.id,
+      username: userData.username,
       name: userData.name,
       role: userData.role || "staff",
       mustChangePassword: userData.mustChangePassword,
@@ -653,6 +663,7 @@ function App() {
   const isOrdersViewActive =
     isOrdersTab || (isStoreMode && storeViewMode === "orders");
   const isSystemMode = activeTab === "Sistema";
+  const isProfileMode = activeTab === "Mi Perfil";
   const isRafflesMode = activeTab === "Rifas";
 
   useEffect(() => {
@@ -805,7 +816,20 @@ function App() {
         setRaffleViewMode("create");
         break;
       case "Notificaciones":
-        navigateToSystem("notifications");
+        setActiveTab("Mi Perfil");
+        setProfileViewMode("notifications");
+        break;
+      case "Datos Personales":
+        setActiveTab("Mi Perfil");
+        setProfileViewMode("details");
+        break;
+      case "Contacto Público":
+        setActiveTab("Mi Perfil");
+        setProfileViewMode("contact");
+        break;
+      case "Seguridad":
+        setActiveTab("Mi Perfil");
+        setProfileViewMode("security");
         break;
       case "Lib. Inventario":
         navigateToSystem("inventory");
@@ -997,17 +1021,6 @@ function App() {
           </NexusSectionButton>
         );
       }
-      if (systemViewMode === "notifications") {
-        return (
-          <NexusSectionButton
-            onClick={() => notificationsRef.current?.handleSave()}
-            variant="brand"
-            icon={Save}
-          >
-            Guardar Notificaciones
-          </NexusSectionButton>
-        );
-      }
       if (systemViewMode === "raffle") {
         return (
           <NexusSectionButton
@@ -1084,6 +1097,11 @@ function App() {
           onLogout={handleLogout}
           raffleEnabled={raffleEnabled}
           newOrdersCount={pendingOrderIds.size}
+          onOpenProfile={() => {
+            setActiveTab("Mi Perfil");
+            setProfileViewMode("details");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
         />
 
         <main
@@ -1113,6 +1131,7 @@ function App() {
               isCreatingRaffle={isCreatingRaffle}
               isEditingRaffle={isEditingRaffle}
               systemViewMode={systemViewMode}
+              profileViewMode={profileViewMode}
               shippingSubView={shippingSubView}
               channelsViewMode={channelsViewMode}
               actionAddon={getActionAddon()}
@@ -1134,7 +1153,21 @@ function App() {
             </div>
 
             <div className="flex-1">
-              {isMediaMode ? (
+              {isProfileMode ? (
+                <ProfileView
+                  viewMode={profileViewMode}
+                  showToast={showToast}
+                  onIdentityChange={(nextProfile: OwnProfile) => {
+                    setUserName(nextProfile.name.split(" ")[0]);
+                    const currentSession = localStorage.getItem("admin_session");
+                    if (currentSession) {
+                      const parsed = JSON.parse(currentSession);
+                      parsed.name = nextProfile.name;
+                      localStorage.setItem("admin_session", JSON.stringify(parsed));
+                    }
+                  }}
+                />
+              ) : isMediaMode ? (
                 mediaViewMode === "slider_list" ||
                 mediaViewMode === "slide_create" ||
                 mediaViewMode === "slide_edit" ? (
@@ -1270,11 +1303,6 @@ function App() {
                   ) : systemViewMode === "inventory" ? (
                     <InventorySettingsView
                       ref={inventoryRef}
-                      showToast={showToast}
-                    />
-                  ) : systemViewMode === "notifications" ? (
-                    <NotificationSettingsView
-                      ref={notificationsRef}
                       showToast={showToast}
                     />
                   ) : systemViewMode === "billing" ? (

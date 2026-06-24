@@ -45,11 +45,13 @@ export function Footer() {
     { href: '/', label: 'Inicio' },
     { href: '/store', label: 'Tienda oficial' },
     { href: '/gallery', label: 'Galeria' },
+    { href: '/contact', label: 'Contacto' },
     ...(showRaffles ? [{ href: '/raffles', label: 'Rifas activas' }] : []),
   ];
 
   const helpLinks = [
     { href: '/#preguntas-frecuentes', label: 'Preguntas frecuentes' },
+    { href: '/contact', label: 'Contactar a un responsable' },
     { href: '/store', label: 'Catalogo disponible' },
     { href: '/gallery', label: 'Archivo visual' },
     ...(showRaffles ? [{ href: '/raffles', label: 'Rifas activas' }] : []),

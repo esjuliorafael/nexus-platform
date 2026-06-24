@@ -13,6 +13,7 @@ import { z } from "zod";
 import { prismaPlugin } from "./plugins/prisma.plugin";
 import { authPlugin } from "./plugins/auth.plugin";
 import { storeRoutes } from "./modules/store/store.routes";
+import { ownProfileRoutes } from "./modules/store/profile/profile.routes";
 import { rafflePlugin } from "./modules/raffle/raffle.plugin";
 
 // Queues & Workers
@@ -104,6 +105,8 @@ async function bootstrap() {
       });
       return { success: true };
     });
+
+    await server.register(ownProfileRoutes, { prefix: "/api/v1/auth/me" });
 
     // Register Store Routes
     await server.register(storeRoutes, { prefix: "/api/v1" });

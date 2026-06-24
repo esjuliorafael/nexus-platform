@@ -1,20 +1,31 @@
 import { storePrisma } from "@nexus/db/store";
 import bcrypt from "bcrypt";
 
+const userSelect = {
+  id: true,
+  username: true,
+  name: true,
+  email: true,
+  phone: true,
+  role: true,
+  active: true,
+  receiveNotifications: true,
+  notificationEmail: true,
+  createdAt: true,
+  contactProfile: {
+    include: { channels: { orderBy: [{ sortOrder: "asc" as const }, { id: "asc" as const }] } },
+  },
+};
+
 export const userService = {
   async getAll() {
     return storePrisma.user.findMany({
-      select: {
-        id: true,
-        username: true,
-        name: true,
-        email: true,
-        role: true,
-        active: true,
-        receiveNotifications: true,
-        createdAt: true,
-      },
+      select: userSelect,
     });
+  },
+
+  async getById(id: number) {
+    return storePrisma.user.findUnique({ where: { id }, select: userSelect });
   },
 
   async create(data: any) {
@@ -26,15 +37,7 @@ export const userService = {
         ...userData,
         passwordHash,
       },
-      select: {
-        id: true,
-        username: true,
-        name: true,
-        email: true,
-        role: true,
-        active: true,
-        receiveNotifications: true,
-      },
+      select: userSelect,
     });
   },
 
@@ -49,15 +52,7 @@ export const userService = {
     return storePrisma.user.update({
       where: { id },
       data: updateData,
-      select: {
-        id: true,
-        username: true,
-        name: true,
-        email: true,
-        role: true,
-        active: true,
-        receiveNotifications: true,
-      },
+      select: userSelect,
     });
   },
 

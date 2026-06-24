@@ -1,8 +1,8 @@
 import React, { useState, useImperativeHandle, forwardRef, useEffect } from 'react';
-import { Save, Check, User as UserIcon, Mail, Shield, Users, ShieldCheck, UserPlus } from 'lucide-react';
+import { Save, Check, User as UserIcon, Mail, Shield, Users, ShieldCheck, UserPlus, Phone, MessageCircle } from 'lucide-react';
 import { User } from '../../../types';
 import { apiUsers } from '../../../api';
-import { NexusSectionButton, NexusAutonomousButton } from '../../ui/NexusButton';
+import { NexusSectionButton, NexusAutonomousButton, NexusCardButton } from '../../ui/NexusButton';
 import { NexusInput, NexusSelect } from '../../ui/NexusInputs';
 import { EmptyState } from '../../ui/EmptyState';
 import { NexusHero } from '../../ui/NexusHero';
@@ -10,6 +10,7 @@ import { NexusSection } from '../../ui/NexusSection';
 import { NexusSectionCard } from '../../ui/NexusCard';
 import { NexusModal, NexusModalActions } from '../../ui/NexusModal';
 import { NexusCardBadge, type NexusBadgeVariant } from '../../ui/NexusBadge';
+import { UserContactModal } from './UserContactModal';
 
 interface UsersViewProps {
   showToast: (message: string, type?: 'success' | 'error') => void;
@@ -26,11 +27,12 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [contactUser, setContactUser] = useState<User | null>(null);
 
   const [formData, setFormData] = useState<{
-    name: string; email: string; username: string; password: string; role: 'superadmin' | 'admin' | 'staff';
+    name: string; email: string; phone: string; username: string; password: string; role: 'superadmin' | 'admin' | 'staff';
   }>({
-    name: '', email: '', username: '', password: '', role: 'staff'
+    name: '', email: '', phone: '', username: '', password: '', role: 'staff'
   });
 
   const currentUserString = localStorage.getItem('admin_session');
@@ -56,7 +58,7 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
   useImperativeHandle(ref, () => ({
     handleCreateUser: () => {
       setEditingUser(null);
-      setFormData({ name: '', email: '', username: '', password: '', role: 'staff' });
+      setFormData({ name: '', email: '', phone: '', username: '', password: '', role: 'staff' });
       setIsModalOpen(true);
     }
   }));
@@ -64,7 +66,7 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
   const handleEdit = (user: User) => {
     setEditingUser(user);
     setFormData({
-      name: user.name, email: user.email, username: user.username, password: '', role: user.role
+      name: user.name, email: user.email, phone: user.phone || '', username: user.username, password: '', role: user.role
     });
     setIsModalOpen(true);
   };
@@ -108,8 +110,12 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
     e.preventDefault();
     try {
       const payload = {
-        ...formData,
-        role: formData.role.toUpperCase()
+        name: formData.name,
+        email: formData.email || null,
+        phone: formData.phone || null,
+        username: formData.username,
+        role: formData.role.toUpperCase(),
+        ...(formData.password ? { password: formData.password } : {}),
       };
 
       if (editingUser) {
@@ -121,8 +127,8 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
       }
       fetchUsers();
       setIsModalOpen(false);
-    } catch (error) {
-      showToast('Error al guardar el usuario', 'error');
+    } catch (error: any) {
+      showToast(error?.response?.data?.message || 'Error al guardar el usuario', 'error');
     }
   };
 
@@ -166,7 +172,7 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
           <NexusSectionButton
             onClick={() => {
               setEditingUser(null);
-              setFormData({ name: '', email: '', username: '', password: '', role: 'staff' });
+              setFormData({ name: '', email: '', phone: '', username: '', password: '', role: 'staff' });
               setIsModalOpen(true);
             }}
             icon={UserPlus}
@@ -203,6 +209,17 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
                     >
                       {user.role}
                     </NexusCardBadge>
+
+                    {(currentUser?.role === 'superadmin' || user.role === 'staff') && (
+                      <NexusCardButton
+                        variant="secondary"
+                        isIconOnly
+                        icon={MessageCircle}
+                        onClick={() => setContactUser(user)}
+                        aria-label={`Configurar contacto público de ${user.name}`}
+                        title="Contacto público"
+                      />
+                    )}
                   </div>
                 }
                 rightContent={
@@ -219,7 +236,7 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
                       {user.isActive ? 'Activo' : 'Inactivo'}
                     </NexusCardBadge>
 
-                    {(currentUser?.role === 'superadmin' || user.role !== 'superadmin') && user.email !== currentUser?.email && (
+                    {(currentUser?.role === 'superadmin' || user.role === 'staff') && user.id !== String(currentUser?.id) && (
                       <button
                         onClick={() => toggleStatus(user.id)}
                         className={`w-12 h-6 rounded-full transition-all relative active:scale-90 ${
@@ -232,8 +249,8 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
                     )}
                   </div>
                 }
-                onEdit={(currentUser?.role === 'superadmin' || user.role !== 'superadmin' || user.email === currentUser?.email) ? () => handleEdit(user) : undefined}
-                onDelete={(currentUser?.role === 'superadmin' || user.role !== 'superadmin') && user.email !== currentUser?.email ? () => handleDeleteClick(user) : undefined}
+                onEdit={(currentUser?.role === 'superadmin' || user.role === 'staff') ? () => handleEdit(user) : undefined}
+                onDelete={(currentUser?.role === 'superadmin' || user.role === 'staff') && user.id !== String(currentUser?.id) ? () => handleDeleteClick(user) : undefined}
                 swipeable={true}
               />
             ))
@@ -258,6 +275,15 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
                       placeholder="Ej. Ricardo Montes"
                       icon={UserIcon}
                       required
+                    />
+
+                    <NexusInput
+                      label="Teléfono privado"
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                      placeholder="+521234567890"
+                      icon={Phone}
+                      helperText="No se publica automáticamente."
                     />
 
                     <NexusInput
@@ -289,7 +315,9 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
                       {currentUser?.role === 'superadmin' && (
                         <option value="superadmin">Super Administrador</option>
                       )}
-                      <option value="admin">Administrador de Tienda</option>
+                      {currentUser?.role === 'superadmin' && (
+                        <option value="admin">Administrador de Tienda</option>
+                      )}
                       <option value="staff">Personal de Apoyo (Staff)</option>
                     </NexusSelect>
 
@@ -310,6 +338,8 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
                         onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                         placeholder={editingUser ? "••••••••" : "Clave segura"}
                         icon={ShieldCheck}
+                        minLength={8}
+                        helperText="Mínimo 8 caracteres."
                         required={!editingUser}
                       />
                     </div>
@@ -327,7 +357,12 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
                   </NexusAutonomousButton>
                   <NexusAutonomousButton
                     type="submit"
-                    disabled={!(formData.name.trim() && formData.email.trim() && formData.username.trim() && (editingUser || formData.password.trim()))}
+                    disabled={!(
+                      formData.name.trim()
+                      && formData.email.trim()
+                      && formData.username.trim()
+                      && (editingUser ? !formData.password || formData.password.length >= 8 : formData.password.length >= 8)
+                    )}
                     className="flex-[2]"
                     icon={editingUser ? Save : Check}
                     variant="brand"
@@ -337,6 +372,13 @@ export const UsersView = forwardRef<UsersViewRef, UsersViewProps>(({ showToast, 
                 </NexusModalActions>
               </form>
       </NexusModal>
+
+      <UserContactModal
+        user={contactUser}
+        onClose={() => setContactUser(null)}
+        onSaved={fetchUsers}
+        showToast={showToast}
+      />
     </div>
   );
 });

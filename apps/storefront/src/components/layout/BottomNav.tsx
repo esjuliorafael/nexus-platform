@@ -10,6 +10,7 @@ import {
   ShoppingBag,
   ShoppingCart,
   Ticket,
+  Headphones,
   type LucideIcon,
 } from "lucide-react";
 import { useCartStore } from "../../store/cart.store";
@@ -52,6 +53,7 @@ export function BottomNav({ showRaffles = false, onOpenCart }: BottomNavProps) {
     { to: "/", label: "Inicio", icon: Home },
     { to: "/store", label: "Tienda", icon: ShoppingBag },
     { to: "/gallery", label: "Galeria", icon: ImageIcon },
+    { to: "/contact", label: "Contacto", icon: Headphones },
     ...(showRaffles ? [{ to: "/raffles", label: "Rifas", icon: Ticket }] : []),
   ];
 

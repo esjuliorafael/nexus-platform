@@ -33,6 +33,7 @@ export function Header({ showRaffles = false, onOpenCart }: HeaderProps) {
     { to: "/", label: "Inicio" },
     { to: "/store", label: "Tienda" },
     { to: "/gallery", label: "Galeria" },
+    { to: "/contact", label: "Contacto" },
     ...(showRaffles ? [{ to: "/raffles", label: "Rifas" }] : []),
   ];
 

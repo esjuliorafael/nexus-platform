@@ -20,6 +20,7 @@ import {
   RaffleParticipantIntelligence,
   ChannelsOverview,
   HomeSlide,
+  OwnProfile,
 } from "./types";
 
 // Derive API URL dynamically based on current domain if not explicitly provided via ENV
@@ -193,6 +194,34 @@ export const apiAuth = {
   },
   setupAccount: async (password: string) => {
     const res = await api.post("/auth/setup-account", { password });
+    return res.data;
+  },
+  getProfile: async (): Promise<OwnProfile> => {
+    const res = await api.get("/auth/me/profile");
+    return { ...res.data, id: res.data.id.toString() };
+  },
+  updateProfile: async (data: {
+    name: string;
+    username: string;
+    email?: string | null;
+    phone?: string | null;
+  }): Promise<OwnProfile> => {
+    const res = await api.put("/auth/me/profile", data);
+    return { ...res.data, id: res.data.id.toString() };
+  },
+  updateNotifications: async (data: {
+    receiveNotifications: boolean;
+    notificationEmail?: string | null;
+  }): Promise<OwnProfile> => {
+    const res = await api.put("/auth/me/notifications", data);
+    return { ...res.data, id: res.data.id.toString() };
+  },
+  updateContact: async (data: any): Promise<OwnProfile> => {
+    const res = await api.put("/auth/me/contact", data);
+    return { ...res.data, id: res.data.id.toString() };
+  },
+  changePassword: async (currentPassword: string, newPassword: string) => {
+    const res = await api.put("/auth/me/password", { currentPassword, newPassword });
     return res.data;
   },
 };
@@ -527,38 +556,22 @@ export const apiUsers = {
       id: item.id.toString(),
       name: item.name,
       username: item.username,
-      email: item.email,
+      email: item.email || "",
+      phone: item.phone,
       isActive: item.active,
       createdAt: item.createdAt,
       receiveNotifications: item.receiveNotifications,
       notificationEmail: item.notificationEmail || item.email,
+      contactProfile: item.contactProfile,
       role: item.role.toLowerCase(),
     }));
   },
   create: async (data: any) => api.post("/admin/users", data),
   update: async (id: string, data: any) => api.put(`/admin/users/${id}`, data),
+  updateContact: async (id: string, data: any) => api.put(`/admin/users/${id}/contact`, data),
   delete: async (id: string) => api.delete(`/admin/users/${id}`),
   toggleStatus: async (id: string, active: boolean) =>
     api.put(`/admin/users/${id}`, { active }),
-  getCurrentUser: async () => {
-    const res = await api.get("/auth/me");
-    return {
-      ...res.data,
-      id: res.data.id.toString(),
-      isActive: res.data.active,
-      name: res.data.name,
-    };
-  },
-  updateNotifications: async (
-    id: string,
-    receiveNotifications: boolean,
-    notificationEmail?: string | null,
-  ) => {
-    return api.put(`/admin/users/${id}`, {
-      receiveNotifications,
-      notificationEmail,
-    });
-  },
 };
 
 export const apiSystem = {

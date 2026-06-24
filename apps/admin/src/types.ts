@@ -122,11 +122,49 @@ export interface User {
   name: string;
   username: string;
   email: string;
+  phone?: string | null;
   isActive: boolean;
   createdAt: string;
   receiveNotifications?: boolean;
   notificationEmail?: string;
+  contactProfile?: ContactProfile | null;
   role: "superadmin" | "admin" | "staff";
+}
+
+export type ContactChannelType = "WHATSAPP" | "PHONE";
+
+export interface ContactChannel {
+  id?: string | number;
+  type: ContactChannelType;
+  phoneNumber: string;
+  label?: string | null;
+  active: boolean;
+  sortOrder?: number;
+}
+
+export interface ContactProfile {
+  id?: string | number;
+  displayName: string;
+  responsibility: string;
+  description?: string | null;
+  scheduleText?: string | null;
+  published: boolean;
+  sortOrder: number;
+  channels: ContactChannel[];
+}
+
+export interface OwnProfile {
+  id: string;
+  username: string;
+  name: string;
+  email?: string | null;
+  phone?: string | null;
+  role: "SUPERADMIN" | "ADMIN" | "STAFF";
+  active: boolean;
+  mustChangePassword: boolean;
+  receiveNotifications: boolean;
+  notificationEmail?: string | null;
+  contactProfile?: ContactProfile | null;
 }
 
 export interface StatCardProps {
@@ -145,6 +183,7 @@ export type QuickActionGroup =
   | "Órdenes"
   | "Diseño"
   | "Sistema"
+  | "Mi Perfil"
   | "Rifas";
 
 export interface QuickActionItem {
