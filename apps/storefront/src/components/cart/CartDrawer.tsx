@@ -21,29 +21,35 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
 
   return (
     <div className="fixed inset-0 z-50 flex justify-end">
-      <div className="absolute inset-0 bg-stone-950/50 backdrop-blur-sm" onClick={onClose} />
+      <div
+        className="absolute inset-0 backdrop-blur-sm"
+        style={{ background: 'var(--sf-modal-backdrop)' }}
+        onClick={onClose}
+      />
 
       <aside
-        className="relative flex h-full w-full max-w-md flex-col bg-white shadow-2xl animate-in slide-in-from-right duration-300"
-        style={{
-          borderTopLeftRadius: 'var(--sf-radius-outer)',
-          borderBottomLeftRadius: 'var(--sf-radius-outer)',
-        }}
+        className="relative flex h-full w-full flex-col bg-white shadow-2xl animate-in slide-in-from-right duration-300 sm:max-w-md sm:rounded-l-[var(--sf-radius-outer)]"
       >
         <div
           className="flex items-center justify-between border-b border-stone-100"
           style={{ padding: 'var(--sf-padding-inner)', gap: 'var(--sf-space-md)' }}
         >
           <div className="flex items-center min-w-0" style={{ gap: 'var(--sf-space-md)' }}>
-            <StorefrontIcon icon={ShoppingBag} context="card" variant="brand" />
+            <StorefrontIcon icon={ShoppingBag} context="autonomous" variant="brand" />
             <div className="min-w-0">
-              <h2 className="sf-text-h2 text-stone-850 uppercase">Mi Carrito</h2>
+              <h2 className="sf-text-h2 text-stone-850">Mi Carrito</h2>
               <p className="sf-text-label text-stone-400">{items.length} producto(s)</p>
             </div>
           </div>
-          <Button variant="ghost" size="icon" context="card" onClick={onClose} aria-label="Cerrar carrito">
-            <X size={20} />
-          </Button>
+          <Button
+            variant="ghost"
+            size="icon"
+            context="card"
+            icon={X}
+            isIconOnly
+            onClick={onClose}
+            aria-label="Cerrar carrito"
+          />
         </div>
 
         <div className="flex-1 overflow-y-auto" style={{ padding: 'var(--sf-padding-inner)' }}>
@@ -59,11 +65,11 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
           ) : (
             <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
               {items.map((item) => (
-                <StorefrontCard key={item.productId} level={3} className="group">
+                <StorefrontCard key={item.productId} level={2} density="compact" className="group">
                   <div className="flex" style={{ gap: 'var(--sf-space-md)' }}>
                     <div
                       className="h-20 w-20 shrink-0 overflow-hidden bg-stone-100"
-                      style={{ borderRadius: 'var(--sf-radius-nested)' }}
+                      style={{ borderRadius: 'var(--sf-radius-card-nested)' }}
                     >
                       {item.thumbnail ? (
                         <img src={item.thumbnail} alt={item.name} className="h-full w-full object-cover" />
@@ -83,10 +89,11 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
                       <div className="mt-3 flex items-center" style={{ gap: 'var(--sf-space-sm)' }}>
                         <div
                           className="flex items-center bg-stone-100"
-                          style={{ borderRadius: 'var(--sf-radius-nested)', padding: 'var(--sf-space-xs)' }}
+                          style={{ borderRadius: 'var(--sf-radius-card-nested)', padding: 'var(--sf-space-xs)' }}
                         >
                           <button
-                            className="p-1 text-stone-500 transition-colors hover:text-brand-500"
+                            className="flex h-7 w-7 items-center justify-center text-stone-500 transition-colors hover:text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/25"
+                            style={{ borderRadius: 'var(--sf-radius-card-nested-compact)' }}
                             onClick={() => updateQuantity(item.productId, item.quantity - 1)}
                             aria-label="Disminuir cantidad"
                           >
@@ -94,7 +101,8 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
                           </button>
                           <span className="w-8 text-center sf-text-button-card text-stone-800">{item.quantity}</span>
                           <button
-                            className="p-1 text-stone-500 transition-colors hover:text-brand-500"
+                            className="flex h-7 w-7 items-center justify-center text-stone-500 transition-colors hover:text-brand-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/25"
+                            style={{ borderRadius: 'var(--sf-radius-card-nested-compact)' }}
                             onClick={() => updateQuantity(item.productId, item.quantity + 1)}
                             aria-label="Aumentar cantidad"
                           >
@@ -103,7 +111,8 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
                         </div>
 
                         <button
-                          className="ml-auto text-stone-300 opacity-100 transition-colors hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100"
+                          className="ml-auto flex h-9 w-9 items-center justify-center text-stone-300 opacity-100 transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/25 sm:opacity-0 sm:group-hover:opacity-100"
+                          style={{ borderRadius: 'var(--sf-radius-card-nested)' }}
                           onClick={() => handleRemove(item.productId, item.name)}
                           aria-label="Eliminar producto"
                         >
@@ -123,7 +132,6 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
             className="border-t border-stone-100 bg-stone-50/70"
             style={{
               padding: 'var(--sf-padding-inner)',
-              borderBottomLeftRadius: 'var(--sf-radius-outer)',
             }}
           >
             <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
@@ -134,6 +142,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
               <Button
                 className="w-full"
                 context="section"
+                icon={ShoppingBag}
                 onClick={() => {
                   onClose();
                   router.push('/checkout');

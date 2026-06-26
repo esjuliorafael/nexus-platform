@@ -99,7 +99,7 @@ export default async function RaffleDetailPage({ params }: PageProps) {
 
   if (!raffle) {
     return (
-      <div className="mx-auto flex min-h-[70vh] max-w-2xl flex-col items-center justify-center px-[var(--sf-padding-outer)] text-center">
+      <div className="mx-auto flex min-h-[70vh] max-w-2xl flex-col items-center justify-center px-[var(--sf-inset-page-mobile)] text-center md:px-[var(--sf-padding-outer)]">
         <div
           className="mx-auto flex max-w-lg flex-col items-center justify-center border border-stone-200/60 bg-white text-center shadow-xl shadow-stone-100/50"
           style={{

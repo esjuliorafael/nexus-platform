@@ -58,7 +58,7 @@ export function Footer() {
   ];
 
   return (
-    <footer className="border-t border-stone-800 bg-stone-950 px-[var(--sf-padding-outer)] pb-32 pt-[var(--sf-space-xl)] text-stone-400 md:pb-20">
+    <footer className="border-t border-stone-800 bg-stone-950 px-[var(--sf-inset-page-mobile)] pb-32 pt-[var(--sf-space-xl)] text-stone-400 md:px-[var(--sf-padding-outer)] md:pb-20">
       <div className="mx-auto max-w-7xl space-y-[var(--sf-space-xl)]">
         <div className="grid grid-cols-1 gap-[var(--sf-space-md)] border-b border-stone-800 pb-[var(--sf-space-lg)] md:grid-cols-3">
           {trustItems.map((item) => (

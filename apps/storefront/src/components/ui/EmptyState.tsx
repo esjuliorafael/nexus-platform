@@ -10,9 +10,10 @@ interface EmptyStateProps {
   description: string;
   actionText?: string;
   onActionClick?: () => void;
+  compact?: boolean;
 }
 
-export function EmptyState({ icon: Icon, title, description, actionText, onActionClick }: EmptyStateProps) {
+export function EmptyState({ icon: Icon, title, description, actionText, onActionClick, compact = false }: EmptyStateProps) {
   return (
     <motion.div 
       initial={{ opacity: 0, y: 15 }}
@@ -21,19 +22,25 @@ export function EmptyState({ icon: Icon, title, description, actionText, onActio
       className="flex flex-col items-center justify-center text-center bg-white border border-stone-200/60 shadow-xl shadow-stone-100/50 max-w-lg mx-auto"
       style={{
         borderRadius: 'var(--sf-radius-outer)',
-        padding: 'var(--sf-padding-outer)',
+        padding: compact ? 'var(--sf-padding-inner)' : 'var(--sf-padding-outer)',
         gap: 'var(--sf-space-md)',
       }}
     >
       <div
         className="bg-brand-50 flex items-center justify-center text-brand-500 shadow-inner"
         style={{
-          width: 'var(--sf-size-icon-section)',
-          height: 'var(--sf-size-icon-section)',
+          width: compact ? 'var(--sf-size-stage-container-compact)' : 'var(--sf-size-stage-container)',
+          height: compact ? 'var(--sf-size-stage-container-compact)' : 'var(--sf-size-stage-container)',
           borderRadius: 'var(--sf-radius-inner)',
         }}
       >
-        <Icon size={36} strokeWidth={1.5} />
+        <Icon
+          style={{
+            width: compact ? 'var(--sf-size-stage-icon-compact)' : 'var(--sf-size-stage-icon)',
+            height: compact ? 'var(--sf-size-stage-icon-compact)' : 'var(--sf-size-stage-icon)',
+          }}
+          strokeWidth={1.5}
+        />
       </div>
       
       <div className="flex flex-col" style={{ gap: 'var(--sf-space-sm)' }}>

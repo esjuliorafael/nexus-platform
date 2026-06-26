@@ -18,9 +18,14 @@ import { useCartStore } from "../../store/cart.store";
 interface BottomNavProps {
   showRaffles?: boolean;
   onOpenCart?: () => void;
+  isCartOpen?: boolean;
 }
 
-export function BottomNav({ showRaffles = false, onOpenCart }: BottomNavProps) {
+export function BottomNav({
+  showRaffles = false,
+  onOpenCart,
+  isCartOpen = false,
+}: BottomNavProps) {
   const pathname = usePathname();
   const totalItems = useCartStore((state) =>
     state.items.reduce((acc, item) => acc + item.quantity, 0),
@@ -56,6 +61,8 @@ export function BottomNav({ showRaffles = false, onOpenCart }: BottomNavProps) {
     { to: "/contact", label: "Contacto", icon: Headphones },
     ...(showRaffles ? [{ to: "/raffles", label: "Rifas", icon: Ticket }] : []),
   ];
+  const isActiveRoute = (href: string) =>
+    href === "/" ? pathname === "/" : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
     <motion.div
@@ -67,15 +74,20 @@ export function BottomNav({ showRaffles = false, onOpenCart }: BottomNavProps) {
         scale: shouldShow ? 1 : 0.98,
       }}
       transition={{ duration: 0.38, ease: [0.23, 1, 0.32, 1] }}
-      className="fixed bottom-5 left-1/2 z-40 w-[92%] max-w-md md:hidden"
-      style={{ pointerEvents: shouldShow ? "auto" : "none" }}
+      className="fixed left-1/2 z-40 flex w-fit max-w-[calc(100vw-(var(--sf-inset-mobile-chrome)*2))] items-center md:hidden"
+      style={{
+        bottom: "var(--sf-inset-mobile-chrome-block)",
+        pointerEvents: shouldShow ? "auto" : "none",
+      }}
       aria-hidden={!shouldShow}
     >
       <nav
-        className="grid items-center gap-1 border border-stone-800/90 bg-stone-950/94 p-2 shadow-[0_24px_70px_rgba(0,0,0,0.35)] backdrop-blur-xl"
+        className="flex items-center justify-center border border-stone-200/90 bg-white shadow-[0_18px_48px_rgba(87,68,55,0.14)]"
         style={{
-          gridTemplateColumns: `repeat(${navItems.length + 1}, minmax(0, 1fr))`,
-          borderRadius: "var(--sf-radius-card-inner)",
+          height: "var(--sf-h-mobile-nav)",
+          borderRadius: "var(--sf-radius-outer)",
+          gap: "var(--sf-space-xs)",
+          padding: "var(--sf-space-sm)",
         }}
       >
         {navItems.map((item) => (
@@ -84,36 +96,59 @@ export function BottomNav({ showRaffles = false, onOpenCart }: BottomNavProps) {
             href={item.to}
             label={item.label}
             icon={item.icon}
-            active={pathname === item.to}
+            active={!isCartOpen && isActiveRoute(item.to)}
           />
         ))}
+      </nav>
 
+      <div
+        className="flex shrink-0 items-center justify-center border border-stone-200/90 bg-white shadow-[0_18px_48px_rgba(87,68,55,0.14)]"
+        style={{
+          height: "var(--sf-h-mobile-nav)",
+          borderRadius: "var(--sf-radius-outer)",
+          marginLeft: "var(--sf-space-sm)",
+          padding: "var(--sf-space-sm)",
+        }}
+      >
         <button
           type="button"
           onClick={onOpenCart}
-          className="group relative flex min-h-[4rem] flex-col items-center justify-center gap-1 rounded-[var(--sf-radius-nested)] px-1 text-stone-500 transition-colors duration-300 hover:text-stone-200 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/25"
-          style={{ transitionTimingFunction: "var(--sf-ease)" }}
+          className={`group relative flex shrink-0 items-center justify-center border transition-all duration-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/25 ${
+            isCartOpen
+              ? "border-brand-100 bg-brand-50 text-brand-800 shadow-sm"
+              : "border-transparent text-stone-500 hover:bg-stone-100 hover:text-stone-950"
+          }`}
+          style={{
+            width: "var(--sf-size-mobile-nav-item)",
+            height: "var(--sf-size-mobile-nav-item)",
+            borderRadius: "var(--sf-radius-mobile-nav-item)",
+            transitionTimingFunction: "var(--sf-ease)",
+          }}
+          aria-label="Carrito"
+          aria-pressed={isCartOpen}
         >
           <motion.span
             whileTap={{ scale: 0.92 }}
-            className="relative flex h-9 w-9 items-center justify-center rounded-[var(--sf-radius-nested)]"
+            data-cart-icon
+            className="flex shrink-0 items-center justify-center"
           >
-            <ShoppingCart size={20} strokeWidth={2} />
-            {mounted && totalItems > 0 && (
-              <motion.span
-                initial={{ scale: 0 }}
-                animate={{ scale: 1 }}
-                className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full border-2 border-stone-950 bg-brand-500 px-1 text-[9px] font-black leading-none text-white shadow-md"
-              >
-                {totalItems}
-              </motion.span>
-            )}
+            <ShoppingCart
+              style={{ width: "var(--sf-size-mobile-nav-icon)", height: "var(--sf-size-mobile-nav-icon)" }}
+              strokeWidth={isCartOpen ? 2.35 : 2.3}
+            />
           </motion.span>
-          <span className="sf-text-label text-[10px] text-current">
-            Carrito
-          </span>
+          {mounted && totalItems > 0 && (
+            <motion.span
+              data-cart-count
+              initial={{ scale: 0 }}
+              animate={{ scale: 1 }}
+              className="absolute -right-[0.125rem] -top-[0.125rem] flex h-[1.125rem] min-w-[1.125rem] items-center justify-center rounded-full border-2 border-white bg-brand-500 px-1 text-[8px] font-black leading-none text-white shadow-md"
+            >
+              {totalItems}
+            </motion.span>
+          )}
         </button>
-      </nav>
+      </div>
     </motion.div>
   );
 }
@@ -134,24 +169,35 @@ function BottomNavItem({
   return (
     <Link
       href={href}
-      className={`group relative flex min-h-[4rem] flex-col items-center justify-center gap-1 rounded-[var(--sf-radius-nested)] px-1 transition-colors duration-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/25 ${
-        active ? "text-white" : "text-stone-500 hover:text-stone-200"
+      aria-label={label}
+      className={`group relative flex min-w-0 items-center justify-center overflow-hidden border transition-all duration-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/25 ${
+        active
+          ? "shrink-0 border-brand-100 bg-brand-50 text-brand-800 shadow-sm"
+          : "shrink-0 border-transparent px-0 text-stone-500 hover:bg-stone-100 hover:text-stone-950"
       }`}
-      style={{ transitionTimingFunction: "var(--sf-ease)" }}
+      style={{
+        width: active ? undefined : "var(--sf-size-mobile-nav-item)",
+        height: "var(--sf-size-mobile-nav-item)",
+        gap: active ? "var(--sf-space-sm)" : undefined,
+        paddingInline: active ? "var(--sf-padding-mobile-nav-active-inline)" : undefined,
+        borderRadius: "var(--sf-radius-mobile-nav-item)",
+        transitionTimingFunction: "var(--sf-ease)",
+      }}
     >
       <motion.span
         whileTap={{ scale: 0.92 }}
-        className={`flex h-9 w-9 items-center justify-center rounded-[var(--sf-radius-nested)] transition-colors duration-300 ${
-          active ? "bg-brand-500 text-white shadow-lg shadow-brand-500/25" : ""
-        }`}
+        className="flex shrink-0 items-center justify-center"
       >
-        <Icon size={20} strokeWidth={active ? 2.4 : 2} />
+        <Icon
+          style={{ width: "var(--sf-size-mobile-nav-icon)", height: "var(--sf-size-mobile-nav-icon)" }}
+          strokeWidth={active ? 2.35 : 2.3}
+        />
       </motion.span>
-      <span
-        className={`sf-text-label text-[10px] ${active ? "text-brand-300" : "text-current"}`}
-      >
-        {label}
-      </span>
+      {active && (
+        <span className="sf-text-caption min-w-0 truncate text-current">
+          {label}
+        </span>
+      )}
     </Link>
   );
 }

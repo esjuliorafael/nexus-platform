@@ -43,7 +43,7 @@ export function FAQAccordion() {
         const isOpen = openIndex === index;
 
         return (
-          <StorefrontCard key={faq.question} interactive={false} className="overflow-hidden p-0">
+          <StorefrontCard key={faq.question} interactive={false} density="none" className="overflow-hidden">
             <button
               type="button"
               onClick={() => setOpenIndex(isOpen ? null : index)}

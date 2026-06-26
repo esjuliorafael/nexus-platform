@@ -6,6 +6,7 @@ import { usePathname } from "next/navigation";
 import { ShoppingBag } from "lucide-react";
 import { useSettings } from "../../hooks/useSettings";
 import { useCartStore } from "../../store/cart.store";
+import { Button } from "../ui/Button";
 
 interface HeaderProps {
   showRaffles?: boolean;
@@ -69,7 +70,7 @@ export function Header({ showRaffles = false, onOpenCart }: HeaderProps) {
   return (
     <>
       <header className="pointer-events-none fixed left-0 right-0 top-0 z-50 hidden md:block">
-        <div className="mx-auto flex max-w-[1440px] items-start justify-between px-[var(--sf-padding-outer)] pt-6">
+        <div className="mx-auto flex max-w-[1440px] items-start justify-between px-[var(--sf-padding-outer)] pt-[var(--sf-space-md)]">
           <Link
             href="/"
             className="pointer-events-auto group flex min-h-[4.25rem] min-w-[4.25rem] items-center justify-center transition-transform duration-300 hover:scale-[1.03] active:scale-95"
@@ -85,34 +86,39 @@ export function Header({ showRaffles = false, onOpenCart }: HeaderProps) {
             ) : (
               <div
                 className="flex h-14 w-14 shrink-0 items-center justify-center bg-brand-500 text-xl font-black text-white shadow-xl shadow-stone-950/25"
-                style={{ borderRadius: "var(--sf-radius-inner)" }}
+                style={{ borderRadius: "var(--sf-radius-card-inner)" }}
               >
                 {brandName.charAt(0)}
               </div>
             )}
           </Link>
 
-          <button
+          <Button
             type="button"
             onClick={onOpenCart}
             aria-label="Abrir carrito"
-            className="pointer-events-auto relative flex h-14 w-14 items-center justify-center rounded-full border border-white/[0.18] bg-stone-950/[0.45] text-white shadow-[0_18px_45px_rgba(12,10,9,0.28)] backdrop-blur-xl transition-all duration-300 hover:-translate-y-0.5 hover:bg-stone-950/[0.65] focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/25 active:scale-95"
-            style={{ transitionTimingFunction: "var(--sf-ease)" }}
-          >
-            <ShoppingBag size={22} strokeWidth={2.2} />
-            {mounted && totalItems > 0 && (
+            variant="ghost"
+            context="autonomous"
+            size="icon"
+            icon={ShoppingBag}
+            className="pointer-events-auto relative border-white/[0.18] bg-stone-950/[0.45] text-white shadow-[0_18px_45px_rgba(12,10,9,0.28)] backdrop-blur-xl hover:-translate-y-0.5 hover:border-white/25 hover:bg-stone-950/[0.65] hover:text-white"
+            floatingContent={mounted && totalItems > 0 ? (
               <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-stone-950 bg-brand-500 px-1.5 text-[10px] font-black leading-none text-white shadow-lg shadow-stone-950/20">
                 {totalItems}
               </span>
-            )}
-          </button>
+            ) : null}
+          />
         </div>
       </header>
 
       <div className="fixed bottom-6 left-1/2 z-50 hidden w-[calc(100%-3rem)] max-w-2xl -translate-x-1/2 md:block">
         <nav
-          className="relative overflow-hidden rounded-full border border-white/[0.15] bg-stone-950/[0.72] p-1.5 shadow-[0_22px_80px_rgba(12,10,9,0.34)] backdrop-blur-2xl"
+          className="relative overflow-hidden border border-white/[0.15] bg-stone-950/[0.72] shadow-[0_22px_80px_rgba(12,10,9,0.34)] backdrop-blur-2xl"
           aria-label="Navegacion principal"
+          style={{
+            borderRadius: "var(--sf-radius-card-inner)",
+            padding: "var(--sf-space-sm)",
+          }}
         >
           <div
             ref={navBaseRef}
@@ -130,12 +136,15 @@ export function Header({ showRaffles = false, onOpenCart }: HeaderProps) {
                     <Link
                       ref={isActive ? activeNavRef : null}
                       href={link.to}
-                      className={`sf-text-button-card flex h-12 items-center justify-center rounded-full px-6 transition-colors duration-300 active:scale-95 ${
+                      className={`sf-text-button-card flex h-[var(--sf-h-button-card)] items-center justify-center px-[var(--sf-padding-button-card-inline)] transition-colors duration-300 active:scale-95 ${
                         isActive
                           ? "text-transparent"
                           : "text-white/[0.58] hover:text-white"
                       }`}
-                      style={{ transitionTimingFunction: "var(--sf-ease)" }}
+                      style={{
+                        borderRadius: "var(--sf-radius-card-nested)",
+                        transitionTimingFunction: "var(--sf-ease)",
+                      }}
                     >
                       {link.label}
                     </Link>
@@ -150,10 +159,16 @@ export function Header({ showRaffles = false, onOpenCart }: HeaderProps) {
               className="pointer-events-none absolute inset-0 z-20 transition-[clip-path] duration-500"
               style={{ transitionTimingFunction: "var(--sf-ease)" }}
             >
-              <ul className="flex h-full w-full items-center justify-center rounded-full bg-stone-50 shadow-inner shadow-white/50">
+              <ul
+                className="flex h-full w-full items-center justify-center bg-stone-50 shadow-inner shadow-white/50"
+                style={{ borderRadius: "var(--sf-radius-card-nested)" }}
+              >
                 {navLinks.map((link) => (
                   <li key={link.to} className="flex-1">
-                    <div className="sf-text-button-card flex h-12 items-center justify-center whitespace-nowrap rounded-full px-6 text-brand-600">
+                    <div
+                      className="sf-text-button-card flex h-[var(--sf-h-button-card)] items-center justify-center whitespace-nowrap px-[var(--sf-padding-button-card-inline)] text-brand-600"
+                      style={{ borderRadius: "var(--sf-radius-card-nested)" }}
+                    >
                       {link.label}
                     </div>
                   </li>

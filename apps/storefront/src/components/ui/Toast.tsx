@@ -41,7 +41,11 @@ export function StorefrontToast({ message, type, onClose }: ToastProps) {
       }}
       className={cn(
         'fixed bottom-8 right-6 left-6 md:left-auto md:w-[380px] z-[120] flex items-center gap-4 border bg-white shadow-[0_20px_50px_rgba(0,0,0,0.08)] backdrop-blur-xl p-4',
-        type === 'error' ? 'border-red-100' : 'border-stone-100'
+        type === 'success'
+          ? 'border-emerald-100 bg-emerald-50/95'
+          : type === 'error'
+            ? 'border-red-100 bg-red-50/95'
+            : 'border-stone-100 bg-white/95'
       )}
       style={{ 
         borderRadius: 'var(--sf-radius-inner)',
@@ -69,14 +73,6 @@ export function StorefrontToast({ message, type, onClose }: ToastProps) {
       >
         <X size={18} strokeWidth={2} />
       </button>
-
-      {/* Technical Accent: Side Status Bar */}
-      <div 
-        className={cn(
-          "absolute left-0 top-6 bottom-6 w-1 rounded-r-full",
-          type === 'success' ? 'bg-emerald-500' : type === 'error' ? 'bg-red-500' : 'bg-brand-500'
-        )}
-      />
     </motion.div>
   );
 }

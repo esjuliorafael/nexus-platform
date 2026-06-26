@@ -46,6 +46,8 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 pnpm-debug.log*
+.local-dev/
+.tmp/
 
 # Temporary Utility Scripts (Root)
 check_*.ts

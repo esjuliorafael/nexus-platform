@@ -4,7 +4,7 @@ import { cn } from '../../utils/cn';
 interface StorefrontIconProps {
   icon: LucideIcon;
   variant?: 'brand' | 'muted' | 'dark' | 'success' | 'warning' | 'error';
-  context?: 'section' | 'card';
+  context?: 'section' | 'card' | 'autonomous';
   className?: string;
 }
 
@@ -24,6 +24,14 @@ export function StorefrontIcon({
   };
 
   const isSection = context === 'section';
+  const isAutonomous = context === 'autonomous';
+  const size = isSection || isAutonomous ? 'var(--sf-size-icon-section)' : 'var(--sf-size-icon-card)';
+  const innerSize = isSection || isAutonomous ? 'var(--sf-size-inner-icon-section)' : 'var(--sf-size-inner-icon-card)';
+  const radius = isSection
+    ? 'var(--sf-radius-inner)'
+    : isAutonomous
+      ? 'var(--sf-radius-card-inner)'
+      : 'var(--sf-radius-nested)';
 
   return (
     <div
@@ -33,16 +41,28 @@ export function StorefrontIcon({
         className
       )}
       style={{
-        width: isSection ? 'var(--sf-size-icon-section)' : 'var(--sf-size-icon-card)',
-        height: isSection ? 'var(--sf-size-icon-section)' : 'var(--sf-size-icon-card)',
-        borderRadius: isSection ? 'var(--sf-radius-inner)' : 'var(--sf-radius-nested)',
+        width: size,
+        height: size,
+        borderRadius: radius,
         transitionTimingFunction: 'var(--sf-ease)',
       }}
     >
       <Icon
-        size={isSection ? 'var(--sf-size-inner-icon-section)' : 'var(--sf-size-inner-icon-card)'}
+        size={innerSize}
         strokeWidth={1.7}
       />
     </div>
   );
 }
+
+export const StorefrontSectionIcon = (props: Omit<StorefrontIconProps, 'context'>) => (
+  <StorefrontIcon {...props} context="section" />
+);
+
+export const StorefrontCardIcon = (props: Omit<StorefrontIconProps, 'context'>) => (
+  <StorefrontIcon {...props} context="card" />
+);
+
+export const StorefrontAutonomousIcon = (props: Omit<StorefrontIconProps, 'context'>) => (
+  <StorefrontIcon {...props} context="autonomous" />
+);

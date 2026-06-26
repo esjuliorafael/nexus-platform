@@ -177,12 +177,12 @@ export function MediaViewer({
           variant="ghost"
           context="autonomous"
           size="icon"
+          icon={X}
+          isIconOnly
           onClick={onClose}
           className="pointer-events-auto border border-white/20 bg-white/10 text-white backdrop-blur-md hover:border-white/30 hover:bg-white/20"
           aria-label="Cerrar visor"
-        >
-          <X size={20} strokeWidth={2.5} />
-        </Button>
+        />
       </div>
 
       {canNavigate && (
@@ -192,23 +192,23 @@ export function MediaViewer({
             variant="ghost"
             context="autonomous"
             size="icon"
+            icon={ChevronLeft}
+            isIconOnly
             onClick={onPrevious}
             className="absolute left-[var(--sf-padding-inner)] top-1/2 z-30 hidden -translate-y-1/2 border border-white/20 bg-white/10 text-white backdrop-blur-md hover:border-white/30 hover:bg-white/20 lg:inline-flex"
             aria-label="Ver medio anterior"
-          >
-            <ChevronLeft size={22} strokeWidth={2.5} />
-          </Button>
+          />
           <Button
             type="button"
             variant="ghost"
             context="autonomous"
             size="icon"
+            icon={ChevronRight}
+            isIconOnly
             onClick={onNext}
             className="absolute right-[var(--sf-padding-inner)] top-1/2 z-30 hidden -translate-y-1/2 border border-white/20 bg-white/10 text-white backdrop-blur-md hover:border-white/30 hover:bg-white/20 lg:inline-flex"
             aria-label="Ver medio siguiente"
-          >
-            <ChevronRight size={22} strokeWidth={2.5} />
-          </Button>
+          />
         </>
       )}
 
@@ -228,7 +228,7 @@ export function MediaViewer({
         <div
           ref={mediaStageRef}
           className="relative w-fit max-w-full overflow-hidden"
-          style={{ borderRadius: "var(--sf-radius-inner)" }}
+          style={{ borderRadius: "var(--sf-radius-card-inner)" }}
         >
           {isVideo ? (
             <video
@@ -272,16 +272,12 @@ export function MediaViewer({
                 style={{ gap: "var(--sf-space-sm)" }}
               >
                 <Badge
+                  variant="overlayBrand"
                   context="card"
-                  className="w-fit border-brand-400/30 bg-brand-500 text-white"
-                  style={{ gap: "var(--sf-space-xs)" }}
+                  icon={isVideo ? Video : Camera}
+                  className="w-fit"
                 >
-                  {isVideo ? (
-                    <Video size={12} strokeWidth={2.5} />
-                  ) : (
-                    <Camera size={12} strokeWidth={2.5} />
-                  )}
-                  <span>{isVideo ? "Video" : "Fotografía"}</span>
+                  {isVideo ? "Video" : "Fotografia"}
                 </Badge>
 
                 <div

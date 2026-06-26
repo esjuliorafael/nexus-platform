@@ -14,7 +14,7 @@ export function ArticleShelf({ products }: ArticleShelfProps) {
   if (!products || products.length === 0) return null;
 
   return (
-    <section className="mx-auto max-w-[1440px] px-6 lg:px-12">
+    <section className="mx-auto max-w-[1440px] px-[var(--sf-inset-page-mobile)] lg:px-12">
       <div className="flex flex-col" style={{ gap: 'var(--sf-space-lg)' }}>
         <motion.div
           initial={{ opacity: 0, y: 24 }}

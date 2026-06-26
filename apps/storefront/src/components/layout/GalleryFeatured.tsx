@@ -77,7 +77,9 @@ function FloatingCard({ item, index }: { item: Media; index: number }) {
         style={{ padding: 'var(--sf-padding-inner)' }}
       >
         <div style={{ transform: 'translateZ(20px)' }} className="flex flex-col" >
-          <span className="sf-text-label text-brand-400">Captura del Rancho</span>
+          <Badge variant="overlayBrand" context="card" icon={ImageIcon} className="w-fit">
+            Rancho
+          </Badge>
           <h4 className="sf-text-h2 text-white uppercase italic">{item.title}</h4>
         </div>
       </div>
@@ -92,11 +94,10 @@ export function GalleryFeatured({ items }: GalleryFeaturedProps) {
     <section className="relative overflow-hidden bg-stone-950" style={{ paddingBlock: 'clamp(5rem, 12vw, 12rem)' }}>
       <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/dark-matter.png')] opacity-20 pointer-events-none" />
 
-      <div className="relative z-10 mx-auto max-w-[1440px] px-6 lg:px-12">
+      <div className="relative z-10 mx-auto max-w-[1440px] px-[var(--sf-inset-page-mobile)] lg:px-12">
         <div className="flex flex-col" style={{ gap: 'var(--sf-space-xl)' }}>
           <div className="mx-auto flex max-w-2xl flex-col items-center text-center" style={{ gap: 'var(--sf-space-md)' }}>
-            <Badge className="border-brand-500/20 bg-brand-500/10 text-brand-400">
-              <ImageIcon size={12} className="mr-2" />
+            <Badge variant="brand" context="section" icon={ImageIcon}>
               Archivo Visual
             </Badge>
             <h2 className="sf-text-display text-white uppercase italic">
@@ -113,7 +114,7 @@ export function GalleryFeatured({ items }: GalleryFeaturedProps) {
             ))}
           </div>
 
-          <div className="flex snap-x snap-mandatory overflow-x-auto px-6 pb-8 scrollbar-hide lg:hidden" style={{ gap: 'var(--sf-space-md)' }}>
+          <div className="flex snap-x snap-mandatory overflow-x-auto px-[var(--sf-inset-page-mobile)] pb-8 scrollbar-hide lg:hidden" style={{ gap: 'var(--sf-space-md)' }}>
             {items.map((item) => (
               <div
                 key={item.id}
@@ -125,6 +126,9 @@ export function GalleryFeatured({ items }: GalleryFeaturedProps) {
                   className="absolute inset-0 flex flex-col justify-end bg-gradient-to-t from-black/80 via-transparent to-transparent text-white"
                   style={{ padding: 'var(--sf-padding-inner)' }}
                 >
+                  <Badge variant="overlayBrand" context="card" icon={ImageIcon} className="mb-[var(--sf-space-sm)] w-fit">
+                    Rancho
+                  </Badge>
                   <h4 className="sf-text-h2 uppercase italic">{item.title}</h4>
                 </div>
               </div>
@@ -135,7 +139,7 @@ export function GalleryFeatured({ items }: GalleryFeaturedProps) {
             <Button asChild variant="outline" context="section" className="border-white/10 text-white hover:bg-white hover:text-stone-950">
               <Link href="/gallery">
                 Ver Galeria Completa
-                <ArrowRight className="ml-2 transition-transform group-hover:translate-x-1" />
+                <ArrowRight className="ml-2 transition-transform group-hover:translate-x-1" size={18} />
               </Link>
             </Button>
           </div>

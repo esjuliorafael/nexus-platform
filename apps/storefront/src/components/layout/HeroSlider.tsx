@@ -161,7 +161,7 @@ export function HeroSlider() {
       </div>
 
       <div
-        className="relative z-10 mx-auto w-full max-w-[1440px] px-6 lg:px-12"
+        className="relative z-10 mx-auto w-full max-w-[1440px] px-[var(--sf-inset-page-mobile)] lg:px-12"
         style={{ gap: "var(--sf-space-xl)" }}
       >
         <div

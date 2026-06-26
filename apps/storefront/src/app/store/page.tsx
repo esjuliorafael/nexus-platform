@@ -11,6 +11,7 @@ import { Button } from '../../components/ui/Button';
 import { BottomSheet } from '../../components/ui/BottomSheet';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { StorefrontField } from '../../components/ui/Field';
+import { SegmentedControl, type SegmentedControlOption } from '../../components/ui/SegmentedControl';
 
 const typeOptions = [
   { value: 'ALL', label: 'Todo' },
@@ -68,7 +69,7 @@ function StorePageContent() {
   const hasActiveFilters = typeFilter !== 'ALL' || statusFilter !== 'ALL' || Boolean(searchTerm);
 
   return (
-    <div className="mx-auto max-w-7xl px-6" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
+    <div className="mx-auto max-w-7xl px-[var(--sf-inset-page-mobile)]" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
       <div className="flex flex-col" style={{ gap: 'var(--sf-space-lg)' }}>
         <div className="flex flex-col justify-between border-b border-stone-200/60 pb-[var(--sf-space-md)] md:flex-row md:items-end" style={{ gap: 'var(--sf-space-md)' }}>
           <div className="flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
@@ -99,11 +100,11 @@ function StorePageContent() {
             <Button
               size="icon"
               variant="secondary"
+              icon={SlidersHorizontal}
+              isIconOnly
               onClick={() => setIsFilterSheetOpen(true)}
               aria-label="Abrir filtros"
-            >
-              <SlidersHorizontal size={18} />
-            </Button>
+            />
           </div>
         </div>
 
@@ -132,10 +133,10 @@ function StorePageContent() {
             <Button
               variant="ghost"
               size="sm"
+              icon={X}
               onClick={clearFilters}
               className="text-stone-400 hover:bg-transparent hover:text-brand-500"
             >
-              <X size={14} className="mr-2" />
               Limpiar Filtros
             </Button>
           )}
@@ -149,7 +150,7 @@ function StorePageContent() {
           <EmptyState
             icon={Search}
             title="Sin Resultados"
-            description="No encontramos productos que coincidan con tus criterios de busqueda en nuestra seleccion actual."
+            description="No encontramos productos que coincidan con los filtros actuales."
 
             actionText="Limpiar Busqueda"
             onActionClick={clearFilters}
@@ -213,40 +214,16 @@ function StorePageContent() {
   );
 }
 
-interface FilterOption {
-  value: string;
-  label: string;
-}
-
 function SegmentedFilter({
   value,
   options,
   onChange,
 }: {
   value: string;
-  options: FilterOption[];
+  options: SegmentedControlOption[];
   onChange: (value: string) => void;
 }) {
-  return (
-    <div className="flex bg-stone-100" style={{ borderRadius: 'var(--sf-radius-card-inner)', padding: 'var(--sf-space-xs)' }}>
-      {options.map((option) => (
-        <button
-          key={option.value}
-          onClick={() => onChange(option.value)}
-          className={`sf-text-label px-4 transition-all duration-300 ${
-            value === option.value ? 'bg-white text-brand-500 shadow-sm' : 'text-stone-500 hover:text-stone-850'
-          }`}
-          style={{
-            height: 'var(--sf-h-button-card)',
-            borderRadius: 'var(--sf-radius-nested)',
-            transitionTimingFunction: 'var(--sf-ease)',
-          }}
-        >
-          {option.label}
-        </button>
-      ))}
-    </div>
-  );
+  return <SegmentedControl value={value} options={options} onChange={onChange} />;
 }
 
 function MobileFilterGroup({
@@ -258,33 +235,14 @@ function MobileFilterGroup({
 }: {
   label: string;
   value: string;
-  options: FilterOption[];
+  options: SegmentedControlOption[];
   columns: string;
   onChange: (value: string) => void;
 }) {
   return (
     <div className="flex flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
       <span className="sf-text-label text-stone-400">{label}</span>
-      <div className={`grid ${columns}`} style={{ gap: 'var(--sf-space-sm)' }}>
-        {options.map((option) => (
-          <button
-            key={option.value}
-            onClick={() => onChange(option.value)}
-            className={`sf-text-button-card border px-3 transition-all duration-300 ${
-              value === option.value
-                ? 'border-brand-500 bg-brand-500 text-white shadow-md shadow-brand-500/20'
-                : 'border-stone-200 bg-stone-50 text-stone-500 hover:bg-stone-100'
-            }`}
-            style={{
-              height: 'var(--sf-h-button-card)',
-              borderRadius: 'var(--sf-radius-nested)',
-              transitionTimingFunction: 'var(--sf-ease)',
-            }}
-          >
-            {option.label}
-          </button>
-        ))}
-      </div>
+      <SegmentedControl value={value} options={options} columns={columns} onChange={onChange} />
     </div>
   );
 }
@@ -292,7 +250,7 @@ function MobileFilterGroup({
 export default function StorePage() {
   return (
     <Suspense fallback={
-      <div className="mx-auto max-w-7xl animate-pulse px-6" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
+      <div className="mx-auto max-w-7xl animate-pulse px-[var(--sf-inset-page-mobile)]" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
         <div className="flex h-96 items-center justify-center">
           <Spinner className="h-12 w-12" />
         </div>

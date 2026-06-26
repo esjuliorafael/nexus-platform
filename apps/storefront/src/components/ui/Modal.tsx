@@ -14,9 +14,11 @@ interface StorefrontModalProps {
   description?: string;
   icon?: LucideIcon;
   variant?: 'brand' | 'danger' | 'success';
+  width?: 'compact' | 'standard' | 'wide';
   confirmLabel?: string;
   cancelLabel?: string;
   onConfirm?: () => void;
+  showDefaultActions?: boolean;
   children?: React.ReactNode;
 }
 
@@ -27,9 +29,11 @@ export function StorefrontModal({
   description,
   icon = AlertCircle,
   variant = 'brand',
+  width = 'standard',
   confirmLabel = 'Confirmar',
   cancelLabel = 'Cancelar',
   onConfirm,
+  showDefaultActions = true,
   children
 }: StorefrontModalProps) {
   // Prevent body scroll when open
@@ -48,14 +52,15 @@ export function StorefrontModal({
 
   return createPortal(
     <AnimatePresence>
-      <div className="fixed inset-0 z-[100] flex items-center justify-center p-6">
+      <div className="fixed inset-0 z-[100] flex items-end justify-center p-0 sm:items-center sm:p-6">
         {/* Backdrop */}
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
-          className="absolute inset-0 bg-stone-950/40 backdrop-blur-md"
+          className="absolute inset-0 backdrop-blur-md"
+          style={{ background: 'var(--sf-modal-backdrop)' }}
         />
 
         {/* Modal Card */}
@@ -67,11 +72,22 @@ export function StorefrontModal({
             duration: 0.5, 
             ease: [0.16, 1, 0.3, 1] // sf-ease-reveal
           }}
-          className="relative w-full max-w-md overflow-hidden bg-white shadow-2xl"
-          style={{ borderRadius: 'var(--sf-radius-outer)' }}
+          className="relative w-full overflow-hidden bg-white shadow-2xl"
+          style={{
+            maxWidth:
+              width === 'compact'
+                ? 'var(--sf-width-modal-compact)'
+                : width === 'wide'
+                  ? 'var(--sf-width-modal-wide)'
+                  : 'var(--sf-width-modal-standard)',
+            borderTopLeftRadius: 'var(--sf-radius-outer)',
+            borderTopRightRadius: 'var(--sf-radius-outer)',
+            borderBottomLeftRadius: 'clamp(0rem, 4vw, var(--sf-radius-outer))',
+            borderBottomRightRadius: 'clamp(0rem, 4vw, var(--sf-radius-outer))',
+          }}
         >
           {/* Header Area */}
-          <div className="p-8 pb-4">
+          <div style={{ padding: 'var(--sf-padding-inner)', paddingBottom: 'var(--sf-space-sm)' }}>
             <div className="flex items-start justify-between gap-4">
               <div className="flex flex-col gap-6">
                 <StorefrontIcon 
@@ -81,7 +97,7 @@ export function StorefrontModal({
                   className={variant === 'danger' ? 'bg-red-50 text-red-500 border-red-100 shadow-none' : ''}
                 />
                 <div className="space-y-2">
-                  <h2 className="sf-text-h1 uppercase tracking-tight text-stone-850 leading-none">{title}</h2>
+                  <h2 className="sf-text-h1 tracking-tight text-stone-850 leading-none">{title}</h2>
                   {description && (
                     <p className="sf-text-body text-stone-500 font-medium">{description}</p>
                   )}
@@ -97,12 +113,13 @@ export function StorefrontModal({
           </div>
 
           {/* Content Area */}
-          <div className="px-8 py-4">
+          <div style={{ paddingInline: 'var(--sf-padding-inner)', paddingBlock: 'var(--sf-space-md)' }}>
             {children}
           </div>
 
           {/* Footer Actions */}
-          <div className="p-8 pt-4 flex flex-col gap-3">
+          {showDefaultActions && (
+          <div className="flex flex-col" style={{ gap: 'var(--sf-space-sm)', padding: 'var(--sf-padding-inner)', paddingTop: 'var(--sf-space-sm)' }}>
             {onConfirm && (
               <Button 
                 onClick={() => {
@@ -125,6 +142,7 @@ export function StorefrontModal({
               {cancelLabel}
             </Button>
           </div>
+          )}
         </motion.div>
       </div>
     </AnimatePresence>,

@@ -6,13 +6,10 @@ import { AnimatePresence, motion } from 'framer-motion';
 import {
   AlertCircle,
   ArrowRight,
-  Check,
   CheckCircle,
-  ChevronDown,
   CreditCard,
   Info,
   MapPin,
-  Search,
   ShoppingBag,
   Store,
   Trash2,
@@ -30,10 +27,10 @@ import { useCartStore } from '../../store/cart.store';
 import { useToastStore } from '../../store/toast.store';
 import { Button } from '../../components/ui/Button';
 import { StorefrontCard } from '../../components/ui/Card';
-import { StorefrontField, StorefrontTextarea } from '../../components/ui/Field';
+import { StorefrontField, StorefrontSelect, StorefrontTextarea } from '../../components/ui/Field';
 import { StorefrontIcon } from '../../components/ui/Icon';
 import { Spinner } from '../../components/ui/Spinner';
-import { StorefrontModal } from '../../components/ui/Modal';
+import { StorefrontConfirmModal } from '../../components/ui/ConfirmModal';
 import { formatPrice, getAssetUrl } from '../../utils/formatters';
 
 type DeliveryType = 'SHIPPING' | 'PICKUP';
@@ -62,8 +59,6 @@ export default function CheckoutPage() {
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(null);
   const [mounted, setMounted] = useState(false);
   const [zones, setZones] = useState<ShippingZone[]>([]);
-  const [isZoneDropdownOpen, setIsZoneDropdownOpen] = useState(false);
-  const [searchZone, setSearchZone] = useState('');
   const [selectedZone, setSelectedZone] = useState<ShippingZone | null>(null);
 
   // Estados para Modal
@@ -152,17 +147,13 @@ export default function CheckoutPage() {
     return { total, details };
   }, [items, formData.deliveryType, selectedZone, settings]);
 
-  const filteredZones = useMemo(() => {
-    return zones.filter((zone) => zone.name.toLowerCase().includes(searchZone.toLowerCase()));
-  }, [zones, searchZone]);
-
   const isMPEnabled = !!getSetting('payments', 'mp_seller_access_token');
   const orderTotal = getTotalPrice() + shippingCalculation.total;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (formData.deliveryType === 'SHIPPING' && !selectedZone) {
-      alert('Por favor selecciona un estado para el envío.');
+      showToast('Selecciona un estado para calcular el envio.', 'info');
       return;
     }
 
@@ -217,7 +208,7 @@ export default function CheckoutPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-6" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
+    <div className="mx-auto max-w-7xl px-[var(--sf-inset-page-mobile)]" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
       <div className="flex flex-col" style={{ gap: 'var(--sf-space-lg)' }}>
         {paymentStatus === 'failure' && (
           <div
@@ -290,17 +281,13 @@ export default function CheckoutPage() {
                 {formData.deliveryType === 'SHIPPING' && (
                   <CheckoutSection title="Dirección de Envío" icon={MapPin}>
                     <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
-                      <ZoneSelector
-                        open={isZoneDropdownOpen}
-                        setOpen={setIsZoneDropdownOpen}
+                      <ZoneSelect
                         selectedZone={selectedZone}
                         setSelectedZone={(zone) => {
                           setSelectedZone(zone);
                           setFormData({ ...formData, shippingState: zone.name });
                         }}
-                        searchZone={searchZone}
-                        setSearchZone={setSearchZone}
-                        zones={filteredZones}
+                        zones={zones}
                       />
                       <StorefrontTextarea
                         required
@@ -358,14 +345,14 @@ export default function CheckoutPage() {
       </div>
 
       {/* Global Components Area */}
-      <StorefrontModal
+      <StorefrontConfirmModal
         isOpen={!!itemToDelete}
         onClose={() => setItemToDelete(null)}
-        title="¿Eliminar producto?"
-        description={`Se eliminará "${itemToDelete?.name}" de tu pedido.`}
+        title="Eliminar producto"
+        message={`Se eliminara "${itemToDelete?.name}" de tu pedido.`}
         icon={Trash2}
         variant="danger"
-        confirmLabel="Sí, eliminar"
+        confirmLabel="Eliminar"
         onConfirm={handleConfirmRemove}
       />
     </div>
@@ -465,89 +452,35 @@ function PaymentButton({
   );
 }
 
-function ZoneSelector({
-  open,
-  setOpen,
+function ZoneSelect({
   selectedZone,
   setSelectedZone,
-  searchZone,
-  setSearchZone,
   zones,
 }: {
-  open: boolean;
-  setOpen: (value: boolean) => void;
   selectedZone: ShippingZone | null;
   setSelectedZone: (zone: ShippingZone) => void;
-  searchZone: string;
-  setSearchZone: (value: string) => void;
   zones: ShippingZone[];
 }) {
   return (
-    <div className="relative flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
-      <span className="sf-text-label text-stone-400">Estado de la República</span>
-      <button
-        type="button"
-        className={`flex h-[var(--sf-h-input)] w-full items-center justify-between border bg-white px-5 transition-all duration-300 ${
-          open ? 'border-brand-500 ring-4 ring-brand-500/10' : 'border-stone-200 hover:border-stone-300'
-        }`}
-        style={{ borderRadius: 'var(--sf-radius-inner)', transitionTimingFunction: 'var(--sf-ease)' }}
-        onClick={() => setOpen(!open)}
-      >
-        <span className={`font-bold ${selectedZone ? 'text-stone-800' : 'text-stone-400'}`}>
-          {selectedZone ? selectedZone.name : 'Selecciona tu estado...'}
-        </span>
-        <ChevronDown size={18} className={`text-stone-400 transition-transform duration-500 ${open ? 'rotate-180' : ''}`} />
-      </button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div
-            initial={{ opacity: 0, y: -12, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -12, scale: 0.98 }}
-            className="absolute left-0 right-0 top-[calc(100%+8px)] z-[60] overflow-hidden border border-stone-100 bg-white/95 shadow-2xl backdrop-blur-xl"
-            style={{ borderRadius: 'var(--sf-radius-inner)', transitionTimingFunction: 'var(--sf-ease-reveal)' }}
-          >
-            <div className="flex items-center border-b border-stone-100 bg-stone-50/50" style={{ padding: 'var(--sf-space-md)', gap: 'var(--sf-space-sm)' }}>
-              <Search size={16} className="text-stone-400" />
-              <input
-                autoFocus
-                placeholder="Buscar estado..."
-                className="w-full border-none bg-transparent text-sm font-bold text-stone-800 focus:outline-none"
-                value={searchZone}
-                onChange={(e) => setSearchZone(e.target.value)}
-                onClick={(e) => e.stopPropagation()}
-              />
-            </div>
-            <div className="max-h-64 overflow-y-auto custom-scrollbar">
-              {zones.length > 0 ? (
-                zones.map((zone) => (
-                  <button
-                    key={zone.id}
-                    type="button"
-                    className="group flex w-full items-center justify-between px-6 py-4 text-left transition-colors hover:bg-brand-50"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setSelectedZone(zone);
-                      setOpen(false);
-                      setSearchZone('');
-                    }}
-                  >
-                    <div className="flex flex-col">
-                      <span className="font-bold text-stone-800 group-hover:text-brand-700 transition-colors">{zone.name}</span>
-                      <span className="sf-text-label text-stone-400 uppercase">{zone.zoneType === 'EXTENDED' ? 'Zona Extendida' : 'Zona Normal'}</span>
-                    </div>
-                    {selectedZone?.id === zone.id && <Check size={18} className="text-brand-500" />}
-                  </button>
-                ))
-              ) : (
-                <div className="px-6 py-10 text-center sf-text-secondary text-stone-400 italic font-medium">No se encontraron resultados.</div>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-    </div>
+    <StorefrontSelect
+      required
+      icon={MapPin}
+      label="Estado de la Republica"
+      value={selectedZone?.id ? String(selectedZone.id) : ''}
+      onChange={(event) => {
+        const zone = zones.find((item) => String(item.id) === event.target.value);
+        if (zone) setSelectedZone(zone);
+      }}
+    >
+      <option value="" disabled>
+        Selecciona tu estado...
+      </option>
+      {zones.map((zone) => (
+        <option key={zone.id} value={zone.id}>
+          {zone.name} ({zone.zoneType === 'EXTENDED' ? 'Zona extendida' : 'Zona normal'})
+        </option>
+      ))}
+    </StorefrontSelect>
   );
 }
 
@@ -678,7 +611,7 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
 
 function OrderComplete({ order }: { order: StoreOrderResponse }) {
   return (
-    <div className="mx-auto max-w-2xl px-6 text-center" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
+    <div className="mx-auto max-w-2xl px-[var(--sf-inset-page-mobile)] text-center" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
       <div className="flex flex-col items-center" style={{ gap: 'var(--sf-space-lg)' }}>
         <StorefrontIcon icon={CheckCircle} context="section" variant="success" />
         <div className="flex flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
@@ -719,7 +652,7 @@ function OrderComplete({ order }: { order: StoreOrderResponse }) {
 
 function EmptyCart() {
   return (
-    <div className="mx-auto max-w-2xl px-6 text-center" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
+    <div className="mx-auto max-w-2xl px-[var(--sf-inset-page-mobile)] text-center" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
       <div className="flex flex-col items-center" style={{ gap: 'var(--sf-space-md)' }}>
         <StorefrontIcon icon={ShoppingBag} context="section" variant="muted" />
         <h2 className="sf-text-display text-stone-850 uppercase leading-none">Tu carrito está vacío</h2>

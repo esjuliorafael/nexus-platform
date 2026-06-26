@@ -8,35 +8,61 @@
   --font-cabinet: 'Cabinet Grotesk', sans-serif;
   --font-satoshi: 'Satoshi', sans-serif;
 
-  /* Storefront Technical System - Perfectly mirrored from Admin's verified reference */
+  /* Storefront Geometry System - adapted from Admin, tuned for public commerce */
+  --sf-bg-app: #faf8f6;
+  --sf-bg-card: #fffdfb;
+  --sf-bg-muted: #f3eee9;
+  --sf-text-main: #0c0a09;
+  --sf-text-muted: #78716c;
+  --sf-border-main: #e7e1dc;
   
   /* Level 1: Main Containers */
   --sf-radius-outer: clamp(2rem, 6vw, 3rem);
   --sf-padding-outer: clamp(1.5rem, 5vw, 2.5rem);
+  --sf-inset-page-mobile: 1.5rem;
 
   /* Level 2: Primary Children */
   --sf-radius-inner: calc(var(--sf-radius-outer) - (var(--sf-padding-outer) * 0.75));
+  --sf-radius-inner-visual: var(--sf-radius-inner);
   --sf-padding-inner: clamp(1rem, 3vw, 1.5rem);
 
   /* Level 3: Nested Elements */
   --sf-radius-nested: max(0.5rem, calc(var(--sf-radius-inner) - var(--sf-padding-inner)));
+  --sf-radius-nested-simple: var(--sf-radius-nested);
 
   /* Autonomous Cards Geometry */
   --sf-radius-card-inner: calc(var(--sf-radius-outer) - (var(--sf-padding-inner) * 0.75));
   --sf-radius-card-nested: max(0.5rem, calc(var(--sf-radius-card-inner) - var(--sf-padding-inner)));
+  --sf-radius-card-nested-compact: max(0.5rem, calc(var(--sf-radius-card-inner) - var(--sf-space-base)));
+  --sf-radius-media-tile: var(--sf-radius-outer);
 
   /* Space Tokens - Relational Hierarchy (Base 4) */
   --sf-space-xs: 0.25rem;  /* 4px */
   --sf-space-sm: 0.5rem;   /* 8px */
+  --sf-space-base: 0.75rem; /* 12px */
   --sf-space-md: clamp(1rem, 2vw, 1.5rem);  /* 16px-24px: Module (Icon -> Text) */
   --sf-space-lg: clamp(1.5rem, 4vw, 2.5rem); /* 24px-40px: Boundary (Group -> Group) */
-  --sf-space-xl: clamp(2rem, 6vw, 3rem);     /* 32px-48px: Extra Boundary */
+  --sf-space-xl: calc(var(--sf-space-lg) * 2);
+  --sf-space-2xl: calc(var(--sf-space-lg) * 3);
+  --sf-space-3xl: calc(var(--sf-space-lg) * 4);
+
+  /* Modal Widths */
+  --sf-width-modal-compact: 28rem;
+  --sf-width-modal-standard: 32rem;
+  --sf-width-modal-wide: 42rem;
+  --sf-modal-backdrop: rgb(12 10 9 / 0.68);
 
   /* Fluid UI Components Heights */
-  /* Fluid UI Components Heights - Perfectly mirrored from Admin */
   --sf-h-input: clamp(3rem, 4vw, 3.5rem);           /* 48px -> 56px */
   --sf-h-button-section: clamp(3rem, 4vw, 3.5rem);  /* 48px -> 56px */
   --sf-h-button-card: clamp(2.5rem, 3vw, 3rem);     /* 40px -> 48px */
+  --sf-h-mobile-nav: clamp(3.75rem, 14vw, 4.25rem); /* 60px -> 68px */
+  --sf-size-mobile-nav-item: calc(var(--sf-h-mobile-nav) - (var(--sf-space-sm) * 2));
+  --sf-size-mobile-nav-icon: 1.25rem;
+  --sf-radius-mobile-nav-item: calc(var(--sf-radius-outer) - (var(--sf-space-sm) * 0.75));
+  --sf-padding-mobile-nav-active-inline: 1rem;
+  --sf-inset-mobile-chrome: var(--sf-inset-page-mobile);
+  --sf-inset-mobile-chrome-block: var(--sf-space-lg);
 
   /* Icon Sizes - Linked to Component Scales */
   --sf-size-icon-section: var(--sf-h-button-section);
@@ -45,6 +71,12 @@
   /* Internal Icon Sizes - For Lucide icons inside containers */
   --sf-size-inner-icon-section: 1.5rem;     /* 24px */
   --sf-size-inner-icon-card: 1.25rem;       /* 20px */
+  --sf-size-inner-icon-badge: var(--sf-space-base);
+
+  --sf-size-stage-container: clamp(6rem, 8vw, 7.5rem);
+  --sf-size-stage-container-compact: clamp(4.5rem, 6vw, 5.5rem);
+  --sf-size-stage-icon: clamp(2.5rem, 4vw, 3.25rem);
+  --sf-size-stage-icon-compact: clamp(1.75rem, 3vw, 2.25rem);
 
   /* Typography Scale - Modular Scale (Major Third 1.25x) */
   --sf-text-hero:      clamp(1.875rem, 5vw,  2.5rem);    /* 30px -> 40px */
@@ -54,9 +86,14 @@
   --sf-text-body:      clamp(0.9375rem, 1.2vw, 1rem);    /* 15px -> 16px */
   --sf-text-secondary: clamp(0.8rem,   1vw,  0.875rem);  /* 12.8px -> 14px */
   --sf-text-label:     clamp(0.6rem,   0.7vw, 0.6875rem);/* 9.6px -> 11px */
+  --sf-text-caption:   clamp(0.55rem,  0.65vw, 0.625rem);
 
   --sf-text-button-section:    clamp(0.875rem, 1.2vw, 1rem);
+  --sf-text-button-autonomous: clamp(0.875rem, 1.2vw, 1rem);
   --sf-text-button-card:       clamp(0.75rem,  0.9vw, 0.8125rem);
+
+  --sf-padding-button-card-inline: calc(var(--sf-space-base) * 2);
+  --sf-padding-button-inline: calc((var(--sf-space-base) * 2) + var(--sf-space-sm));
 
   --sf-ease: cubic-bezier(0.23, 1, 0.32, 1);
   --sf-ease-reveal: cubic-bezier(0.16, 1, 0.3, 1);
@@ -69,9 +106,10 @@
   }
   
   body {
-    @apply antialiased selection:bg-brand-500/30 selection:text-stone-950 bg-stone-50;
+    @apply antialiased selection:bg-brand-500/30 selection:text-stone-950;
     font-family: var(--font-satoshi);
-    color: #0c0a09; /* stone-950 */
+    background: var(--sf-bg-app);
+    color: var(--sf-text-main);
   }
 
   /* Custom perspective for GSAP 3D effects */
@@ -178,6 +216,12 @@
     line-height: 1.5;
   }
 
+  .sf-text-secondary-strong {
+    font-size: var(--sf-text-secondary);
+    font-weight: 800;
+    line-height: 1.5;
+  }
+
   .sf-text-label {
     font-size: var(--sf-text-label);
     font-weight: 700;
@@ -186,8 +230,23 @@
     text-transform: uppercase;
   }
 
+  .sf-text-caption {
+    font-size: var(--sf-text-caption);
+    font-weight: 800;
+    line-height: 1;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+  }
+
   .sf-text-button-section {
     font-size: var(--sf-text-button-section);
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1;
+  }
+
+  .sf-text-button-autonomous {
+    font-size: var(--sf-text-button-autonomous);
     font-weight: 600;
     letter-spacing: -0.01em;
     line-height: 1;

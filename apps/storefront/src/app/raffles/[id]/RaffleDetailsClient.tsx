@@ -42,7 +42,7 @@ export function RaffleDetailsClient({ raffle, initialOccupiedTickets }: RaffleDe
 
   if (success) {
     return (
-      <div className="mx-auto max-w-3xl px-6 text-center animate-in zoom-in-95 duration-500" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
+      <div className="mx-auto max-w-3xl px-[var(--sf-inset-page-mobile)] text-center animate-in zoom-in-95 duration-500" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
         <div className="flex flex-col items-center" style={{ gap: 'var(--sf-space-lg)' }}>
           <StorefrontIcon icon={CheckCircle2} context="section" variant="success" />
           <div className="flex flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
@@ -60,7 +60,7 @@ export function RaffleDetailsClient({ raffle, initialOccupiedTickets }: RaffleDe
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-6 animate-in fade-in duration-500" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
+    <div className="mx-auto max-w-7xl px-[var(--sf-inset-page-mobile)] animate-in fade-in duration-500" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
       <div className="flex flex-col" style={{ gap: 'var(--sf-space-lg)' }}>
         <button
           onClick={() => router.push('/raffles')}
@@ -74,7 +74,7 @@ export function RaffleDetailsClient({ raffle, initialOccupiedTickets }: RaffleDe
         <div className="grid grid-cols-1 lg:grid-cols-12" style={{ gap: 'var(--sf-space-xl)' }}>
           <aside className="lg:col-span-4">
             <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
-              <StorefrontCard className="aspect-[4/5] overflow-hidden p-0 shadow-2xl shadow-stone-200/50">
+              <StorefrontCard density="none" className="aspect-[4/5] overflow-hidden shadow-2xl shadow-stone-200/50">
                 {raffle.image ? (
                   <img src={raffle.image} className="h-full w-full object-cover" alt={raffle.title} />
                 ) : (

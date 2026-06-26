@@ -1,10 +1,13 @@
-import { useMemo, useState } from 'react';
-import { CheckCircle2, Loader2, MapPin, Phone, Search, User, type LucideIcon } from 'lucide-react';
+import { useEffect, useMemo, useState } from 'react';
+import { CheckCircle2, MapPin, Phone, Search, User, type LucideIcon } from 'lucide-react';
 import { Raffle } from '../../types';
 import { cn } from '../../utils/cn';
 import { Button } from '../ui/Button';
 import { StorefrontField } from '../ui/Field';
+import { StorefrontPaginator } from '../ui/Paginator';
 import { formatPrice } from '../../utils/formatters';
+
+const TICKETS_PER_PAGE = 100;
 
 interface TicketSelectionGridProps {
   raffle: Raffle;
@@ -24,6 +27,7 @@ export function TicketSelectionGrid({ raffle, occupiedTickets, onReserve, isRese
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerState, setCustomerState] = useState('');
   const [search, setSearch] = useState('');
+  const [page, setPage] = useState(1);
 
   const allTickets = useMemo(() => {
     const tickets: string[] = [];
@@ -60,7 +64,13 @@ export function TicketSelectionGrid({ raffle, occupiedTickets, onReserve, isRese
   };
 
   const filteredTickets = allTickets.filter((ticket) => ticket.includes(search));
+  const totalPages = Math.max(1, Math.ceil(filteredTickets.length / TICKETS_PER_PAGE));
+  const visibleTickets = filteredTickets.slice((page - 1) * TICKETS_PER_PAGE, page * TICKETS_PER_PAGE);
   const totalAmount = selectedTickets.length * Number(raffle.ticketPrice);
+
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
   return (
     <div className="flex flex-col" style={{ gap: 'var(--sf-space-lg)' }}>
@@ -86,7 +96,7 @@ export function TicketSelectionGrid({ raffle, occupiedTickets, onReserve, isRese
             className="mt-6 grid max-h-[500px] grid-cols-5 overflow-y-auto border border-stone-100 bg-stone-50/40 p-4 sm:grid-cols-8 md:grid-cols-10"
             style={{ borderRadius: 'var(--sf-radius-outer)', gap: 'var(--sf-space-sm)' }}
           >
-            {filteredTickets.map((number) => {
+            {visibleTickets.map((number) => {
               const isOccupied = occupiedTickets.includes(number);
               const isSelected = selectedTickets.includes(number);
 
@@ -116,6 +126,13 @@ export function TicketSelectionGrid({ raffle, occupiedTickets, onReserve, isRese
             <LegendItem label="Seleccionado" className="bg-brand-500" />
             <LegendItem label="Ocupado" className="bg-stone-200" />
           </div>
+
+          <StorefrontPaginator
+            page={page}
+            totalPages={totalPages}
+            onPageChange={setPage}
+            className="mt-[var(--sf-space-md)]"
+          />
         </div>
 
         <div className="w-full xl:w-96 xl:sticky xl:top-24">
@@ -168,16 +185,11 @@ export function TicketSelectionGrid({ raffle, occupiedTickets, onReserve, isRese
                 type="submit"
                 context="section"
                 className="w-full"
+                icon={CheckCircle2}
+                isLoading={isReserving}
                 disabled={selectedTickets.length === 0 || !customerName || !customerPhone || isReserving}
               >
-                {isReserving ? (
-                  <Loader2 className="animate-spin" />
-                ) : (
-                  <>
-                    Reservar Ahora
-                    <CheckCircle2 className="ml-2" size={20} />
-                  </>
-                )}
+                Reservar Ahora
               </Button>
             </div>
           </form>

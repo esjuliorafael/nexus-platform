@@ -9,7 +9,7 @@ import { StorefrontIcon } from '../ui/Icon';
 
 export function RaffleSection() {
   return (
-    <section className="mx-auto max-w-[1440px] px-6 lg:px-12">
+    <section className="mx-auto max-w-[1440px] px-[var(--sf-inset-page-mobile)] lg:px-12">
       <div
         className="relative overflow-hidden border border-white/5 bg-stone-900 shadow-2xl"
         style={{ borderRadius: 'var(--sf-radius-outer)' }}

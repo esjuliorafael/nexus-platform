@@ -1,5 +1,5 @@
-import { InputHTMLAttributes, TextareaHTMLAttributes } from 'react';
-import { LucideIcon } from 'lucide-react';
+import { InputHTMLAttributes, SelectHTMLAttributes, TextareaHTMLAttributes } from 'react';
+import { ChevronDown, LucideIcon } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -60,6 +60,46 @@ export function StorefrontTextarea({ label, error, className, style, ...props }:
         }}
         {...props}
       />
+      {error && <span className="sf-text-label text-red-500">{error}</span>}
+    </label>
+  );
+}
+
+interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
+  label?: string;
+  icon?: LucideIcon;
+  error?: string;
+}
+
+export function StorefrontSelect({ label, icon: Icon, error, className, style, children, ...props }: SelectProps) {
+  return (
+    <label className="group flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
+      {label && <span className="sf-text-label text-stone-400 group-focus-within:text-brand-500">{label}</span>}
+      <div className="relative flex items-center h-[var(--sf-h-input)]">
+        {Icon && (
+          <Icon
+            className="absolute left-5 text-stone-400 group-focus-within:text-brand-500"
+            size="var(--sf-size-inner-icon-card)"
+            strokeWidth={1.7}
+          />
+        )}
+        <select
+          className={cn(
+            'h-full w-full appearance-none border border-stone-200 bg-white font-semibold text-stone-800 transition-all duration-300 focus:border-brand-500/50 focus:outline-none focus:ring-4 focus:ring-brand-500/10',
+            Icon ? 'pl-14 pr-10' : 'px-5 pr-10',
+            className
+          )}
+          style={{
+            borderRadius: 'var(--sf-radius-inner)',
+            transitionTimingFunction: 'var(--sf-ease)',
+            ...style,
+          }}
+          {...props}
+        >
+          {children}
+        </select>
+        <ChevronDown className="pointer-events-none absolute right-5 text-stone-400" size={18} strokeWidth={2} />
+      </div>
       {error && <span className="sf-text-label text-red-500">{error}</span>}
     </label>
   );

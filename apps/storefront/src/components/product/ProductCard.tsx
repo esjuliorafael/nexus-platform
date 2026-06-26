@@ -1,30 +1,32 @@
 "use client";
 
+import { MouseEvent } from 'react';
+import Link from 'next/link';
+import { motion } from 'framer-motion';
+import { Eye, PlayCircle, ShoppingCart, Tag } from 'lucide-react';
 import { Product } from '../../types';
-import { Badge } from '../ui/Badge';
-import { Button } from '../ui/Button';
-import { ShoppingCart, Eye, Tag, PlayCircle } from 'lucide-react';
+import { formatPrice, getAssetUrl } from '../../utils/formatters';
 import { useCartStore } from '../../store/cart.store';
 import { useToastStore } from '../../store/toast.store';
-import Link from 'next/link';
-import { formatPrice, getAssetUrl } from '../../utils/formatters';
-import { motion } from 'framer-motion';
+import { Badge } from '../ui/Badge';
+import { Button } from '../ui/Button';
+import { StorefrontAutonomousCard } from '../ui/Card';
 
 export function ProductCard({ product }: { product: Product }) {
   const addItem = useCartStore((state) => state.addItem);
   const showToast = useToastStore((state) => state.showToast);
 
   const isAvailable = product.saleStatus === 'AVAILABLE';
-
   const thumbnailUrl = getAssetUrl(
     product.coverPosterUrl || product.coverMediaUrl || product.thumbnail,
   );
   const coverMediaUrl = getAssetUrl(product.coverMediaUrl);
   const isVideo = product.coverMediaType === 'VIDEO';
 
-  const handleAddToCart = (e: React.MouseEvent) => {
-    e.preventDefault();
-    e.stopPropagation();
+  const handleAddToCart = (event: MouseEvent<HTMLButtonElement>) => {
+    event.preventDefault();
+    event.stopPropagation();
+
     addItem({
       productId: product.id,
       name: product.name,
@@ -33,7 +35,8 @@ export function ProductCard({ product }: { product: Product }) {
       thumbnail: thumbnailUrl,
       type: product.type.toLowerCase() as 'bird' | 'item',
     });
-    showToast(`${product.name} añadido al carrito`, 'success');
+
+    showToast(`${product.name} anadido al carrito`, 'success');
   };
 
   const statusConfig = {
@@ -43,124 +46,142 @@ export function ProductCard({ product }: { product: Product }) {
   }[product.saleStatus] || { label: product.saleStatus, variant: 'muted' as const };
 
   return (
-    <motion.div
+    <motion.article
       initial={{ opacity: 0, y: 20 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
-      className="flex flex-col group"
+      className="group flex flex-col"
       style={{ gap: 'var(--sf-space-sm)' }}
     >
-      {/* Level 1: Miniature Container (Autonomous Card Concept) */}
-      <div 
-        className="relative aspect-square overflow-hidden bg-white border border-stone-200/60 shadow-sm transition-all duration-700 group-hover:shadow-2xl group-hover:shadow-stone-200/50 group-hover:border-brand-500/20"
-        style={{ borderRadius: 'var(--sf-radius-outer)' }}
+      <StorefrontAutonomousCard
+        interactive
+        density="none"
+        className="relative aspect-square overflow-hidden group-hover:shadow-2xl group-hover:shadow-stone-200/50"
       >
-        {/* Media */}
         {thumbnailUrl ? (
           isVideo ? (
             <video
               src={coverMediaUrl}
               poster={thumbnailUrl || undefined}
-              className="h-full w-full object-cover transition-transform duration-1000 ease-out group-hover:scale-[1.1]"
+              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
               muted
               loop
               playsInline
               preload="metadata"
-              onMouseEnter={(e) => e.currentTarget.play()}
-              onMouseLeave={(e) => {
-                e.currentTarget.pause();
-                e.currentTarget.currentTime = 0;
+              onMouseEnter={(event) => event.currentTarget.play()}
+              onMouseLeave={(event) => {
+                event.currentTarget.pause();
+                event.currentTarget.currentTime = 0;
               }}
             />
           ) : (
             <img
               src={thumbnailUrl}
               alt={product.name}
-              className="h-full w-full object-cover transition-transform duration-1000 ease-out group-hover:scale-[1.1]"
+              className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
             />
           )
         ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center bg-stone-50 text-stone-300">
-            <Tag size={48} strokeWidth={1} />
+          <div className="flex h-full w-full items-center justify-center bg-stone-50 text-stone-300">
+            <Tag
+              style={{
+                width: 'var(--sf-size-stage-icon-compact)',
+                height: 'var(--sf-size-stage-icon-compact)',
+              }}
+              strokeWidth={1.5}
+            />
           </div>
         )}
 
-        {/* Video Icon Overlay */}
-        {isVideo && (
-          <div className="absolute bottom-3 right-3 z-10 bg-black/20 backdrop-blur-md p-1.5 rounded-full border border-white/20 text-white shadow-lg pointer-events-none group-hover:scale-110 transition-transform">
-            <PlayCircle size={14} fill="currentColor" />
-          </div>
-        )}
-
-        {/* Top Badge: Global Status (Recursive Position & Radius) */}
-        <div 
+        <div
           className="absolute z-10"
-          style={{ 
-            top: 'var(--sf-padding-inner)', 
-            left: 'var(--sf-padding-inner)' 
+          style={{
+            top: 'var(--sf-padding-inner)',
+            left: 'var(--sf-padding-inner)',
           }}
         >
-          <Badge 
-            variant={statusConfig.variant} 
-            className="shadow-xl backdrop-blur-md px-5 py-2 uppercase font-black tracking-widest text-[9px] border-none"
-            style={{ borderRadius: 'var(--sf-radius-inner)' }}
-          >
+          <Badge variant={statusConfig.variant} context="card" className="shadow-xl">
             {statusConfig.label}
           </Badge>
         </div>
 
-        {/* Floating Actions (Integrated inside the card with Recursive Geometry) */}
-        <div 
-          className="absolute inset-x-0 bottom-0 z-20 translate-y-4 opacity-0 group-hover:translate-y-0 group-hover:opacity-100 transition-all duration-500 ease-emil"
-          style={{ padding: 'var(--sf-padding-inner)' }}
+        {isVideo && (
+          <div
+            className="pointer-events-none absolute z-10 flex items-center justify-center border border-white/15 bg-stone-950/45 text-white shadow-lg backdrop-blur-md transition-transform group-hover:scale-105"
+            style={{
+              right: 'var(--sf-padding-inner)',
+              bottom: 'var(--sf-padding-inner)',
+              width: 'var(--sf-h-button-card)',
+              height: 'var(--sf-h-button-card)',
+              borderRadius: 'var(--sf-radius-card-nested)',
+              transitionTimingFunction: 'var(--sf-ease)',
+            }}
+          >
+            <PlayCircle
+              fill="currentColor"
+              style={{
+                width: 'var(--sf-size-inner-icon-card)',
+                height: 'var(--sf-size-inner-icon-card)',
+              }}
+            />
+          </div>
+        )}
+
+        <div className="absolute inset-0 bg-gradient-to-t from-stone-950/42 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+
+        <div
+          className="absolute inset-x-0 bottom-0 z-20 translate-y-4 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100"
+          style={{
+            padding: 'var(--sf-padding-inner)',
+            transitionTimingFunction: 'var(--sf-ease)',
+          }}
         >
-          <div className="grid grid-cols-2 gap-3">
-            <Button 
+          <div className="grid grid-cols-2" style={{ gap: 'var(--sf-space-sm)' }}>
+            <Button
               asChild
-              variant="secondary" 
-              context="card" 
-              className="w-full h-12 bg-white/90 backdrop-blur-xl border-none text-stone-900 shadow-lg hover:bg-white transition-all active:scale-95"
-              style={{ borderRadius: 'var(--sf-radius-inner)' }}
+              variant="secondary"
+              context="card"
+              className="w-full gap-2 border-white/80 bg-white/90 text-stone-900 shadow-lg backdrop-blur-xl hover:bg-white"
             >
               <Link href={`/store/${product.id}`}>
+                <Eye size={16} strokeWidth={2.4} />
                 Detalles
               </Link>
             </Button>
-            
+
             {isAvailable ? (
-              <Button 
-                variant="primary" 
-                context="card" 
+              <Button
+                variant="primary"
+                context="card"
+                icon={ShoppingCart}
                 onClick={handleAddToCart}
-                className="w-full h-12 shadow-xl shadow-brand-500/30 transition-all active:scale-95"
-                style={{ borderRadius: 'var(--sf-radius-inner)' }}
+                className="w-full shadow-xl shadow-brand-500/30"
               >
-                Añadir
+                Anadir
               </Button>
             ) : (
-              <div 
-                className="w-full h-12 bg-stone-900/10 backdrop-blur-md flex items-center justify-center text-[10px] font-black uppercase text-stone-500 tracking-widest"
-                style={{ borderRadius: 'var(--sf-radius-inner)' }}
+              <div
+                className="sf-text-button-card flex w-full items-center justify-center bg-stone-900/10 text-stone-500 backdrop-blur-md"
+                style={{
+                  height: 'var(--sf-h-button-card)',
+                  borderRadius: 'var(--sf-radius-card-nested)',
+                }}
               >
                 No Disp.
               </div>
             )}
           </div>
         </div>
+      </StorefrontAutonomousCard>
 
-        {/* Overlay for action contrast */}
-        <div className="absolute inset-0 bg-gradient-to-t from-stone-950/40 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-      </div>
-
-      {/* Level 2: Information Area (Relational Space) */}
       <div className="flex flex-col px-1" style={{ gap: 'var(--sf-space-xs)' }}>
-        <h3 className="sf-text-h2 text-stone-850 font-black tracking-tight line-clamp-1 group-hover:text-brand-600 transition-colors">
+        <h3 className="sf-text-h2 line-clamp-1 font-black tracking-tight text-stone-850 transition-colors group-hover:text-brand-600">
           {product.name}
         </h3>
-        <p className="sf-text-body text-brand-500 tabular-nums font-black leading-none">
+        <p className="sf-text-body font-black leading-none tabular-nums text-brand-500">
           ${formatPrice(product.price)}
         </p>
       </div>
-    </motion.div>
+    </motion.article>
   );
 }

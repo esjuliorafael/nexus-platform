@@ -18,7 +18,7 @@ export function BirdShowcase({ combatBirds, breedingBirds }: BirdShowcaseProps) 
       <section className="relative overflow-hidden bg-stone-950" style={{ paddingBlock: 'clamp(5rem, 12vw, 12rem)' }}>
         <div className="absolute right-0 top-0 h-[600px] w-[600px] rounded-full bg-brand-500/5 blur-[150px]" />
 
-        <div className="relative z-10 mx-auto max-w-[1440px] px-6 lg:px-12">
+        <div className="relative z-10 mx-auto max-w-[1440px] px-[var(--sf-inset-page-mobile)] lg:px-12">
           <div className="flex flex-col" style={{ gap: 'var(--sf-space-xl)' }}>
             <ShowcaseHeader
               dark
@@ -39,7 +39,7 @@ export function BirdShowcase({ combatBirds, breedingBirds }: BirdShowcaseProps) 
         </div>
       </section>
 
-      <section className="mx-auto max-w-[1440px] px-6 py-12 lg:px-12">
+      <section className="mx-auto max-w-[1440px] px-[var(--sf-inset-page-mobile)] py-12 lg:px-12">
         <div className="flex flex-col" style={{ gap: 'var(--sf-space-xl)' }}>
           <ShowcaseHeader
             icon={Dna}
