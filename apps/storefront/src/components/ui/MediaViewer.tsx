@@ -1,14 +1,18 @@
 "use client";
 
-import { CSSProperties, useEffect, useRef } from "react";
+import { CSSProperties, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import {
   CalendarDays,
   Camera,
   ChevronLeft,
   ChevronRight,
+  Pause,
+  Play,
   MapPin,
   Video,
+  Volume2,
+  VolumeX,
   X,
 } from "lucide-react";
 import { Media } from "../../types";
@@ -37,6 +41,187 @@ const formatMediaDate = (value: string | null) => {
   }).format(date);
 };
 
+const formatVideoTime = (value: number) => {
+  if (!Number.isFinite(value) || value <= 0) return "0:00";
+  const totalSeconds = Math.floor(value);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return `${minutes}:${seconds.toString().padStart(2, "0")}`;
+};
+
+function MediaViewerLayeredVideoControls({
+  isPlaying,
+  isMuted,
+  isWaiting,
+  currentTime,
+  duration,
+  onPlayPause,
+  onMuteToggle,
+  onSeek,
+}: {
+  isPlaying: boolean;
+  isMuted: boolean;
+  isWaiting: boolean;
+  currentTime: number;
+  duration: number;
+  onPlayPause: () => void;
+  onMuteToggle: () => void;
+  onSeek: (value: number) => void;
+}) {
+  const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+
+  return (
+    <>
+      <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
+        <button
+          type="button"
+          onClick={onPlayPause}
+          className="pointer-events-auto flex items-center justify-center border border-white/15 bg-white/10 text-white shadow-[0_24px_72px_rgba(0,0,0,0.28)] backdrop-blur-md transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/15"
+          style={{
+            width: "var(--sf-h-mobile-chrome-rail)",
+            height: "var(--sf-h-mobile-chrome-rail)",
+            borderRadius: "var(--sf-radius-mobile-chrome-rail)",
+          }}
+          aria-label={isPlaying ? "Pausar video" : "Reproducir video"}
+        >
+          {isWaiting ? (
+            <span
+              className="block animate-spin rounded-full border-2 border-white/25 border-t-white"
+              style={{
+                width: "var(--sf-size-mobile-chrome-icon)",
+                height: "var(--sf-size-mobile-chrome-icon)",
+              }}
+            />
+          ) : isPlaying ? (
+            <Pause
+              style={{
+                width: "var(--sf-size-mobile-chrome-icon)",
+                height: "var(--sf-size-mobile-chrome-icon)",
+              }}
+            />
+          ) : (
+            <Play
+              style={{
+                width: "var(--sf-size-mobile-chrome-icon)",
+                height: "var(--sf-size-mobile-chrome-icon)",
+              }}
+              fill="currentColor"
+            />
+          )}
+        </button>
+      </div>
+
+      <button
+        type="button"
+        onClick={onMuteToggle}
+        className="pointer-events-auto absolute right-[var(--sf-space-sm)] top-[var(--sf-space-sm)] z-20 flex items-center justify-center border border-white/15 bg-white/10 text-white shadow-[0_18px_48px_rgba(0,0,0,0.22)] backdrop-blur-md transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/15 md:right-[var(--sf-padding-inner)] md:top-[var(--sf-padding-inner)]"
+        style={{
+          width: "var(--sf-h-button-card)",
+          height: "var(--sf-h-button-card)",
+          borderRadius: "var(--sf-radius-card-nested-compact)",
+        }}
+        aria-label={isMuted ? "Activar sonido" : "Silenciar video"}
+      >
+        {isMuted ? (
+          <VolumeX style={{ width: "var(--sf-size-inner-icon-card)", height: "var(--sf-size-inner-icon-card)" }} />
+        ) : (
+          <Volume2 style={{ width: "var(--sf-size-inner-icon-card)", height: "var(--sf-size-inner-icon-card)" }} />
+        )}
+      </button>
+
+      <div
+        className="pointer-events-auto absolute inset-x-0 bottom-0 z-20 flex items-center"
+        style={{
+          gap: "var(--sf-space-sm)",
+          paddingInline: "var(--sf-media-viewer-control-inset)",
+          paddingBottom: "var(--sf-media-viewer-control-inset)",
+        }}
+      >
+        <span className="sf-text-caption hidden shrink-0 tabular-nums text-stone-300 md:block">
+          {formatVideoTime(currentTime)}
+        </span>
+        <input
+          type="range"
+          min={0}
+          max={duration || 0}
+          step={0.1}
+          value={duration ? currentTime : 0}
+          onChange={(event) => onSeek(Number(event.currentTarget.value))}
+          className="sf-media-viewer-range min-w-0 flex-1"
+          style={{ "--sf-media-viewer-progress": `${progress}%` } as CSSProperties}
+          aria-label="Progreso del video"
+          disabled={!duration}
+        />
+        <span className="sf-text-caption hidden shrink-0 tabular-nums text-stone-300 md:block">
+          {formatVideoTime(duration)}
+        </span>
+      </div>
+    </>
+  );
+}
+
+function MediaViewerInfo({
+  media,
+  isVideo,
+  formattedDate,
+  className = "",
+}: {
+  media: Media;
+  isVideo: boolean;
+  formattedDate: string | null;
+  className?: string;
+}) {
+  return (
+    <div className={`flex min-w-0 flex-col ${className}`} style={{ gap: "var(--sf-space-md)" }}>
+      <div className="flex min-w-0 flex-col" style={{ gap: "var(--sf-space-sm)" }}>
+        <Badge
+          variant="overlayBrand"
+          context="card"
+          icon={isVideo ? Video : Camera}
+          className="w-fit"
+        >
+          {isVideo ? "Video" : "Fotografia"}
+        </Badge>
+
+        <div className="flex min-w-0 flex-col" style={{ gap: "var(--sf-space-xs)" }}>
+          <h2 className="sf-text-h1 text-white">{media.title}</h2>
+          {media.description && (
+            <p className="sf-text-secondary max-w-2xl truncate text-stone-300">
+              {media.description}
+            </p>
+          )}
+        </div>
+      </div>
+
+      {(media.location || formattedDate) && (
+        <div
+          className="flex flex-wrap items-center text-stone-300"
+          style={{ gap: "var(--sf-space-md)" }}
+        >
+          {media.location && (
+            <span
+              className="sf-text-secondary inline-flex items-center"
+              style={{ gap: "var(--sf-space-xs)" }}
+            >
+              <MapPin size={14} />
+              {media.location}
+            </span>
+          )}
+          {formattedDate && (
+            <span
+              className="sf-text-secondary inline-flex items-center"
+              style={{ gap: "var(--sf-space-xs)" }}
+            >
+              <CalendarDays size={14} />
+              {formattedDate}
+            </span>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function MediaViewer({
   isOpen,
   media,
@@ -47,9 +232,16 @@ export function MediaViewer({
 }: MediaViewerProps) {
   const viewerRef = useRef<HTMLDivElement>(null);
   const mediaStageRef = useRef<HTMLDivElement>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const onPreviousRef = useRef(onPrevious);
   const onNextRef = useRef(onNext);
+  const [isVideoPlaying, setIsVideoPlaying] = useState(false);
+  const [isVideoMuted, setIsVideoMuted] = useState(true);
+  const [isVideoWaiting, setIsVideoWaiting] = useState(false);
+  const [videoCurrentTime, setVideoCurrentTime] = useState(0);
+  const [videoDuration, setVideoDuration] = useState(0);
+  const [mediaAspectRatio, setMediaAspectRatio] = useState<number | null>(null);
 
   onPreviousRef.current = onPrevious;
   onNextRef.current = onNext;
@@ -81,7 +273,7 @@ export function MediaViewer({
       if (event.key !== "Tab" || !viewerRef.current) return;
       const focusable = Array.from(
         viewerRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), video[controls], [href], [tabindex]:not([tabindex="-1"])',
+          'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
         ),
       );
       if (focusable.length === 0) return;
@@ -110,12 +302,55 @@ export function MediaViewer({
     };
   }, [canNavigate, isOpen, onClose]);
 
+  useEffect(() => {
+    setIsVideoPlaying(false);
+    setIsVideoWaiting(false);
+    setIsVideoMuted(true);
+    setVideoCurrentTime(0);
+    setVideoDuration(0);
+    setMediaAspectRatio(null);
+  }, [isOpen, media?.mediaUrl, media?.filePath]);
+
   if (!isOpen || !media) return null;
 
   const mediaUrl = getAssetUrl(media.mediaUrl || media.filePath);
   const posterUrl = media.posterUrl ? getAssetUrl(media.posterUrl) : undefined;
   const isVideo = media.mediaType === "VIDEO";
   const formattedDate = formatMediaDate(media.mediaDate);
+  const isCompactMedia = mediaAspectRatio !== null && mediaAspectRatio >= 0.7;
+
+  const handleVideoPlayPause = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    if (video.paused) {
+      const playPromise = video.play();
+      if (playPromise) {
+        playPromise.catch(() => {
+          setIsVideoPlaying(false);
+        });
+      }
+      return;
+    }
+
+    video.pause();
+  };
+
+  const handleVideoMuteToggle = () => {
+    const video = videoRef.current;
+    if (!video) return;
+
+    video.muted = !video.muted;
+    setIsVideoMuted(video.muted);
+  };
+
+  const handleVideoSeek = (value: number) => {
+    const video = videoRef.current;
+    if (!video || !Number.isFinite(value)) return;
+
+    video.currentTime = value;
+    setVideoCurrentTime(value);
+  };
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
     if (!canNavigate || event.touches.length !== 1) return;
@@ -236,53 +471,78 @@ export function MediaViewer({
       )}
 
       <div
-        className="mx-auto flex h-full w-full max-w-7xl items-center justify-center px-[var(--sf-inset-page-mobile)] lg:px-[calc(var(--sf-h-button-section)+var(--sf-space-lg))]"
+        className={`sf-media-viewer-body scrollbar-hide mx-auto flex h-full w-full max-w-7xl flex-col items-center overflow-y-auto px-[var(--sf-inset-page-mobile)] md:overflow-hidden lg:px-[calc(var(--sf-h-button-section)+var(--sf-space-lg))]${
+          isCompactMedia ? " sf-media-viewer-body--compact" : ""
+        }`}
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => {
           touchStartRef.current = null;
         }}
-        style={{
-          paddingTop:
-            "calc(var(--sf-inset-mobile-chrome-block) + var(--sf-h-mobile-chrome-rail) + var(--sf-space-md))",
-          paddingBottom: "var(--sf-space-md)",
-        }}
       >
         <div
           ref={mediaStageRef}
-          className="relative w-fit max-w-full overflow-hidden"
+          className="sf-media-viewer-stage relative w-fit max-w-full overflow-hidden"
           style={{ borderRadius: "var(--sf-radius-card-inner)" }}
         >
           {isVideo ? (
             <video
+              ref={videoRef}
               src={mediaUrl}
               poster={posterUrl}
-              controls
               autoPlay
               playsInline
-              className="block h-auto w-auto max-w-full object-contain"
-              style={{
-                maxHeight:
-                  "calc(100dvh - var(--sf-inset-mobile-chrome-block) - var(--sf-h-mobile-chrome-rail) - (var(--sf-space-md) * 2))",
+              muted={isVideoMuted}
+              onClick={handleVideoPlayPause}
+              onPlay={() => setIsVideoPlaying(true)}
+              onPause={() => setIsVideoPlaying(false)}
+              onWaiting={() => setIsVideoWaiting(true)}
+              onPlaying={() => setIsVideoWaiting(false)}
+              onLoadedMetadata={(event) => {
+                const video = event.currentTarget;
+                setVideoDuration(video.duration || 0);
+                setIsVideoMuted(video.muted);
+                if (video.videoWidth > 0 && video.videoHeight > 0) {
+                  setMediaAspectRatio(video.videoWidth / video.videoHeight);
+                }
               }}
+              onTimeUpdate={(event) => {
+                setVideoCurrentTime(event.currentTarget.currentTime || 0);
+              }}
+              onEnded={() => setIsVideoPlaying(false)}
+              className="sf-media-viewer-asset sf-media-viewer-asset--video block h-auto w-full max-w-full cursor-pointer object-contain"
             />
           ) : (
             <img
               src={mediaUrl}
               alt={media.title}
-              className="block h-auto w-auto max-w-full object-contain"
-              style={{
-                maxHeight:
-                  "calc(100dvh - var(--sf-inset-mobile-chrome-block) - var(--sf-h-mobile-chrome-rail) - (var(--sf-space-md) * 2))",
+              onLoad={(event) => {
+                const image = event.currentTarget;
+                if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+                  setMediaAspectRatio(image.naturalWidth / image.naturalHeight);
+                }
               }}
+              className="sf-media-viewer-asset block h-auto w-full max-w-full object-contain"
             />
           )}
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 bg-gradient-to-t from-stone-950 via-stone-950/85 to-transparent pt-[var(--sf-space-xl)]">
+          {isVideo && (
+            <MediaViewerLayeredVideoControls
+              isPlaying={isVideoPlaying}
+              isMuted={isVideoMuted}
+              isWaiting={isVideoWaiting}
+              currentTime={videoCurrentTime}
+              duration={videoDuration}
+              onPlayPause={handleVideoPlayPause}
+              onMuteToggle={handleVideoMuteToggle}
+              onSeek={handleVideoSeek}
+            />
+          )}
+
+          <div className="pointer-events-none absolute inset-x-0 bottom-0 hidden bg-gradient-to-t from-stone-950 via-stone-950/85 to-transparent pt-[var(--sf-space-xl)] md:block">
             <div
               className="flex w-full flex-col"
               style={{
-                gap: "var(--sf-space-md)",
                 paddingTop: "var(--sf-space-lg)",
                 paddingInline: "var(--sf-padding-inner)",
                 paddingBottom: isVideo
@@ -290,60 +550,21 @@ export function MediaViewer({
                   : "var(--sf-padding-inner)",
               }}
             >
-              <div
-                className="flex min-w-0 flex-col"
-                style={{ gap: "var(--sf-space-sm)" }}
-              >
-                <Badge
-                  variant="overlayBrand"
-                  context="card"
-                  icon={isVideo ? Video : Camera}
-                  className="w-fit"
-                >
-                  {isVideo ? "Video" : "Fotografia"}
-                </Badge>
-
-                <div
-                  className="flex min-w-0 flex-col"
-                  style={{ gap: "var(--sf-space-xs)" }}
-                >
-                  <h2 className="sf-text-h1 text-white">{media.title}</h2>
-                  {media.description && (
-                    <p className="sf-text-secondary max-w-2xl text-stone-300">
-                      {media.description}
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              {(media.location || formattedDate) && (
-                <div
-                  className="flex flex-wrap items-center text-stone-300"
-                  style={{ gap: "var(--sf-space-md)" }}
-                >
-                  {media.location && (
-                    <span
-                      className="sf-text-secondary inline-flex items-center"
-                      style={{ gap: "var(--sf-space-xs)" }}
-                    >
-                      <MapPin size={14} />
-                      {media.location}
-                    </span>
-                  )}
-                  {formattedDate && (
-                    <span
-                      className="sf-text-secondary inline-flex items-center"
-                      style={{ gap: "var(--sf-space-xs)" }}
-                    >
-                      <CalendarDays size={14} />
-                      {formattedDate}
-                    </span>
-                  )}
-                </div>
-              )}
+              <MediaViewerInfo
+                media={media}
+                isVideo={isVideo}
+                formattedDate={formattedDate}
+              />
             </div>
           </div>
         </div>
+
+        <MediaViewerInfo
+          media={media}
+          isVideo={isVideo}
+          formattedDate={formattedDate}
+          className="w-full md:hidden"
+        />
       </div>
     </div>,
     document.body,

@@ -154,6 +154,73 @@
     object-position: var(--sf-hero-mobile-object-position, 50% 44%);
   }
 
+  .sf-media-viewer-stage {
+    --sf-media-viewer-control-inset: var(--sf-space-base);
+    width: 100%;
+  }
+
+  .sf-media-viewer-body {
+    gap: var(--sf-space-md);
+    justify-content: flex-start;
+    padding-top: calc(
+      var(--sf-inset-mobile-chrome-block) +
+      var(--sf-h-mobile-chrome-rail) +
+      var(--sf-space-lg)
+    );
+    padding-bottom: var(--sf-space-lg);
+  }
+
+  .sf-media-viewer-body--compact {
+    justify-content: center;
+  }
+
+  .sf-media-viewer-asset {
+    max-height: none;
+  }
+
+  .sf-media-viewer-asset--video {
+    max-height: none;
+  }
+
+  .sf-media-viewer-range {
+    height: var(--sf-space-base);
+    cursor: pointer;
+    appearance: none;
+    border-radius: var(--sf-radius-card-nested-compact);
+    background:
+      linear-gradient(
+        to right,
+        rgb(255 255 255) 0%,
+        rgb(255 255 255) var(--sf-media-viewer-progress, 0%),
+        rgb(255 255 255 / 0.2) var(--sf-media-viewer-progress, 0%),
+        rgb(255 255 255 / 0.2) 100%
+      );
+  }
+
+  .sf-media-viewer-range:disabled {
+    cursor: default;
+    opacity: 0.5;
+  }
+
+  .sf-media-viewer-range::-webkit-slider-thumb {
+    width: var(--sf-space-md);
+    height: var(--sf-space-md);
+    appearance: none;
+    border: 1px solid rgb(255 255 255 / 0.72);
+    border-radius: 999px;
+    background: rgb(255 255 255);
+    box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.28);
+  }
+
+  .sf-media-viewer-range::-moz-range-thumb {
+    width: var(--sf-space-md);
+    height: var(--sf-space-md);
+    border: 1px solid rgb(255 255 255 / 0.72);
+    border-radius: 999px;
+    background: rgb(255 255 255);
+    box-shadow: 0 0.5rem 1.5rem rgb(0 0 0 / 0.28);
+  }
+
   @media (min-width: 768px) {
     .sf-hero-media-stage::after {
       background: linear-gradient(
@@ -166,6 +233,35 @@
 
     .sf-hero-media {
       object-position: var(--sf-hero-desktop-object-position, 50% 50%);
+    }
+
+    .sf-media-viewer-stage {
+      --sf-media-viewer-control-inset: var(--sf-padding-inner);
+      width: fit-content;
+    }
+
+    .sf-media-viewer-body {
+      justify-content: center;
+      padding-top: var(--sf-space-lg);
+      padding-bottom: var(--sf-space-lg);
+    }
+
+    .sf-media-viewer-asset {
+      max-height: calc(
+        100dvh -
+        var(--sf-inset-mobile-chrome-block) -
+        var(--sf-h-mobile-chrome-rail) -
+        (var(--sf-space-md) * 2)
+      );
+    }
+
+    .sf-media-viewer-asset--video {
+      max-height: calc(
+        100dvh -
+        var(--sf-inset-mobile-chrome-block) -
+        var(--sf-h-mobile-chrome-rail) -
+        (var(--sf-space-md) * 2)
+      );
     }
   }
   
