@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { CSSProperties, useEffect, useRef } from "react";
 import { createPortal } from "react-dom";
 import {
   CalendarDays,
@@ -170,19 +170,42 @@ export function MediaViewer({
     >
       <div
         className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start"
-        style={{ padding: "var(--sf-padding-inner)" }}
+        style={{
+          paddingInline: "var(--sf-inset-mobile-chrome)",
+          paddingBlock: "var(--sf-inset-mobile-chrome-block)",
+        }}
       >
-        <Button
-          type="button"
-          variant="ghost"
-          context="autonomous"
-          size="icon"
-          icon={X}
-          isIconOnly
-          onClick={onClose}
-          className="pointer-events-auto border border-white/20 bg-white/10 text-white backdrop-blur-md hover:border-white/30 hover:bg-white/20"
-          aria-label="Cerrar visor"
-        />
+        <div
+          className="pointer-events-auto flex shrink-0 items-center justify-center border border-white/20 bg-white/10 text-white shadow-[0_18px_48px_rgba(0,0,0,0.22)] backdrop-blur-md"
+          style={
+            {
+              width: "var(--sf-h-mobile-chrome-rail)",
+              height: "var(--sf-h-mobile-chrome-rail)",
+              borderRadius: "var(--sf-radius-mobile-chrome-rail)",
+              padding: "var(--sf-space-sm)",
+            } as CSSProperties
+          }
+        >
+          <Button
+            type="button"
+            variant="ghost"
+            context="autonomous"
+            size="icon"
+            icon={X}
+            isIconOnly
+            onClick={onClose}
+            className="border-transparent bg-transparent text-white hover:border-white/10 hover:bg-white/10 hover:text-white"
+            style={
+              {
+                width: "var(--sf-size-mobile-chrome-action)",
+                height: "var(--sf-size-mobile-chrome-action)",
+                borderRadius: "var(--sf-radius-mobile-chrome-action)",
+                "--sf-button-icon-size": "var(--sf-size-mobile-chrome-icon)",
+              } as CSSProperties
+            }
+            aria-label="Cerrar visor"
+          />
+        </div>
       </div>
 
       {canNavigate && (
@@ -213,7 +236,7 @@ export function MediaViewer({
       )}
 
       <div
-        className="mx-auto flex h-full w-full max-w-7xl items-center justify-center px-[var(--sf-space-md)] lg:px-[calc(var(--sf-h-button-section)+var(--sf-space-lg))]"
+        className="mx-auto flex h-full w-full max-w-7xl items-center justify-center px-[var(--sf-inset-page-mobile)] lg:px-[calc(var(--sf-h-button-section)+var(--sf-space-lg))]"
         onTouchStart={handleTouchStart}
         onTouchEnd={handleTouchEnd}
         onTouchCancel={() => {
@@ -221,7 +244,7 @@ export function MediaViewer({
         }}
         style={{
           paddingTop:
-            "calc(var(--sf-padding-inner) + var(--sf-h-button-section) + var(--sf-space-md))",
+            "calc(var(--sf-inset-mobile-chrome-block) + var(--sf-h-mobile-chrome-rail) + var(--sf-space-md))",
           paddingBottom: "var(--sf-space-md)",
         }}
       >
@@ -240,7 +263,7 @@ export function MediaViewer({
               className="block h-auto w-auto max-w-full object-contain"
               style={{
                 maxHeight:
-                  "calc(100dvh - var(--sf-padding-inner) - var(--sf-h-button-section) - (var(--sf-space-md) * 2))",
+                  "calc(100dvh - var(--sf-inset-mobile-chrome-block) - var(--sf-h-mobile-chrome-rail) - (var(--sf-space-md) * 2))",
               }}
             />
           ) : (
@@ -250,7 +273,7 @@ export function MediaViewer({
               className="block h-auto w-auto max-w-full object-contain"
               style={{
                 maxHeight:
-                  "calc(100dvh - var(--sf-padding-inner) - var(--sf-h-button-section) - (var(--sf-space-md) * 2))",
+                  "calc(100dvh - var(--sf-inset-mobile-chrome-block) - var(--sf-h-mobile-chrome-rail) - (var(--sf-space-md) * 2))",
               }}
             />
           )}

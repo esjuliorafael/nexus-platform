@@ -63,6 +63,11 @@
   --sf-padding-mobile-nav-active-inline: 1rem;
   --sf-inset-mobile-chrome: var(--sf-inset-page-mobile);
   --sf-inset-mobile-chrome-block: var(--sf-space-lg);
+  --sf-h-mobile-chrome-rail: var(--sf-h-mobile-nav);
+  --sf-size-mobile-chrome-action: var(--sf-size-mobile-nav-item);
+  --sf-size-mobile-chrome-icon: var(--sf-size-mobile-nav-icon);
+  --sf-radius-mobile-chrome-rail: var(--sf-radius-outer);
+  --sf-radius-mobile-chrome-action: var(--sf-radius-mobile-nav-item);
 
   /* Icon Sizes - Linked to Component Scales */
   --sf-size-icon-section: var(--sf-h-button-section);
