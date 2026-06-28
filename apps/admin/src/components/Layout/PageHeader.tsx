@@ -15,6 +15,8 @@ interface PageHeaderProps {
   storeViewMode: string;
   isCreatingProduct: boolean;
   isEditingProduct: boolean;
+  isCreatingStoreHero?: boolean;
+  isEditingStoreHero?: boolean;
   // Raffle states
   raffleViewMode: string;
   isCreatingRaffle: boolean;
@@ -40,6 +42,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   storeViewMode,
   isCreatingProduct,
   isEditingProduct,
+  isCreatingStoreHero = false,
+  isEditingStoreHero = false,
   raffleViewMode,
   isCreatingRaffle,
   isEditingRaffle,
@@ -95,6 +99,18 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           Editar <span className="text-text-muted">Producto</span>
         </>
       );
+    if (isCreatingStoreHero)
+      return (
+        <>
+          Nuevo <span className="text-text-muted">Hero</span>
+        </>
+      );
+    if (isEditingStoreHero)
+      return (
+        <>
+          Editar <span className="text-text-muted">Hero</span>
+        </>
+      );
     if (isCreatingRaffle)
       return (
         <>
@@ -107,28 +123,29 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           Editar <span className="text-text-muted">Rifa</span>
         </>
       );
-    if (
-      mediaViewMode === "categories_list" ||
-      mediaViewMode === "category_create" ||
-      mediaViewMode === "category_edit"
-    )
-      return (
-        <>
-          Gestionar <span className="text-text-muted">Categorías</span>
-        </>
-      );
-    if (mediaViewMode === "slider_list")
-      return (
-        <>
-          Slider <span className="text-text-muted">Principal</span>
-        </>
-      );
-    if (isMediaMode)
+    if (isMediaMode) {
+      if (
+        mediaViewMode === "categories_list" ||
+        mediaViewMode === "category_create" ||
+        mediaViewMode === "category_edit"
+      )
+        return (
+          <>
+            Gestionar <span className="text-text-muted">Categorías</span>
+          </>
+        );
+      if (mediaViewMode === "slider_list")
+        return (
+          <>
+            Slider <span className="text-text-muted">Principal</span>
+          </>
+        );
       return (
         <>
           Panel de <span className="text-text-muted">Medios</span>
         </>
       );
+    }
 
     if (isStoreMode) {
       if (storeViewMode === "orders")
@@ -141,6 +158,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         return (
           <>
             Detalle de <span className="text-text-muted">Orden</span>
+          </>
+        );
+      if (storeViewMode === "hero_list")
+        return (
+          <>
+            Héroes de <span className="text-text-muted">Tienda</span>
           </>
         );
       return (
@@ -267,25 +290,30 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   const getDescription = () => {
     if (isCreatingProduct || isEditingProduct)
       return "Administra el inventario del rancho. Priorizamos la venta de aves de combate y cría.";
+    if (isCreatingStoreHero || isEditingStoreHero)
+      return "Configura el bloque editorial que se muestra en la tienda del Storefront.";
     if (isCreatingRaffle || isEditingRaffle)
       return "Configura los parámetros de la rifa, premios y dinámica de boletos.";
     if (isCreatingMedia || isEditingMedia)
       return "Completa los detalles para gestionar el contenido visual del catálogo del rancho.";
     if (isCreatingSlide || isEditingSlide)
       return "Configura el contenido editorial que se muestra en el primer impacto del Storefront.";
-    if (
-      mediaViewMode === "categories_list" ||
-      mediaViewMode === "category_create" ||
-      mediaViewMode === "category_edit"
-    )
-      return "Revisa y organiza las agrupaciones de contenido de tu galería.";
-    if (mediaViewMode === "slider_list")
-      return "Administra las imágenes, videos y mensajes principales del inicio del Storefront.";
-    if (isMediaMode)
+    if (isMediaMode) {
+      if (
+        mediaViewMode === "categories_list" ||
+        mediaViewMode === "category_create" ||
+        mediaViewMode === "category_edit"
+      )
+        return "Revisa y organiza las agrupaciones de contenido de tu galería.";
+      if (mediaViewMode === "slider_list")
+        return "Administra las imágenes, videos y mensajes principales del inicio del Storefront.";
       return "Explora, organiza y gestiona todos los medios visuales del rancho.";
+    }
     if (isStoreMode) {
       if (isOrdersMode)
         return "Administra las ventas, estados de pago y logística de envío.";
+      if (storeViewMode === "hero_list")
+        return "Administra los heroes editoriales por tipo de producto.";
       return "Controla tu inventario de aves y artículos desde un solo lugar.";
     }
     if (isRafflesMode)
@@ -368,3 +396,5 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     </div>
   );
 };
+
+

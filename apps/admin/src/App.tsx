@@ -110,7 +110,15 @@ type MediaModeType =
   | "category_edit"
   | HomeSliderViewMode;
 
-type StoreModeType = "list" | "create" | "edit" | "orders" | "order-detail";
+type StoreModeType =
+  | "list"
+  | "create"
+  | "edit"
+  | "hero_list"
+  | "hero_create"
+  | "hero_edit"
+  | "orders"
+  | "order-detail";
 
 type RaffleModeType = "list" | "create" | "edit" | "detail";
 
@@ -140,6 +148,9 @@ const STORE_MODES: StoreModeType[] = [
   "list",
   "create",
   "edit",
+  "hero_list",
+  "hero_create",
+  "hero_edit",
   "orders",
   "order-detail",
 ];
@@ -375,6 +386,8 @@ function App() {
   const [mediaViewMode, setMediaViewMode] =
     useState<MediaModeType>(getStoredMediaMode);
   const [storeViewMode, setStoreViewMode] = useState<StoreModeType>(() => {
+    if (localStorage.getItem("admin_store_view_mode") === "heroes")
+      return "hero_list";
     const saved = getStoredEnum("admin_store_view_mode", STORE_MODES, "list");
     return saved === "order-detail" ? "orders" : saved;
   });
@@ -718,6 +731,8 @@ function App() {
   const isEditingSlide = isMediaMode && mediaViewMode === "slide_edit";
   const isCreatingProduct = isStoreMode && storeViewMode === "create";
   const isEditingProduct = isStoreMode && storeViewMode === "edit";
+  const isCreatingStoreHero = isStoreMode && storeViewMode === "hero_create";
+  const isEditingStoreHero = isStoreMode && storeViewMode === "hero_edit";
   const isCreatingRaffle = isRafflesMode && raffleViewMode === "create";
   const isEditingRaffle = isRafflesMode && raffleViewMode === "edit";
 
@@ -728,6 +743,8 @@ function App() {
     isEditingSlide ||
     isCreatingProduct ||
     isEditingProduct ||
+    isCreatingStoreHero ||
+    isEditingStoreHero ||
     isCreatingRaffle ||
     isEditingRaffle;
 
@@ -782,6 +799,9 @@ function App() {
         break;
       case "Ver Productos":
         navigateToStore("list");
+        break;
+      case "Héroes Tienda":
+        navigateToStore("hero_list");
         break;
       case "Ver Órdenes":
         navigateToOrders();
@@ -861,7 +881,9 @@ function App() {
       confirmLabel: "Sí, Descartar",
       variant: "warning",
       onConfirm: () => {
-        if (isStoreMode) setStoreViewMode("list");
+        if (isCreatingStoreHero || isEditingStoreHero)
+          setStoreViewMode("hero_list");
+        else if (isStoreMode) setStoreViewMode("list");
         else if (isCreatingSlide || isEditingSlide)
           setMediaViewMode("slider_list");
         else if (isMediaMode) setMediaViewMode("list");
@@ -886,6 +908,8 @@ function App() {
           <NexusSectionButton
             onClick={() => {
               if (isCreatingProduct || isEditingProduct)
+                storeRef.current?.handleSave();
+              if (isCreatingStoreHero || isEditingStoreHero)
                 storeRef.current?.handleSave();
               if (isCreatingMedia || isEditingMedia)
                 galleryRef.current?.handleSave();
@@ -945,6 +969,18 @@ function App() {
           icon={Plus}
         >
           Nuevo Producto
+        </NexusSectionButton>
+      );
+    }
+
+    if (isStoreMode && storeViewMode === "hero_list") {
+      return (
+        <NexusSectionButton
+          onClick={() => setStoreViewMode("hero_create")}
+          variant="brand"
+          icon={Plus}
+        >
+          Nuevo Hero
         </NexusSectionButton>
       );
     }
@@ -1127,6 +1163,8 @@ function App() {
               storeViewMode={storeViewMode}
               isCreatingProduct={isCreatingProduct}
               isEditingProduct={isEditingProduct}
+              isCreatingStoreHero={isCreatingStoreHero}
+              isEditingStoreHero={isEditingStoreHero}
               raffleViewMode={raffleViewMode}
               isCreatingRaffle={isCreatingRaffle}
               isEditingRaffle={isEditingRaffle}

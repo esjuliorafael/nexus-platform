@@ -1,22 +1,32 @@
 "use client";
 
-import { useMemo, useState, Suspense } from 'react';
+import { CSSProperties, ReactNode, Suspense, useEffect, useMemo, useState } from 'react';
+import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Search, SlidersHorizontal, X } from 'lucide-react';
+import { Package, Search, SlidersHorizontal, Sparkles, X } from 'lucide-react';
+import { storeHeroApi } from '../../api/storeHeroes';
 import { useProducts } from '../../hooks/useProducts';
+import { Product, StoreHero, StoreHeroScope } from '../../types';
+import { formatPrice, getAssetUrl } from '../../utils/formatters';
 import { ProductGrid } from '../../components/product/ProductGrid';
 import { Spinner } from '../../components/ui/Spinner';
 import { Button } from '../../components/ui/Button';
 import { BottomSheet } from '../../components/ui/BottomSheet';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { StorefrontField } from '../../components/ui/Field';
 import { SegmentedControl, type SegmentedControlOption } from '../../components/ui/SegmentedControl';
+import { Badge } from '../../components/ui/Badge';
+import { StorefrontAutonomousCard } from '../../components/ui/Card';
 
 const typeOptions = [
   { value: 'ALL', label: 'Todo' },
   { value: 'BIRD', label: 'Aves' },
-  { value: 'ITEM', label: 'Insumos' },
+  { value: 'ITEM', label: 'Artículos' },
+];
+
+const purposeOptions = [
+  { value: 'BREEDING', label: 'Cría' },
+  { value: 'COMBAT', label: 'Combate' },
 ];
 
 const statusOptions = [
@@ -33,32 +43,91 @@ function StorePageContent() {
 
   const { products, loading } = useProducts();
   const [searchTerm, setSearchText] = useState('');
+  const [heroes, setHeroes] = useState<StoreHero[]>([]);
+  const [isHeroLoading, setIsHeroLoading] = useState(false);
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
 
   const typeFilter = searchParams.get('type') || 'ALL';
   const statusFilter = searchParams.get('status') || 'ALL';
+  const purposeFilter = searchParams.get('purpose') || 'ALL';
+  const heroScope = typeFilter === 'ALL' ? 'ALL' : (typeFilter as StoreHeroScope);
+  const showPurposeFilters = typeFilter !== 'ITEM';
 
   const setQueryParams = (newParams: Record<string, string>) => {
     const params = new URLSearchParams(searchParams.toString());
+
     Object.entries(newParams).forEach(([key, val]) => {
-      if (val === 'ALL') {
+      if (val === 'ALL' || val === '') {
         params.delete(key);
       } else {
         params.set(key, val);
       }
     });
-    router.push(`${pathname}?${params.toString()}`);
+
+    if (newParams.type === 'ITEM') {
+      params.delete('purpose');
+    }
+
+    const queryString = params.toString();
+    router.push(queryString ? `${pathname}?${queryString}` : pathname);
   };
 
-  const filteredProducts = useMemo(() => {
+  useEffect(() => {
+    let isMounted = true;
+    setIsHeroLoading(true);
+
+    const loadHeroes = async () => {
+      try {
+        const items = await storeHeroApi.getAll(heroScope);
+        if (isMounted) setHeroes(items);
+      } catch {
+        if (isMounted) setHeroes([]);
+      } finally {
+        if (isMounted) setIsHeroLoading(false);
+      }
+    };
+
+    loadHeroes();
+
+    return () => {
+      isMounted = false;
+    };
+  }, [heroScope]);
+
+  const activeProducts = useMemo(() => {
     if (!Array.isArray(products)) return [];
-    return products.filter((p) => {
-      const matchesType = typeFilter === 'ALL' || p.type === typeFilter;
-      const matchesStatus = statusFilter === 'ALL' || p.saleStatus === statusFilter;
-      const matchesSearch = p.name.toLowerCase().includes(searchTerm.toLowerCase());
-      return matchesType && matchesStatus && matchesSearch;
+    return products.filter((product) => product.active !== false);
+  }, [products]);
+
+  const typeProducts = useMemo(() => {
+    return activeProducts.filter((product) => typeFilter === 'ALL' || product.type === typeFilter);
+  }, [activeProducts, typeFilter]);
+
+  const featuredProducts = useMemo(() => {
+    return typeProducts
+      .filter((product) => product.featured)
+      .filter((product) => {
+        if (!showPurposeFilters || purposeFilter === 'ALL') return true;
+        return product.purpose === purposeFilter;
+      })
+      .sort((a, b) => {
+        const orderA = a.featuredOrder ?? Number.MAX_SAFE_INTEGER;
+        const orderB = b.featuredOrder ?? Number.MAX_SAFE_INTEGER;
+        if (orderA !== orderB) return orderA - orderB;
+        return b.id - a.id;
+      })
+      .slice(0, 10);
+  }, [purposeFilter, showPurposeFilters, typeProducts]);
+
+  const filteredProducts = useMemo(() => {
+    return typeProducts.filter((product) => {
+      const matchesStatus = statusFilter === 'ALL' || product.saleStatus === statusFilter;
+      const matchesPurpose =
+        !showPurposeFilters || purposeFilter === 'ALL' || product.purpose === purposeFilter;
+      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
+      return matchesStatus && matchesPurpose && matchesSearch;
     });
-  }, [products, typeFilter, statusFilter, searchTerm]);
+  }, [purposeFilter, searchTerm, showPurposeFilters, statusFilter, typeProducts]);
 
   const clearFilters = () => {
     router.push(pathname);
@@ -66,93 +135,56 @@ function StorePageContent() {
     setIsFilterSheetOpen(false);
   };
 
-  const hasActiveFilters = typeFilter !== 'ALL' || statusFilter !== 'ALL' || Boolean(searchTerm);
+  const handlePurposeChange = (value: string) => {
+    setQueryParams({ purpose: purposeFilter === value ? 'ALL' : value });
+  };
+
+  const hasActiveFilters =
+    typeFilter !== 'ALL' || statusFilter !== 'ALL' || purposeFilter !== 'ALL' || Boolean(searchTerm);
+  const currentHero = typeProducts.length > 0 ? heroes[0] : null;
 
   return (
-    <div className="mx-auto max-w-7xl px-[var(--sf-inset-page-mobile)]" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
+    <div
+      className="mx-auto max-w-7xl px-[var(--sf-inset-page-mobile)]"
+      style={{
+        paddingTop: 'var(--sf-store-content-padding-top)',
+        paddingBottom: 'var(--sf-mobile-chrome-content-padding-bottom)',
+      }}
+    >
       <div className="flex flex-col" style={{ gap: 'var(--sf-space-lg)' }}>
-        <div className="flex flex-col justify-between border-b border-stone-200/60 pb-[var(--sf-space-md)] md:flex-row md:items-end" style={{ gap: 'var(--sf-space-md)' }}>
-          <div className="flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
-            <h1 className="sf-text-display text-stone-850 uppercase italic">Tienda Oficial</h1>
-            <p className="sf-text-label text-stone-400">Genética de Excelencia</p>
-          </div>
+        <StoreMobileTopBar
+          searchTerm={searchTerm}
+          onSearchChange={setSearchText}
+          hasActiveFilters={hasActiveFilters}
+          onOpenFilters={() => setIsFilterSheetOpen(true)}
+        />
 
-          <div className="hidden w-full max-w-md md:block">
-            <StorefrontField
-              icon={Search}
-              type="text"
-              placeholder="Buscar producto..."
-              value={searchTerm}
-              onChange={(e) => setSearchText(e.target.value)}
-            />
-          </div>
+        <StoreDesktopToolbar
+          searchTerm={searchTerm}
+          statusFilter={statusFilter}
+          hasActiveFilters={hasActiveFilters}
+          onSearchChange={setSearchText}
+          onStatusChange={(value) => setQueryParams({ status: value })}
+          onClearFilters={clearFilters}
+        />
 
-          <div className="flex items-center md:hidden" style={{ gap: 'var(--sf-space-sm)' }}>
-            <div className="flex-1">
-              <StorefrontField
-                icon={Search}
-                type="text"
-                placeholder="Buscar..."
-                value={searchTerm}
-                onChange={(e) => setSearchText(e.target.value)}
-              />
-            </div>
-            <Button
-              size="icon"
-              variant="secondary"
-              icon={SlidersHorizontal}
-              isIconOnly
-              onClick={() => setIsFilterSheetOpen(true)}
-              aria-label="Abrir filtros"
-            />
-          </div>
-        </div>
-
-        <div
-          className="hidden flex-wrap items-center justify-between border border-stone-200/50 bg-stone-100/50 md:flex"
-          style={{
-            borderRadius: 'var(--sf-radius-outer)',
-            padding: 'var(--sf-space-sm)',
-            gap: 'var(--sf-space-md)',
-          }}
-        >
-          <div className="flex flex-wrap items-center" style={{ gap: 'var(--sf-space-sm)' }}>
-            <SegmentedFilter
-              value={typeFilter}
-              options={typeOptions}
-              onChange={(value) => setQueryParams({ type: value })}
-            />
-            <SegmentedFilter
-              value={statusFilter}
-              options={statusOptions}
-              onChange={(value) => setQueryParams({ status: value })}
-            />
-          </div>
-
-          {hasActiveFilters && (
-            <Button
-              variant="ghost"
-              size="sm"
-              icon={X}
-              onClick={clearFilters}
-              className="text-stone-400 hover:bg-transparent hover:text-brand-500"
-            >
-              Limpiar Filtros
-            </Button>
-          )}
-        </div>
+        <StoreFilterSection
+          title="Tipo de producto"
+          value={typeFilter}
+          options={typeOptions}
+          onChange={(value) => setQueryParams({ type: value })}
+        />
 
         {loading ? (
           <div className="flex h-96 items-center justify-center">
             <Spinner className="h-12 w-12" />
           </div>
-        ) : filteredProducts.length === 0 ? (
+        ) : typeProducts.length === 0 ? (
           <EmptyState
-            icon={Search}
-            title="Sin Resultados"
-            description="No encontramos productos que coincidan con los filtros actuales."
-
-            actionText="Limpiar Busqueda"
+            icon={Package}
+            title="Sin productos"
+            description="Todavía no hay productos disponibles para esta selección."
+            actionText="Ver todo"
             onActionClick={clearFilters}
           />
         ) : (
@@ -160,24 +192,59 @@ function StorePageContent() {
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+            className="flex flex-col"
+            style={{ gap: 'var(--sf-space-lg)' }}
           >
-            <ProductGrid products={filteredProducts} />
+            {isHeroLoading ? <StoreHeroSkeleton /> : currentHero && <StoreHeroBanner hero={currentHero} />}
+
+            {showPurposeFilters && (
+              <StoreFilterSection
+                title="Propósito"
+                value={purposeFilter}
+                options={purposeOptions}
+                onChange={handlePurposeChange}
+              />
+            )}
+
+            {featuredProducts.length > 0 && <FeaturedProductRail products={featuredProducts} />}
+
+            {filteredProducts.length === 0 ? (
+              <EmptyState
+                icon={Search}
+                title="Sin resultados"
+                description="No encontramos productos que coincidan con los filtros actuales."
+                actionText="Limpiar búsqueda"
+                onActionClick={clearFilters}
+              />
+            ) : (
+              <ProductGrid products={filteredProducts} />
+            )}
           </motion.div>
         )}
 
         <BottomSheet
           isOpen={isFilterSheetOpen}
           onClose={() => setIsFilterSheetOpen(false)}
-          title="Filtrar Catalogo"
+          title="Filtrar catálogo"
         >
           <div className="flex flex-col font-medium" style={{ gap: 'var(--sf-space-lg)' }}>
             <MobileFilterGroup
-              label="Tipo de Producto"
+              label="Tipo de producto"
               value={typeFilter}
               options={typeOptions}
               columns="grid-cols-3"
               onChange={(value) => setQueryParams({ type: value })}
             />
+
+            {showPurposeFilters && (
+              <MobileFilterGroup
+                label="Propósito"
+                value={purposeFilter}
+                options={[{ value: 'ALL', label: 'Todos' }, ...purposeOptions]}
+                columns="grid-cols-3"
+                onChange={(value) => setQueryParams({ purpose: value })}
+              />
+            )}
 
             <MobileFilterGroup
               label="Disponibilidad"
@@ -195,7 +262,7 @@ function StorePageContent() {
             <div className="flex border-t border-stone-100 pt-[var(--sf-space-md)]" style={{ gap: 'var(--sf-space-sm)' }}>
               {hasActiveFilters && (
                 <Button variant="outline" context="section" className="flex-1" onClick={clearFilters}>
-                  Limpiar Todo
+                  Limpiar todo
                 </Button>
               )}
               <Button
@@ -204,13 +271,389 @@ function StorePageContent() {
                 className="flex-1"
                 onClick={() => setIsFilterSheetOpen(false)}
               >
-                Aplicar Filtros
+                Aplicar filtros
               </Button>
             </div>
           </div>
         </BottomSheet>
       </div>
     </div>
+  );
+}
+
+function StoreFilterSection({
+  title,
+  value,
+  options,
+  onChange,
+}: {
+  title: string;
+  value: string;
+  options: SegmentedControlOption[];
+  onChange: (value: string) => void;
+}) {
+  return (
+    <section className="flex flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
+      <h2 className="sf-text-h3 font-black text-stone-950">{title}</h2>
+      <div className="flex flex-wrap items-center" style={{ gap: 'var(--sf-space-sm)' }}>
+        {options.map((option) => {
+          const isActive = value === option.value;
+          return (
+            <button
+              key={option.value}
+              type="button"
+              onClick={() => onChange(option.value)}
+              className={`sf-text-button-card transition-colors ${
+                isActive ? 'bg-brand-500 text-white' : 'bg-transparent text-stone-500 hover:text-stone-900'
+              }`}
+              style={{
+                height: 'var(--sf-h-button-card)',
+                borderRadius: 'var(--sf-radius-card-inner)',
+                paddingInline: 'var(--sf-space-lg)',
+              }}
+            >
+              {option.label}
+            </button>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+function StoreHeroBanner({ hero }: { hero: StoreHero }) {
+  const mediaUrl = getAssetUrl(hero.mediaUrl);
+  const posterUrl = getAssetUrl(hero.posterUrl);
+  const objectPosition = hero.mobileObjectPosition || hero.desktopObjectPosition || 'center';
+
+  return (
+    <StorefrontAutonomousCard
+      density="none"
+      className="relative aspect-[1.95/1] overflow-hidden shadow-[0_1.5rem_4rem_rgba(80,55,38,0.16)] md:aspect-[3.6/1]"
+    >
+      {hero.type === 'VIDEO' ? (
+        <video
+          src={mediaUrl}
+          poster={posterUrl || undefined}
+          className="h-full w-full object-cover"
+          style={{ objectPosition }}
+          muted
+          loop
+          autoPlay
+          playsInline
+          preload="metadata"
+        />
+      ) : (
+        <img
+          src={mediaUrl}
+          alt={hero.title}
+          className="h-full w-full object-cover"
+          style={{ objectPosition }}
+        />
+      )}
+      <div className="absolute inset-0 bg-gradient-to-r from-stone-950/48 via-stone-950/18 to-transparent" />
+      <div
+        className="absolute inset-y-0 left-0 flex max-w-xl flex-col justify-center text-white"
+        style={{
+          padding: 'var(--sf-padding-inner)',
+          gap: 'var(--sf-space-xs)',
+        }}
+      >
+        <Badge variant="brand" context="card" className="w-fit bg-white/15 text-white ring-white/25 backdrop-blur-md">
+          Tienda
+        </Badge>
+        <h2 className="sf-text-h2 font-black leading-tight">{hero.title}</h2>
+        {hero.description && <p className="sf-text-body hidden max-w-md text-white/82 sm:block">{hero.description}</p>}
+      </div>
+    </StorefrontAutonomousCard>
+  );
+}
+
+function StoreHeroSkeleton() {
+  return (
+    <div
+      className="animate-pulse bg-stone-100"
+      style={{
+        aspectRatio: '1.95 / 1',
+        borderRadius: 'var(--sf-radius-outer)',
+      }}
+    />
+  );
+}
+
+function FeaturedProductRail({ products }: { products: Product[] }) {
+  return (
+    <section className="flex flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
+      <div className="flex items-center" style={{ gap: 'var(--sf-space-xs)' }}>
+        <Sparkles
+          aria-hidden="true"
+          className="text-brand-500"
+          style={{
+            width: 'var(--sf-size-inner-icon-card)',
+            height: 'var(--sf-size-inner-icon-card)',
+          }}
+          strokeWidth={2.35}
+        />
+        <h2 className="sf-text-h3 font-black text-stone-950">Destacados</h2>
+      </div>
+
+      <div
+        className="-mx-[var(--sf-inset-page-mobile)] flex snap-x snap-mandatory overflow-x-auto px-[var(--sf-inset-page-mobile)] pb-[var(--sf-space-xs)] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+        style={{ gap: 'var(--sf-space-md)' }}
+      >
+        {products.map((product) => (
+          <FeaturedProductCard key={product.id} product={product} />
+        ))}
+      </div>
+    </section>
+  );
+}
+
+function FeaturedProductCard({ product }: { product: Product }) {
+  const mediaUrl = getAssetUrl(product.coverPosterUrl || product.coverMediaUrl || product.thumbnail);
+
+  return (
+    <Link
+      href={`/store/${product.id}`}
+      className="group block w-[min(72vw,20rem)] shrink-0 snap-start md:w-[22rem]"
+      aria-label={`Ver ${product.name}`}
+    >
+      <StorefrontAutonomousCard
+        density="none"
+        interactive
+        className="relative aspect-[3/4] overflow-hidden shadow-[0_1.5rem_4rem_rgba(80,55,38,0.16)]"
+      >
+        {mediaUrl ? (
+          <img
+            src={mediaUrl}
+            alt={product.name}
+            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center bg-stone-100 text-stone-300">
+            <Package
+              style={{
+                width: 'var(--sf-size-stage-icon-compact)',
+                height: 'var(--sf-size-stage-icon-compact)',
+              }}
+              strokeWidth={1.5}
+            />
+          </div>
+        )}
+        <div className="absolute inset-0 bg-gradient-to-t from-stone-950/72 via-stone-950/10 to-transparent" />
+        <div
+          className="absolute inset-x-0 bottom-0 flex flex-col text-white"
+          style={{
+            padding: 'var(--sf-padding-inner)',
+            gap: 'var(--sf-space-xs)',
+          }}
+        >
+          <h3 className="sf-text-h3 line-clamp-1 font-black">{product.name}</h3>
+          <p className="sf-text-body font-black tabular-nums text-white/82">${formatPrice(product.price)}</p>
+        </div>
+      </StorefrontAutonomousCard>
+    </Link>
+  );
+}
+
+function StoreMobileTopBar({
+  searchTerm,
+  onSearchChange,
+  hasActiveFilters,
+  onOpenFilters,
+}: {
+  searchTerm: string;
+  onSearchChange: (value: string) => void;
+  hasActiveFilters: boolean;
+  onOpenFilters: () => void;
+}) {
+  const mobileActionStyle = {
+    width: 'var(--sf-size-mobile-chrome-action)',
+    height: 'var(--sf-size-mobile-chrome-action)',
+    borderRadius: 'var(--sf-radius-mobile-chrome-action)',
+    '--sf-button-icon-size': 'var(--sf-size-mobile-chrome-icon)',
+  } as CSSProperties;
+
+  return (
+    <div
+      className="fixed z-40 grid grid-cols-[minmax(0,1fr)_auto] items-center md:hidden"
+      style={{
+        top: 'var(--sf-inset-mobile-chrome-block)',
+        left: 'var(--sf-inset-mobile-chrome)',
+        right: 'var(--sf-inset-mobile-chrome)',
+        gap: 'var(--sf-space-md)',
+      }}
+    >
+      <StoreMobileSearchRail value={searchTerm} onChange={onSearchChange} />
+
+      <StoreMobileActionRail>
+        <Button
+          size="icon"
+          variant={hasActiveFilters ? 'brand' : 'ghost'}
+          icon={SlidersHorizontal}
+          isIconOnly
+          onClick={onOpenFilters}
+          aria-label="Abrir filtros"
+          style={mobileActionStyle}
+        />
+        {hasActiveFilters && (
+          <span
+            className="absolute rounded-full bg-brand-500 ring-2 ring-white"
+            style={{
+              top: 'var(--sf-space-sm)',
+              right: 'var(--sf-space-sm)',
+              width: 'var(--sf-size-inner-icon-badge)',
+              height: 'var(--sf-size-inner-icon-badge)',
+            }}
+          />
+        )}
+      </StoreMobileActionRail>
+    </div>
+  );
+}
+
+function StoreMobileSearchRail({
+  value,
+  onChange,
+  placeholder = 'Buscar...',
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <label
+      className="flex min-w-0 items-center border border-stone-200/90 bg-white shadow-[0_18px_48px_rgba(87,68,55,0.14)]"
+      style={{
+        height: 'var(--sf-h-mobile-nav)',
+        borderRadius: 'var(--sf-radius-outer)',
+        padding: 'var(--sf-space-sm)',
+        gap: 'var(--sf-space-sm)',
+      }}
+    >
+      <span
+        className="flex shrink-0 items-center justify-center bg-stone-50 text-stone-500"
+        style={{
+          width: 'var(--sf-size-mobile-nav-item)',
+          height: 'var(--sf-size-mobile-nav-item)',
+          borderRadius: 'var(--sf-radius-mobile-nav-item)',
+        }}
+      >
+        <Search
+          aria-hidden="true"
+          style={{
+            width: 'var(--sf-size-mobile-nav-icon)',
+            height: 'var(--sf-size-mobile-nav-icon)',
+          }}
+          strokeWidth={2.5}
+        />
+      </span>
+      <input
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        aria-label="Buscar productos"
+        className="min-w-0 flex-1 bg-transparent text-stone-850 outline-none placeholder:text-stone-400 sf-text-body"
+      />
+    </label>
+  );
+}
+
+function StoreMobileActionRail({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="relative flex shrink-0 items-center justify-center border border-stone-200/90 bg-white shadow-[0_18px_48px_rgba(87,68,55,0.14)]"
+      style={{
+        height: 'var(--sf-h-mobile-nav)',
+        borderRadius: 'var(--sf-radius-outer)',
+        padding: 'var(--sf-space-sm)',
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function StoreDesktopToolbar({
+  searchTerm,
+  statusFilter,
+  hasActiveFilters,
+  onSearchChange,
+  onStatusChange,
+  onClearFilters,
+}: {
+  searchTerm: string;
+  statusFilter: string;
+  hasActiveFilters: boolean;
+  onSearchChange: (value: string) => void;
+  onStatusChange: (value: string) => void;
+  onClearFilters: () => void;
+}) {
+  return (
+    <div
+      className="hidden flex-wrap items-center border border-stone-200 bg-white shadow-[0_1rem_2rem_rgba(31,24,17,0.05)] xl:flex-nowrap md:flex"
+      style={{
+        borderRadius: 'var(--sf-radius-outer)',
+        padding: 'var(--sf-space-sm)',
+        gap: 'var(--sf-space-md)',
+      }}
+    >
+      <StoreDesktopSearchField value={searchTerm} onChange={onSearchChange} />
+
+      <div className="flex shrink-0 flex-wrap items-center" style={{ gap: 'var(--sf-space-sm)' }}>
+        <SegmentedFilter value={statusFilter} options={statusOptions} onChange={onStatusChange} />
+      </div>
+
+      {hasActiveFilters && (
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={X}
+          onClick={onClearFilters}
+          className="text-stone-400 hover:bg-transparent hover:text-brand-500"
+        >
+          Limpiar filtros
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function StoreDesktopSearchField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label
+      className="flex min-w-[18rem] flex-1 items-center bg-stone-50 text-stone-500"
+      style={{
+        height: 'var(--sf-h-input)',
+        borderRadius: 'var(--sf-radius-inner)',
+        paddingInline: 'var(--sf-space-md)',
+        gap: 'var(--sf-space-sm)',
+      }}
+    >
+      <Search
+        aria-hidden="true"
+        style={{
+          width: 'var(--sf-size-inner-icon-section)',
+          height: 'var(--sf-size-inner-icon-section)',
+        }}
+        strokeWidth={2.35}
+      />
+      <input
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="Buscar producto..."
+        aria-label="Buscar productos"
+        className="min-w-0 flex-1 bg-transparent text-stone-850 outline-none placeholder:text-stone-400 sf-text-body"
+      />
+    </label>
   );
 }
 
@@ -249,13 +692,18 @@ function MobileFilterGroup({
 
 export default function StorePage() {
   return (
-    <Suspense fallback={
-      <div className="mx-auto max-w-7xl animate-pulse px-[var(--sf-inset-page-mobile)]" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
-        <div className="flex h-96 items-center justify-center">
-          <Spinner className="h-12 w-12" />
+    <Suspense
+      fallback={
+        <div
+          className="mx-auto max-w-7xl animate-pulse px-[var(--sf-inset-page-mobile)]"
+          style={{ paddingBlock: 'var(--sf-space-xl)' }}
+        >
+          <div className="flex h-96 items-center justify-center">
+            <Spinner className="h-12 w-12" />
+          </div>
         </div>
-      </div>
-    }>
+      }
+    >
       <StorePageContent />
     </Suspense>
   );

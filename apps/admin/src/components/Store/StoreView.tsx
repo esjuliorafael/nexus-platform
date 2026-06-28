@@ -1,8 +1,10 @@
 import React, { useState, useMemo, useEffect, useRef, useImperativeHandle } from 'react';
 import { ShoppingBag, Plus } from 'lucide-react';
-import { Product } from '../../types';
+import { Product, StoreHero } from '../../types';
 import { ProductForm } from './ProductForm';
 import { ProductCard } from './ProductCard';
+import { StoreHeroView } from './Hero/StoreHeroView';
+import { StoreHeroForm } from './Hero/StoreHeroForm';
 import { apiProducts } from '../../api';
 import { NexusSectionButton } from '../ui/NexusButton';
 import { EmptyState } from '../ui/EmptyState';
@@ -11,8 +13,8 @@ import { NexusPaginator } from '../ui/NexusPaginator';
 
 interface StoreViewProps {
   searchQuery: string;
-  viewMode?: 'list' | 'create' | 'edit';
-  onSetViewMode?: (mode: 'list' | 'create' | 'edit') => void;
+  viewMode?: 'list' | 'create' | 'edit' | 'hero_list' | 'hero_create' | 'hero_edit' | 'orders' | 'order-detail';
+  onSetViewMode?: (mode: 'list' | 'create' | 'edit' | 'hero_list' | 'hero_create' | 'hero_edit' | 'orders' | 'order-detail') => void;
   showToast: (message: string, type?: 'success' | 'error') => void;
   setConfirmDialog: (dialog: any) => void;
   onValidationChange?: (isValid: boolean) => void;
@@ -29,14 +31,19 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+    const [editingHero, setEditingHero] = useState<StoreHero | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const storeTopRef = useRef<HTMLDivElement>(null);
     const productFormRef = useRef<{ handleSave: () => void }>(null);
+    const storeHeroFormRef = useRef<{ handleSave: () => void }>(null);
 
     useImperativeHandle(ref, () => ({
       handleSave: () => {
         if (productFormRef.current) {
           productFormRef.current.handleSave();
+        }
+        if (storeHeroFormRef.current) {
+          storeHeroFormRef.current.handleSave();
         }
       }
     }));
@@ -44,6 +51,9 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
   useEffect(() => {
     if (viewMode === 'create') {
       setEditingProduct(null);
+    }
+    if (viewMode === 'hero_create') {
+      setEditingHero(null);
     }
   }, [viewMode]);
 
@@ -124,6 +134,34 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
     });
   };
 
+  const handleToggleFeatured = async (product: Product) => {
+    const nextFeatured = !product.featured;
+    const sameTypeFeatured = products
+      .filter((item) => item.type === product.type && item.featured && item.id !== product.id)
+      .map((item) => item.featuredOrder || 0);
+    const nextOrder = nextFeatured
+      ? Math.max(0, ...sameTypeFeatured) + 1
+      : null;
+
+    try {
+      await apiProducts.update(product.id, {
+        featured: nextFeatured,
+        featuredOrder: nextOrder,
+      });
+      setProducts((prev) =>
+        prev.map((item) =>
+          item.id === product.id
+            ? { ...item, featured: nextFeatured, featuredOrder: nextOrder }
+            : item,
+        ),
+      );
+      showToast(nextFeatured ? 'Producto destacado' : 'Producto retirado de destacados');
+    } catch (error) {
+      console.error("Error actualizando destacado:", error);
+      showToast('No se pudo actualizar el destacado', 'error');
+    }
+  };
+
   const handleSaveSuccess = () => {
     loadProducts(); 
     showToast(editingProduct ? 'Producto actualizado' : 'Producto creado con éxito');
@@ -148,6 +186,37 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
     );
   }
 
+  if (viewMode === 'hero_create' || viewMode === 'hero_edit') {
+    return (
+      <StoreHeroForm
+        ref={storeHeroFormRef}
+        key={editingHero ? editingHero.id : 'new-store-hero'}
+        initialData={editingHero || undefined}
+        onSave={() => {
+          showToast(editingHero ? 'Hero actualizado' : 'Hero creado');
+          setEditingHero(null);
+          onSetViewMode?.('hero_list');
+        }}
+        showToast={showToast}
+        onValidationChange={onValidationChange}
+      />
+    );
+  }
+
+  if (viewMode === 'hero_list') {
+    return (
+      <StoreHeroView
+        showToast={showToast}
+        setConfirmDialog={setConfirmDialog}
+        onCreate={() => onSetViewMode?.('hero_create')}
+        onEdit={(hero) => {
+          setEditingHero(hero);
+          onSetViewMode?.('hero_edit');
+        }}
+      />
+    );
+  }
+
   return (
     <div className="w-full" ref={storeTopRef}>
       {isLoading ? (
@@ -167,6 +236,7 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
                 product={product} 
                 onEdit={() => handleEdit(product)}
                 onDelete={() => handleDelete(product.id)}
+                onToggleFeatured={() => handleToggleFeatured(product)}
               />
             </div>
           ))}

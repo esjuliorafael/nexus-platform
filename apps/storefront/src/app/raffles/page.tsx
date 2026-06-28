@@ -53,7 +53,13 @@ export default function RafflesPage() {
 
   if (!isRaffleEnabled) {
     return (
-      <main className="flex min-h-[60vh] items-center justify-center px-[var(--sf-inset-page-mobile)]" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
+      <main
+        className="flex min-h-[60vh] items-center justify-center px-[var(--sf-inset-page-mobile)]"
+        style={{
+          paddingTop: 'var(--sf-space-xl)',
+          paddingBottom: 'var(--sf-mobile-chrome-content-padding-bottom)',
+        }}
+      >
         <div className="mx-auto max-w-2xl text-center">
           <div className="flex flex-col items-center" style={{ gap: 'var(--sf-space-md)' }}>
             <StorefrontIcon icon={Ticket} context="section" variant="muted" />
@@ -71,7 +77,13 @@ export default function RafflesPage() {
   }
 
   return (
-    <div className="mx-auto max-w-7xl px-[var(--sf-inset-page-mobile)]" style={{ paddingBlock: 'var(--sf-space-xl)' }}>
+    <div
+      className="mx-auto max-w-7xl px-[var(--sf-inset-page-mobile)]"
+      style={{
+        paddingTop: 'var(--sf-space-xl)',
+        paddingBottom: 'var(--sf-mobile-chrome-content-padding-bottom)',
+      }}
+    >
       <div className="flex flex-col" style={{ gap: 'var(--sf-space-lg)' }}>
         <div className="mx-auto flex max-w-2xl flex-col items-center text-center" style={{ gap: 'var(--sf-space-md)' }}>
           <Badge variant="brand" context="section" icon={Sparkles}>

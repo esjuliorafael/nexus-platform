@@ -27,6 +27,8 @@ export const createProductSchema = z.object({
   purpose: z.string().optional(),
   gallery: z.array(productGalleryAssetSchema).optional(),
   saleStatus: saleStatusEnum.optional(),
+  featured: z.boolean().optional(),
+  featuredOrder: z.number().int().min(1).nullable().optional(),
 });
 
 export const updateProductSchema = createProductSchema.partial();

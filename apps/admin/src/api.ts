@@ -20,6 +20,8 @@ import {
   RaffleParticipantIntelligence,
   ChannelsOverview,
   HomeSlide,
+  StoreHero,
+  StoreHeroScope,
   OwnProfile,
 } from "./types";
 
@@ -239,6 +241,8 @@ export const apiProducts = {
       ringNumber: item.ringNumber || undefined,
       age: item.age || undefined,
       purpose: item.purpose || undefined,
+      featured: Boolean(item.featured),
+      featuredOrder: item.featuredOrder ?? null,
       description: item.description || "",
       imageUrl: item.thumbnail || "",
       thumbnail: item.thumbnail || "",
@@ -350,6 +354,36 @@ export const apiHomeSlides = {
   },
   delete: async (id: string) => {
     return api.delete(`/admin/home-slides/${id}`);
+  },
+};
+
+const mapStoreHero = (item: any): StoreHero => ({
+  ...item,
+  id: item.id.toString(),
+  sortOrder: Number(item.sortOrder || 0),
+});
+
+export const apiStoreHeroes = {
+  getAll: async (scope?: StoreHeroScope): Promise<StoreHero[]> => {
+    const res = await api.get("/admin/store-heroes", {
+      params: scope ? { scope } : undefined,
+    });
+    return res.data.map(mapStoreHero);
+  },
+  create: async (data: Partial<StoreHero>) => {
+    const res = await api.post("/admin/store-heroes", data);
+    return mapStoreHero(res.data);
+  },
+  update: async (id: string, data: Partial<StoreHero>) => {
+    const res = await api.put(`/admin/store-heroes/${id}`, data);
+    return mapStoreHero(res.data);
+  },
+  reorder: async (scope: StoreHeroScope, ids: string[]): Promise<StoreHero[]> => {
+    const res = await api.put("/admin/store-heroes/reorder", { scope, ids });
+    return res.data.map(mapStoreHero);
+  },
+  delete: async (id: string) => {
+    return api.delete(`/admin/store-heroes/${id}`);
   },
 };
 

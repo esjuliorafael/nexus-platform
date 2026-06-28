@@ -13,6 +13,8 @@ export interface Product {
   ringNumber: string | null;
   age: string | null;
   purpose: string | null;
+  featured?: boolean;
+  featuredOrder?: number | null;
   saleStatus: "AVAILABLE" | "RESERVED" | "SOLD";
   active: boolean;
   expiresAt?: string | null;
@@ -84,6 +86,24 @@ export interface HomeSlide {
   endsAt: string | null;
   createdAt: string;
   updatedAt: string;
+}
+
+export type StoreHeroScope = "ALL" | "BIRD" | "ITEM";
+
+export interface StoreHero {
+  id: number;
+  scope: StoreHeroScope;
+  type: "PHOTO" | "VIDEO";
+  mediaUrl: string;
+  posterUrl: string | null;
+  desktopObjectPosition: string | null;
+  mobileObjectPosition: string | null;
+  title: string;
+  description: string | null;
+  sortOrder: number;
+  active: boolean;
+  startsAt: string | null;
+  endsAt: string | null;
 }
 
 export interface PublicContactChannel {

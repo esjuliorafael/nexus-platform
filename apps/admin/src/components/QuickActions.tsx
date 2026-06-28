@@ -62,6 +62,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
       items: [
         { icon: <ShoppingBag size={20} />, label: "Ver Productos" },
         { icon: <PackagePlus size={20} />, label: "Nuevo Producto" },
+        { icon: <MonitorPlay size={20} />, label: "Héroes Tienda" },
         {
           icon: isDetail ? (
             <ArrowLeft size={20} />

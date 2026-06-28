@@ -68,6 +68,18 @@
   --sf-size-mobile-chrome-icon: var(--sf-size-mobile-nav-icon);
   --sf-radius-mobile-chrome-rail: var(--sf-radius-outer);
   --sf-radius-mobile-chrome-action: var(--sf-radius-mobile-nav-item);
+  --sf-space-mobile-chrome-after: var(--sf-inset-mobile-chrome-block);
+  --sf-space-mobile-chrome-before: var(--sf-inset-mobile-chrome-block);
+  --sf-mobile-chrome-content-padding-top: calc(
+    var(--sf-h-mobile-chrome-rail) +
+    var(--sf-space-mobile-chrome-after)
+  );
+  --sf-mobile-chrome-content-padding-bottom: calc(
+    var(--sf-h-mobile-chrome-rail) +
+    var(--sf-inset-mobile-chrome-block) +
+    var(--sf-space-mobile-chrome-before)
+  );
+  --sf-store-content-padding-top: var(--sf-mobile-chrome-content-padding-top);
 
   /* Icon Sizes - Linked to Component Scales */
   --sf-size-icon-section: var(--sf-h-button-section);
@@ -102,6 +114,13 @@
 
   --sf-ease: cubic-bezier(0.23, 1, 0.32, 1);
   --sf-ease-reveal: cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@media (min-width: 768px) {
+  :root {
+    --sf-mobile-chrome-content-padding-bottom: var(--sf-space-xl);
+    --sf-store-content-padding-top: var(--sf-space-xl);
+  }
 }
 
 @layer base {

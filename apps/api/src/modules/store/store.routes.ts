@@ -21,6 +21,10 @@ import {
   homeSlideAdminRoutes,
   homeSlidePublicRoutes,
 } from "./home-slides/home-slide.routes";
+import {
+  storeHeroAdminRoutes,
+  storeHeroPublicRoutes,
+} from "./store-heroes/store-hero.routes";
 import { publicContactRoutes } from "./profile/profile.routes";
 
 export async function storeRoutes(server: FastifyInstance) {
@@ -28,6 +32,9 @@ export async function storeRoutes(server: FastifyInstance) {
   await server.register(productRoutes, { prefix: "/store/products" });
   await server.register(homeSlidePublicRoutes, {
     prefix: "/store/home-slides",
+  });
+  await server.register(storeHeroPublicRoutes, {
+    prefix: "/store/store-heroes",
   });
   await server.register(mediaPublicRoutes, { prefix: "/store/media" });
   await server.register(publicContactRoutes, { prefix: "/store/contacts" });
@@ -40,6 +47,7 @@ export async function storeRoutes(server: FastifyInstance) {
   await server.register(billingRoutes, { prefix: "/admin/billing" });
   await server.register(productAdminRoutes, { prefix: "/admin/products" });
   await server.register(homeSlideAdminRoutes, { prefix: "/admin/home-slides" });
+  await server.register(storeHeroAdminRoutes, { prefix: "/admin/store-heroes" });
   await server.register(categoryRoutes, { prefix: "/admin/categories" });
   await server.register(subcategoryRoutes, { prefix: "/admin/subcategories" });
   await server.register(mediaRoutes, { prefix: "/admin/media" });

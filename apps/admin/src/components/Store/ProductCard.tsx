@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Edit2, Trash2, Box, Package, Hash, CircleCheck, Clock, CircleX, PlayCircle, UploadCloud, XCircle, type LucideIcon } from 'lucide-react';
+import { Edit2, Trash2, Box, Package, Hash, CircleCheck, Clock, CircleX, PlayCircle, UploadCloud, XCircle, Star, type LucideIcon } from 'lucide-react';
 import { Product } from '../../types';
 import { NexusAutonomousButton } from '../ui/NexusButton';
 import { NexusAutonomousCard } from '../ui/NexusCard';
@@ -10,10 +10,11 @@ interface ProductCardProps {
   product: Product;
   onEdit: () => void;
   onDelete: () => void;
+  onToggleFeatured?: () => void;
   style?: React.CSSProperties;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDelete, style }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDelete, onToggleFeatured, style }) => {
   const videoRef = useRef<HTMLVideoElement>(null);
   
   // Utilidad para asegurar que la URL sea absoluta
@@ -222,6 +223,15 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
                   {product.ringNumber}
                 </NexusAutonomousBadge>
               )}
+              {product.featured && (
+                <NexusAutonomousBadge
+                  variant="warning"
+                  icon={Star}
+                  className="bg-amber-50/80 border-amber-100/60 backdrop-blur-sm"
+                >
+                  Destacado
+                </NexusAutonomousBadge>
+              )}
             </div>
             
             <h3 className="text-h2 text-text-main truncate">
@@ -274,6 +284,16 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
             )}
 
             <div className="hidden sm:flex items-center ml-auto sm:ml-0" style={{ gap: 'var(--space-sm)' }}>
+              {onToggleFeatured && (
+                <NexusAutonomousButton
+                  density="compact"
+                  variant={product.featured ? 'brand' : 'secondary'}
+                  isIconOnly
+                  onClick={(e) => { e.stopPropagation(); onToggleFeatured(); }}
+                  icon={Star}
+                  className={product.featured ? 'hover:bg-amber-500 hover:border-amber-500' : 'hover:bg-amber-50 hover:text-amber-600 hover:border-amber-100'}
+                />
+              )}
               <NexusAutonomousButton 
                 density="compact"
                 variant="secondary" 

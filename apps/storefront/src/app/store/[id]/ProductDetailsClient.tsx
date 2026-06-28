@@ -210,7 +210,7 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
 
   return (
     <div
-      className="mx-auto max-w-7xl px-[var(--sf-inset-page-mobile)] pb-[calc(var(--sf-space-xl)+var(--sf-h-mobile-nav)+var(--sf-space-lg))] pt-[calc(var(--sf-space-lg)+var(--sf-h-mobile-nav))] md:pb-[var(--sf-space-xl)] md:pt-[var(--sf-space-xl)]"
+      className="mx-auto max-w-7xl px-[var(--sf-inset-page-mobile)] pb-[var(--sf-mobile-chrome-content-padding-bottom)] pt-[var(--sf-mobile-chrome-content-padding-top)] md:pb-[var(--sf-space-xl)] md:pt-[var(--sf-space-xl)]"
     >
       <ProductTopBar
         productName={product.name}

@@ -6,8 +6,11 @@ export interface ProductFilters {
   type?: ProductType;
   status?: SaleStatus;
   search?: string;
+  purpose?: string;
+  featured?: boolean;
   onlyActive?: boolean;
   onlyReadyMedia?: boolean;
+  limit?: number;
 }
 
 const productInclude = {
@@ -81,6 +84,8 @@ export const productService = {
     }
     if (filters.type) where.type = filters.type;
     if (filters.status) where.saleStatus = filters.status;
+    if (filters.purpose) where.purpose = filters.purpose;
+    if (typeof filters.featured === "boolean") where.featured = filters.featured;
     if (filters.search) {
       where.OR = [
         { name: { contains: filters.search } },
@@ -91,7 +96,10 @@ export const productService = {
     const products = await storePrisma.product.findMany({
       where,
       include: productInclude,
-      orderBy: { createdAt: "desc" },
+      orderBy: filters.featured
+        ? [{ featuredOrder: "asc" }, { createdAt: "desc" }]
+        : { createdAt: "desc" },
+      ...(filters.limit ? { take: filters.limit } : {}),
     });
     return products.map(serializeProduct);
   },

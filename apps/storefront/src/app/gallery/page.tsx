@@ -173,7 +173,7 @@ export default function GalleryPage() {
       style={{
         gap: "var(--sf-space-lg)",
         paddingTop: "var(--sf-space-xl)",
-        paddingBottom: "var(--sf-space-xl)",
+        paddingBottom: "var(--sf-mobile-chrome-content-padding-bottom)",
       }}
     >
       <header

@@ -21,18 +21,18 @@ model Setting {
 }
 
 model User {
-  id                   Int         @id @default(autoincrement())
-  username             String      @unique
-  passwordHash         String      @map("password_hash")
+  id                   Int             @id @default(autoincrement())
+  username             String          @unique
+  passwordHash         String          @map("password_hash")
   name                 String
   email                String?
   phone                String?
-  role                 Role        @default(STAFF)
-  active               Boolean     @default(true)
-  createdAt            DateTime    @default(now()) @map("created_at")
-  notificationEmail    String?     @map("notification_email")
-  receiveNotifications Boolean     @default(true) @map("receive_notifications")
-  mustChangePassword   Boolean     @default(true) @map("must_change_password")
+  role                 Role            @default(STAFF)
+  active               Boolean         @default(true)
+  createdAt            DateTime        @default(now()) @map("created_at")
+  notificationEmail    String?         @map("notification_email")
+  receiveNotifications Boolean         @default(true) @map("receive_notifications")
+  mustChangePassword   Boolean         @default(true) @map("must_change_password")
   orderReads           OrderRead[]
   contactProfile       ContactProfile?
 
@@ -96,26 +96,51 @@ model Subcategory {
 }
 
 model Product {
-  id           Int              @id @default(autoincrement())
-  stock        Int              @default(1)
-  active       Boolean          @default(true) @map("active")
-  createdAt    DateTime         @default(now()) @map("created_at")
-  description  String?          @map("description")
-  name         String           @map("name")
-  price        Decimal          @default(0.00) @map("price")
-  ringNumber   String?          @map("ring_number")
-  saleStatus   SaleStatus       @default(AVAILABLE) @map("sale_status")
-  coverAssetId String?          @map("cover_asset_id") @db.Uuid
-  type         ProductType      @map("type")
-  updated_at   DateTime         @default(now()) @map("updated_at")
-  age          BirdAge?         @map("age")
-  purpose      BirdPurpose?     @map("purpose")
-  orderItems   OrderItem[]
-  gallery      ProductGallery[]
-  coverAsset   MediaAsset?      @relation("ProductCoverAsset", fields: [coverAssetId], references: [id], onDelete: SetNull)
+  id            Int              @id @default(autoincrement())
+  stock         Int              @default(1)
+  active        Boolean          @default(true) @map("active")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  description   String?          @map("description")
+  name          String           @map("name")
+  price         Decimal          @default(0.00) @map("price")
+  ringNumber    String?          @map("ring_number")
+  saleStatus    SaleStatus       @default(AVAILABLE) @map("sale_status")
+  coverAssetId  String?          @map("cover_asset_id") @db.Uuid
+  type          ProductType      @map("type")
+  featured      Boolean          @default(false) @map("featured")
+  featuredOrder Int?             @map("featured_order")
+  updated_at    DateTime         @default(now()) @map("updated_at")
+  age           BirdAge?         @map("age")
+  purpose       BirdPurpose?     @map("purpose")
+  orderItems    OrderItem[]
+  gallery       ProductGallery[]
+  coverAsset    MediaAsset?      @relation("ProductCoverAsset", fields: [coverAssetId], references: [id], onDelete: SetNull)
 
   @@index([coverAssetId])
+  @@index([type, featured, featuredOrder])
   @@map("products")
+}
+
+model StoreHero {
+  id                    Int            @id @default(autoincrement())
+  scope                 StoreHeroScope @map("scope")
+  assetId               String         @map("asset_id") @db.Uuid
+  desktopObjectPosition String         @default("50% 50%") @map("desktop_object_position")
+  mobileObjectPosition  String         @default("50% 50%") @map("mobile_object_position")
+  title                 String         @map("title")
+  description           String?        @map("description")
+  sortOrder             Int            @default(1) @map("sort_order")
+  active                Boolean        @default(true) @map("active")
+  startsAt              DateTime?      @map("starts_at")
+  endsAt                DateTime?      @map("ends_at")
+  createdAt             DateTime       @default(now()) @map("created_at")
+  updatedAt             DateTime       @updatedAt @map("updated_at")
+  asset                 MediaAsset     @relation(fields: [assetId], references: [id])
+
+  @@unique([scope, sortOrder])
+  @@index([assetId])
+  @@index([scope, active, sortOrder])
+  @@map("store_heroes")
 }
 
 model ProductGallery {
@@ -252,6 +277,7 @@ model MediaAsset {
   productGallery ProductGallery[]
   mediaEntries   Media[]
   homeSlides     HomeSlide[]
+  storeHeroes    StoreHero[]
 
   @@index([status, createdAt])
   @@map("media_assets")
@@ -370,6 +396,12 @@ enum Role {
 }
 
 enum ProductType {
+  ITEM @map("item")
+  BIRD @map("bird")
+}
+
+enum StoreHeroScope {
+  ALL  @map("all")
   ITEM @map("item")
   BIRD @map("bird")
 }

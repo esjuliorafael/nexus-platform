@@ -6,11 +6,14 @@ import { ProductType, SaleStatus } from "@prisma/client-store";
 export async function productRoutes(server: FastifyInstance) {
   // Public Routes (Pre-fixed with /store/products in store.routes.ts)
   server.get("/", async (request) => {
-    const { type, status, search } = request.query as any;
+    const { type, status, search, purpose, featured, limit } = request.query as any;
     return productService.getAll({
       type: type as ProductType,
       status: status as SaleStatus,
       search,
+      purpose: purpose ? String(purpose).toUpperCase() : undefined,
+      featured: featured === "true" ? true : undefined,
+      limit: limit ? Number(limit) : undefined,
       onlyActive: true,
       onlyReadyMedia: true,
     });
@@ -29,11 +32,14 @@ export async function productAdminRoutes(server: FastifyInstance) {
   server.addHook("preHandler", server.authenticate);
 
   server.get("/", async (request) => {
-    const { type, status, search } = request.query as any;
+    const { type, status, search, purpose, featured, limit } = request.query as any;
     return productService.getAll({
       type: type as ProductType,
       status: status as SaleStatus,
       search,
+      purpose: purpose ? String(purpose).toUpperCase() : undefined,
+      featured: featured === "true" ? true : undefined,
+      limit: limit ? Number(limit) : undefined,
       onlyActive: true,
     });
   });

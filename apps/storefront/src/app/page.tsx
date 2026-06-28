@@ -84,7 +84,7 @@ export default function HomePage() {
     <div className="w-full max-w-full overflow-x-clip">
       <HeroSlider />
 
-      <div className="space-y-[var(--sf-space-xl)] pb-[var(--sf-space-xl)] pt-[var(--sf-space-xl)]">
+      <div className="space-y-[var(--sf-space-xl)] pb-[var(--sf-mobile-chrome-content-padding-bottom)] pt-[var(--sf-space-xl)]">
         <section className="mx-auto max-w-[1440px] px-[var(--sf-inset-page-mobile)] md:px-[var(--sf-padding-outer)]">
           <SectionReveal>
             <div className="mb-[var(--sf-space-lg)] flex flex-col justify-between gap-[var(--sf-space-md)] border-b border-stone-200 pb-[var(--sf-space-md)] md:flex-row md:items-end">

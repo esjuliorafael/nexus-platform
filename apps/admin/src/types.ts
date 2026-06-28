@@ -39,6 +39,8 @@ export interface Product {
   ringNumber?: string;
   age?: "COCK" | "STAG" | "HEN" | "PULLET";
   purpose?: "COMBAT" | "BREEDING";
+  featured?: boolean;
+  featuredOrder?: number | null;
   stock?: number;
   description: string;
   gallery: ProductGalleryAsset[];
@@ -94,6 +96,28 @@ export interface HomeSlide {
   primaryHref?: string | null;
   secondaryText?: string | null;
   secondaryHref?: string | null;
+  sortOrder: number;
+  active: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type StoreHeroScope = "ALL" | "BIRD" | "ITEM";
+
+export interface StoreHero {
+  id: string;
+  scope: StoreHeroScope;
+  assetId: string;
+  type: "PHOTO" | "VIDEO";
+  mediaUrl: string;
+  desktopObjectPosition?: string | null;
+  mobileObjectPosition?: string | null;
+  posterUrl?: string | null;
+  assetStatus?: "UPLOADING" | "PROCESSING" | "READY" | "FAILED" | null;
+  title: string;
+  description?: string | null;
   sortOrder: number;
   active: boolean;
   startsAt?: string | null;
