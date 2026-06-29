@@ -342,12 +342,13 @@ model ShippingZone {
 }
 
 model ExtraCharge {
-  id         Int      @id @default(autoincrement())
-  amount     Decimal  @map("amount")
-  chargeDate DateTime @map("charge_date")
-  concept    String   @map("concept")
-  createdAt  DateTime @default(now()) @map("created_at")
-  isPaid     Boolean  @default(false) @map("is_paid")
+  id           Int      @id @default(autoincrement())
+  amount       Decimal  @map("amount")
+  chargeDate   DateTime @map("charge_date")
+  concept      String   @map("concept")
+  createdAt    DateTime @default(now()) @map("created_at")
+  displayOrder Int      @default(0) @map("display_order")
+  isPaid       Boolean  @default(false) @map("is_paid")
 
   @@map("extra_charges")
 }
@@ -359,6 +360,7 @@ model AnnualService {
   contractDate   DateTime? @map("contract_date")
   createdAt      DateTime  @default(now()) @map("created_at")
   description    String?   @map("description")
+  displayOrder   Int       @default(0) @map("display_order")
   expirationDate DateTime? @map("expiration_date")
   iconType       String    @default("default") @map("icon_type")
   isPaid         Boolean   @default(false) @map("is_paid")
@@ -367,12 +369,13 @@ model AnnualService {
 }
 
 model BillingPayment {
-  id          Int      @id @default(autoincrement())
-  amount      Decimal  @map("amount")
-  paymentDate DateTime @default(now()) @map("payment_date")
-  concept     String   @map("concept")
-  notes       String?  @map("notes")
-  createdAt   DateTime @default(now()) @map("created_at")
+  id           Int      @id @default(autoincrement())
+  amount       Decimal  @map("amount")
+  paymentDate  DateTime @default(now()) @map("payment_date")
+  concept      String   @map("concept")
+  notes        String?  @map("notes")
+  createdAt    DateTime @default(now()) @map("created_at")
+  displayOrder Int      @default(0) @map("display_order")
 
   @@map("billing_payments")
 }

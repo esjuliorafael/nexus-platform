@@ -25,8 +25,8 @@ export const BillingAlertWidget: React.FC<BillingAlertWidgetProps> = ({
   if (isLoading) return <BillingAlertSkeleton />;
 
   // --- LÓGICA CONTABLE UNIFICADA ---
-  const totalObligations = services.filter(s => !s.isPaid).reduce((acc, s) => acc + s.amount, 0) +
-                           charges.filter(c => c.status === 'pending').reduce((acc, c) => acc + c.amount, 0);
+  const totalObligations = services.reduce((acc, s) => acc + s.amount, 0) +
+                           charges.reduce((acc, c) => acc + c.amount, 0);
   
   const totalAbonado = payments.reduce((acc, p) => acc + p.amount, 0);
   const netBalance = Math.max(0, totalObligations - totalAbonado);

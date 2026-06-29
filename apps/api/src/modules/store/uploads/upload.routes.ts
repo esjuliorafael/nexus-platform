@@ -10,7 +10,7 @@ import { mediaAssetService } from "../media-assets/media-asset.service";
 const assetParamsSchema = z.object({ id: z.string().uuid() });
 const directUploadSchema = z.object({
   fileName: z.string().min(1).max(255),
-  mimeType: z.string().min(1).max(120),
+  mimeType: z.string().max(120).optional().default(""),
   sizeBytes: z.number().int().positive().optional(),
 });
 

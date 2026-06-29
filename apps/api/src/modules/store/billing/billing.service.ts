@@ -15,16 +15,27 @@ const mapPayment = (p: any) => ({
   amount: p.amount ? Number(p.amount) : 0,
 });
 
+const nextDisplayOrder = async (model: any) => {
+  const result = await model.aggregate({ _max: { displayOrder: true } });
+  return (result._max.displayOrder ?? -1) + 1;
+};
+
 export const billingService = {
   // Extra Charges
   async getExtraCharges() {
     const charges = await storePrisma.extraCharge.findMany({ 
-      orderBy: { createdAt: 'asc' } 
+      orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }]
     });
     return charges.map(mapCharge);
   },
   async createExtraCharge(data: any) {
-    const charge = await storePrisma.extraCharge.create({ data });
+    const displayOrder = data.displayOrder ?? await nextDisplayOrder(storePrisma.extraCharge);
+    const charge = await storePrisma.extraCharge.create({
+      data: {
+        ...data,
+        displayOrder,
+      },
+    });
     return mapCharge(charge);
   },
   async updateExtraCharge(id: number, data: any) {
@@ -33,6 +44,14 @@ export const billingService = {
   },
   async deleteExtraCharge(id: number) {
     return storePrisma.extraCharge.delete({ where: { id } });
+  },
+  async reorderExtraCharges(ids: number[]) {
+    await storePrisma.$transaction(
+      ids.map((id, displayOrder) =>
+        storePrisma.extraCharge.update({ where: { id }, data: { displayOrder } })
+      )
+    );
+    return this.getExtraCharges();
   },
 
   // Annual Services
@@ -63,12 +82,18 @@ export const billingService = {
     }
 
     const services = await storePrisma.annualService.findMany({ 
-      orderBy: { createdAt: 'asc' } 
+      orderBy: [{ displayOrder: 'asc' }, { createdAt: 'asc' }, { id: 'asc' }]
     });
     return services.map(mapService);
   },
   async createAnnualService(data: any) {
-    const service = await storePrisma.annualService.create({ data });
+    const displayOrder = data.displayOrder ?? await nextDisplayOrder(storePrisma.annualService);
+    const service = await storePrisma.annualService.create({
+      data: {
+        ...data,
+        displayOrder,
+      },
+    });
     return mapService(service);
   },
   async updateAnnualService(id: number, data: any) {
@@ -78,16 +103,30 @@ export const billingService = {
   async deleteAnnualService(id: number) {
     return storePrisma.annualService.delete({ where: { id } });
   },
+  async reorderAnnualServices(ids: number[]) {
+    await storePrisma.$transaction(
+      ids.map((id, displayOrder) =>
+        storePrisma.annualService.update({ where: { id }, data: { displayOrder } })
+      )
+    );
+    return this.getAnnualServices();
+  },
 
   // Payments
   async getPayments() {
     const payments = await storePrisma.billingPayment.findMany({ 
-      orderBy: { paymentDate: 'desc' } 
+      orderBy: [{ displayOrder: 'asc' }, { paymentDate: 'desc' }, { createdAt: 'desc' }, { id: 'desc' }]
     });
     return payments.map(mapPayment);
   },
   async createPayment(data: any) {
-    const payment = await storePrisma.billingPayment.create({ data });
+    const displayOrder = data.displayOrder ?? await nextDisplayOrder(storePrisma.billingPayment);
+    const payment = await storePrisma.billingPayment.create({
+      data: {
+        ...data,
+        displayOrder,
+      },
+    });
     return mapPayment(payment);
   },
   async updatePayment(id: number, data: any) {
@@ -96,5 +135,13 @@ export const billingService = {
   },
   async deletePayment(id: number) {
     return storePrisma.billingPayment.delete({ where: { id } });
+  },
+  async reorderPayments(ids: number[]) {
+    await storePrisma.$transaction(
+      ids.map((id, displayOrder) =>
+        storePrisma.billingPayment.update({ where: { id }, data: { displayOrder } })
+      )
+    );
+    return this.getPayments();
   },
 };

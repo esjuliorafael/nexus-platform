@@ -243,6 +243,7 @@ export interface ExtraCharge {
   amount: number;
   status: "pending" | "paid";
   date: string;
+  displayOrder: number;
 }
 
 export interface AnnualService {
@@ -254,6 +255,7 @@ export interface AnnualService {
   contractDate: string;
   dueDate: string;
   iconType: "globe" | "server" | "wrench" | "shield" | "default";
+  displayOrder: number;
 }
 
 export interface BillingPayment {
@@ -263,6 +265,7 @@ export interface BillingPayment {
   concept: string;
   notes?: string;
   createdAt: string;
+  displayOrder: number;
 }
 
 // --- NUEVOS TIPOS: PAGOS Y WHATSAPP ---

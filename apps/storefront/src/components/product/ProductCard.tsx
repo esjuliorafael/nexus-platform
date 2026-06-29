@@ -3,7 +3,7 @@
 import { MouseEvent } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
-import { Eye, PlayCircle, ShoppingCart, Tag } from 'lucide-react';
+import { Eye, ShoppingCart, Tag } from 'lucide-react';
 import { Product } from '../../types';
 import { formatPrice, getAssetUrl } from '../../utils/formatters';
 import { useCartStore } from '../../store/cart.store';
@@ -20,6 +20,7 @@ export function ProductCard({ product }: { product: Product }) {
   const thumbnailUrl = getAssetUrl(
     product.coverPosterUrl || product.coverMediaUrl || product.thumbnail,
   );
+  const posterUrl = getAssetUrl(product.coverPosterUrl || product.thumbnail);
   const coverMediaUrl = getAssetUrl(product.coverMediaUrl);
   const isVideo = product.coverMediaType === 'VIDEO';
 
@@ -62,7 +63,7 @@ export function ProductCard({ product }: { product: Product }) {
           isVideo ? (
             <video
               src={coverMediaUrl}
-              poster={thumbnailUrl || undefined}
+              poster={posterUrl || undefined}
               className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
               muted
               loop
@@ -104,28 +105,6 @@ export function ProductCard({ product }: { product: Product }) {
             {statusConfig.label}
           </Badge>
         </div>
-
-        {isVideo && (
-          <div
-            className="pointer-events-none absolute z-10 flex items-center justify-center border border-white/15 bg-stone-950/45 text-white shadow-lg backdrop-blur-md transition-transform group-hover:scale-105"
-            style={{
-              right: 'var(--sf-padding-inner)',
-              bottom: 'var(--sf-padding-inner)',
-              width: 'var(--sf-h-button-card)',
-              height: 'var(--sf-h-button-card)',
-              borderRadius: 'var(--sf-radius-card-nested)',
-              transitionTimingFunction: 'var(--sf-ease)',
-            }}
-          >
-            <PlayCircle
-              fill="currentColor"
-              style={{
-                width: 'var(--sf-size-inner-icon-card)',
-                height: 'var(--sf-size-inner-icon-card)',
-              }}
-            />
-          </div>
-        )}
 
         <div className="absolute inset-0 bg-gradient-to-t from-stone-950/42 via-transparent to-transparent opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
 

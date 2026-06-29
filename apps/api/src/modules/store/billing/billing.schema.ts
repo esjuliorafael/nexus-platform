@@ -29,3 +29,7 @@ export const createBillingPaymentSchema = z.object({
 });
 
 export const updateBillingPaymentSchema = createBillingPaymentSchema.partial();
+
+export const reorderBillingItemsSchema = z.object({
+  ids: z.array(z.coerce.number().int().positive()).min(1),
+});

@@ -477,6 +477,7 @@ export const apiBilling = {
         contractDate: s.contractDate || "",
         dueDate: s.expirationDate || "",
         iconType: s.iconType,
+        displayOrder: s.displayOrder ?? 0,
       })),
       charges: charges.data.map((c: any) => ({
         id: c.id.toString(),
@@ -484,6 +485,7 @@ export const apiBilling = {
         amount: parseFloat(c.amount),
         status: c.isPaid ? "paid" : "pending",
         date: c.chargeDate,
+        displayOrder: c.displayOrder ?? 0,
       })),
       payments: payments.data.map((p: any) => ({
         id: p.id.toString(),
@@ -492,6 +494,7 @@ export const apiBilling = {
         concept: p.concept,
         notes: p.notes || "",
         createdAt: p.createdAt,
+        displayOrder: p.displayOrder ?? 0,
       })),
     };
   },
@@ -504,6 +507,8 @@ export const apiBilling = {
     api.delete(`/admin/billing/annual-services/${id}`),
   toggleService: async (id: string, isPaid: boolean) =>
     api.put(`/admin/billing/annual-services/${id}`, { isPaid }),
+  reorderServices: async (ids: string[]) =>
+    api.put("/admin/billing/annual-services/reorder", { ids }),
 
   createCharge: async (data: any) =>
     api.post("/admin/billing/extra-charges", data),
@@ -513,12 +518,16 @@ export const apiBilling = {
     api.delete(`/admin/billing/extra-charges/${id}`),
   toggleCharge: async (id: string, isPaid: boolean) =>
     api.put(`/admin/billing/extra-charges/${id}`, { isPaid }),
+  reorderCharges: async (ids: string[]) =>
+    api.put("/admin/billing/extra-charges/reorder", { ids }),
 
   createPayment: async (data: any) => api.post("/admin/billing/payments", data),
   updatePayment: async (id: string, data: any) =>
     api.put(`/admin/billing/payments/${id}`, data),
   deletePayment: async (id: string) =>
     api.delete(`/admin/billing/payments/${id}`),
+  reorderPayments: async (ids: string[]) =>
+    api.put("/admin/billing/payments/reorder", { ids }),
 };
 
 export const apiPayments = {

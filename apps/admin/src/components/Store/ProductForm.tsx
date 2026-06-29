@@ -222,7 +222,8 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
 
       if (!finalCoverAssetId) throw new Error('Selecciona una portada para el producto.');
 
-      if (isVideo && staticThumbFile) {
+      const isNewDirectVideoCover = !!coverFile && coverFile.type.startsWith('video/');
+      if (isVideo && staticThumbFile && !isNewDirectVideoCover) {
         const uploadRes = await apiUpload.upload(staticThumbFile);
         coverPosterAssetId = uploadRes.assetId;
       }

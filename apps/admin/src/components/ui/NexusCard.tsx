@@ -121,6 +121,7 @@ interface LegacyCardProps {
   actions?: React.ReactNode;
   onEdit?: () => void;
   onDelete?: () => void;
+  showActionsAlways?: boolean;
   onClick?: () => void;
   className?: string;
   swipeable?: boolean;
@@ -210,7 +211,7 @@ export const NexusControlRow: React.FC<LegacyCardProps & { statusColor?: string 
  * Mantiene el espaciado y jerarquía visual de nivel medio.
  */
 export const NexusSectionCard: React.FC<LegacyCardProps> = ({
-  title, subtitle, icon, thumbnail, iconVariant, isMuted, delay, rightContent, actions, onEdit, onDelete, onClick, className, swipeable
+  title, subtitle, icon, thumbnail, iconVariant, isMuted, delay, rightContent, actions, onEdit, onDelete, showActionsAlways, onClick, className, swipeable
 }) => (
   <NexusCardBase level={2} swipeable={swipeable} onEdit={onEdit} onDelete={onDelete} isMuted={isMuted} delay={delay} className={`${className} ${onClick ? 'cursor-pointer active:scale-[0.99] transition-transform' : ''}`}>
     <div onClick={onClick} className="flex flex-col md:flex-row md:items-center justify-between h-full" style={{ gap: 'var(--space-lg)' }}>
@@ -234,7 +235,14 @@ export const NexusSectionCard: React.FC<LegacyCardProps> = ({
         <div className="flex w-full items-center md:w-auto" style={{ gap: 'var(--space-sm)' }}>
           {actions}
           {(onEdit || onDelete) && (
-            <div className="hidden sm:flex opacity-0 group-hover/card:opacity-100 transition-all duration-500 translate-x-2 group-hover/card:translate-x-0" style={{ gap: 'var(--space-sm)' }}>
+            <div
+              className={`${showActionsAlways ? 'flex' : 'hidden sm:flex'} transition-all duration-500 ${
+                showActionsAlways
+                  ? 'opacity-100 translate-x-0'
+                  : 'opacity-0 translate-x-2 group-hover/card:opacity-100 group-hover/card:translate-x-0'
+              }`}
+              style={{ gap: 'var(--space-sm)' }}
+            >
               {onEdit && <NexusCardButton onClick={(e) => { e.stopPropagation(); onEdit(); }} variant="secondary" isIconOnly icon={Edit2} />}
               {onDelete && <NexusCardButton onClick={(e) => { e.stopPropagation(); onDelete(); }} variant="secondary" isIconOnly icon={Trash2} className="hover:bg-rose-50 hover:text-rose-500 hover:border-rose-200" />}
             </div>

@@ -34,6 +34,17 @@ const ACCEPTED_VIDEO_MIMES = new Set([
 
 const DIRECT_UPLOAD_VIDEO_MIMES = ACCEPTED_VIDEO_MIMES;
 
+const VIDEO_MIME_BY_EXTENSION: Record<string, string> = {
+  mp4: "video/mp4",
+  m4v: "video/mp4",
+  mov: "video/quicktime",
+  qt: "video/quicktime",
+  webm: "video/webm",
+  mkv: "video/x-matroska",
+  "3gp": "video/3gpp",
+  "3g2": "video/3gpp2",
+};
+
 function unsupportedMedia(message: string) {
   const error = new Error(message) as Error & { statusCode?: number };
   error.statusCode = 415;
@@ -45,6 +56,14 @@ function extensionForDirectUpload(fileName: string, mimeType: string) {
   if (extensionFromMime) return extensionFromMime;
   const extensionFromName = fileName.split(".").pop()?.trim().toLowerCase();
   return extensionFromName || "bin";
+}
+
+function normalizeDirectVideoMime(fileName: string, inputMimeType: string) {
+  const mimeType = inputMimeType.trim().toLowerCase();
+  if (DIRECT_UPLOAD_VIDEO_MIMES.has(mimeType)) return mimeType;
+
+  const extension = fileName.split(".").pop()?.trim().toLowerCase() || "";
+  return VIDEO_MIME_BY_EXTENSION[extension] || mimeType;
 }
 
 async function createImageAsset(inputPath: string, originalName: string) {
@@ -148,7 +167,7 @@ export const mediaAssetService = {
     mimeType: string;
     sizeBytes?: number | null;
   }) {
-    const mimeType = input.mimeType.toLowerCase();
+    const mimeType = normalizeDirectVideoMime(input.fileName, input.mimeType);
     if (!DIRECT_UPLOAD_VIDEO_MIMES.has(mimeType)) {
       throw unsupportedMedia("Solo se permite carga directa de video.");
     }

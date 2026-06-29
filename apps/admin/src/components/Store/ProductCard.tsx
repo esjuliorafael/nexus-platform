@@ -1,5 +1,5 @@
 import React, { useRef } from 'react';
-import { Edit2, Trash2, Box, Package, Hash, CircleCheck, Clock, CircleX, PlayCircle, UploadCloud, XCircle, Star, type LucideIcon } from 'lucide-react';
+import { Edit2, Trash2, Box, Package, Hash, CircleCheck, Clock, CircleX, UploadCloud, XCircle, Star, type LucideIcon } from 'lucide-react';
 import { Product } from '../../types';
 import { NexusAutonomousButton } from '../ui/NexusButton';
 import { NexusAutonomousCard } from '../ui/NexusCard';
@@ -38,6 +38,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   };
 
   const imageUrl = getFullUrl(product.coverPosterUrl || product.coverMediaUrl || product.imageUrl);
+  const posterUrl = getFullUrl(product.coverPosterUrl || product.imageUrl);
   const finalVideoUrl = product.coverMediaType === 'VIDEO'
     ? getFullUrl(product.coverMediaUrl || undefined)
     : null;
@@ -177,19 +178,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                     loop
                     playsInline
                     preload="metadata"
-                    poster={imageUrl || undefined}
+                    poster={posterUrl || undefined}
                   />
-                  <div
-                    className="absolute z-10 bg-black/40 backdrop-blur-md text-white pointer-events-none shadow-lg border border-white/10"
-                    style={{
-                      right: 'var(--space-xs)',
-                      bottom: 'var(--space-xs)',
-                      padding: 'var(--space-xs)',
-                      borderRadius: 'var(--radius-card-nested)'
-                    }}
-                  >
-                    <PlayCircle size={10} fill="currentColor" />
-                  </div>
                 </>
               ) : (
                 <img
@@ -342,21 +332,8 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                   loop
                   playsInline
                   preload="metadata"
-                  poster={imageUrl || undefined}
+                  poster={posterUrl || undefined}
                 />
-                {finalVideoUrl && (
-                  <div
-                    className="absolute z-10 bg-black/40 backdrop-blur-md text-white pointer-events-none group-hover/thumb:scale-110 transition-transform shadow-lg border border-white/10"
-                    style={{
-                      right: 'var(--space-xs)',
-                      bottom: 'var(--space-xs)',
-                      padding: 'var(--space-xs)',
-                      borderRadius: 'var(--radius-card-nested)'
-                    }}
-                  >
-                    <PlayCircle size={10} fill="currentColor" />
-                  </div>
-                )}
               </>
             ) : (
               <img 

@@ -1,5 +1,5 @@
 import React, { useState, useImperativeHandle, forwardRef, useEffect } from 'react';
-import { Server, Globe, Wrench, Receipt, Plus, Trash2, CheckCircle2, AlertCircle, Tag, Calendar as CalendarIcon, Pencil, Save, Check, ShieldCheck, Box, DollarSign, Wallet, History, FileText } from 'lucide-react';
+import { Server, Globe, Wrench, Receipt, Plus, Trash2, CheckCircle2, AlertCircle, Tag, Calendar as CalendarIcon, Pencil, Save, Check, ShieldCheck, Box, DollarSign, Wallet, History, FileText, ArrowUp, ArrowDown } from 'lucide-react';
 import { AnnualService, ExtraCharge, BillingPayment } from '../../../types';
 import { apiBilling } from '../../../api';
 import { NexusSectionButton, NexusCardButton, NexusAutonomousButton } from '../../ui/NexusButton';
@@ -53,7 +53,11 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
 
     const [isChargeModalOpen, setIsChargeModalOpen] = useState(false);
     const [editingCharge, setEditingCharge] = useState<ExtraCharge | null>(null);
-    const [chargeFormData, setChargeFormData] = useState({ concept: '', amount: '' });
+    const [chargeFormData, setChargeFormData] = useState({
+      concept: '',
+      amount: '',
+      chargeDate: new Date().toISOString().split('T')[0]
+    });
 
     const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
     const [editingPayment, setEditingPayment] = useState<BillingPayment | null>(null);
@@ -157,10 +161,18 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
     const handleOpenChargeModal = (charge?: ExtraCharge) => {
       if (charge) {
         setEditingCharge(charge);
-        setChargeFormData({ concept: charge.concept, amount: charge.amount.toString() });
+        setChargeFormData({
+          concept: charge.concept,
+          amount: charge.amount.toString(),
+          chargeDate: formatDateForInput(charge.date)
+        });
       } else {
         setEditingCharge(null);
-        setChargeFormData({ concept: '', amount: '' });
+        setChargeFormData({
+          concept: '',
+          amount: '',
+          chargeDate: new Date().toISOString().split('T')[0]
+        });
       }
       setIsChargeModalOpen(true);
     };
@@ -171,7 +183,7 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
         const payload = {
           concept: chargeFormData.concept,
           amount: parseFloat(chargeFormData.amount),
-          chargeDate: new Date().toISOString().split('T')[0]
+          chargeDate: chargeFormData.chargeDate
         };
         if (editingCharge) await apiBilling.updateCharge(editingCharge.id, payload);
         else await apiBilling.createCharge(payload);
@@ -280,8 +292,84 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
     };
 
     // --- CÁLCULOS ---
-    const totalObligations = services.filter(s => !s.isPaid).reduce((acc, s) => acc + s.amount, 0) +
-                             extraCharges.filter(c => c.status === 'pending').reduce((acc, c) => acc + c.amount, 0);
+    const moveItem = <T extends { id: string }>(items: T[], id: string, direction: 'up' | 'down') => {
+      const index = items.findIndex(item => item.id === id);
+      const targetIndex = direction === 'up' ? index - 1 : index + 1;
+      if (index < 0 || targetIndex < 0 || targetIndex >= items.length) return items;
+      const next = [...items];
+      [next[index], next[targetIndex]] = [next[targetIndex], next[index]];
+      return next.map((item, displayOrder) => ({ ...item, displayOrder }));
+    };
+
+    const reorderServices = async (id: string, direction: 'up' | 'down') => {
+      const next = moveItem(services, id, direction);
+      if (next === services) return;
+      setServices(next);
+      try {
+        await apiBilling.reorderServices(next.map(item => item.id));
+        showToast('Orden de servicios actualizado');
+      } catch (error) {
+        showToast('No se pudo actualizar el orden', 'error');
+        loadBillingData();
+      }
+    };
+
+    const reorderCharges = async (id: string, direction: 'up' | 'down') => {
+      const next = moveItem(extraCharges, id, direction);
+      if (next === extraCharges) return;
+      setExtraCharges(next);
+      try {
+        await apiBilling.reorderCharges(next.map(item => item.id));
+        showToast('Orden de cargos actualizado');
+      } catch (error) {
+        showToast('No se pudo actualizar el orden', 'error');
+        loadBillingData();
+      }
+    };
+
+    const reorderPayments = async (id: string, direction: 'up' | 'down') => {
+      const next = moveItem(payments, id, direction);
+      if (next === payments) return;
+      setPayments(next);
+      try {
+        await apiBilling.reorderPayments(next.map(item => item.id));
+        showToast('Orden de pagos actualizado');
+      } catch (error) {
+        showToast('No se pudo actualizar el orden', 'error');
+        loadBillingData();
+      }
+    };
+
+    const renderOrderButtons = (
+      index: number,
+      total: number,
+      onMoveUp: () => void,
+      onMoveDown: () => void
+    ) => (
+      <>
+        <NexusCardButton
+          type="button"
+          variant="secondary"
+          isIconOnly
+          icon={ArrowUp}
+          disabled={index === 0}
+          onClick={onMoveUp}
+          aria-label="Subir tarjeta"
+        />
+        <NexusCardButton
+          type="button"
+          variant="secondary"
+          isIconOnly
+          icon={ArrowDown}
+          disabled={index === total - 1}
+          onClick={onMoveDown}
+          aria-label="Bajar tarjeta"
+        />
+      </>
+    );
+
+    const totalObligations = services.reduce((acc, s) => acc + s.amount, 0) +
+                             extraCharges.reduce((acc, c) => acc + c.amount, 0);
 
     const totalAbonado = payments.reduce((acc, p) => acc + p.amount, 0);
     const netBalance = Math.max(0, totalObligations - totalAbonado);
@@ -365,15 +453,24 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
                     </>
                   }
                   actions={isSuperadmin && (
-                    <NexusCardButton
-                      onClick={() => toggleServiceStatus(service.id)}
-                      variant={service.isPaid ? 'secondary' : 'brand'}
-                    >
-                      {service.isPaid ? 'Saldado' : 'Saldar'}
-                    </NexusCardButton>
+                    <>
+                      {renderOrderButtons(
+                        idx,
+                        services.length,
+                        () => reorderServices(service.id, 'up'),
+                        () => reorderServices(service.id, 'down')
+                      )}
+                      <NexusCardButton
+                        onClick={() => toggleServiceStatus(service.id)}
+                        variant={service.isPaid ? 'secondary' : 'brand'}
+                      >
+                        {service.isPaid ? 'Saldado' : 'Saldar'}
+                      </NexusCardButton>
+                    </>
                   )}
                   onEdit={isSuperadmin ? () => handleOpenServiceModal(service) : undefined}
                   onDelete={isSuperadmin ? () => removeService(service.id) : undefined}
+                  showActionsAlways={isSuperadmin}
                   swipeable={isSuperadmin}
                 />
               ))
@@ -423,15 +520,24 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
                     </>
                   }
                   actions={isSuperadmin && (
-                    <NexusCardButton
-                      onClick={() => toggleChargeStatus(charge.id)}
-                      variant={charge.status === 'paid' ? 'secondary' : 'brand'}
-                    >
-                      {charge.status === 'paid' ? 'Saldado' : 'Finalizar'}
-                    </NexusCardButton>
+                    <>
+                      {renderOrderButtons(
+                        idx,
+                        extraCharges.length,
+                        () => reorderCharges(charge.id, 'up'),
+                        () => reorderCharges(charge.id, 'down')
+                      )}
+                      <NexusCardButton
+                        onClick={() => toggleChargeStatus(charge.id)}
+                        variant={charge.status === 'paid' ? 'secondary' : 'brand'}
+                      >
+                        {charge.status === 'paid' ? 'Saldado' : 'Finalizar'}
+                      </NexusCardButton>
+                    </>
                   )}
                   onEdit={isSuperadmin ? () => handleOpenChargeModal(charge) : undefined}
                   onDelete={isSuperadmin ? () => removeCharge(charge.id) : undefined}
+                  showActionsAlways={isSuperadmin}
                   swipeable={isSuperadmin}
                 />
               ))
@@ -481,8 +587,15 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
                       </div>
                     </>
                   }
+                  actions={isSuperadmin && renderOrderButtons(
+                    idx,
+                    payments.length,
+                    () => reorderPayments(payment.id, 'up'),
+                    () => reorderPayments(payment.id, 'down')
+                  )}
                   onEdit={isSuperadmin ? () => handleOpenPaymentModal(payment) : undefined}
                   onDelete={isSuperadmin ? () => removePayment(payment.id) : undefined}
+                  showActionsAlways={isSuperadmin}
                   swipeable={isSuperadmin}
                 />
               ))
@@ -548,6 +661,7 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
                   <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
                     <NexusInput label="Concepto" required value={chargeFormData.concept} onChange={(e) => setChargeFormData({...chargeFormData, concept: e.target.value})} icon={Tag} />
                     <NexusInput label="Monto (MXN)" type="number" required step="0.01" value={chargeFormData.amount} onChange={(e) => setChargeFormData({...chargeFormData, amount: e.target.value})} icon={DollarSign} />
+                    <NexusInput label="Fecha del Cargo" type="date" required value={chargeFormData.chargeDate} onChange={(e) => setChargeFormData({...chargeFormData, chargeDate: e.target.value})} />
                   </div>
                   <NexusModalActions>
                     <NexusAutonomousButton
