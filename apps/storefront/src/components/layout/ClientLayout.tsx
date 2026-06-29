@@ -17,7 +17,7 @@ interface ClientLayoutProps {
 
 export function ClientLayout({ children }: ClientLayoutProps) {
   const pathname = usePathname();
-  const { isModuleEnabled } = useSettings();
+  const { isModuleEnabled, loading: settingsLoading } = useSettings();
   const isCartOpen = useCartUiStore((state) => state.isCartOpen);
   const openCart = useCartUiStore((state) => state.openCart);
   const closeCart = useCartUiStore((state) => state.closeCart);
@@ -52,7 +52,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
         )}
       </AnimatePresence>
 
-      {!isProductDetailRoute && (
+      {!isProductDetailRoute && !settingsLoading && (
         <BottomNav
           showRaffles={showRaffles}
           onOpenCart={openCart}

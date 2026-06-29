@@ -268,7 +268,7 @@ export const StoreHeroForm = forwardRef<
                   mediaUrl={previewUrl}
                   isVideo={isVideoPreview}
                   objectPosition={desktopObjectPosition}
-                  className="aspect-[16/9]"
+                  className="aspect-[3.6/1]"
                 />
               )}
             </div>

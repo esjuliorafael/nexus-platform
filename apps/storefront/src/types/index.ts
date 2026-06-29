@@ -17,6 +17,7 @@ export interface Product {
   featuredOrder?: number | null;
   saleStatus: "AVAILABLE" | "RESERVED" | "SOLD";
   active: boolean;
+  published: boolean;
   expiresAt?: string | null;
   gallery?: ProductGallery[];
 }

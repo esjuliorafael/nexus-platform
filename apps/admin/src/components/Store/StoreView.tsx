@@ -33,6 +33,7 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [editingHero, setEditingHero] = useState<StoreHero | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
+    const [togglingPublishedIds, setTogglingPublishedIds] = useState<Set<string>>(new Set());
     const storeTopRef = useRef<HTMLDivElement>(null);
     const productFormRef = useRef<{ handleSave: () => void }>(null);
     const storeHeroFormRef = useRef<{ handleSave: () => void }>(null);
@@ -162,6 +163,36 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
     }
   };
 
+  const handleTogglePublished = async (product: Product) => {
+    const nextPublished = product.published === false;
+
+    setTogglingPublishedIds((prev) => new Set(prev).add(product.id));
+    setProducts((prev) =>
+      prev.map((item) =>
+        item.id === product.id ? { ...item, published: nextPublished } : item,
+      ),
+    );
+
+    try {
+      await apiProducts.update(product.id, { published: nextPublished });
+      showToast(nextPublished ? 'Producto publicado' : 'Producto pausado');
+    } catch (error) {
+      console.error("Error actualizando publicaciÃ³n:", error);
+      setProducts((prev) =>
+        prev.map((item) =>
+          item.id === product.id ? { ...item, published: product.published } : item,
+        ),
+      );
+      showToast('No se pudo actualizar la publicaciÃ³n', 'error');
+    } finally {
+      setTogglingPublishedIds((prev) => {
+        const next = new Set(prev);
+        next.delete(product.id);
+        return next;
+      });
+    }
+  };
+
   const handleSaveSuccess = () => {
     loadProducts(); 
     showToast(editingProduct ? 'Producto actualizado' : 'Producto creado con éxito');
@@ -237,6 +268,8 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
                 onEdit={() => handleEdit(product)}
                 onDelete={() => handleDelete(product.id)}
                 onToggleFeatured={() => handleToggleFeatured(product)}
+                onTogglePublished={() => handleTogglePublished(product)}
+                isTogglingPublished={togglingPublishedIds.has(product.id)}
               />
             </div>
           ))}

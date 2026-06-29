@@ -15,13 +15,17 @@ export async function productRoutes(server: FastifyInstance) {
       featured: featured === "true" ? true : undefined,
       limit: limit ? Number(limit) : undefined,
       onlyActive: true,
+      onlyPublished: true,
       onlyReadyMedia: true,
     });
   });
 
   server.get("/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
-    const product = await productService.getById(parseInt(id), { onlyReadyMedia: true });
+    const product = await productService.getById(parseInt(id), {
+      onlyPublished: true,
+      onlyReadyMedia: true,
+    });
     if (!product) return reply.status(404).send({ message: "Product not found" });
     return product;
   });

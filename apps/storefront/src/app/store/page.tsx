@@ -1,6 +1,6 @@
 "use client";
 
-import { CSSProperties, ReactNode, Suspense, useEffect, useMemo, useState } from 'react';
+import { CSSProperties, ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
@@ -15,8 +15,11 @@ import { Button } from '../../components/ui/Button';
 import { BottomSheet } from '../../components/ui/BottomSheet';
 import { EmptyState } from '../../components/ui/EmptyState';
 import { SegmentedControl, type SegmentedControlOption } from '../../components/ui/SegmentedControl';
-import { Badge } from '../../components/ui/Badge';
 import { StorefrontAutonomousCard } from '../../components/ui/Card';
+import { StorefrontPaginator } from '../../components/ui/Paginator';
+
+const MOBILE_PRODUCTS_PER_PAGE = 8;
+const DESKTOP_PRODUCTS_PER_PAGE = 12;
 
 const typeOptions = [
   { value: 'ALL', label: 'Todo' },
@@ -46,12 +49,16 @@ function StorePageContent() {
   const [heroes, setHeroes] = useState<StoreHero[]>([]);
   const [isHeroLoading, setIsHeroLoading] = useState(false);
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+  const [page, setPage] = useState(1);
+  const productsPerPage = useResponsiveProductsPerPage();
+  const catalogRef = useRef<HTMLDivElement>(null);
 
   const typeFilter = searchParams.get('type') || 'ALL';
   const statusFilter = searchParams.get('status') || 'ALL';
   const purposeFilter = searchParams.get('purpose') || 'ALL';
   const heroScope = typeFilter === 'ALL' ? 'ALL' : (typeFilter as StoreHeroScope);
-  const showPurposeFilters = typeFilter !== 'ITEM';
+  const showPurposeFilters = typeFilter === 'BIRD';
+  const isSearchMode = searchTerm.trim().length > 0;
 
   const setQueryParams = (newParams: Record<string, string>) => {
     const params = new URLSearchParams(searchParams.toString());
@@ -64,7 +71,7 @@ function StorePageContent() {
       }
     });
 
-    if (newParams.type === 'ITEM') {
+    if (newParams.type && newParams.type !== 'BIRD') {
       params.delete('purpose');
     }
 
@@ -129,6 +136,20 @@ function StorePageContent() {
     });
   }, [purposeFilter, searchTerm, showPurposeFilters, statusFilter, typeProducts]);
 
+  const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
+  const paginatedProducts = useMemo(() => {
+    const start = (page - 1) * productsPerPage;
+    return filteredProducts.slice(start, start + productsPerPage);
+  }, [filteredProducts, page, productsPerPage]);
+
+  useEffect(() => {
+    setPage(1);
+  }, [purposeFilter, searchTerm, statusFilter, typeFilter]);
+
+  useEffect(() => {
+    if (totalPages > 0 && page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
+
   const clearFilters = () => {
     router.push(pathname);
     setSearchText('');
@@ -139,8 +160,15 @@ function StorePageContent() {
     setQueryParams({ purpose: purposeFilter === value ? 'ALL' : value });
   };
 
+  const handlePageChange = (nextPage: number) => {
+    setPage(nextPage);
+    requestAnimationFrame(() => {
+      catalogRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+  };
+
   const hasActiveFilters =
-    typeFilter !== 'ALL' || statusFilter !== 'ALL' || purposeFilter !== 'ALL' || Boolean(searchTerm);
+    typeFilter !== 'ALL' || statusFilter !== 'ALL' || purposeFilter !== 'ALL' || isSearchMode;
   const currentHero = typeProducts.length > 0 ? heroes[0] : null;
 
   return (
@@ -195,7 +223,9 @@ function StorePageContent() {
             className="flex flex-col"
             style={{ gap: 'var(--sf-space-lg)' }}
           >
-            {isHeroLoading ? <StoreHeroSkeleton /> : currentHero && <StoreHeroBanner hero={currentHero} />}
+            {!isSearchMode && (
+              <>
+                {isHeroLoading ? <StoreHeroSkeleton /> : currentHero && <StoreHeroBanner hero={currentHero} />}
 
             {showPurposeFilters && (
               <StoreFilterSection
@@ -206,7 +236,9 @@ function StorePageContent() {
               />
             )}
 
-            {featuredProducts.length > 0 && <FeaturedProductRail products={featuredProducts} />}
+                {featuredProducts.length > 0 && <FeaturedProductRail products={featuredProducts} />}
+              </>
+            )}
 
             {filteredProducts.length === 0 ? (
               <EmptyState
@@ -217,7 +249,11 @@ function StorePageContent() {
                 onActionClick={clearFilters}
               />
             ) : (
-              <ProductGrid products={filteredProducts} />
+              <div ref={catalogRef} className="flex flex-col scroll-mt-[var(--sf-mobile-chrome-content-padding-top)] md:scroll-mt-[var(--sf-space-xl)]">
+                {isSearchMode && <SearchResultsHeader count={filteredProducts.length} />}
+                <ProductGrid products={paginatedProducts} />
+                <StorefrontPaginator page={page} totalPages={totalPages} onPageChange={handlePageChange} />
+              </div>
             )}
           </motion.div>
         )}
@@ -281,6 +317,43 @@ function StorePageContent() {
   );
 }
 
+function useResponsiveProductsPerPage() {
+  const [productsPerPage, setProductsPerPage] = useState(MOBILE_PRODUCTS_PER_PAGE);
+
+  useEffect(() => {
+    const mediaQuery = window.matchMedia('(min-width: 768px)');
+    const updateProductsPerPage = () => {
+      setProductsPerPage(mediaQuery.matches ? DESKTOP_PRODUCTS_PER_PAGE : MOBILE_PRODUCTS_PER_PAGE);
+    };
+
+    updateProductsPerPage();
+    mediaQuery.addEventListener('change', updateProductsPerPage);
+
+    return () => mediaQuery.removeEventListener('change', updateProductsPerPage);
+  }, []);
+
+  return productsPerPage;
+}
+
+function SearchResultsHeader({ count }: { count: number }) {
+  return (
+    <div
+      className="flex items-center justify-between"
+      style={{
+        gap: 'var(--sf-space-md)',
+        marginBottom: 'var(--sf-space-md)',
+      }}
+    >
+      <h2 className="sf-text-h3 font-black text-stone-950">
+        {count === 1 ? 'Resultado' : 'Resultados'}
+      </h2>
+      <span className="sf-text-button-card font-black text-stone-500 tabular-nums">
+        {count} {count === 1 ? 'producto' : 'productos'}
+      </span>
+    </div>
+  );
+}
+
 function StoreFilterSection({
   title,
   value,
@@ -324,19 +397,22 @@ function StoreFilterSection({
 function StoreHeroBanner({ hero }: { hero: StoreHero }) {
   const mediaUrl = getAssetUrl(hero.mediaUrl);
   const posterUrl = getAssetUrl(hero.posterUrl);
-  const objectPosition = hero.mobileObjectPosition || hero.desktopObjectPosition || 'center';
+  const heroPositionStyle = {
+    '--sf-hero-mobile-object-position': hero.mobileObjectPosition || '50% 50%',
+    '--sf-hero-desktop-object-position': hero.desktopObjectPosition || '50% 50%',
+  } as CSSProperties;
 
   return (
     <StorefrontAutonomousCard
       density="none"
       className="relative aspect-[1.95/1] overflow-hidden shadow-[0_1.5rem_4rem_rgba(80,55,38,0.16)] md:aspect-[3.6/1]"
+      style={heroPositionStyle}
     >
       {hero.type === 'VIDEO' ? (
         <video
           src={mediaUrl}
           poster={posterUrl || undefined}
-          className="h-full w-full object-cover"
-          style={{ objectPosition }}
+          className="sf-hero-media h-full w-full object-cover"
           muted
           loop
           autoPlay
@@ -347,8 +423,7 @@ function StoreHeroBanner({ hero }: { hero: StoreHero }) {
         <img
           src={mediaUrl}
           alt={hero.title}
-          className="h-full w-full object-cover"
-          style={{ objectPosition }}
+          className="sf-hero-media h-full w-full object-cover"
         />
       )}
       <div className="absolute inset-0 bg-gradient-to-r from-stone-950/48 via-stone-950/18 to-transparent" />
@@ -359,9 +434,6 @@ function StoreHeroBanner({ hero }: { hero: StoreHero }) {
           gap: 'var(--sf-space-xs)',
         }}
       >
-        <Badge variant="brand" context="card" className="w-fit bg-white/15 text-white ring-white/25 backdrop-blur-md">
-          Tienda
-        </Badge>
         <h2 className="sf-text-h2 font-black leading-tight">{hero.title}</h2>
         {hero.description && <p className="sf-text-body hidden max-w-md text-white/82 sm:block">{hero.description}</p>}
       </div>
@@ -398,8 +470,11 @@ function FeaturedProductRail({ products }: { products: Product[] }) {
       </div>
 
       <div
-        className="-mx-[var(--sf-inset-page-mobile)] flex snap-x snap-mandatory overflow-x-auto px-[var(--sf-inset-page-mobile)] pb-[var(--sf-space-xs)] [-ms-overflow-style:none] [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-        style={{ gap: 'var(--sf-space-md)' }}
+        className="-mx-[var(--sf-inset-page-mobile)] flex snap-x snap-mandatory overflow-x-auto px-[var(--sf-inset-page-mobile)] pb-[var(--sf-space-md)] pt-[var(--sf-space-xs)] [-ms-overflow-style:none] [scrollbar-width:none] md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden"
+        style={{
+          gap: 'var(--sf-space-md)',
+          scrollPaddingInline: 'var(--sf-inset-page-mobile)',
+        }}
       >
         {products.map((product) => (
           <FeaturedProductCard key={product.id} product={product} />
@@ -421,7 +496,7 @@ function FeaturedProductCard({ product }: { product: Product }) {
       <StorefrontAutonomousCard
         density="none"
         interactive
-        className="relative aspect-[3/4] overflow-hidden shadow-[0_1.5rem_4rem_rgba(80,55,38,0.16)]"
+        className="relative aspect-[3/4] overflow-hidden"
       >
         {mediaUrl ? (
           <img
@@ -440,15 +515,22 @@ function FeaturedProductCard({ product }: { product: Product }) {
             />
           </div>
         )}
-        <div className="absolute inset-0 bg-gradient-to-t from-stone-950/72 via-stone-950/10 to-transparent" />
         <div
-          className="absolute inset-x-0 bottom-0 flex flex-col text-white"
+          className="pointer-events-none absolute inset-x-0 bottom-0"
+          style={{
+            height: '58%',
+            background:
+              'linear-gradient(to top, rgb(12 10 9 / 0.86) 0%, rgb(12 10 9 / 0.52) 42%, rgb(12 10 9 / 0) 100%)',
+          }}
+        />
+        <div
+          className="absolute inset-x-0 bottom-0 z-10 flex flex-col text-white"
           style={{
             padding: 'var(--sf-padding-inner)',
             gap: 'var(--sf-space-xs)',
           }}
         >
-          <h3 className="sf-text-h3 line-clamp-1 font-black">{product.name}</h3>
+          <h3 className="sf-text-h2 line-clamp-1 font-black">{product.name}</h3>
           <p className="sf-text-body font-black tabular-nums text-white/82">${formatPrice(product.price)}</p>
         </div>
       </StorefrontAutonomousCard>

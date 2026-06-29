@@ -41,6 +41,8 @@ export interface Product {
   purpose?: "COMBAT" | "BREEDING";
   featured?: boolean;
   featuredOrder?: number | null;
+  active: boolean;
+  published: boolean;
   stock?: number;
   description: string;
   gallery: ProductGalleryAsset[];

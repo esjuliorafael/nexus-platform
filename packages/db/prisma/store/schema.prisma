@@ -99,6 +99,7 @@ model Product {
   id            Int              @id @default(autoincrement())
   stock         Int              @default(1)
   active        Boolean          @default(true) @map("active")
+  published     Boolean          @default(true) @map("published")
   createdAt     DateTime         @default(now()) @map("created_at")
   description   String?          @map("description")
   name          String           @map("name")
@@ -117,6 +118,7 @@ model Product {
   coverAsset    MediaAsset?      @relation("ProductCoverAsset", fields: [coverAssetId], references: [id], onDelete: SetNull)
 
   @@index([coverAssetId])
+  @@index([active, published])
   @@index([type, featured, featuredOrder])
   @@map("products")
 }

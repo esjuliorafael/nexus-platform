@@ -29,6 +29,7 @@ export const createProductSchema = z.object({
   saleStatus: saleStatusEnum.optional(),
   featured: z.boolean().optional(),
   featuredOrder: z.number().int().min(1).nullable().optional(),
+  published: z.boolean().optional(),
 });
 
 export const updateProductSchema = createProductSchema.partial();

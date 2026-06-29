@@ -236,13 +236,15 @@ export const apiProducts = {
       name: item.name,
       price: parseFloat(item.price),
       status: mapStatusDBtoFront(item.stock, item.saleStatus, item.type),
-      type: item.type.toLowerCase(),
+      type: mapProductType(item.type),
       stock: item.stock,
       ringNumber: item.ringNumber || undefined,
       age: item.age || undefined,
       purpose: item.purpose || undefined,
       featured: Boolean(item.featured),
       featuredOrder: item.featuredOrder ?? null,
+      active: item.active !== false,
+      published: item.published !== false,
       description: item.description || "",
       imageUrl: item.thumbnail || "",
       thumbnail: item.thumbnail || "",
@@ -429,7 +431,7 @@ export const apiOrders = {
         name: i.productName || "Producto",
         price: parseFloat(i.unitPrice),
         quantity: i.quantity,
-        type: i.productType.toLowerCase(),
+        type: mapProductType(i.productType),
         imageUrl: i.product?.thumbnail,
       })),
     }));
@@ -751,6 +753,11 @@ function mapStatusDBtoFront(
     return "available";
   }
   return stock > 0 ? "available" : "sold";
+}
+
+function mapProductType(type?: string): "BIRD" | "ITEM" {
+  const normalized = type?.toUpperCase();
+  return normalized === "BIRD" || normalized === "AVE" ? "BIRD" : "ITEM";
 }
 
 function mapOrderStatus(status: string): "paid" | "pending" | "cancelled" {

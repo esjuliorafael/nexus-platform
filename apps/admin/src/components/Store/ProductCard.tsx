@@ -4,6 +4,7 @@ import { Product } from '../../types';
 import { NexusAutonomousButton } from '../ui/NexusButton';
 import { NexusAutonomousCard } from '../ui/NexusCard';
 import { NexusAutonomousBadge, type NexusBadgeVariant } from '../ui/NexusBadge';
+import { NexusSwitch } from '../ui/NexusSwitch';
 import { ASSET_BASE_URL } from '../../api';
 
 interface ProductCardProps {
@@ -11,11 +12,22 @@ interface ProductCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onToggleFeatured?: () => void;
+  onTogglePublished?: () => void;
+  isTogglingPublished?: boolean;
   style?: React.CSSProperties;
 }
 
-export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDelete, onToggleFeatured, style }) => {
+export const ProductCard: React.FC<ProductCardProps> = ({
+  product,
+  onEdit,
+  onDelete,
+  onToggleFeatured,
+  onTogglePublished,
+  isTogglingPublished,
+  style,
+}) => {
   const videoRef = useRef<HTMLVideoElement>(null);
+  const isPublished = product.published !== false;
   
   // Utilidad para asegurar que la URL sea absoluta
   const getFullUrl = (path?: string) => {
@@ -109,20 +121,182 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
   };
 
   const statusConfig = getStatusConfig(product.status);
+  const isBird = product.type === 'BIRD';
 
   return (
     <NexusAutonomousCard
       onEdit={onEdit}
       onDelete={onDelete}
       swipeable
-      isMuted={statusConfig.isMuted}
-      innerClassName={`hover:shadow-xl hover:shadow-stone-200/40 active:scale-[0.995] transition-all duration-700 ${statusConfig.innerStyles}`}
+      isMuted={statusConfig.isMuted || !isPublished}
+      innerClassName={`hover:shadow-xl hover:shadow-stone-200/40 active:scale-[0.995] transition-all duration-700 ${
+        isPublished ? statusConfig.innerStyles : 'border-border-main/70'
+      }`}
       style={style}
     >
+      <div className="flex w-full flex-col sm:hidden" style={{ gap: 'var(--space-md)' }}>
+        <div className="flex w-full items-center" style={{ gap: 'var(--space-md)' }}>
+          <div
+            className="shrink-0 overflow-hidden bg-stone-100 border border-border-main relative group/thumb shadow-inner"
+            style={{
+              width: 'var(--size-card-thumb)',
+              height: 'var(--size-card-thumb)',
+              borderRadius: 'var(--radius-card-inner)'
+            }}
+          >
+            <div className={`absolute inset-0 ${statusConfig.thumbFilter}`}>
+              {!isMediaReady ? (
+                <div
+                  className="flex h-full w-full flex-col items-center justify-center bg-bg-muted text-text-muted"
+                  style={{ gap: 'var(--space-xs)' }}
+                >
+                  <div
+                    className="grid place-items-center bg-bg-card border border-border-main"
+                    style={{
+                      width: 'var(--size-icon-card)',
+                      height: 'var(--size-icon-card)',
+                      borderRadius: 'var(--radius-card-nested-compact)',
+                    }}
+                  >
+                    {isMediaFailed ? (
+                      <XCircle size={18} className="text-rose-600" />
+                    ) : (
+                      <UploadCloud size={18} className="text-brand-600" />
+                    )}
+                  </div>
+                  <span className="text-caption text-center font-bold uppercase tracking-[0.08em]">
+                    {isMediaFailed ? 'Error' : 'Subiendo'}
+                  </span>
+                </div>
+              ) : finalVideoUrl ? (
+                <>
+                  <video
+                    src={finalVideoUrl}
+                    className="w-full h-full object-cover"
+                    muted
+                    loop
+                    playsInline
+                    preload="metadata"
+                    poster={imageUrl || undefined}
+                  />
+                  <div
+                    className="absolute z-10 bg-black/40 backdrop-blur-md text-white pointer-events-none shadow-lg border border-white/10"
+                    style={{
+                      right: 'var(--space-xs)',
+                      bottom: 'var(--space-xs)',
+                      padding: 'var(--space-xs)',
+                      borderRadius: 'var(--radius-card-nested)'
+                    }}
+                  >
+                    <PlayCircle size={10} fill="currentColor" />
+                  </div>
+                </>
+              ) : (
+                <img
+                  src={imageUrl}
+                  className="w-full h-full object-cover"
+                  alt={product.name}
+                />
+              )}
+            </div>
+
+            {statusConfig.thumbOverlay && (
+              <div className={`absolute inset-0 ${statusConfig.thumbOverlay} pointer-events-none`} />
+            )}
+
+            <div className="absolute inset-0 bg-black/5" />
+          </div>
+
+          <div className="flex min-w-0 flex-1 flex-col justify-center" style={{ gap: 'var(--space-sm)' }}>
+            <div className="flex min-w-0 flex-wrap items-center" style={{ gap: 'var(--space-xs)' }}>
+              {statusConfig.showStatusPill ? (
+                <NexusAutonomousBadge
+                  variant={statusConfig.badgeVariant}
+                  icon={statusConfig.icon}
+                  className="shadow-sm dark:shadow-none transition-colors duration-500"
+                >
+                  {statusConfig.label}
+                </NexusAutonomousBadge>
+              ) : (
+                <>
+                  <NexusAutonomousBadge
+                    variant="muted"
+                    icon={isBird ? Box : Package}
+                    className="bg-bg-muted/80 border-border-main/50 backdrop-blur-sm"
+                  >
+                    {isBird ? 'Ave' : 'Art.'}
+                  </NexusAutonomousBadge>
+                  {isBird && product.ringNumber && (
+                    <NexusAutonomousBadge
+                      variant="brand"
+                      icon={Hash}
+                      className="bg-brand-50/80 border-brand-100/50 backdrop-blur-sm"
+                    >
+                      {product.ringNumber}
+                    </NexusAutonomousBadge>
+                  )}
+                </>
+              )}
+            </div>
+
+            <h3 className="text-h2 text-text-main truncate">
+              {product.name}
+            </h3>
+
+            {!isBird && (
+              <span className="text-label uppercase tracking-[0.15em] text-text-muted">
+                Stock: {product.stock} u.
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div
+          className="flex w-full items-center justify-between border-t border-border-main pt-[var(--space-md)]"
+          style={{ gap: 'var(--space-md)' }}
+        >
+          <div className="flex min-w-0 flex-col items-start" style={{ gap: 'var(--space-xs)' }}>
+            <span className="text-label uppercase tracking-[0.15em] text-stone-400">Precio</span>
+            <div className="flex items-baseline text-h1 text-brand-700">
+              <span className="text-secondary mr-0.5 opacity-50">$</span>
+              {parseFloat(product.price.toString()).toLocaleString('es-MX', { minimumFractionDigits: 0 })}
+            </div>
+          </div>
+
+          <div className="flex shrink-0 items-center" style={{ gap: 'var(--space-md)' }}>
+            {onTogglePublished && (
+              <div className="flex flex-col items-center" style={{ gap: 'var(--space-xs)' }}>
+                <NexusSwitch
+                  checked={isPublished}
+                  onChange={() => onTogglePublished()}
+                  disabled={isTogglingPublished}
+                  aria-label={isPublished ? 'Pausar producto' : 'Publicar producto'}
+                />
+                <span className="text-label uppercase tracking-[0.15em] text-text-muted">
+                  {isPublished ? 'Publicado' : 'Pausado'}
+                </span>
+              </div>
+            )}
+
+            {onToggleFeatured && (
+              <NexusAutonomousButton
+                density="compact"
+                variant={product.featured ? 'brand' : 'secondary'}
+                isIconOnly
+                onClick={(e) => { e.stopPropagation(); onToggleFeatured(); }}
+                icon={Star}
+                aria-label={product.featured ? 'Quitar destacado' : 'Destacar producto'}
+                className={product.featured ? 'hover:bg-amber-500 hover:border-amber-500' : 'hover:bg-amber-50 hover:text-amber-600 hover:border-amber-100'}
+              />
+            )}
+          </div>
+        </div>
+      </div>
+
       <div 
         onMouseEnter={handleMouseEnter}
         onMouseLeave={handleMouseLeave}
-        className="flex flex-row items-center w-full"
+        className="hidden flex-row items-center w-full sm:flex"
         style={{ gap: 'var(--space-md)' }}
       >
         {/* Thumbnail: Level 2 Card Radius */}
@@ -207,30 +381,42 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
           {/* Main Info */}
           <div className="flex-1 min-w-0 flex flex-col justify-center" style={{ gap: 'var(--space-sm)' }}>
             <div className="flex items-center" style={{ gap: 'var(--space-sm)' }}>
-              <NexusAutonomousBadge
-                variant="muted"
-                icon={product.type === 'BIRD' ? Box : Package}
-                className="bg-bg-muted/80 border-border-main/50 backdrop-blur-sm"
-              >
-                {product.type === 'BIRD' ? 'Ave' : 'Art.'}
-              </NexusAutonomousBadge>
-              {product.type === 'BIRD' && product.ringNumber && (
+              {statusConfig.showStatusPill ? (
                 <NexusAutonomousBadge
-                  variant="brand"
-                  icon={Hash}
-                  className="bg-brand-50/80 border-brand-100/50 backdrop-blur-sm"
+                  variant={statusConfig.badgeVariant}
+                  icon={statusConfig.icon}
+                  className="shadow-sm dark:shadow-none transition-colors duration-500"
                 >
-                  {product.ringNumber}
+                  {statusConfig.label}
                 </NexusAutonomousBadge>
-              )}
-              {product.featured && (
-                <NexusAutonomousBadge
-                  variant="warning"
-                  icon={Star}
-                  className="bg-amber-50/80 border-amber-100/60 backdrop-blur-sm"
-                >
-                  Destacado
-                </NexusAutonomousBadge>
+              ) : (
+                <>
+                  <NexusAutonomousBadge
+                    variant="muted"
+                    icon={isBird ? Box : Package}
+                    className="bg-bg-muted/80 border-border-main/50 backdrop-blur-sm"
+                  >
+                    {isBird ? 'Ave' : 'Art.'}
+                  </NexusAutonomousBadge>
+                  {isBird && product.ringNumber && (
+                    <NexusAutonomousBadge
+                      variant="brand"
+                      icon={Hash}
+                      className="bg-brand-50/80 border-brand-100/50 backdrop-blur-sm"
+                    >
+                      {product.ringNumber}
+                    </NexusAutonomousBadge>
+                  )}
+                  {product.featured && (
+                    <NexusAutonomousBadge
+                      variant="warning"
+                      icon={Star}
+                      className="hidden bg-amber-50/80 border-amber-100/60 backdrop-blur-sm sm:inline-flex"
+                    >
+                      Destacado
+                    </NexusAutonomousBadge>
+                  )}
+                </>
               )}
             </div>
             
@@ -241,18 +427,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
 
           {/* Secondary Info: Stats */}
           <div className="flex flex-row items-center shrink-0 lg:border-l lg:border-border-main lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-lg)' }}>
-            {product.type === 'BIRD' ? (
-              <div className="flex items-center" style={{ gap: 'var(--space-lg)' }}>
-                <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                  <span className="text-label uppercase tracking-[0.15em] text-stone-400">Etapa</span>
-                  <span className="text-secondary text-text-main">{product.age}</span>
-                </div>
-                <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                  <span className="text-label uppercase tracking-[0.15em] text-stone-400">Propósito</span>
-                  <span className="text-secondary text-text-main">{product.purpose}</span>
-                </div>
-              </div>
-            ) : (
+            {!isBird && (
               <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
                 <span className="text-label uppercase tracking-[0.15em] text-stone-400">Stock</span>
                 <span className="text-secondary text-text-main">{product.stock} u.</span>
@@ -260,7 +435,12 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
             )}
 
             {/* Price: Highlighted */}
-            <div className="flex flex-col items-end lg:border-l lg:border-border-main lg:pl-[var(--space-md)] lg:min-w-[120px]" style={{ gap: 'var(--space-xs)' }}>
+            <div
+              className={`flex flex-col items-end lg:min-w-[120px] ${
+                isBird ? '' : 'lg:border-l lg:border-border-main lg:pl-[var(--space-md)]'
+              }`}
+              style={{ gap: 'var(--space-xs)' }}
+            >
               <span className="text-label uppercase tracking-[0.15em] text-stone-400">Precio</span>
               <div className="flex items-baseline text-h1 text-brand-700">
                 <span className="text-secondary mr-0.5 opacity-50">$</span>
@@ -270,16 +450,21 @@ export const ProductCard: React.FC<ProductCardProps> = ({ product, onEdit, onDel
           </div>
 
           {/* Status & Actions */}
-          <div className="flex items-center justify-between lg:justify-end shrink-0 lg:border-l lg:border-border-main lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-sm)' }}>
-            {statusConfig.showStatusPill && (
-              <div className="hidden sm:block">
-                <NexusAutonomousBadge
-                  variant={statusConfig.badgeVariant}
-                  icon={statusConfig.icon}
-                  className="shadow-sm dark:shadow-none transition-colors duration-500"
-                >
-                  {statusConfig.label}
-                </NexusAutonomousBadge>
+          <div
+            className="flex items-center justify-between shrink-0 border-t border-border-main pt-[var(--space-md)] lg:justify-end lg:border-l lg:border-t-0 lg:pl-[var(--space-md)] lg:pt-0"
+            style={{ gap: 'var(--space-md)' }}
+          >
+            {onTogglePublished && (
+              <div className="flex flex-col items-center" style={{ gap: 'var(--space-xs)' }}>
+                <NexusSwitch
+                  checked={isPublished}
+                  onChange={() => onTogglePublished()}
+                  disabled={isTogglingPublished}
+                  aria-label={isPublished ? 'Pausar producto' : 'Publicar producto'}
+                />
+                <span className="text-label uppercase tracking-[0.15em] text-text-muted">
+                  {isPublished ? 'Publicado' : 'Pausado'}
+                </span>
               </div>
             )}
 

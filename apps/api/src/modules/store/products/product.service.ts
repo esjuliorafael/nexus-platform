@@ -9,6 +9,7 @@ export interface ProductFilters {
   purpose?: string;
   featured?: boolean;
   onlyActive?: boolean;
+  onlyPublished?: boolean;
   onlyReadyMedia?: boolean;
   limit?: number;
 }
@@ -76,6 +77,7 @@ export const productService = {
   async getAll(filters: ProductFilters) {
     const where: any = {};
     if (filters.onlyActive !== false) where.active = true;
+    if (filters.onlyPublished) where.published = true;
     if (filters.onlyReadyMedia) {
       where.coverAsset = {
         status: "READY",
@@ -104,10 +106,15 @@ export const productService = {
     return products.map(serializeProduct);
   },
 
-  async getById(id: number, options: { onlyReadyMedia?: boolean } = {}) {
+  async getById(
+    id: number,
+    options: { onlyActive?: boolean; onlyPublished?: boolean; onlyReadyMedia?: boolean } = {},
+  ) {
     const product = await storePrisma.product.findFirst({
       where: {
         id,
+        ...(options.onlyActive !== false ? { active: true } : {}),
+        ...(options.onlyPublished ? { published: true } : {}),
         ...(options.onlyReadyMedia
           ? {
               coverAsset: {
