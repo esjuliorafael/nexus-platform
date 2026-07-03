@@ -1,6 +1,7 @@
 import { Archivo, Bodoni_Moda } from 'next/font/google';
+import type { Metadata } from 'next';
 import { ClientLayout } from '../components/layout/ClientLayout';
-import { getClientName } from '../utils/siteMetadata';
+import { getClientNameForMetadata } from '../utils/siteMetadata';
 import '../index.css';
 
 const archivo = Archivo({
@@ -16,18 +17,20 @@ const bodoniModa = Bodoni_Moda({
   variable: '--font-bodoni-moda',
 });
 
-const clientName = getClientName();
+export async function generateMetadata(): Promise<Metadata> {
+  const clientName = await getClientNameForMetadata();
 
-export const metadata = {
-  title: clientName,
-  description: `Sitio oficial de ${clientName}.`,
-  openGraph: {
+  return {
     title: clientName,
     description: `Sitio oficial de ${clientName}.`,
-    siteName: clientName,
-    type: 'website',
-  },
-};
+    openGraph: {
+      title: clientName,
+      description: `Sitio oficial de ${clientName}.`,
+      siteName: clientName,
+      type: 'website',
+    },
+  };
+}
 
 export default function RootLayout({
   children,

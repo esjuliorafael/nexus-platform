@@ -4,7 +4,7 @@ import { ShoppingBag } from 'lucide-react';
 import { ProductDetailsClient } from './ProductDetailsClient';
 import { Button } from '../../../components/ui/Button';
 import { getAssetUrl } from '../../../utils/formatters';
-import { getClientName, getSiteTitle } from '../../../utils/siteMetadata';
+import { getClientNameForMetadata, getSiteTitle } from '../../../utils/siteMetadata';
 import { productApi } from '../../../api/products';
 
 interface PageProps {
@@ -25,17 +25,17 @@ async function getProduct(id: string) {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const clientName = getClientName();
+  const clientName = await getClientNameForMetadata();
   const product = await getProduct(params.id);
 
   if (!product) {
     return {
-      title: getSiteTitle('Producto no encontrado'),
+      title: getSiteTitle('Producto no encontrado', clientName),
       description: 'El producto solicitado no está disponible.',
     };
   }
 
-  const title = getSiteTitle(product.name);
+  const title = getSiteTitle(product.name, clientName);
   const description = product.description || `Consulta ${product.name} en ${clientName}.`;
   const defaultFallbackImage = 'https://images.unsplash.com/photo-1612170153139-6f881ff067e0?w=1200&q=80';
   const imageUrl = getAssetUrl(
