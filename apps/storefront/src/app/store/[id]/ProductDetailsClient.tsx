@@ -10,6 +10,7 @@ import { StorefrontCard } from '../../../components/ui/Card';
 import { MediaViewer } from '../../../components/ui/MediaViewer';
 import { useCartUiStore } from '../../../store/cart-ui.store';
 import { useCartStore } from '../../../store/cart.store';
+import { useToastStore } from '../../../store/toast.store';
 import { CalendarClock, ChevronLeft, Clock3, Hash, MessageCircle, PlayCircle, ShoppingCart, Tag, Target, Truck, type LucideIcon } from 'lucide-react';
 import { formatBirdAge, formatBirdPurpose, formatPrice, formatSaleStatus, getAssetUrl } from '../../../utils/formatters';
 
@@ -47,7 +48,9 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
   const mediaSwipeHandledRef = useRef(false);
   const [activeMediaIndex, setActiveMediaIndex] = useState(0);
   const [viewerIndex, setViewerIndex] = useState<number | null>(null);
+  const [addFeedbackActive, setAddFeedbackActive] = useState(false);
   const addItem = useCartStore((state) => state.addItem);
+  const showToast = useToastStore((state) => state.showToast);
   const totalItems = useCartStore((state) =>
     state.items.reduce((acc, item) => acc + item.quantity, 0),
   );
@@ -137,13 +140,33 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
   const additionalGalleryItems = productMediaItems.slice(galleryStartIndex);
   const canNavigateProductMedia = productMediaItems.length > 1;
   const handleAddToCart = () => {
-    addItem({
+    const result = addItem({
       productId: product.id,
       name: product.name,
       price: Number(product.price),
       quantity: 1,
       thumbnail: getAssetUrl(product.coverPosterUrl || product.coverMediaUrl || product.thumbnail),
       type: product.type.toLowerCase() as 'bird' | 'item',
+    });
+
+    if (result === 'already-in-cart') {
+      showToast('Este ejemplar ya está en tu carrito.', {
+        type: 'info',
+        title: 'Ya está en el carrito',
+        action: { label: 'Ver carrito', href: '/checkout' },
+        durationMs: 3000,
+      });
+      return;
+    }
+
+    setAddFeedbackActive(true);
+    window.setTimeout(() => setAddFeedbackActive(false), 650);
+
+    showToast(`${product.name} se agregó correctamente.`, {
+      type: 'success',
+      title: 'Agregado al carrito',
+      action: { label: 'Ver carrito', href: '/checkout' },
+      durationMs: 3000,
     });
   };
 
@@ -394,7 +417,7 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
                   onClick={handleAddToCart}
                 >
                   <ShoppingCart className="mr-2" size={22} />
-                  Agregar al Carrito
+                  {addFeedbackActive ? 'Agregado' : 'Agregar al Carrito'}
                 </Button>
               ) : (
                 <Button size="lg" context="section" className="w-full" disabled>
@@ -410,6 +433,7 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
       <ProductPurchaseBar
         price={product.price}
         isAvailable={isAvailable}
+        addFeedbackActive={addFeedbackActive}
         onAddToCart={handleAddToCart}
       />
 
@@ -537,10 +561,12 @@ function ProductTopRail({ children }: { children: ReactNode }) {
 function ProductPurchaseBar({
   price,
   isAvailable,
+  addFeedbackActive,
   onAddToCart,
 }: {
   price: Product['price'];
   isAvailable: boolean;
+  addFeedbackActive: boolean;
   onAddToCart: () => void;
 }) {
   return (
@@ -578,7 +604,7 @@ function ProductPurchaseBar({
             '--sf-button-icon-size': 'var(--sf-size-mobile-nav-icon)',
           } as CSSProperties}
         >
-          {isAvailable ? 'Agregar al Carrito' : 'No disponible'}
+          {isAvailable ? (addFeedbackActive ? 'Agregado' : 'Agregar al Carrito') : 'No disponible'}
         </Button>
       </div>
     </div>

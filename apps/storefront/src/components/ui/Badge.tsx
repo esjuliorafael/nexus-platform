@@ -3,7 +3,7 @@ import { LucideIcon } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
 interface BadgeProps extends HTMLAttributes<HTMLSpanElement> {
-  variant?: 'brand' | 'default' | 'success' | 'info' | 'warning' | 'danger' | 'muted' | 'outline' | 'overlay' | 'overlayBrand' | 'overlaySuccess';
+  variant?: 'brand' | 'default' | 'success' | 'info' | 'warning' | 'danger' | 'muted' | 'outline' | 'overlay' | 'overlayBrand' | 'overlaySuccess' | 'overlayWarning' | 'overlayDanger';
   context?: 'section' | 'card' | 'autonomous' | 'default';
   icon?: LucideIcon;
 }
@@ -20,7 +20,9 @@ export function Badge({ className, variant = 'default', context = 'default', ico
     outline: 'border border-stone-200 text-stone-500',
     overlay: 'border border-white/10 bg-stone-950/45 text-white backdrop-blur-md',
     overlayBrand: 'border border-brand-400/30 bg-brand-500 text-white backdrop-blur-md',
-    overlaySuccess: 'border border-emerald-400/20 bg-emerald-500 text-white backdrop-blur-md',
+    overlaySuccess: 'border border-emerald-400/30 bg-emerald-500/16 text-emerald-700 backdrop-blur-md',
+    overlayWarning: 'border border-amber-400/35 bg-amber-500/16 text-amber-700 backdrop-blur-md',
+    overlayDanger: 'border border-red-400/30 bg-red-500/16 text-red-700 backdrop-blur-md',
   };
 
   const radiusByContext = {

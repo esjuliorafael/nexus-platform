@@ -1,15 +1,16 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { Camera, Image as ImageIcon, Search, Video } from "lucide-react";
+import { CSSProperties, ReactNode, useEffect, useMemo, useState } from "react";
+import { Search, SlidersHorizontal, X } from "lucide-react";
 import { mediaApi } from "../../api/settings";
 import { Media } from "../../types";
-import { getAssetUrl } from "../../utils/formatters";
-import { Badge } from "../../components/ui/Badge";
+import { MediaCard } from "../../components/media/MediaCard";
+import { BottomSheet } from "../../components/ui/BottomSheet";
+import { Button } from "../../components/ui/Button";
 import { EmptyState } from "../../components/ui/EmptyState";
 import { MediaViewer } from "../../components/ui/MediaViewer";
-import { SegmentedControl } from "../../components/ui/SegmentedControl";
-import { SmartImage } from "../../components/ui/SmartImage";
+import { StorefrontPillFilter } from "../../components/ui/PillFilter";
+import { SegmentedControl, type SegmentedControlOption } from "../../components/ui/SegmentedControl";
 import { Spinner } from "../../components/ui/Spinner";
 
 const filterOptions = [
@@ -23,87 +24,13 @@ type PositionedMedia = {
   index: number;
 };
 
-function GalleryTile({
-  item,
-  isTall,
-  onOpen,
-}: {
-  item: Media;
-  isTall: boolean;
-  onOpen: () => void;
-}) {
-  const isVideo = item.mediaType === "VIDEO";
-
-  return (
-    <button
-      type="button"
-      onClick={onOpen}
-      className={`group relative w-full overflow-hidden border border-stone-200/60 bg-stone-950 text-left shadow-sm transition-all duration-300 hover:border-brand-500/25 hover:shadow-xl hover:shadow-brand-500/5 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20 ${
-        isTall ? "aspect-[3/4]" : "aspect-square"
-      }`}
-      style={{
-        borderRadius: "var(--sf-radius-card-inner)",
-        transitionTimingFunction: "var(--sf-ease)",
-      }}
-    >
-      {isVideo && !item.posterUrl ? (
-        <video
-          src={getAssetUrl(item.mediaUrl || item.filePath)}
-          className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
-          muted
-          playsInline
-          preload="metadata"
-        />
-      ) : (
-        <SmartImage
-          src={getAssetUrl(item.posterUrl || item.mediaUrl || item.filePath)}
-          alt={item.title}
-          wrapperClassName="h-full w-full"
-          className="transition-transform duration-700 group-hover:scale-110"
-        />
-      )}
-
-      <div
-        className="absolute z-10 transition-all duration-500 lg:opacity-0 lg:scale-95 lg:group-hover:opacity-100 lg:group-hover:scale-100 lg:group-focus-visible:opacity-100 lg:group-focus-visible:scale-100"
-        style={{
-          top: "var(--sf-padding-inner)",
-          left: "var(--sf-padding-inner)",
-        }}
-      >
-        <Badge
-          variant="overlay"
-          context="card"
-          icon={isVideo ? Video : Camera}
-          className="shadow-lg"
-        >
-          {isVideo ? "Video" : "Foto"}
-        </Badge>
-      </div>
-
-      <div className="absolute inset-0 bg-gradient-to-t from-stone-950/90 via-stone-950/28 to-transparent opacity-100 transition-opacity duration-500 lg:opacity-0 lg:group-hover:opacity-100 lg:group-focus-visible:opacity-100" />
-
-      <div
-        className="absolute inset-x-0 bottom-0 z-10 flex translate-y-0 flex-col opacity-100 transition-all duration-500 lg:translate-y-4 lg:opacity-0 lg:group-hover:translate-y-0 lg:group-hover:opacity-100 lg:group-focus-visible:translate-y-0 lg:group-focus-visible:opacity-100"
-        style={{
-          gap: "var(--sf-space-xs)",
-          padding: "var(--sf-padding-inner)",
-        }}
-      >
-        <h2 className="sf-text-h2 line-clamp-2 text-white">{item.title}</h2>
-        {item.description && (
-          <p className="sf-text-secondary line-clamp-2 text-stone-300">
-            {item.description}
-          </p>
-        )}
-      </div>
-    </button>
-  );
-}
-
 export default function GalleryPage() {
   const [items, setItems] = useState<Media[]>([]);
   const [loading, setLoading] = useState(true);
-  const [filter, setFilter] = useState("ALL");
+  const [searchTerm, setSearchTerm] = useState("");
+  const [typeFilter, setTypeFilter] = useState("ALL");
+  const [categoryFilter, setCategoryFilter] = useState("ALL");
+  const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
 
   useEffect(() => {
@@ -128,13 +55,54 @@ export default function GalleryPage() {
     };
   }, []);
 
+  const categoryOptions = useMemo<SegmentedControlOption[]>(() => {
+    const categories = new Map<string, string>();
+
+    items.forEach((item) => {
+      if (!item.categoryId) return;
+      categories.set(String(item.categoryId), item.category?.name || `Categoría ${item.categoryId}`);
+    });
+
+    return [
+      { value: "ALL", label: "Todo" },
+      ...Array.from(categories.entries())
+        .sort(([, labelA], [, labelB]) => labelA.localeCompare(labelB))
+        .map(([value, label]) => ({ value, label })),
+    ];
+  }, [items]);
+
   const filteredItems = useMemo(() => {
-    if (filter === "ALL") return items;
-    return items.filter((item) => item.mediaType === filter);
-  }, [filter, items]);
+    const normalizedSearch = searchTerm.trim().toLowerCase();
+
+    return items.filter((item) => {
+      const matchesType = typeFilter === "ALL" || item.mediaType === typeFilter;
+      const matchesCategory = categoryFilter === "ALL" || String(item.categoryId) === categoryFilter;
+      const searchableText = [
+        item.title,
+        item.description,
+        item.location,
+        item.category?.name,
+        ...item.subcategories.map((subcategory) => subcategory.name),
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      const matchesSearch = !normalizedSearch || searchableText.includes(normalizedSearch);
+
+      return matchesType && matchesCategory && matchesSearch;
+    });
+  }, [categoryFilter, items, searchTerm, typeFilter]);
 
   const selectedMedia = selectedIndex === null ? null : filteredItems[selectedIndex] ?? null;
   const canNavigate = filteredItems.length > 1;
+  const hasActiveFilters = typeFilter !== "ALL" || categoryFilter !== "ALL" || searchTerm.trim().length > 0;
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setTypeFilter("ALL");
+    setCategoryFilter("ALL");
+    setIsFilterSheetOpen(false);
+  };
 
   const desktopColumns = useMemo(() => {
     const columns: PositionedMedia[][] = [[], [], []];
@@ -158,9 +126,9 @@ export default function GalleryPage() {
       : index % 2 === 1;
 
     return (
-      <GalleryTile
+      <MediaCard
         key={item.id}
-        item={item}
+        media={item}
         isTall={isTall}
         onOpen={() => setSelectedIndex(index)}
       />
@@ -169,31 +137,35 @@ export default function GalleryPage() {
 
   return (
     <main
-      className="mx-auto flex max-w-7xl flex-col px-[var(--sf-inset-page-mobile)] md:px-[var(--sf-padding-outer)]"
+      className="mx-auto flex max-w-7xl flex-col px-[var(--sf-inset-page-mobile)] pt-[var(--sf-store-content-padding-top)] md:px-[var(--sf-padding-outer)] md:pt-[var(--sf-space-xl)]"
       style={{
         gap: "var(--sf-space-lg)",
-        paddingTop: "var(--sf-space-xl)",
         paddingBottom: "var(--sf-mobile-chrome-content-padding-bottom)",
       }}
     >
-      <header
-        className="flex flex-col justify-between border-b border-stone-200/60 pb-[var(--sf-space-md)] md:flex-row md:items-end"
-        style={{ gap: "var(--sf-space-md)" }}
-      >
-        <div className="flex max-w-2xl flex-col" style={{ gap: "var(--sf-space-xs)" }}>
-          <Badge variant="brand" context="section" icon={ImageIcon} className="w-fit">
-            Archivo Visual
-          </Badge>
-          <h1 className="sf-text-display uppercase italic text-stone-950">
-            Galeria del Rancho
-          </h1>
-          <p className="sf-text-body text-stone-500">
-            Fotografias y videos del entorno, linajes y momentos recientes.
-          </p>
-        </div>
+      <GalleryMobileTopBar
+        searchTerm={searchTerm}
+        onSearchChange={setSearchTerm}
+        hasActiveFilters={hasActiveFilters}
+        onOpenFilters={() => setIsFilterSheetOpen(true)}
+      />
 
-        <SegmentedControl value={filter} options={filterOptions} onChange={setFilter} />
-      </header>
+      <GalleryDesktopToolbar
+        searchTerm={searchTerm}
+        typeFilter={typeFilter}
+        hasActiveFilters={hasActiveFilters}
+        onSearchChange={setSearchTerm}
+        onTypeChange={setTypeFilter}
+        onClearFilters={clearFilters}
+      />
+
+      <StorefrontPillFilter
+        title="Categorías"
+        value={categoryFilter}
+        options={categoryOptions}
+        onChange={setCategoryFilter}
+        fullBleedMobile
+      />
 
       {loading ? (
         <div className="flex h-96 items-center justify-center">
@@ -258,6 +230,251 @@ export default function GalleryPage() {
           );
         }}
       />
+
+      <BottomSheet
+        isOpen={isFilterSheetOpen}
+        onClose={() => setIsFilterSheetOpen(false)}
+        title="Filtrar galería"
+      >
+        <div className="flex flex-col font-medium" style={{ gap: "var(--sf-space-lg)" }}>
+          <MobileFilterGroup
+            label="Tipo de medio"
+            value={typeFilter}
+            options={filterOptions}
+            columns="grid-cols-3"
+            onChange={setTypeFilter}
+          />
+
+          {hasActiveFilters && (
+            <Button variant="outline" context="section" icon={X} onClick={clearFilters}>
+              Limpiar filtros
+            </Button>
+          )}
+
+          <Button variant="secondary" context="section" onClick={() => setIsFilterSheetOpen(false)}>
+            Aplicar filtros
+          </Button>
+        </div>
+      </BottomSheet>
     </main>
+  );
+}
+
+function GalleryMobileTopBar({
+  searchTerm,
+  onSearchChange,
+  hasActiveFilters,
+  onOpenFilters,
+}: {
+  searchTerm: string;
+  onSearchChange: (value: string) => void;
+  hasActiveFilters: boolean;
+  onOpenFilters: () => void;
+}) {
+  const mobileActionStyle = {
+    width: "var(--sf-size-mobile-chrome-action)",
+    height: "var(--sf-size-mobile-chrome-action)",
+    borderRadius: "var(--sf-radius-mobile-chrome-action)",
+    "--sf-button-icon-size": "var(--sf-size-mobile-chrome-icon)",
+  } as CSSProperties;
+
+  return (
+    <div
+      className="fixed z-40 grid grid-cols-[minmax(0,1fr)_auto] items-center md:hidden"
+      style={{
+        top: "var(--sf-inset-mobile-chrome-block)",
+        left: "var(--sf-inset-mobile-chrome)",
+        right: "var(--sf-inset-mobile-chrome)",
+        gap: "var(--sf-space-md)",
+      }}
+    >
+      <GalleryMobileSearchRail value={searchTerm} onChange={onSearchChange} />
+
+      <GalleryMobileActionRail>
+        <Button
+          size="icon"
+          variant={hasActiveFilters ? "brand" : "ghost"}
+          icon={SlidersHorizontal}
+          isIconOnly
+          onClick={onOpenFilters}
+          aria-label="Abrir filtros"
+          style={mobileActionStyle}
+        />
+        {hasActiveFilters && (
+          <span
+            className="absolute rounded-full bg-brand-500 ring-2 ring-white"
+            style={{
+              top: "var(--sf-space-sm)",
+              right: "var(--sf-space-sm)",
+              width: "var(--sf-size-inner-icon-badge)",
+              height: "var(--sf-size-inner-icon-badge)",
+            }}
+          />
+        )}
+      </GalleryMobileActionRail>
+    </div>
+  );
+}
+
+function GalleryMobileSearchRail({
+  value,
+  onChange,
+  placeholder = "Buscar...",
+}: {
+  value: string;
+  onChange: (value: string) => void;
+  placeholder?: string;
+}) {
+  return (
+    <label
+      className="flex min-w-0 items-center border border-stone-200/90 bg-white shadow-[0_18px_48px_rgba(87,68,55,0.14)]"
+      style={{
+        height: "var(--sf-h-mobile-nav)",
+        borderRadius: "var(--sf-radius-outer)",
+        padding: "var(--sf-space-sm)",
+        gap: "var(--sf-space-sm)",
+      }}
+    >
+      <span
+        className="flex shrink-0 items-center justify-center bg-stone-50 text-stone-500"
+        style={{
+          width: "var(--sf-size-mobile-nav-item)",
+          height: "var(--sf-size-mobile-nav-item)",
+          borderRadius: "var(--sf-radius-mobile-nav-item)",
+        }}
+      >
+        <Search
+          aria-hidden="true"
+          style={{
+            width: "var(--sf-size-mobile-nav-icon)",
+            height: "var(--sf-size-mobile-nav-icon)",
+          }}
+          strokeWidth={2.5}
+        />
+      </span>
+      <input
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder={placeholder}
+        aria-label="Buscar medios"
+        className="sf-text-body min-w-0 flex-1 bg-transparent text-stone-850 outline-none placeholder:text-stone-400"
+      />
+    </label>
+  );
+}
+
+function GalleryMobileActionRail({ children }: { children: ReactNode }) {
+  return (
+    <div
+      className="relative flex shrink-0 items-center justify-center border border-stone-200/90 bg-white shadow-[0_18px_48px_rgba(87,68,55,0.14)]"
+      style={{
+        height: "var(--sf-h-mobile-nav)",
+        borderRadius: "var(--sf-radius-outer)",
+        padding: "var(--sf-space-sm)",
+      }}
+    >
+      {children}
+    </div>
+  );
+}
+
+function GalleryDesktopToolbar({
+  searchTerm,
+  typeFilter,
+  hasActiveFilters,
+  onSearchChange,
+  onTypeChange,
+  onClearFilters,
+}: {
+  searchTerm: string;
+  typeFilter: string;
+  hasActiveFilters: boolean;
+  onSearchChange: (value: string) => void;
+  onTypeChange: (value: string) => void;
+  onClearFilters: () => void;
+}) {
+  return (
+    <div
+      className="hidden flex-wrap items-center border border-stone-200 bg-white shadow-[0_1rem_2rem_rgba(31,24,17,0.05)] md:flex xl:flex-nowrap"
+      style={{
+        borderRadius: "var(--sf-radius-outer)",
+        padding: "var(--sf-space-sm)",
+        gap: "var(--sf-space-md)",
+      }}
+    >
+      <GalleryDesktopSearchField value={searchTerm} onChange={onSearchChange} />
+      <SegmentedControl value={typeFilter} options={filterOptions} onChange={onTypeChange} />
+
+      {hasActiveFilters && (
+        <Button
+          variant="ghost"
+          size="sm"
+          icon={X}
+          onClick={onClearFilters}
+          className="text-stone-400 hover:bg-transparent hover:text-brand-500"
+        >
+          Limpiar filtros
+        </Button>
+      )}
+    </div>
+  );
+}
+
+function GalleryDesktopSearchField({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <label
+      className="flex min-w-[18rem] flex-1 items-center bg-stone-50 text-stone-500"
+      style={{
+        height: "var(--sf-h-input)",
+        borderRadius: "var(--sf-radius-inner)",
+        paddingInline: "var(--sf-space-md)",
+        gap: "var(--sf-space-sm)",
+      }}
+    >
+      <Search
+        aria-hidden="true"
+        style={{
+          width: "var(--sf-size-inner-icon-section)",
+          height: "var(--sf-size-inner-icon-section)",
+        }}
+        strokeWidth={2.35}
+      />
+      <input
+        type="search"
+        value={value}
+        onChange={(event) => onChange(event.target.value)}
+        placeholder="Buscar medio..."
+        aria-label="Buscar medios"
+        className="sf-text-body min-w-0 flex-1 bg-transparent text-stone-850 outline-none placeholder:text-stone-400"
+      />
+    </label>
+  );
+}
+
+function MobileFilterGroup({
+  label,
+  value,
+  options,
+  columns,
+  onChange,
+}: {
+  label: string;
+  value: string;
+  options: SegmentedControlOption[];
+  columns: string;
+  onChange: (value: string) => void;
+}) {
+  return (
+    <div className="flex flex-col" style={{ gap: "var(--sf-space-sm)" }}>
+      <span className="sf-text-label text-stone-400">{label}</span>
+      <SegmentedControl value={value} options={options} columns={columns} onChange={onChange} />
+    </div>
   );
 }

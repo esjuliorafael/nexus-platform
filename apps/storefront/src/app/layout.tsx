@@ -1,5 +1,6 @@
 import { Archivo, Bodoni_Moda } from 'next/font/google';
 import { ClientLayout } from '../components/layout/ClientLayout';
+import { getClientName } from '../utils/siteMetadata';
 import '../index.css';
 
 const archivo = Archivo({
@@ -15,9 +16,17 @@ const bodoniModa = Bodoni_Moda({
   variable: '--font-bodoni-moda',
 });
 
+const clientName = getClientName();
+
 export const metadata = {
-  title: 'Nexus Platform - Genética de Excelencia',
-  description: 'Plataforma oficial de venta de aves de combate, cría y artículos de primera calidad con garantía genética certificada.',
+  title: clientName,
+  description: `Sitio oficial de ${clientName}.`,
+  openGraph: {
+    title: clientName,
+    description: `Sitio oficial de ${clientName}.`,
+    siteName: clientName,
+    type: 'website',
+  },
 };
 
 export default function RootLayout({

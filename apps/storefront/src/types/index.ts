@@ -55,6 +55,11 @@ export interface Media {
   posterUrl: string | null;
   mediaType: "PHOTO" | "VIDEO";
   categoryId: number | null;
+  category?: {
+    id: number;
+    name: string;
+    icon: string | null;
+  } | null;
   subcategoryId: number | null;
   subcategoryIds: number[];
   subcategories: Array<{

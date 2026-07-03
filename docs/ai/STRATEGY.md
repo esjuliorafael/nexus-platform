@@ -1,5 +1,27 @@
 # AI Strategy & Architectural Decisions
 
+## Nexus Admin Mobile [2026-07-02]
+
+### Contexto
+Nexus necesita una app central para Android y iOS que permita a cualquier cliente acceder a su Admin sin publicar una app distinta por cliente. El Admin web actual resuelve la API por hostname (`admin.dominio.com` -> `api.dominio.com`), pero una app nativa no tiene ese contexto de dominio.
+
+### Decision
+Crear `nexus-admin-mobile` como una app Expo nativa externa a este monorepo durante la fase inicial. La identificacion del tenant sera por dominio publico del cliente, por ejemplo `granjalamanzana.com` o `rancholastrojes.com.mx`.
+
+La app consultara un Tenant Registry central para resolver `domain -> apiBaseUrl`, y despues autenticara directamente contra la API aislada de ese cliente usando los endpoints existentes (`/api/v1/auth/login`, `/api/v1/auth/me`, `/api/v1/admin/*`, `/api/v1/store/orders/admin`, `/api/v1/raffles/*`).
+
+### Reglas Arquitectonicas
+- La app movil no debe conectarse directo a bases de datos de tenants.
+- La app movil no debe conocer URLs internas de Docker ni credenciales de infraestructura.
+- Cada tenant conserva su API, `DATABASE_URL`, `RAFFLE_DATABASE_URL` y JWT tenant-local.
+- El Tenant Registry solo resuelve metadatos seguros: nombre, dominio, `apiBaseUrl`, `adminBaseUrl`, estado y flags de modulos.
+- El proyecto movil inicia fuera de `apps/*` para no afectar el workspace, Docker builds ni CI/CD actual de `nexus-platform`.
+
+### Documentacion
+Ver `docs/ai/MOBILE_ADMIN_ARCHITECTURE.md`.
+
+---
+
 ## Refactorización Arquitectónica de App.tsx [2026-05-23]
 
 ### Contexto

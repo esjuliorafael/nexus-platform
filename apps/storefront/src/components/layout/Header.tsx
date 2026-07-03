@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ShoppingBag } from "lucide-react";
 import { useSettings } from "../../hooks/useSettings";
+import { useFavicon } from "../../hooks/useFavicon";
 import { useCartStore } from "../../store/cart.store";
 import { Button } from "../ui/Button";
 
@@ -17,6 +18,7 @@ export function Header({ showRaffles = false, onOpenCart }: HeaderProps) {
   const pathname = usePathname();
   const { getBranding } = useSettings();
   const branding = getBranding();
+  useFavicon(branding.logo_url);
   const totalItems = useCartStore((state) =>
     state.items.reduce((acc, item) => acc + item.quantity, 0),
   );

@@ -1,19 +1,27 @@
-import { HTMLAttributes } from 'react';
+import { ElementType, HTMLAttributes } from 'react';
 import { cn } from '../../utils/cn';
 
 interface StorefrontCardProps extends HTMLAttributes<HTMLDivElement> {
+  as?: ElementType;
+  initial?: unknown;
+  animate?: unknown;
+  exit?: unknown;
+  transition?: unknown;
   level?: 1 | 2 | 3;
   density?: 'default' | 'compact' | 'micro' | 'none';
   interactive?: boolean;
   muted?: boolean;
+  disableTransition?: boolean;
 }
 
 export function StorefrontCard({
+  as: Component = 'div',
   className,
   level = 1,
   density = 'default',
   interactive = false,
   muted = false,
+  disableTransition = false,
   style,
   ...props
 }: StorefrontCardProps) {
@@ -37,9 +45,10 @@ export function StorefrontCard({
         };
 
   return (
-    <div
+    <Component
       className={cn(
-        'bg-white border border-stone-200/60 shadow-sm transition-all duration-300',
+        'bg-white border border-stone-200/60 shadow-sm',
+        !disableTransition && 'transition-all duration-300',
         interactive && 'hover:border-brand-500/20 hover:shadow-xl hover:shadow-brand-500/5 active:scale-[0.99]',
         muted && 'opacity-60 grayscale-[0.35]',
         className
@@ -47,7 +56,7 @@ export function StorefrontCard({
       style={{
         borderRadius: radius,
         padding: paddings[level as keyof typeof paddings],
-        transitionTimingFunction: 'var(--sf-ease)',
+        transitionTimingFunction: disableTransition ? undefined : 'var(--sf-ease)',
         ...style,
       }}
       {...props}

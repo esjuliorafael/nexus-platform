@@ -1,6 +1,6 @@
 "use client";
 
-import { MouseEvent } from 'react';
+import { MouseEvent, useState } from 'react';
 import Link from 'next/link';
 import { motion } from 'framer-motion';
 import { Eye, ShoppingCart, Tag } from 'lucide-react';
@@ -13,6 +13,7 @@ import { Button } from '../ui/Button';
 import { StorefrontAutonomousCard } from '../ui/Card';
 
 export function ProductCard({ product }: { product: Product }) {
+  const [addFeedbackActive, setAddFeedbackActive] = useState(false);
   const addItem = useCartStore((state) => state.addItem);
   const showToast = useToastStore((state) => state.showToast);
 
@@ -28,7 +29,7 @@ export function ProductCard({ product }: { product: Product }) {
     event.preventDefault();
     event.stopPropagation();
 
-    addItem({
+    const result = addItem({
       productId: product.id,
       name: product.name,
       price: Number(product.price),
@@ -37,13 +38,30 @@ export function ProductCard({ product }: { product: Product }) {
       type: product.type.toLowerCase() as 'bird' | 'item',
     });
 
-    showToast(`${product.name} anadido al carrito`, 'success');
+    if (result === 'already-in-cart') {
+      showToast('Este ejemplar ya está en tu carrito.', {
+        type: 'info',
+        title: 'Ya está en el carrito',
+        action: { label: 'Ver carrito', href: '/checkout' },
+        durationMs: 3000,
+      });
+      return;
+    }
+
+    setAddFeedbackActive(true);
+    window.setTimeout(() => setAddFeedbackActive(false), 650);
+
+    showToast('Producto agregado al carrito.', {
+      type: 'success',
+      action: { label: 'Ver carrito', href: '/checkout' },
+      durationMs: 2500,
+    });
   };
 
   const statusConfig = {
-    AVAILABLE: { label: 'Disponible', variant: 'success' as const },
-    RESERVED: { label: 'Apartado', variant: 'warning' as const },
-    SOLD: { label: 'Vendido', variant: 'danger' as const },
+    AVAILABLE: { label: 'Disponible', variant: 'overlaySuccess' as const },
+    RESERVED: { label: 'Apartado', variant: 'overlayWarning' as const },
+    SOLD: { label: 'Vendido', variant: 'overlayDanger' as const },
   }[product.saleStatus] || { label: product.saleStatus, variant: 'muted' as const };
 
   return (
@@ -101,7 +119,7 @@ export function ProductCard({ product }: { product: Product }) {
             left: 'var(--sf-padding-inner)',
           }}
         >
-          <Badge variant={statusConfig.variant} context="card" className="shadow-xl">
+          <Badge variant={statusConfig.variant} context="autonomous" className="shadow-xl">
             {statusConfig.label}
           </Badge>
         </div>
@@ -136,7 +154,7 @@ export function ProductCard({ product }: { product: Product }) {
                 onClick={handleAddToCart}
                 className="w-full shadow-xl shadow-brand-500/30"
               >
-                Anadir
+                {addFeedbackActive ? 'Listo' : 'Añadir'}
               </Button>
             ) : (
               <div

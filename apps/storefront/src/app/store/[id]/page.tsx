@@ -4,6 +4,7 @@ import { ShoppingBag } from 'lucide-react';
 import { ProductDetailsClient } from './ProductDetailsClient';
 import { Button } from '../../../components/ui/Button';
 import { getAssetUrl } from '../../../utils/formatters';
+import { getClientName, getSiteTitle } from '../../../utils/siteMetadata';
 import { productApi } from '../../../api/products';
 
 interface PageProps {
@@ -24,17 +25,18 @@ async function getProduct(id: string) {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const clientName = getClientName();
   const product = await getProduct(params.id);
 
   if (!product) {
     return {
-      title: 'Producto no encontrado | Nexus Store',
-      description: 'El producto solicitado no esta disponible.',
+      title: getSiteTitle('Producto no encontrado'),
+      description: 'El producto solicitado no está disponible.',
     };
   }
 
-  const title = `${product.name} | Nexus Store`;
-  const description = product.description || `Adquiere ${product.name} al mejor precio en Nexus Store.`;
+  const title = getSiteTitle(product.name);
+  const description = product.description || `Consulta ${product.name} en ${clientName}.`;
   const defaultFallbackImage = 'https://images.unsplash.com/photo-1612170153139-6f881ff067e0?w=1200&q=80';
   const imageUrl = getAssetUrl(
     product.coverPosterUrl || product.coverMediaUrl || product.thumbnail,
@@ -46,6 +48,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     openGraph: {
       title,
       description,
+      siteName: clientName,
       images: [{ url: imageUrl }],
       type: 'website',
     },

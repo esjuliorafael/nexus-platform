@@ -35,9 +35,21 @@ function Wait-Port {
   return $false
 }
 
+function Test-DockerReady {
+  $previousPreference = $ErrorActionPreference
+  try {
+    $ErrorActionPreference = "Continue"
+    docker info *> $null
+    return $LASTEXITCODE -eq 0
+  } catch {
+    return $false
+  } finally {
+    $ErrorActionPreference = $previousPreference
+  }
+}
+
 function Start-DockerDesktop {
-  docker info *> $null
-  if ($LASTEXITCODE -eq 0) {
+  if (Test-DockerReady) {
     Write-Step "Docker ya esta listo."
     return
   }
@@ -55,8 +67,7 @@ function Start-DockerDesktop {
   Start-Process -FilePath $dockerDesktop -WindowStyle Hidden
 
   for ($i = 0; $i -lt 90; $i++) {
-    docker info *> $null
-    if ($LASTEXITCODE -eq 0) {
+    if (Test-DockerReady) {
       Write-Step "Docker daemon listo."
       return
     }

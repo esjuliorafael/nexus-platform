@@ -23,8 +23,11 @@ export function ClientLayout({ children }: ClientLayoutProps) {
   const closeCart = useCartUiStore((state) => state.closeCart);
 
   // Robust subscription to toast store
+  const title = useToastStore((state) => state.title);
   const message = useToastStore((state) => state.message);
   const type = useToastStore((state) => state.type);
+  const action = useToastStore((state) => state.action);
+  const durationMs = useToastStore((state) => state.durationMs);
   const hideToast = useToastStore((state) => state.hideToast);
 
   const showRaffles = isModuleEnabled("raffle_enabled");
@@ -45,8 +48,11 @@ export function ClientLayout({ children }: ClientLayoutProps) {
         {message && (
           <StorefrontToast
             key={message}
+            title={title}
             message={message}
             type={type}
+            action={action}
+            durationMs={durationMs}
             onClose={hideToast}
           />
         )}

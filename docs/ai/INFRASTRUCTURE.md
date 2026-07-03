@@ -12,12 +12,23 @@ Estos contenedores son compartidos por todos los clientes/tenants en el VPS:
 - **nexus-redis-global:** Motor de caché y colas BullMQ.
 - **nexus-nginx-proxy-manager:** Proxy inverso que maneja el tráfico SSL y redirección de dominios.
 - **nexus-evolution-global:** Instancia única de Evolution API para gestión de WhatsApp.
+- **nexus-tenant-registry:** Servicio global planeado para resolver dominios de clientes hacia APIs publicas. Es requerido por `nexus-admin-mobile`.
 
 ### Estándares de Red y Puertos
 - **Red Docker:** `nexus-network` (external: true).
 - **API:** Puerto interno `8080`.
 - **Admin:** Puerto interno `80`.
 - **Storefront:** Puerto interno `3000`.
+- **Tenant Registry:** Puerto interno `8080` o el puerto definido por su servicio.
+
+### Nexus Admin Mobile
+`nexus-admin-mobile` es una app Expo nativa externa al monorepo principal. No reemplaza los contenedores por tenant. La app resuelve el dominio del cliente mediante `nexus-tenant-registry` y despues consume directamente la API publica del tenant:
+
+```text
+cliente escribe dominio -> Tenant Registry -> https://api.dominio.com/api/v1 -> login/API tenant-local
+```
+
+El Tenant Registry solo debe exponer metadatos seguros como `apiBaseUrl`, `adminBaseUrl`, `active`, `logoUrl` y flags de modulos. No debe exponer `DATABASE_URL`, `RAFFLE_DATABASE_URL`, nombres internos de contenedores ni secretos.
 
 ## 2. Tenant Provisioning Playbook (Paso a Paso)
 

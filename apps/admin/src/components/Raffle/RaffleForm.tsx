@@ -9,6 +9,7 @@ import { Raffle } from '../../types';
 import { apiRaffles, apiUpload } from '../../api';
 import { NexusInput, NexusTextarea, NexusSelect } from '../ui/NexusInputs';
 import { NexusSectionButton } from '../ui/NexusButton';
+import { NexusSection } from '../ui/NexusSection';
 
 interface RaffleFormProps {
   initialData?: Raffle;
@@ -161,73 +162,35 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
     }
   };
 
-  const steps = [
-    { id: 1, name: 'Estructura', icon: Layout },
-    { id: 2, name: 'Universo', icon: Hash },
-    { id: 3, name: 'Escaparate', icon: Ticket }
-  ];
-
   return (
     <form id="raffle-form" onSubmit={handleSubmit} className="pb-32 relative">
-      
-      {/* STEPPER INDICATOR */}
-      <div className="flex items-center justify-between mb-8 md:mb-12 px-2 max-w-xl mx-auto">
-         {steps.map((step, idx) => (
-           <React.Fragment key={step.id}>
-             <button
-               type="button"
-               disabled={step.id > 1 && !isStep1Valid}
-               onClick={() => {
-                 if (step.id === 1) setCurrentStep(1);
-                 if (step.id === 2 && isStep1Valid) setCurrentStep(2);
-                 if (step.id === 3 && isStep1Valid && isStep2Valid) setCurrentStep(3);
-               }}
-               className={`flex flex-col items-center gap-2 md:gap-3 transition-all duration-300 ${currentStep === step.id ? 'opacity-100 scale-105 md:scale-110' : 'opacity-40 hover:opacity-60 scale-100'}`}
-             >
-                <div className={`w-10 h-10 md:w-12 md:h-12 rounded-xl md:rounded-2xl flex items-center justify-center transition-all duration-500 ${currentStep === step.id ? 'bg-brand-500 text-white shadow-lg shadow-brand-500/20' : 'bg-stone-100 text-stone-400'}`}>
-                   <step.icon size={18} className="md:w-5 md:h-5" />
-                </div>
-                <span className={`hidden sm:block text-[9px] font-black uppercase tracking-[0.2em] ${currentStep === step.id ? 'text-text-main' : 'text-stone-400'}`}>
-                   {step.name}
-                </span>
-             </button>
-             {idx < steps.length - 1 && (
-               <div className="flex-1 h-[2px] mx-2 md:mx-4 bg-stone-100 mb-0 sm:mb-8 rounded-full overflow-hidden">
-                  <div 
-                    className="h-full bg-brand-500 transition-all duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]" 
-                    style={{ width: currentStep > step.id ? '100%' : '0%' }}
-                  />
-               </div>
-             )}
-           </React.Fragment>
-         ))}
-      </div>
-
       <div className="relative min-h-[400px]">
         {/* STEP 1: RAFFLE TYPE */}
         {currentStep === 1 && (
-          <section className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]">
-            <div className="flex flex-col gap-2 mb-4">
-              <h3 className="text-2xl font-black tracking-tighter text-text-main">Estructura de la Rifa</h3>
-              <p className="text-sm font-medium text-stone-400">Define cómo se distribuirán las oportunidades entre los boletos.</p>
-            </div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <NexusSection
+            title="Estructura de la Rifa"
+            subtitle="Define cómo se distribuirán las oportunidades entre los boletos."
+            icon={Layout}
+            iconVariant="brand"
+          >
+            <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 'var(--space-md)' }}>
                <button
                  type="button"
                  onClick={() => { setRaffleType('SIMPLE'); setOpportunities('1'); }}
-                 className={`group relative p-8 rounded-[2rem] border-2 text-left transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] flex flex-col gap-4 ${raffleType === 'SIMPLE' ? 'bg-bg-card border-brand-500 shadow-2xl shadow-brand-500/10' : 'bg-bg-muted border-border-main hover:border-border-main hover:bg-bg-card'}`}
+                 className={`group relative border text-left transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] flex flex-col ${raffleType === 'SIMPLE' ? 'bg-bg-card border-brand-500 shadow-lg shadow-brand-500/10' : 'bg-bg-muted border-border-main hover:border-border-main hover:bg-bg-card'}`}
+                 style={{ padding: 'var(--padding-inner)', borderRadius: 'var(--radius-inner-visual)', gap: 'var(--space-md)' }}
                >
-                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${raffleType === 'SIMPLE' ? 'bg-brand-500 text-white rotate-0' : 'bg-stone-200 text-stone-400 group-hover:bg-stone-300 -rotate-3'}`}>
+                 <div className={`w-14 h-14 flex items-center justify-center transition-all duration-300 ${raffleType === 'SIMPLE' ? 'bg-brand-500 text-white rotate-0' : 'bg-stone-200 text-stone-400 group-hover:bg-stone-300 -rotate-3'}`} style={{ borderRadius: 'var(--radius-nested-simple)' }}>
                     <Ticket size={28} />
                  </div>
-                 <div>
-                    <h4 className={`text-xl font-black tracking-tight ${raffleType === 'SIMPLE' ? 'text-text-main' : 'text-stone-400'}`}>Simple</h4>
-                    <p className="text-sm font-bold text-stone-400/80">Un número por boleto</p>
+                 <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
+                    <h4 className={`text-h2 ${raffleType === 'SIMPLE' ? 'text-text-main' : 'text-stone-400'}`}>Simple</h4>
+                    <p className="text-secondary text-text-muted">Un número por boleto</p>
                  </div>
-                 <p className="text-xs font-medium text-text-muted/80 leading-relaxed max-w-[90%]">
+                 <p className="text-secondary text-text-muted leading-relaxed max-w-[90%]">
                    Ideal para rifas rápidas y directas donde cada folio comprado representa una sola oportunidad.
                  </p>
-                 <div className={`mt-auto pt-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${raffleType === 'SIMPLE' ? 'text-brand-600' : 'text-stone-300'}`}>
+                 <div className={`mt-auto flex items-center text-label ${raffleType === 'SIMPLE' ? 'text-brand-600' : 'text-stone-300'}`} style={{ gap: 'var(--space-sm)', paddingTop: 'var(--space-base)' }}>
                     <div className={`w-1.5 h-1.5 rounded-full ${raffleType === 'SIMPLE' ? 'bg-brand-500 animate-pulse' : 'bg-stone-200'}`} />
                     oportunidades = 1
                  </div>
@@ -236,25 +199,26 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                <button
                  type="button"
                  onClick={() => setRaffleType('OPPORTUNITIES')}
-                 className={`group relative p-8 rounded-[2rem] border-2 text-left transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] flex flex-col gap-4 ${raffleType === 'OPPORTUNITIES' ? 'bg-bg-card border-brand-500 shadow-2xl shadow-brand-500/10' : 'bg-bg-muted border-border-main hover:border-border-main hover:bg-bg-card'}`}
+                 className={`group relative border text-left transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] flex flex-col ${raffleType === 'OPPORTUNITIES' ? 'bg-bg-card border-brand-500 shadow-lg shadow-brand-500/10' : 'bg-bg-muted border-border-main hover:border-border-main hover:bg-bg-card'}`}
+                 style={{ padding: 'var(--padding-inner)', borderRadius: 'var(--radius-inner-visual)', gap: 'var(--space-md)' }}
                >
-                 <div className={`w-14 h-14 rounded-2xl flex items-center justify-center transition-all duration-300 ${raffleType === 'OPPORTUNITIES' ? 'bg-brand-500 text-white rotate-0' : 'bg-stone-200 text-stone-400 group-hover:bg-stone-300 rotate-3'}`}>
+                 <div className={`w-14 h-14 flex items-center justify-center transition-all duration-300 ${raffleType === 'OPPORTUNITIES' ? 'bg-brand-500 text-white rotate-0' : 'bg-stone-200 text-stone-400 group-hover:bg-stone-300 rotate-3'}`} style={{ borderRadius: 'var(--radius-nested-simple)' }}>
                     <Layers size={28} />
                  </div>
-                 <div>
-                    <h4 className={`text-xl font-black tracking-tight ${raffleType === 'OPPORTUNITIES' ? 'text-text-main' : 'text-stone-400'}`}>Oportunidades</h4>
-                    <p className="text-sm font-bold text-stone-400/80">Múltiples números por boleto</p>
+                 <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
+                    <h4 className={`text-h2 ${raffleType === 'OPPORTUNITIES' ? 'text-text-main' : 'text-stone-400'}`}>Oportunidades</h4>
+                    <p className="text-secondary text-text-muted">Múltiples números por boleto</p>
                  </div>
-                 <p className="text-xs font-medium text-text-muted/80 leading-relaxed max-w-[90%]">
+                 <p className="text-secondary text-text-muted leading-relaxed max-w-[90%]">
                    Asigna varios números a un mismo comprador. Mayor emoción y probabilidad de ganar.
                  </p>
-                 <div className={`mt-auto pt-4 flex items-center gap-2 text-[10px] font-black uppercase tracking-widest ${raffleType === 'OPPORTUNITIES' ? 'text-brand-600' : 'text-stone-300'}`}>
+                 <div className={`mt-auto flex items-center text-label ${raffleType === 'OPPORTUNITIES' ? 'text-brand-600' : 'text-stone-300'}`} style={{ gap: 'var(--space-sm)', paddingTop: 'var(--space-base)' }}>
                     <div className={`w-1.5 h-1.5 rounded-full ${raffleType === 'OPPORTUNITIES' ? 'bg-brand-500 animate-pulse' : 'bg-stone-200'}`} />
                     oportunidades {'>'} 1
                  </div>
                </button>
             </div>
-            <div className="flex justify-end pt-4">
+            <div className="flex justify-end" style={{ marginTop: 'var(--space-lg)' }}>
                <NexusSectionButton
                  type="button"
                  onClick={() => setCurrentStep(2)}
@@ -263,7 +227,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                  Configurar Universo
                </NexusSectionButton>
             </div>
-          </section>
+          </NexusSection>
         )}
 
         {/* STEP 2: UNIVERSE CONFIGURATION */}
