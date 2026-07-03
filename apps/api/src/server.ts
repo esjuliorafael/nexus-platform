@@ -24,6 +24,7 @@ import { mediaProcessingWorker } from "./workers/media-processing.worker";
 
 const server = fastify({
   logger: true,
+  trustProxy: true,
 });
 
 const loginSchema = z.object({
@@ -41,8 +42,8 @@ async function bootstrap() {
       allowedHeaders: ["Content-Type", "Authorization"]
     });
     await server.register(rateLimit, {
-      max: 100,
-      timeWindow: '1 minute'
+      max: Number(process.env.RATE_LIMIT_MAX || 1000),
+      timeWindow: process.env.RATE_LIMIT_WINDOW || '1 minute'
     });
     await server.register(prismaPlugin);
     await server.register(authPlugin);
