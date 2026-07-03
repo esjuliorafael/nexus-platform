@@ -29,27 +29,6 @@ interface HeroSlide {
   posterUrl?: string | null;
 }
 
-const HERO_SLIDES: HeroSlide[] = [
-  {
-    image:
-      "https://images.unsplash.com/photo-1548550023-2bdb3c5beed7?q=80&w=2000&auto=format&fit=crop",
-    title: "Excelencia Genetica Certificada",
-    subtitle:
-      "Crianza profesional de aves de combate con linajes probados y resultados garantizados.",
-    badge: "Lineas de Elite",
-    displayDurationMs: 8000,
-  },
-  {
-    image:
-      "https://images.unsplash.com/photo-1500937386664-56d1dfef3854?q=80&w=2000&auto=format&fit=crop",
-    title: "Sementales de Registro",
-    subtitle:
-      "Garantizamos la pureza y el vigor de cada ejemplar seleccionado para reproduccion.",
-    badge: "Genetica Probada",
-    displayDurationMs: 8000,
-  },
-];
-
 const getSlideDuration = (durationMs?: number | null) => {
   if (!durationMs || Number.isNaN(durationMs)) return 8000;
   return Math.min(Math.max(durationMs, 3000), 60000);
@@ -58,6 +37,7 @@ const getSlideDuration = (durationMs?: number | null) => {
 export function HeroSlider() {
   const [current, setCurrent] = useState(0);
   const [dynamicSlides, setDynamicSlides] = useState<HeroSlide[]>([]);
+  const [isLoadingSlides, setIsLoadingSlides] = useState(true);
   const containerRef = useRef<HTMLDivElement>(null);
   const titleRef = useRef<HTMLHeadingElement>(null);
 
@@ -88,13 +68,16 @@ export function HeroSlider() {
         setCurrent(0);
       } catch (error) {
         console.error("Error loading home slides:", error);
+        setDynamicSlides([]);
+      } finally {
+        setIsLoadingSlides(false);
       }
     };
 
     loadSlides();
   }, []);
 
-  const slides = dynamicSlides.length > 0 ? dynamicSlides : HERO_SLIDES;
+  const slides = dynamicSlides;
 
   useEffect(() => {
     if (slides.length <= 1) return;
@@ -104,6 +87,8 @@ export function HeroSlider() {
     }, getSlideDuration(slides[current]?.displayDurationMs));
     return () => window.clearTimeout(timer);
   }, [current, slides]);
+
+  if (isLoadingSlides || slides.length === 0) return null;
 
   const slide = slides[current] || slides[0];
   const slideDuration = getSlideDuration(slide.displayDurationMs);
