@@ -38,7 +38,7 @@ export async function whatsappChannelRoutes(server: FastifyInstance) {
   // New endpoint for upserting templates
   server.post("/:id/templates", { preHandler: [server.authenticate] }, async (request) => {
     const { id } = request.params as { id: string };
-    const { type, content } = request.body as { type: "RESERVATION" | "RELEASE" | "PAYMENT_CONFIRMED", content: string };
+    const { type, content } = request.body as { type: "RESERVATION" | "RELEASE" | "PAYMENT_CONFIRMED" | "RESTORED" | "REMINDER", content: string };
     
     return storePrisma.whatsappTemplate.upsert({
       where: {

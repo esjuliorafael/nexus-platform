@@ -1,4 +1,4 @@
-import React, { useState, useImperativeHandle, forwardRef, useEffect } from 'react';
+import React, { useState, useImperativeHandle, forwardRef, useEffect, useMemo } from 'react';
 import { Settings, MapPin, ChevronRight, Save, Truck, Info, AlertCircle, CheckCircle2, Package, Bird, Loader2, Globe, ShieldCheck, Box, DollarSign, Wallet, History, FileText, ArrowRight } from 'lucide-react';
 import { ShippingConfig, StateZone, ShippingZone } from '../../../types';
 import { apiSystem } from '../../../api';
@@ -9,6 +9,8 @@ import { NexusSection } from '../../ui/NexusSection';
 import { NexusSectionCard, NexusControlRow } from '../../ui/NexusCard';
 import { EmptyState } from '../../ui/EmptyState';
 import { NexusCardIcon } from '../../ui/NexusIcon';
+import { NexusSwitch } from '../../ui/NexusSwitch';
+import { NexusSegmentedControl } from '../../ui/NexusSegmentedControl';
 
 interface ShippingViewProps {
   showToast: (message: string, type?: 'success' | 'error') => void;
@@ -16,6 +18,14 @@ interface ShippingViewProps {
   setSubView: (view: 'config' | 'zones') => void;
   setConfirmDialog: (config: any) => void;
 }
+
+const stateNameCollator = new Intl.Collator('es-MX', {
+  sensitivity: 'base',
+  numeric: true,
+});
+
+const sortStateZones = (zones: StateZone[]) =>
+  [...zones].sort((a, b) => stateNameCollator.compare(a.name, b.name));
 
 export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSaveZones: () => void }, ShippingViewProps>(
   ({ showToast, subView, setSubView, setConfirmDialog }, ref) => {
@@ -54,8 +64,9 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
             freeShippingBirds: configData['shipping_free_threshold_birds'] === '1',
           });
 
-          setStates(zonesData);
-          setLocalStates(zonesData);
+          const sortedZones = sortStateZones(zonesData);
+          setStates(sortedZones);
+          setLocalStates(sortedZones);
 
         } catch (error) {
           console.error("Error cargando datos de envíos", error);
@@ -94,7 +105,9 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
       setIsSaving(true);
       try {
         await apiSystem.updateShippingZones(localStates);
-        setStates(localStates);
+        const sortedStates = sortStateZones(localStates);
+        setStates(sortedStates);
+        setLocalStates(sortedStates);
         showToast('Zonificación territorial actualizada', 'success');
         setSubView('config');
       } catch (error) {
@@ -150,13 +163,14 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
       extended: localStates.filter(s => s.zone === 'EXTENDED' && s.active).length,
       inactive: localStates.filter(s => !s.active).length
     };
+    const sortedLocalStates = useMemo(() => sortStateZones(localStates), [localStates]);
 
     if (isLoading) {
       return (
         <div className="flex flex-col items-center justify-center py-40 animate-in fade-in duration-500">
            <div className="relative w-20 h-20 mb-8">
-              <div className="absolute inset-0 border-4 border-brand-100 rounded-[2rem]" />
-              <div className="absolute inset-0 border-4 border-brand-500 border-t-transparent rounded-[2rem] animate-spin" style={{ animationDuration: '1s', animationTimingFunction: 'var(--ease-emil)' }} />
+              <div className="absolute inset-0 border-4 border-brand-100" style={{ borderRadius: 'var(--radius-inner-visual)' }} />
+              <div className="absolute inset-0 border-4 border-brand-500 border-t-transparent animate-spin" style={{ borderRadius: 'var(--radius-inner-visual)', animationDuration: '1s', animationTimingFunction: 'var(--ease-emil)' }} />
            </div>
            <p className="text-label text-text-muted">Analizando Red de Logística...</p>
         </div>
@@ -165,7 +179,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
 
     if (subView === 'zones') {
       return (
-        <div key="shipping-zones-content" className="space-y-8 pb-12 animate-in fade-in duration-300">
+        <div key="shipping-zones-content" className="flex flex-col animate-in fade-in duration-300" style={{ gap: 'var(--space-lg)', paddingBottom: 'var(--space-xl)' }}>
           
           <NexusHero
             title="Cobertura Territorial"
@@ -183,7 +197,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
             iconVariant="brand"
             delay="200ms"
             action={
-              <div className="flex gap-2">
+              <div className="flex" style={{ gap: 'var(--space-sm)' }}>
                 <NexusSectionButton onClick={handleMassiveAction} variant="secondary" className="hidden sm:flex">
                   {allAreStandard ? 'Todos a Extendida' : 'Todos a Normal'}
                 </NexusSectionButton>
@@ -193,8 +207,8 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
               </div>
             }
           >
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {localStates.map((state, idx) => (
+            <div className="grid grid-cols-1 lg:grid-cols-2" style={{ gap: 'var(--space-md)' }}>
+              {sortedLocalStates.map((state, idx) => (
                 <NexusControlRow
                   key={state.id}
                   delay={`${idx * 20}ms`}
@@ -205,36 +219,26 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                     <>
                       {/* Pill Selector (Left side on mobile) */}
                       {state.active ? (
-                        <div className="flex bg-stone-100 p-1 rounded-xl border border-stone-200 shadow-inner">
-                          <button 
-                            onClick={() => toggleStateZone(state.id, 'STANDARD')}
-                            className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${state.zone === 'STANDARD' ? 'bg-white text-emerald-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
-                          >
-                            Normal
-                          </button>
-                          <button 
-                            onClick={() => toggleStateZone(state.id, 'EXTENDED')}
-                            className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-wider transition-all duration-300 ${state.zone === 'EXTENDED' ? 'bg-white text-orange-600 shadow-sm' : 'text-stone-400 hover:text-stone-600'}`}
-                          >
-                            Extra
-                          </button>
-                        </div>
+                        <NexusSegmentedControl
+                          value={state.zone}
+                          ariaLabel={`Tipo de cobertura para ${state.name}`}
+                          onChange={(zone) => toggleStateZone(state.id, zone)}
+                          options={[
+                            { value: 'STANDARD', label: 'Normal', activeClassName: 'bg-white text-emerald-600 shadow-sm' },
+                            { value: 'EXTENDED', label: 'Extra', activeClassName: 'bg-white text-orange-600 shadow-sm' },
+                          ]}
+                        />
                       ) : (
-                        <span className="text-[9px] font-black uppercase text-stone-300 tracking-widest">Sin Cobertura</span>
+                        <span className="text-label font-black uppercase text-stone-300 tracking-widest">Sin Cobertura</span>
                       )}
                       
                       {/* Switch (Right side on mobile) */}
-                      <button 
-                        onClick={() => toggleStateActive(state.id)} 
-                        className={`w-11 h-6 rounded-full transition-all relative active:scale-90 ${
-                          state.active ? 'bg-emerald-500 shadow-sm shadow-emerald-500/30' : 'bg-stone-200'
-                        }`}
-                        style={{ transitionTimingFunction: 'var(--ease-emil)' }}
-                      >
-                        <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow-sm transition-all ${
-                          state.active ? 'left-6' : 'left-1'
-                        }`} />
-                      </button>
+                      <NexusSwitch
+                        checked={state.active}
+                        onChange={() => toggleStateActive(state.id)}
+                        activeClassName="bg-emerald-500 shadow-sm shadow-emerald-500/30"
+                        aria-label={state.active ? `Desactivar cobertura para ${state.name}` : `Activar cobertura para ${state.name}`}
+                      />
                     </>
                   }
                 />
@@ -246,7 +250,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
     }
 
     return (
-      <div key="shipping-config-content" className="space-y-8 pb-12 animate-in fade-in duration-300">
+      <div key="shipping-config-content" className="flex flex-col animate-in fade-in duration-300" style={{ gap: 'var(--space-lg)', paddingBottom: 'var(--space-xl)' }}>
         
         <NexusHero
           title="Logística y Envíos"
@@ -257,7 +261,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
           badgeValue="Tarifas Dinámicas"
         />
 
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <div className="grid grid-cols-1 lg:grid-cols-2" style={{ gap: 'var(--space-lg)' }}>
           {/* SECCIÓN ARTÍCULOS */}
           <NexusSection
             title="Envíos de Artículos"
@@ -266,7 +270,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
             iconVariant="brand"
             delay="200ms"
           >
-            <div className="space-y-8">
+            <div className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
               <div className={`transition-all duration-500 ${config.freeShippingArticles ? 'opacity-40 grayscale pointer-events-none' : ''}`}>
                 <NexusInput 
                   label="Costo base envío artículos"
@@ -279,35 +283,38 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                 />
               </div>
 
-              <div className="pt-8 border-t border-border-main">
-                <div className="bg-bg-muted p-6 rounded-[2rem] border border-border-main transition-all duration-300 hover:border-brand-200 group">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                    <div className="flex items-center gap-4">
+              <div className="border-t border-border-main" style={{ paddingTop: 'var(--space-lg)' }}>
+                <div
+                  className="bg-bg-muted border border-border-main transition-all duration-300 hover:border-brand-200 group"
+                  style={{ borderRadius: 'var(--radius-inner-visual)', padding: 'var(--space-md)' }}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between" style={{ gap: 'var(--space-md)' }}>
+                    <div className="flex items-center" style={{ gap: 'var(--space-md)' }}>
                       <NexusCardIcon 
                         icon={CheckCircle2} 
                         variant={config.freeShippingArticles ? 'solid-brand' : 'muted'}
                         isMuted={!config.freeShippingArticles}
                       />
-                      <div>
+                      <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
                         <h4 className="text-h2 text-text-main">Envío Gratis</h4>
-                        <p className="text-secondary text-text-muted mt-1">Anula el costo base en la compra de artículos.</p>
+                        <p className="text-secondary text-text-muted">Anula el costo base en la compra de artículos.</p>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between pt-4 sm:pt-0 border-t sm:border-t-0 border-border-main/30 w-full sm:w-auto">
-                      <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.2em] sm:hidden">
+                    <div className="flex items-center justify-between pt-[var(--space-sm)] sm:pt-0 border-t sm:border-t-0 border-border-main/30 w-full sm:w-auto">
+                      <span className="text-label font-black uppercase text-stone-400 tracking-widest sm:hidden">
                         Modo de Operación
                       </span>
-                      <button 
-                        onClick={() => setConfig({ ...config, freeShippingArticles: !config.freeShippingArticles })}
-                        className={`flex-shrink-0 w-14 h-7 rounded-full transition-all relative active:scale-90 ${
-                          config.freeShippingArticles ? 'bg-brand-500 shadow-lg shadow-brand-500/20' : 'bg-stone-300'
-                        }`}
-                        style={{ transitionTimingFunction: 'var(--ease-emil)' }}
-                      >
-                        <div className={`absolute top-1 w-5 h-5 rounded-full bg-bg-card shadow-sm transition-all ${
-                          config.freeShippingArticles ? 'left-8' : 'left-1'
-                        }`} />
-                      </button>
+                      <div className="flex flex-col items-center" style={{ gap: 'var(--space-xs)' }}>
+                        <NexusSwitch
+                          checked={config.freeShippingArticles}
+                          onChange={() => setConfig({ ...config, freeShippingArticles: !config.freeShippingArticles })}
+                          activeClassName="bg-brand-500 shadow-sm shadow-brand-500/30"
+                          aria-label={config.freeShippingArticles ? 'Desactivar envio gratis de articulos' : 'Activar envio gratis de articulos'}
+                        />
+                        <span className={`text-label uppercase tracking-[0.15em] transition-colors duration-500 ${config.freeShippingArticles ? 'text-text-muted' : 'text-text-muted/40'}`}>
+                          {config.freeShippingArticles ? 'Activo' : 'Inactivo'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -323,8 +330,8 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
             iconVariant="blue"
             delay="400ms"
           >
-            <div className="space-y-8">
-              <div className={`grid grid-cols-1 sm:grid-cols-2 gap-6 transition-all duration-500 ${config.freeShippingBirds ? 'opacity-40 grayscale pointer-events-none' : ''}`}>
+            <div className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
+              <div className={`grid grid-cols-1 sm:grid-cols-2 transition-all duration-500 ${config.freeShippingBirds ? 'opacity-40 grayscale pointer-events-none' : ''}`} style={{ gap: 'var(--space-md)' }}>
                 <NexusInput 
                   label="Costo Zona Normal"
                   type="number"
@@ -345,35 +352,38 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                 />
               </div>
 
-              <div className="pt-8 border-t border-border-main">
-                <div className="bg-bg-muted p-6 rounded-[2rem] border border-border-main transition-all duration-300 hover:border-brand-200 group">
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6">
-                    <div className="flex items-center gap-4">
+              <div className="border-t border-border-main" style={{ paddingTop: 'var(--space-lg)' }}>
+                <div
+                  className="bg-bg-muted border border-border-main transition-all duration-300 hover:border-brand-200 group"
+                  style={{ borderRadius: 'var(--radius-inner-visual)', padding: 'var(--space-md)' }}
+                >
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between" style={{ gap: 'var(--space-md)' }}>
+                    <div className="flex items-center" style={{ gap: 'var(--space-md)' }}>
                       <NexusCardIcon 
                         icon={CheckCircle2} 
                         variant={config.freeShippingBirds ? 'blue' : 'muted'}
                         isMuted={!config.freeShippingBirds}
                       />
-                      <div>
+                      <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
                         <h4 className="text-h2 text-text-main">Envío Gratis</h4>
-                        <p className="text-secondary text-text-muted mt-1">Anula los costos territoriales en la compra de aves.</p>
+                        <p className="text-secondary text-text-muted">Anula los costos territoriales en la compra de aves.</p>
                       </div>
                     </div>
-                    <div className="flex items-center justify-between pt-4 sm:pt-0 border-t sm:border-t-0 border-border-main/30 w-full sm:w-auto">
-                      <span className="text-[9px] font-black uppercase text-stone-400 tracking-[0.2em] sm:hidden">
+                    <div className="flex items-center justify-between pt-[var(--space-sm)] sm:pt-0 border-t sm:border-t-0 border-border-main/30 w-full sm:w-auto">
+                      <span className="text-label font-black uppercase text-stone-400 tracking-widest sm:hidden">
                         Modo de Operación
                       </span>
-                      <button 
-                        onClick={() => setConfig({ ...config, freeShippingBirds: !config.freeShippingBirds })}
-                        className={`flex-shrink-0 w-14 h-7 rounded-full transition-all relative active:scale-90 ${
-                          config.freeShippingBirds ? 'bg-blue-500 shadow-lg shadow-blue-500/20' : 'bg-stone-300'
-                        }`}
-                        style={{ transitionTimingFunction: 'var(--ease-emil)' }}
-                      >
-                        <div className={`absolute top-1 w-5 h-5 rounded-full bg-bg-card shadow-sm transition-all ${
-                          config.freeShippingBirds ? 'left-8' : 'left-1'
-                        }`} />
-                      </button>
+                      <div className="flex flex-col items-center" style={{ gap: 'var(--space-xs)' }}>
+                        <NexusSwitch
+                          checked={config.freeShippingBirds}
+                          onChange={() => setConfig({ ...config, freeShippingBirds: !config.freeShippingBirds })}
+                          activeClassName="bg-blue-500 shadow-sm shadow-blue-500/30"
+                          aria-label={config.freeShippingBirds ? 'Desactivar envio gratis de aves' : 'Activar envio gratis de aves'}
+                        />
+                        <span className={`text-label uppercase tracking-[0.15em] transition-colors duration-500 ${config.freeShippingBirds ? 'text-text-muted' : 'text-text-muted/40'}`}>
+                          {config.freeShippingBirds ? 'Activo' : 'Inactivo'}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -395,7 +405,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
             </NexusSectionButton>
           }
         >
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-3" style={{ gap: 'var(--space-md)' }}>
             <NexusSectionCard
               icon={MapPin}
               iconVariant="emerald"

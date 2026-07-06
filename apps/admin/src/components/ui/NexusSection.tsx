@@ -9,6 +9,7 @@ interface NexusSectionProps {
   iconVariant?: 'brand' | 'muted' | 'blue' | 'emerald' | 'rose';
   children: React.ReactNode;
   action?: React.ReactNode;
+  actionPlacement?: 'header' | 'below';
   className?: string;
   delay?: string;
   animate?: boolean;
@@ -21,6 +22,7 @@ export const NexusSection: React.FC<NexusSectionProps> = ({
   iconVariant = 'muted',
   children, 
   action,
+  actionPlacement = 'header',
   className = '',
   delay = '0ms',
   animate = true
@@ -47,35 +49,47 @@ export const NexusSection: React.FC<NexusSectionProps> = ({
       </div>
 
       {/* Header Area */}
-      <div 
-        className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-border-main relative z-10 group/header"
+      <div
+        className="flex flex-col border-b border-border-main relative z-10 group/header"
         style={{ 
           gap: 'var(--space-lg)',
           marginBottom: 'var(--space-lg)',
           paddingBottom: 'var(--space-md)'
         }}
       >
-        <div className="flex items-center transition-transform duration-500 group-hover/header:translate-x-1" style={{ gap: 'var(--space-md)' }}>
-          <div className="animate-in zoom-in-75 duration-700 [animation-fill-mode:both]" style={{ animationDelay: delay }}>
-            <NexusSectionIcon 
-              icon={icon} 
-              variant={iconVariant} 
-              hoverGroup="group/section" 
-            />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between" style={{ gap: 'var(--space-lg)' }}>
+          <div className="flex items-center transition-transform duration-500 group-hover/header:translate-x-1" style={{ gap: 'var(--space-md)' }}>
+            <div className="animate-in zoom-in-75 duration-700 [animation-fill-mode:both]" style={{ animationDelay: delay }}>
+              <NexusSectionIcon
+                icon={icon}
+                variant={iconVariant}
+                hoverGroup="group/section"
+              />
+            </div>
+            <div className="animate-in fade-in slide-in-from-left-4 duration-700 [animation-fill-mode:both] flex flex-col" style={{ gap: 'var(--space-xs)', animationDelay: delay }}>
+              <h3 className="text-h1 text-text-main">
+                {title}
+              </h3>
+              {subtitle && (
+                <p className="text-secondary text-text-muted">
+                  {subtitle}
+                </p>
+              )}
+            </div>
           </div>
-          <div className="animate-in fade-in slide-in-from-left-4 duration-700 [animation-fill-mode:both] flex flex-col" style={{ gap: 'var(--space-xs)', animationDelay: delay }}>
-            <h3 className="text-h1 text-text-main">
-              {title}
-            </h3>
-            {subtitle && (
-              <p className="text-secondary text-text-muted">
-                {subtitle}
-              </p>
-            )}
-          </div>
+
+          {action && actionPlacement === 'header' && (
+            <div className="w-full sm:w-auto shrink-0 [&>button]:w-full sm:[&>button]:w-auto animate-in fade-in zoom-in-95 duration-700 [animation-fill-mode:both]" style={{ animationDelay: delay }}>
+              {action}
+            </div>
+          )}
         </div>
-        {action && (
-          <div className="w-full sm:w-auto shrink-0 [&>button]:w-full sm:[&>button]:w-auto animate-in fade-in zoom-in-95 duration-700 [animation-fill-mode:both]" style={{ animationDelay: delay }}>
+
+        {action && actionPlacement === 'below' && (
+          <div
+            className="w-full [&>button]:w-full animate-in fade-in zoom-in-95 duration-700 [animation-fill-mode:both]"
+            style={{ animationDelay: delay }}
+          >
             {action}
           </div>
         )}

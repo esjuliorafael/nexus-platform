@@ -22,7 +22,9 @@ import {
   HomeSlide,
   StoreHero,
   StoreHeroScope,
+  Coupon,
   OwnProfile,
+  WhatsAppMessageLog,
 } from "./types";
 
 // Derive API URL dynamically based on current domain if not explicitly provided via ENV
@@ -389,6 +391,38 @@ export const apiStoreHeroes = {
   },
 };
 
+const mapNullableNumber = (value: any) =>
+  value === null || value === undefined || value === "" ? null : Number(value);
+
+const mapCoupon = (item: any): Coupon => ({
+  ...item,
+  id: item.id.toString(),
+  discountValue: Number(item.discountValue || 0),
+  minSubtotal: mapNullableNumber(item.minSubtotal),
+  maxDiscount: mapNullableNumber(item.maxDiscount),
+  usageLimit: item.usageLimit ?? null,
+  usedCount: Number(item.usedCount || 0),
+  active: item.active !== false,
+});
+
+export const apiCoupons = {
+  getAll: async (): Promise<Coupon[]> => {
+    const res = await api.get("/admin/coupons");
+    return res.data.map(mapCoupon);
+  },
+  create: async (data: Partial<Coupon>) => {
+    const res = await api.post("/admin/coupons", data);
+    return mapCoupon(res.data);
+  },
+  update: async (id: string, data: Partial<Coupon>) => {
+    const res = await api.put(`/admin/coupons/${id}`, data);
+    return mapCoupon(res.data);
+  },
+  delete: async (id: string) => {
+    return api.delete(`/admin/coupons/${id}`);
+  },
+};
+
 export const apiCategories = {
   getAll: async (): Promise<Category[]> => {
     const res = await api.get("/admin/categories");
@@ -415,38 +449,50 @@ export const apiCategories = {
 export const apiOrders = {
   getAll: async (): Promise<Order[]> => {
     const res = await api.get("/store/orders/admin");
-    return res.data.map((item: any) => ({
-      id: item.id.toString(),
-      customer: item.customerName,
-      customerPhone: item.customerPhone,
-      customerState: item.shippingState || "N/A",
-      customerAddress: item.shippingAddress,
-      total: parseFloat(item.total),
-      status: mapOrderStatus(item.status),
-      date: item.createdAt,
-      isRead: Boolean(item.isRead),
-      readAt: item.readAt || undefined,
-      items: (item.items || []).map((i: any) => ({
-        id: i.productId.toString(),
-        name: i.productName || "Producto",
-        price: parseFloat(i.unitPrice),
-        quantity: i.quantity,
-        type: mapProductType(i.productType),
-        imageUrl: i.product?.thumbnail,
-      })),
-    }));
+    return res.data.map((item: any) => mapOrderResponse(item));
   },
-  updateStatus: async (id: string, status: string) => {
-    return api.patch(`/store/orders/admin/${id}/status`, { status });
+  updateStatus: async (id: string, status: string): Promise<Order> => {
+    const res = await api.patch(`/store/orders/admin/${id}/status`, { status });
+    return mapOrderResponse(res.data);
   },
   cancel: async (id: string) => {
     return api.delete(`/store/orders/admin/${id}`);
+  },
+  restore: async (id: string): Promise<Order> => {
+    const res = await api.post(`/store/orders/admin/${id}/restore`);
+    return mapOrderResponse(res.data);
   },
   delete: async (id: string) => {
     return api.delete(`/store/orders/admin/${id}`);
   },
   resendWhatsApp: async (id: string) => {
     return api.post(`/store/orders/admin/${id}/resend-whatsapp`);
+  },
+  updateCustomer: async (
+    id: string,
+    data: { customerName: string; customerPhone: string; shippingState?: string | null },
+  ): Promise<Order> => {
+    const res = await api.patch(`/store/orders/admin/${id}/customer`, data);
+    return mapOrderResponse(res.data);
+  },
+  getWhatsAppLogs: async (id: string): Promise<WhatsAppMessageLog[]> => {
+    const res = await api.get(`/store/orders/admin/${id}/whatsapp-logs`);
+    return res.data.map((item: any) => ({
+      id: item.id.toString(),
+      status: item.status,
+      errorMessage: item.errorMessage,
+      instanceName: item.instanceName,
+      orderId: item.orderId,
+      recipientPhone: item.recipientPhone,
+      sentAt: item.sentAt,
+      templateUsed: item.templateUsed,
+      ticketSaleId: item.ticketSaleId,
+      attempt: item.attempt ?? 1,
+      jobId: item.jobId,
+      lastStatusAt: item.lastStatusAt,
+      messageId: item.messageId,
+      providerStatus: item.providerStatus,
+    }));
   },
   markRead: async (ids: string[]) => {
     return api.post("/store/orders/admin/read", {
@@ -539,6 +585,7 @@ export const apiPayments = {
       purpose: item.purpose,
       bank: item.bank,
       beneficiary: item.beneficiary,
+      account: item.accountNumber || "",
       clabe: item.clabe || "",
       card: item.card || "",
     }));
@@ -637,7 +684,11 @@ export const apiSystem = {
     const settings = Object.entries(configData).map(([key, value]) => ({
       key,
       value: String(value),
-      group: key.startsWith("storage_r2_") ? "storage" : "general",
+      group: key.startsWith("storage_r2_")
+        ? "storage"
+        : key.startsWith("storefront_")
+          ? "storefront"
+          : "general",
     }));
     return api.put("/admin/settings", { settings });
   },
@@ -767,6 +818,35 @@ function mapStatusDBtoFront(
 function mapProductType(type?: string): "BIRD" | "ITEM" {
   const normalized = type?.toUpperCase();
   return normalized === "BIRD" || normalized === "AVE" ? "BIRD" : "ITEM";
+}
+
+function mapOrderResponse(item: any): Order {
+  return {
+    id: item.id.toString(),
+    customer: item.customerName,
+    customerPhone: item.customerPhone,
+    receiverName: item.receiverName,
+    customerState: item.shippingState || "N/A",
+    customerAddress: item.shippingAddress,
+    deliveryMethod: item.deliveryMethod,
+    shippingStreet: item.shippingStreet,
+    shippingNeighborhood: item.shippingNeighborhood,
+    shippingPostalCode: item.shippingPostalCode,
+    shippingCity: item.shippingCity,
+    total: parseFloat(item.total),
+    status: mapOrderStatus(item.status),
+    date: item.createdAt,
+    isRead: Boolean(item.isRead),
+    readAt: item.readAt || undefined,
+    items: (item.items || []).map((i: any) => ({
+      id: i.productId.toString(),
+      name: i.productName || "Producto",
+      price: parseFloat(i.unitPrice),
+      quantity: i.quantity,
+      type: mapProductType(i.productType),
+      imageUrl: i.product?.thumbnail,
+    })),
+  };
 }
 
 function mapOrderStatus(status: string): "paid" | "pending" | "cancelled" {

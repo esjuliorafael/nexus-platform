@@ -1,5 +1,6 @@
 import { PrismaClient, TicketStatus } from "@prisma/client-raffle";
 import { PrismaClient as StorePrismaClient } from "@prisma/client-store";
+import { getReminderDelayMs, reservationReminderQueue } from "../../../queues/reservation-reminder.queue";
 import { ticketReleaseQueue } from "../../../queues/ticket-release.queue";
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
 import { raffleNotificationService } from "../notifications/raffle-notification.service";
@@ -69,7 +70,14 @@ export const ticketSaleService = {
     // 3. Post-transaction actions
     const settings = await prisma.setting.findMany({
       where: { 
-        key: { in: ["raffle_release_active", "raffle_release_hours"] }
+        key: {
+          in: [
+            "raffle_release_active",
+            "raffle_release_hours",
+            "raffle_reminder_active",
+            "raffle_reminder_hours_before",
+          ],
+        }
       }
     });
     
@@ -77,6 +85,8 @@ export const ticketSaleService = {
     
     const isReleaseActive = settingsMap["raffle_release_active"] === "1";
     const releaseHours = parseInt(settingsMap["raffle_release_hours"] || "24", 10);
+    const isReminderActive = settingsMap["raffle_reminder_active"] === "1";
+    const reminderHoursBefore = Number(settingsMap["raffle_reminder_hours_before"] || 4);
 
     // Send notification
     const raffle = await prisma.raffle.findUnique({ where: { id: raffleId } });
@@ -96,11 +106,26 @@ export const ticketSaleService = {
       if (sales.length > 0) {
         // Enqueue release job if active
         if (isReleaseActive) {
+          const expectedReleaseAt = new Date(Date.now() + releaseHours * 3600 * 1000);
+
           await ticketReleaseQueue.add(
             "release",
             { ticketSaleIds: sales.map(s => s.id) },
             { delay: releaseHours * 3600 * 1000 }
           );
+
+          const reminderDelay = getReminderDelayMs(releaseHours, reminderHoursBefore);
+          if (isReminderActive && reminderDelay) {
+            await reservationReminderQueue.add(
+              "raffle-reminder",
+              {
+                kind: "raffle",
+                ticketSaleIds: sales.map(s => s.id),
+                expectedReleaseAt: expectedReleaseAt.toISOString(),
+              },
+              { delay: reminderDelay },
+            );
+          }
         }
 
         // Enqueue WhatsApp notifications (Consolidated)

@@ -36,33 +36,37 @@ const TEMPLATE_GROUPS = [
   {
     label: 'Tienda',
     templates: [
-      { key: 'whatsapp_global_store_res', label: 'Apartado de orden', variables: ['{{greeting}}', '{{customerName}}', '{{orderId}}', '{{itemList}}', '{{amount}}', '{{bank_info}}', '{{time_store}}'] },
-      { key: 'whatsapp_global_store_pay', label: 'Pago confirmado', variables: ['{{customerName}}', '{{orderId}}', '{{itemList}}', '{{amount}}'] },
-      { key: 'whatsapp_global_store_rel', label: 'Liberacion de orden', variables: ['{{customerName}}', '{{orderId}}', '{{time_store}}'] },
+      { key: 'whatsapp_global_store_res', label: 'Apartado de orden', variables: ['{{greeting}}', '{{customer_name}}', '{{order_id}}', '{{item_list}}', '{{amount}}', '{{bank_info}}', '{{time_store}}'] },
+      { key: 'whatsapp_global_store_pay', label: 'Pago confirmado', variables: ['{{customer_name}}', '{{order_id}}', '{{item_list}}', '{{amount}}'] },
+      { key: 'whatsapp_global_store_restored', label: 'Apartado restaurado', variables: ['{{greeting}}', '{{customer_name}}', '{{order_id}}', '{{item_list}}', '{{amount}}', '{{bank_info}}', '{{time_store}}'] },
+      { key: 'whatsapp_global_store_reminder', label: 'Recordatorio de pago', variables: ['{{greeting}}', '{{customer_name}}', '{{order_id}}', '{{item_list}}', '{{amount}}', '{{bank_info}}', '{{time_remaining}}'] },
+      { key: 'whatsapp_global_store_rel', label: 'Liberacion de orden', variables: ['{{customer_name}}', '{{order_id}}', '{{time_store}}'] },
     ],
   },
   {
     label: 'Rifas',
     templates: [
-      { key: 'whatsapp_global_raffle_res', label: 'Apartado de boletos', variables: ['{{customerName}}', '{{ticket}}', '{{raffleName}}', '{{amount}}', '{{bank_info}}', '{{time_limit_raffle}}'] },
-      { key: 'whatsapp_global_raffle_pay', label: 'Pago confirmado', variables: ['{{customerName}}', '{{ticket}}', '{{raffleName}}', '{{amount}}'] },
-      { key: 'whatsapp_global_raffle_rel', label: 'Liberacion de boletos', variables: ['{{customerName}}', '{{ticket}}', '{{raffleName}}', '{{time_limit_raffle}}'] },
+      { key: 'whatsapp_global_raffle_res', label: 'Apartado de boletos', variables: ['{{customer_name}}', '{{ticket_list}}', '{{raffle_name}}', '{{amount}}', '{{bank_info}}', '{{time_raffle}}'] },
+      { key: 'whatsapp_global_raffle_pay', label: 'Pago confirmado', variables: ['{{customer_name}}', '{{ticket_list}}', '{{raffle_name}}', '{{amount}}'] },
+      { key: 'whatsapp_global_raffle_reminder', label: 'Recordatorio de pago', variables: ['{{customer_name}}', '{{ticket_list}}', '{{raffle_name}}', '{{amount}}', '{{bank_info}}', '{{time_remaining}}'] },
+      { key: 'whatsapp_global_raffle_rel', label: 'Liberacion de boletos', variables: ['{{customer_name}}', '{{ticket_list}}', '{{raffle_name}}', '{{time_raffle}}'] },
     ],
   },
 ];
 
 const previewMessage = (content: string) => (
-  (content || 'Hola {{customerName}}, este es un mensaje de ejemplo para validar variables y tono.')
+  (content || 'Hola {{customer_name}}, este es un mensaje de ejemplo para validar variables y tono.')
     .replace(/\{\{greeting\}\}/g, 'Buena tarde')
-    .replace(/\{\{customerName\}\}/g, 'Carlos Ramirez')
-    .replace(/\{\{orderId\}\}/g, '1284')
-    .replace(/\{\{itemList\}\}/g, '1x Gallo colorado, 2x Alimento premium')
-    .replace(/\{\{ticket\}\}/g, '018, 042, 119')
-    .replace(/\{\{raffleName\}\}/g, 'Rifa Especial de Junio')
+    .replace(/\{\{customer_name\}\}/g, 'Carlos Ramirez')
+    .replace(/\{\{order_id\}\}/g, '1284')
+    .replace(/\{\{item_list\}\}/g, '1x Gallo colorado, 2x Alimento premium')
+    .replace(/\{\{ticket_list\}\}/g, '018, 042, 119')
+    .replace(/\{\{raffle_name\}\}/g, 'Rifa Especial de Junio')
     .replace(/\{\{amount\}\}/g, '1,250.00')
-    .replace(/\{\{bank_info\}\}/g, 'Banco: BBVA\nBeneficiario: Rancho Demo\nCLABE: 012345678901234567')
+    .replace(/\{\{bank_info\}\}/g, 'Banco: BBVA\nBeneficiario: Rancho Demo\nNo. Cuenta: 1234567890\nCLABE: 012345678901234567\nTarjeta: 1234 5678 9012 3456')
     .replace(/\{\{time_store\}\}/g, '24 horas')
-    .replace(/\{\{time_limit_raffle\}\}/g, '12 horas')
+    .replace(/\{\{time_raffle\}\}/g, '12 horas')
+    .replace(/\{\{time_remaining\}\}/g, '4 horas')
 );
 
 export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBack, showToast }) => {
@@ -336,6 +340,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
           <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
             <NexusInput label="Banco" value={config.bank_main_name || ''} onChange={(e) => setConfig({ ...config, bank_main_name: e.target.value })} icon={Banknote} />
             <NexusInput label="Beneficiario" value={config.bank_main_beneficiary || ''} onChange={(e) => setConfig({ ...config, bank_main_beneficiary: e.target.value })} icon={User} />
+            <NexusInput label="No. Cuenta" value={config.bank_main_account || ''} onChange={(e) => setConfig({ ...config, bank_main_account: e.target.value })} icon={Hash} />
             <NexusInput label="CLABE" value={config.bank_main_clabe || ''} onChange={(e) => setConfig({ ...config, bank_main_clabe: e.target.value })} icon={Hash} />
             <NexusInput label="No. tarjeta" value={config.bank_main_card || ''} onChange={(e) => setConfig({ ...config, bank_main_card: e.target.value })} icon={CreditCard} />
             <NexusAutonomousButton
@@ -343,6 +348,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
               onClick={() => updateConfig({
                 bank_main_name: config.bank_main_name || '',
                 bank_main_beneficiary: config.bank_main_beneficiary || '',
+                bank_main_account: config.bank_main_account || '',
                 bank_main_clabe: config.bank_main_clabe || '',
                 bank_main_card: config.bank_main_card || '',
               })}

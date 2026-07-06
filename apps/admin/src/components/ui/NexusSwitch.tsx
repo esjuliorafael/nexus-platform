@@ -25,17 +25,18 @@ export const NexusSwitch: React.FC<NexusSwitchProps> = ({
     aria-checked={checked}
     disabled={disabled}
     onClick={() => onChange(!checked)}
-    className={`relative shrink-0 rounded-full transition-all duration-300 active:scale-90 disabled:opacity-60 ${checked ? activeClassName : inactiveClassName} ${className}`}
+    className={`relative shrink-0 transition-all duration-300 active:scale-90 disabled:opacity-60 ${checked ? activeClassName : inactiveClassName} ${className}`}
     style={{
       width: "calc(var(--h-button-card) * 1.15)",
       height: "calc(var(--h-button-card) * 0.58)",
+      borderRadius: "var(--radius-pill)",
       transitionTimingFunction: "var(--ease-emil)",
       ...props.style,
     }}
     {...props}
   >
     <span
-      className="absolute rounded-full bg-white shadow-sm transition-all duration-300"
+      className="absolute bg-white shadow-sm transition-all duration-300"
       style={{
         top: "var(--space-xs)",
         left: checked
@@ -43,6 +44,7 @@ export const NexusSwitch: React.FC<NexusSwitchProps> = ({
           : "var(--space-xs)",
         width: "calc(var(--h-button-card) * 0.42)",
         height: "calc(var(--h-button-card) * 0.42)",
+        borderRadius: "var(--radius-circle)",
         transitionTimingFunction: "var(--ease-emil)",
       }}
     />

@@ -9,6 +9,7 @@ import { useSettings } from "../../hooks/useSettings";
 import { useCartUiStore } from "../../store/cart-ui.store";
 import { useToastStore } from "../../store/toast.store";
 import { StorefrontToast } from "../ui/Toast";
+import { StorefrontUnavailableView } from "./StorefrontUnavailableView";
 import { AnimatePresence } from "framer-motion";
 
 interface ClientLayoutProps {
@@ -17,7 +18,12 @@ interface ClientLayoutProps {
 
 export function ClientLayout({ children }: ClientLayoutProps) {
   const pathname = usePathname();
-  const { isModuleEnabled, loading: settingsLoading } = useSettings();
+  const {
+    getBranding,
+    getStorefrontAvailability,
+    isModuleEnabled,
+    loading: settingsLoading,
+  } = useSettings();
   const isCartOpen = useCartUiStore((state) => state.isCartOpen);
   const openCart = useCartUiStore((state) => state.openCart);
   const closeCart = useCartUiStore((state) => state.closeCart);
@@ -32,6 +38,36 @@ export function ClientLayout({ children }: ClientLayoutProps) {
 
   const showRaffles = isModuleEnabled("raffle_enabled");
   const isProductDetailRoute = pathname.startsWith("/store/");
+  const isCheckoutRoute = pathname === "/checkout";
+  const branding = getBranding();
+  const availability = getStorefrontAvailability();
+
+  if (settingsLoading) {
+    return <div className="min-h-screen bg-[var(--sf-bg-app)]" />;
+  }
+
+  if (availability.isUnavailable) {
+    return (
+      <StorefrontUnavailableView
+        status={availability.status as "MAINTENANCE" | "COMING_SOON"}
+        title={availability.title}
+        description={availability.description}
+        showLogo={availability.showLogo}
+        logoUrl={branding.logo_url}
+        brandName={branding.brand_name}
+        eyebrow={availability.eyebrow}
+        mediaUrl={availability.mediaUrl}
+        posterUrl={availability.posterUrl}
+        mediaType={availability.mediaType}
+        desktopObjectPosition={availability.desktopObjectPosition}
+        mobileObjectPosition={availability.mobileObjectPosition}
+        primaryText={availability.primaryText}
+        primaryHref={availability.primaryHref}
+        secondaryText={availability.secondaryText}
+        secondaryHref={availability.secondaryHref}
+      />
+    );
+  }
 
   return (
     <div className="flex min-h-screen flex-col bg-stone-50 text-stone-900">
@@ -58,7 +94,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
         )}
       </AnimatePresence>
 
-      {!isProductDetailRoute && !settingsLoading && (
+      {!isProductDetailRoute && !isCheckoutRoute && !settingsLoading && (
         <BottomNav
           showRaffles={showRaffles}
           onOpenCart={openCart}

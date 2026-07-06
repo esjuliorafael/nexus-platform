@@ -3,6 +3,7 @@ import IORedis from "ioredis";
 import { storePrisma } from "@nexus/db/store";
 import { rafflePrisma } from "@nexus/db/raffle";
 import { resolveChannels } from "../services/evolution/channel.resolver";
+import { getEvolutionConfigFromSettings } from "../services/evolution/evolution.config";
 import { sendAndLog } from "../services/evolution/evolution.service";
 import type { WhatsappJobData } from "../queues/whatsapp.queue";
 import type { OrderKind } from "../services/evolution/channel.resolver";
@@ -27,11 +28,15 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
               "whatsapp_global_store_res",
               "whatsapp_global_store_rel",
               "whatsapp_global_store_pay",
+              "whatsapp_global_store_restored",
+              "whatsapp_global_store_reminder",
               "whatsapp_global_raffle_res",
               "whatsapp_global_raffle_rel",
               "whatsapp_global_raffle_pay",
+              "whatsapp_global_raffle_reminder",
               "bank_main_name",
               "bank_main_beneficiary",
+              "bank_main_account",
               "bank_main_clabe",
               "bank_main_card",
             ],
@@ -48,10 +53,11 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
     const getSetting = (k: string) =>
       settings.find((s) => s.key === k)?.value ?? null;
 
-    const globalUrl = getSetting("whatsapp_evolution_url");
-    const globalKey = getSetting("whatsapp_evolution_key");
+    const envEvolutionConfig = await getEvolutionConfigFromSettings();
+    const globalUrl = getSetting("whatsapp_evolution_url") || envEvolutionConfig.baseUrl;
+    const globalKey = getSetting("whatsapp_evolution_key") || envEvolutionConfig.apiKey;
 
-    if (data.kind === "order" || data.kind === "order-cancelled" || data.kind === "order-paid") {
+    if (data.kind === "order" || data.kind === "order-cancelled" || data.kind === "order-paid" || data.kind === "order-restored" || data.kind === "order-reminder") {
       const resolved = resolveChannels(data.orderKind, waChannels);
       const wa = resolved.whatsappChannel;
 
@@ -71,6 +77,18 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           `[WhatsApp] No configuration found for order ${data.orderId}. ` +
           `Channel: ${wa?.name || "None"}, Instance: ${instanceName || "Missing"}, URL: ${baseUrl || "Missing"}`
         );
+        await storePrisma.whatsappMessageLog.create({
+          data: {
+            attempt: job.attemptsMade + 1,
+            orderId: data.orderId,
+            recipientPhone: data.recipientPhone,
+            instanceName: instanceName || "missing",
+            jobId: String(job.id ?? ""),
+            templateUsed: "configuration",
+            status: "failed",
+            errorMessage: "No hay configuración de Evolution API para esta orden.",
+          },
+        });
         return;
       }
 
@@ -84,15 +102,35 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       } else if (data.kind === "order-paid") {
         template = wa?.templates?.find((t: any) => t.type.toLowerCase() === "payment_confirmed")?.content
                    || getSetting("whatsapp_global_store_pay")
-                   || "¡Hola {{customerName}}! Hemos recibido tu pago por la orden #{{orderId}}. Tu pedido ya está siendo procesado.";
+                   || "¡Hola {{customer_name}}! Hemos recibido tu pago por la orden #{{order_id}}. Tu pedido ya está siendo procesado.";
+      } else if (data.kind === "order-restored") {
+        template = wa?.templates?.find((t: any) => t.type.toLowerCase() === "restored")?.content
+                   || getSetting("whatsapp_global_store_restored")
+                   || "";
+      } else if (data.kind === "order-reminder") {
+        template = wa?.templates?.find((t: any) => t.type.toLowerCase() === "reminder")?.content
+                   || getSetting("whatsapp_global_store_reminder")
+                   || "";
       } else {
         template = wa?.templates?.find((t: any) => t.type.toLowerCase() === "release")?.content 
                    || getSetting("whatsapp_global_store_rel")
-                   || `Hola, tu orden #${data.orderId} ha sido cancelada debido a que se superó el tiempo límite de pago. Si aún te interesa, por favor realiza una nueva orden.`;
+                   || "";
       }
 
       if (!template) {
         console.warn(`[WhatsApp] No template found for order ${data.orderId}, kind: ${data.kind}`);
+        await storePrisma.whatsappMessageLog.create({
+          data: {
+            attempt: job.attemptsMade + 1,
+            orderId: data.orderId,
+            recipientPhone: data.recipientPhone,
+            instanceName,
+            jobId: String(job.id ?? ""),
+            templateUsed: data.kind,
+            status: "failed",
+            errorMessage: "No hay plantilla de WhatsApp configurada para este tipo de notificación.",
+          },
+        });
         return;
       }
 
@@ -104,32 +142,77 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
 
       if (!order) {
         console.error(`[WhatsApp] Order ${data.orderId} not found for notification`);
+        await storePrisma.whatsappMessageLog.create({
+          data: {
+            attempt: job.attemptsMade + 1,
+            orderId: data.orderId,
+            recipientPhone: data.recipientPhone,
+            instanceName,
+            jobId: String(job.id ?? ""),
+            templateUsed: data.kind,
+            status: "failed",
+            errorMessage: "La orden no existe al procesar la notificación.",
+          },
+        });
         return;
       }
 
-      const bankInfo = formatBankInfo({
-        bank: getSetting("bank_main_name") ?? "",
-        beneficiary: getSetting("bank_main_beneficiary") ?? "",
-        clabe: getSetting("bank_main_clabe") ?? undefined,
-        card: getSetting("bank_main_card") ?? undefined
-      });
+      let paymentChannel = null;
+      if (data.orderKind.type === "birds_only" && data.orderKind.purpose) {
+        const orderPurpose = data.orderKind.purpose;
+        paymentChannel = payChannels.find((channel) => channel.purpose.toUpperCase() === orderPurpose) ?? null;
+      }
+
+      const bankInfo = paymentChannel
+        ? formatBankInfo({
+            bank: paymentChannel.bank,
+            beneficiary: paymentChannel.beneficiary,
+            account: paymentChannel.accountNumber ?? undefined,
+            clabe: paymentChannel.clabe ?? undefined,
+            card: paymentChannel.card ?? undefined,
+          })
+        : formatBankInfo({
+            bank: getSetting("bank_main_name") ?? "",
+            beneficiary: getSetting("bank_main_beneficiary") ?? "",
+            account: getSetting("bank_main_account") ?? undefined,
+            clabe: getSetting("bank_main_clabe") ?? undefined,
+            card: getSetting("bank_main_card") ?? undefined
+          });
 
       const itemList = order.items
         .map(i => `${i.quantity}x ${i.productName}`)
         .join(", ");
 
-      let message = buildOrderMessage(template, order, bankInfo, 'timeLimit' in data ? data.timeLimit : undefined, itemList);
+      let message = buildOrderMessage(
+        template,
+        order,
+        bankInfo,
+        'timeLimit' in data ? data.timeLimit : undefined,
+        itemList,
+        'timeRemaining' in data && typeof data.timeRemaining === "string" ? data.timeRemaining : undefined,
+      );
 
       await sendAndLog({
         instance: { instanceName, baseUrl, apiKey },
         recipientPhone: data.recipientPhone,
         message,
-        templateName: data.kind === "order" ? (wa ? `order_${wa.purpose}` : "order_principal") : (data.kind === "order-paid" ? "order_paid" : "order_cancelled"),
+        templateName:
+          data.kind === "order"
+            ? (wa ? `order_${wa.purpose}` : "order_principal")
+            : data.kind === "order-paid"
+              ? "order_paid"
+              : data.kind === "order-restored"
+                ? "order_restored"
+                : data.kind === "order-reminder"
+                  ? "order_reminder"
+                  : "order_cancelled",
         orderId: data.orderId,
+        jobId: String(job.id ?? ""),
+        attempt: job.attemptsMade + 1,
       });
     }
 
-    if (data.kind === "reservation" || data.kind === "reservation-cancelled" || data.kind === "reservation-paid") {
+    if (data.kind === "reservation" || data.kind === "reservation-cancelled" || data.kind === "reservation-paid" || data.kind === "reservation-reminder") {
       const raffleChannel = waChannels.find(
         (c) => c.purpose.toUpperCase() === "RAFFLES" && c.active
       );
@@ -157,16 +240,36 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       if (data.kind === "reservation") {
         template = raffleChannel?.templates?.find((t: any) => t.type.toLowerCase() === "reservation")?.content 
                    || raffleChannel?.template
-                   || "Hola {{customerName}}, tus boletos ({{ticket}}) para la rifa \"{{raffleName}}\" han sido reservados. Monto a pagar: ${{amount}}.\n\n{{bank_info}}\n\nTienes hasta {{time_limit_raffle}} para realizar tu pago.";
+                   || "Hola {{customer_name}}, tus boletos ({{ticket_list}}) para la rifa \"{{raffle_name}}\" han sido reservados. Monto a pagar: ${{amount}}.\n\n{{bank_info}}\n\nTienes hasta {{time_raffle}} para realizar tu pago.";
       } else if (data.kind === "reservation-paid") {
         template = raffleChannel?.templates?.find((t: any) => t.type.toLowerCase() === "payment_confirmed")?.content
                    || getSetting("whatsapp_global_raffle_pay")
-                   || "¡Hola {{customerName}}! Hemos recibido tu pago por los boletos ({{ticket}}) de la rifa \"{{raffleName}}\". ¡Mucha suerte!";
+                   || "¡Hola {{customer_name}}! Hemos recibido tu pago por los boletos ({{ticket_list}}) de la rifa \"{{raffle_name}}\". ¡Mucha suerte!";
+      } else if (data.kind === "reservation-reminder") {
+        template = raffleChannel?.templates?.find((t: any) => t.type.toLowerCase() === "reminder")?.content
+                   || getSetting("whatsapp_global_raffle_reminder")
+                   || "";
       } else {
         const firstSale = sales[0];
         const ticketNumbers = sales.map((s) => s.ticketNumber).join(", ");
         template = raffleChannel?.templates?.find((t: any) => t.type.toLowerCase() === "release")?.content 
                    || `Hola ${firstSale.customerName}, tus boletos (${ticketNumbers}) para la rifa "${firstSale.raffle?.title}" han sido liberados debido a que se superó el tiempo límite de apartado.`;
+      }
+
+      if (!template) {
+        await storePrisma.whatsappMessageLog.create({
+          data: {
+            attempt: job.attemptsMade + 1,
+            recipientPhone: data.recipientPhone,
+            instanceName,
+            jobId: String(job.id ?? ""),
+            templateUsed: data.kind,
+            status: "failed",
+            ticketSaleId: sales[0].id,
+            errorMessage: "No hay plantilla de WhatsApp configurada para este tipo de notificaciÃ³n.",
+          },
+        });
+        return;
       }
 
       let message = "";
@@ -180,27 +283,50 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           ? formatBankInfo({
               bank: payChannel.bank,
               beneficiary: payChannel.beneficiary,
+              account: payChannel.accountNumber ?? undefined,
               clabe: payChannel.clabe ?? undefined,
               card: payChannel.card ?? undefined
             })
           : formatBankInfo({
               bank: getSetting("bank_main_name") ?? "",
               beneficiary: getSetting("bank_main_beneficiary") ?? "",
+              account: getSetting("bank_main_account") ?? undefined,
               clabe: getSetting("bank_main_clabe") ?? undefined,
               card: getSetting("bank_main_card") ?? undefined
             });
 
-        message = buildReservationMessage(template, sales, bankInfo, 'timeLimit' in data ? data.timeLimit : undefined);
+        message = buildReservationMessage(
+          template,
+          sales,
+          bankInfo,
+          'timeLimit' in data ? data.timeLimit : undefined,
+          'timeRemaining' in data && typeof data.timeRemaining === "string" ? data.timeRemaining : undefined,
+        );
       } else {
-        message = buildReservationMessage(template, sales, "", 'timeLimit' in data ? data.timeLimit : undefined);
+        message = buildReservationMessage(
+          template,
+          sales,
+          "",
+          'timeLimit' in data ? data.timeLimit : undefined,
+          'timeRemaining' in data && typeof data.timeRemaining === "string" ? data.timeRemaining : undefined,
+        );
       }
 
       await sendAndLog({
         instance: { instanceName, baseUrl, apiKey },
         recipientPhone: data.recipientPhone,
         message,
-        templateName: data.kind === "reservation" ? "reservation_rifas" : "reservation_cancelled_rifas",
+        templateName:
+          data.kind === "reservation"
+            ? "reservation_rifas"
+            : data.kind === "reservation-paid"
+              ? "reservation_paid_rifas"
+              : data.kind === "reservation-reminder"
+                ? "reservation_reminder_rifas"
+                : "reservation_cancelled_rifas",
         ticketSaleId: sales[0].id,
+        jobId: String(job.id ?? ""),
+        attempt: job.attemptsMade + 1,
       });
     }
   },
@@ -211,7 +337,7 @@ whatsappWorker.on("failed", (job, err) => {
   console.error(`[WhatsApp Worker] Job ${job?.id} failed:`, err.message);
 });
 
-function buildOrderMessage(template: string, order: any, bankInfo: string, timeLimit?: string, itemList?: string): string {
+function buildOrderMessage(template: string, order: any, bankInfo: string, timeLimit?: string, itemList?: string, timeRemaining?: string): string {
   const hour = new Date().getHours();
   let greeting = "Buen día";
   if (hour >= 12 && hour < 19) greeting = "Buena tarde";
@@ -219,21 +345,21 @@ function buildOrderMessage(template: string, order: any, bankInfo: string, timeL
 
   let msg = template
     .replace(/\{\{greeting\}\}/g, greeting)
-    .replace(/\{\{orderId\}\}/g, order.id.toString())
-    .replace(/\{\{customerName\}\}/g, order.customerName ?? "")
-    .replace(/\{\{itemList\}\}/g, itemList || "")
+    .replace(/\{\{order_id\}\}/g, order.id.toString())
+    .replace(/\{\{customer_name\}\}/g, order.customerName ?? "")
+    .replace(/\{\{item_list\}\}/g, itemList || "")
     .replace(/\{\{amount\}\}/g, Number(order.total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
     .replace(/\{\{bank_info\}\}/g, bankInfo);
 
-  if (timeLimit) {
-    msg = msg.replace(/\{\{time_store\}\}/g, timeLimit);
-  }
-  return msg;
+  return msg
+    .replace(/\{\{time_store\}\}/g, timeLimit || "")
+    .replace(/\{\{time_remaining\}\}/g, timeRemaining || "");
 }
 
 interface BankData {
   bank: string;
   beneficiary: string;
+  account?: string;
   clabe?: string;
   card?: string;
 }
@@ -242,6 +368,9 @@ function formatBankInfo(data: BankData): string {
   if (!data.bank || !data.beneficiary) return "";
   
   let info = `Banco: ${data.bank}\nBeneficiario: ${data.beneficiary}`;
+  if (data.account && data.account.trim()) {
+    info += `\nNo. Cuenta: ${data.account.trim()}`;
+  }
   if (data.clabe && data.clabe.trim()) {
     info += `\nCLABE: ${data.clabe.trim()}`;
   }
@@ -251,7 +380,7 @@ function formatBankInfo(data: BankData): string {
   return info;
 }
 
-function buildReservationMessage(template: string, sales: any[], bankInfo: string, timeLimit?: string): string {
+function buildReservationMessage(template: string, sales: any[], bankInfo: string, timeLimit?: string, timeRemaining?: string): string {
   const firstSale = sales[0];
   const ticketNumbers = sales.map((s) => s.ticketNumber).join(", ");
   const totalAmount = sales.reduce(
@@ -260,16 +389,14 @@ function buildReservationMessage(template: string, sales: any[], bankInfo: strin
   );
 
   let msg = template
-    .replace(/\{\{customerName\}\}/g, firstSale.customerName ?? "")
-    .replace(/\{\{ticket\}\}/g, ticketNumbers)
-    .replace(/\{\{raffleName\}\}/g, firstSale.raffle?.title ?? "")
+    .replace(/\{\{customer_name\}\}/g, firstSale.customerName ?? "")
+    .replace(/\{\{ticket_list\}\}/g, ticketNumbers)
+    .replace(/\{\{raffle_name\}\}/g, firstSale.raffle?.title ?? "")
     .replace(/\{\{amount\}\}/g, totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
-    .replace(/\{\{customerPhone\}\}/g, firstSale.customerPhone ?? "")
+    .replace(/\{\{customer_phone\}\}/g, firstSale.customerPhone ?? "")
     .replace(/\{\{bank_info\}\}/g, bankInfo);
 
-  if (timeLimit) {
-    msg = msg.replace(/\{\{time_limit_raffle\}\}/g, timeLimit);
-  }
-  
-  return msg;
+  return msg
+    .replace(/\{\{time_raffle\}\}/g, timeLimit || "")
+    .replace(/\{\{time_remaining\}\}/g, timeRemaining || "");
 }

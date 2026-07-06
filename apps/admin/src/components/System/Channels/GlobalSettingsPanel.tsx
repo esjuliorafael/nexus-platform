@@ -89,6 +89,7 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ showTo
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <NexusInput label="Banco" name="bank_main_name" value={config['bank_main_name'] || ''} onChange={handleChange} icon={Building2} placeholder="Ej. BBVA" />
               <NexusInput label="Beneficiario" name="bank_main_beneficiary" value={config['bank_main_beneficiary'] || ''} onChange={handleChange} icon={User} placeholder="Nombre completo" />
+              <NexusInput label="No. Cuenta" name="bank_main_account" value={config['bank_main_account'] || ''} onChange={handleChange} icon={Hash} placeholder="No. de cuenta" />
               <NexusInput label="CLABE" name="bank_main_clabe" value={config['bank_main_clabe'] || ''} onChange={handleChange} icon={Hash} placeholder="18 dígitos" />
               <NexusInput label="No. Tarjeta" name="bank_main_card" value={config['bank_main_card'] || ''} onChange={handleChange} icon={CreditCard} placeholder="16 dígitos" />
             </div>

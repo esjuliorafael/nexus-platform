@@ -1,10 +1,12 @@
 import React, { useState, useMemo, useEffect, useRef, useImperativeHandle } from 'react';
 import { ShoppingBag, Plus } from 'lucide-react';
-import { Product, StoreHero } from '../../types';
+import { Coupon, Product, StoreHero } from '../../types';
 import { ProductForm } from './ProductForm';
 import { ProductCard } from './ProductCard';
 import { StoreHeroView } from './Hero/StoreHeroView';
 import { StoreHeroForm } from './Hero/StoreHeroForm';
+import { CouponsView } from './Coupons/CouponsView';
+import { CouponForm } from './Coupons/CouponForm';
 import { apiProducts } from '../../api';
 import { NexusSectionButton } from '../ui/NexusButton';
 import { EmptyState } from '../ui/EmptyState';
@@ -13,8 +15,8 @@ import { NexusPaginator } from '../ui/NexusPaginator';
 
 interface StoreViewProps {
   searchQuery: string;
-  viewMode?: 'list' | 'create' | 'edit' | 'hero_list' | 'hero_create' | 'hero_edit' | 'orders' | 'order-detail';
-  onSetViewMode?: (mode: 'list' | 'create' | 'edit' | 'hero_list' | 'hero_create' | 'hero_edit' | 'orders' | 'order-detail') => void;
+  viewMode?: 'list' | 'create' | 'edit' | 'hero_list' | 'hero_create' | 'hero_edit' | 'coupon_list' | 'coupon_create' | 'coupon_edit' | 'orders' | 'order-detail';
+  onSetViewMode?: (mode: 'list' | 'create' | 'edit' | 'hero_list' | 'hero_create' | 'hero_edit' | 'coupon_list' | 'coupon_create' | 'coupon_edit' | 'orders' | 'order-detail') => void;
   showToast: (message: string, type?: 'success' | 'error') => void;
   setConfirmDialog: (dialog: any) => void;
   onValidationChange?: (isValid: boolean) => void;
@@ -32,11 +34,13 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
     const [isLoading, setIsLoading] = useState(true);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [editingHero, setEditingHero] = useState<StoreHero | null>(null);
+    const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
     const [togglingPublishedIds, setTogglingPublishedIds] = useState<Set<string>>(new Set());
     const storeTopRef = useRef<HTMLDivElement>(null);
     const productFormRef = useRef<{ handleSave: () => void }>(null);
     const storeHeroFormRef = useRef<{ handleSave: () => void }>(null);
+    const couponFormRef = useRef<{ handleSave: () => void }>(null);
 
     useImperativeHandle(ref, () => ({
       handleSave: () => {
@@ -45,6 +49,9 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
         }
         if (storeHeroFormRef.current) {
           storeHeroFormRef.current.handleSave();
+        }
+        if (couponFormRef.current) {
+          couponFormRef.current.handleSave();
         }
       }
     }));
@@ -55,6 +62,9 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
     }
     if (viewMode === 'hero_create') {
       setEditingHero(null);
+    }
+    if (viewMode === 'coupon_create') {
+      setEditingCoupon(null);
     }
   }, [viewMode]);
 
@@ -177,13 +187,13 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
       await apiProducts.update(product.id, { published: nextPublished });
       showToast(nextPublished ? 'Producto publicado' : 'Producto pausado');
     } catch (error) {
-      console.error("Error actualizando publicaciÃ³n:", error);
+      console.error("Error actualizando publicación:", error);
       setProducts((prev) =>
         prev.map((item) =>
           item.id === product.id ? { ...item, published: product.published } : item,
         ),
       );
-      showToast('No se pudo actualizar la publicaciÃ³n', 'error');
+      showToast('No se pudo actualizar la publicación', 'error');
     } finally {
       setTogglingPublishedIds((prev) => {
         const next = new Set(prev);
@@ -243,6 +253,37 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
         onEdit={(hero) => {
           setEditingHero(hero);
           onSetViewMode?.('hero_edit');
+        }}
+      />
+    );
+  }
+
+  if (viewMode === 'coupon_create' || viewMode === 'coupon_edit') {
+    return (
+      <CouponForm
+        ref={couponFormRef}
+        key={editingCoupon ? editingCoupon.id : 'new-coupon'}
+        initialData={editingCoupon || undefined}
+        onSave={() => {
+          showToast(editingCoupon ? 'Cupón actualizado' : 'Cupón creado');
+          setEditingCoupon(null);
+          onSetViewMode?.('coupon_list');
+        }}
+        showToast={showToast}
+        onValidationChange={onValidationChange}
+      />
+    );
+  }
+
+  if (viewMode === 'coupon_list') {
+    return (
+      <CouponsView
+        showToast={showToast}
+        setConfirmDialog={setConfirmDialog}
+        onCreate={() => onSetViewMode?.('coupon_create')}
+        onEdit={(coupon) => {
+          setEditingCoupon(coupon);
+          onSetViewMode?.('coupon_edit');
         }}
       />
     );

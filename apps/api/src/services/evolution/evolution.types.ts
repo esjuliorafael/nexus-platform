@@ -23,3 +23,11 @@ export interface EvolutionQRResult {
 export interface EvolutionConnectionState {
   instance: { instanceName: string; state: "open" | "connecting" | "close" };
 }
+
+export interface EvolutionWebhookConfig {
+  enabled: boolean;
+  url: string;
+  webhookByEvents?: boolean;
+  events?: string[];
+  headers?: Record<string, string>;
+}

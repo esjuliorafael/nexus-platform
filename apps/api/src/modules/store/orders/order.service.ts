@@ -1,8 +1,37 @@
 import { storePrisma } from "@nexus/db/store";
 import { OrderStatus } from "@prisma/client-store";
 import { orderReleaseQueue } from "../../../queues/order-release.queue";
+import { getReminderDelayMs, reservationReminderQueue } from "../../../queues/reservation-reminder.queue";
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
 import type { OrderKind, OrderItemPurpose } from "../../../services/evolution/channel.resolver";
+import { validateCouponForItems } from "../coupons/coupon.service";
+
+const createOrderError = (message: string, statusCode = 400) => {
+  const error = new Error(message) as Error & { statusCode?: number };
+  error.statusCode = statusCode;
+  return error;
+};
+
+const resolveOrderKindFromProducts = (
+  products: Array<{ type: string; purpose: string | null }>,
+): OrderKind => {
+  const birds = products.filter((product) => product.type === "BIRD");
+  const hasItems = products.some((product) => product.type === "ITEM");
+
+  if (birds.length > 0 && !hasItems) {
+    const firstPurpose = birds[0].purpose as OrderItemPurpose;
+    return {
+      type: "birds_only",
+      purpose: birds.every((bird) => bird.purpose === firstPurpose)
+        ? firstPurpose
+        : null,
+    };
+  }
+
+  if (birds.length === 0 && hasItems) return { type: "articles_only" };
+
+  return { type: "mixed" };
+};
 
 export const orderService = {
   async getAll(status: OrderStatus | undefined, userId: number) {
@@ -45,6 +74,63 @@ export const orderService = {
   async getById(id: number) {
     return storePrisma.order.findUnique({
       where: { id },
+      include: { items: true },
+    });
+  },
+
+  async getWhatsappLogs(id: number) {
+    return storePrisma.whatsappMessageLog.findMany({
+      where: { orderId: id.toString() },
+      orderBy: { sentAt: "desc" },
+      take: 25,
+    });
+  },
+
+  async updateCustomer(
+    id: number,
+    data: { customerName: string; customerPhone: string; shippingState?: string | null },
+  ) {
+    const order = await storePrisma.order.findUnique({
+      where: { id },
+      include: { items: true },
+    });
+
+    if (!order) throw new Error("Order not found");
+
+    const nextState = data.shippingState?.trim() || null;
+    let shippingCost = Number(order.shippingCost);
+    let total = Number(order.total);
+
+    if (order.deliveryType === "SHIPPING") {
+      if (nextState) {
+        const settings = await storePrisma.setting.findMany();
+        const settingsMap = settings.reduce((acc: Record<string, string>, setting) => {
+          acc[setting.key] = setting.value || "";
+          return acc;
+        }, {});
+        const shippingZone = await storePrisma.shippingZone.findFirst({
+          where: { name: nextState, active: true },
+        });
+        const costBaseKey = shippingZone?.zoneType === "EXTENDED"
+          ? "shipping_cost_extended"
+          : "shipping_cost_standard";
+        shippingCost = Number(settingsMap[costBaseKey] || 0);
+      } else {
+        shippingCost = 0;
+      }
+
+      total = Math.max(0, Number(order.subtotal) + shippingCost - Number((order as any).discountTotal || 0));
+    }
+
+    return storePrisma.order.update({
+      where: { id },
+      data: {
+        customerName: data.customerName.trim(),
+        customerPhone: data.customerPhone.trim(),
+        shippingState: nextState,
+        shippingCost,
+        total,
+      },
       include: { items: true },
     });
   },
@@ -94,17 +180,33 @@ export const orderService = {
         where: { name: data.shippingState },
       });
 
-      const costBaseKey = shippingZone?.zoneType === "EXTENDED" 
-        ? "shipping_cost_extended" 
-        : "shipping_cost_standard";
-      
-      shippingCost = Number(settingsMap[costBaseKey] || 0);
+      const hasBirds = products.some((product) => product.type === "BIRD");
+      const hasItems = products.some((product) => product.type === "ITEM");
+      const freeBirds = settingsMap["shipping_free_threshold_birds"] === "1";
+      const freeItems = settingsMap["shipping_free_threshold_items"] === "1";
+
+      if (hasBirds && !freeBirds) {
+        const costBaseKey = shippingZone?.zoneType === "EXTENDED"
+          ? "shipping_cost_extended"
+          : "shipping_cost_standard";
+        shippingCost += Number(settingsMap[costBaseKey] || 0);
+      }
+
+      if (hasItems && !freeItems) {
+        shippingCost += Number(settingsMap["shipping_base_cost_items"] || 0);
+      }
     }
 
-    const total = subtotal + shippingCost;
+    const couponResult = data.couponCode
+      ? await validateCouponForItems(data.couponCode, data.items)
+      : null;
+    const discountTotal = couponResult?.discountTotal || 0;
+    const total = Math.max(0, subtotal + shippingCost - discountTotal);
 
     const isReleaseActive = settingsMap["inventory_release_active"] === "1";
     const releaseHours = Number(settingsMap["inventory_release_hours"] || 24);
+    const isReminderActive = settingsMap["inventory_reminder_active"] === "1";
+    const reminderHoursBefore = Number(settingsMap["inventory_reminder_hours_before"] || 4);
     const expiresAt = isReleaseActive 
       ? new Date(Date.now() + releaseHours * 3600 * 1000) 
       : null;
@@ -115,12 +217,21 @@ export const orderService = {
           customerName: data.customerName,
           customerPhone: data.customerPhone,
           customerEmail: data.customerEmail,
+          receiverName: data.receiverName || null,
+          deliveryMethod: data.deliveryMethod || null,
           shippingAddress: data.shippingAddress,
+          shippingStreet: data.shippingStreet || null,
+          shippingNeighborhood: data.shippingNeighborhood || null,
+          shippingPostalCode: data.shippingPostalCode || null,
+          shippingCity: data.shippingCity || null,
           shippingState: data.shippingState,
           deliveryType: data.deliveryType,
           subtotal,
+          discountTotal,
           shippingCost,
           total,
+          couponId: couponResult?.coupon.id || null,
+          couponCode: couponResult?.code || null,
           status: "PENDING",
           expiresAt,
           items: {
@@ -144,6 +255,13 @@ export const orderService = {
         }
       }
 
+      if (couponResult) {
+        await tx.coupon.update({
+          where: { id: couponResult.coupon.id },
+          data: { usedCount: { increment: 1 } },
+        });
+      }
+
       return newOrder;
     });
 
@@ -154,6 +272,15 @@ export const orderService = {
         { orderId: order.id },
         { delay: releaseHours * 3600 * 1000 }
       );
+
+      const reminderDelay = getReminderDelayMs(releaseHours, reminderHoursBefore);
+      if (isReminderActive && reminderDelay && expiresAt) {
+        await reservationReminderQueue.add(
+          "order-reminder",
+          { kind: "order", orderId: order.id, expectedExpiresAt: expiresAt.toISOString() },
+          { delay: reminderDelay },
+        );
+      }
     }
 
     // Enqueue WhatsApp notification
@@ -208,6 +335,14 @@ export const orderService = {
           }
           // Items' stock was already decremented at order creation.
         }
+
+        await tx.orderEvent.create({
+          data: {
+            orderId: id,
+            eventType: "PAYMENT_CONFIRMED",
+            message: "Pago confirmado desde Admin.",
+          },
+        });
       }
 
       return updatedOrder;
@@ -250,10 +385,11 @@ export const orderService = {
 
     if (!order) throw new Error("Order not found");
 
-    return storePrisma.$transaction(async (tx) => {
+    const cancelledOrder = await storePrisma.$transaction(async (tx) => {
       const cancelledOrder = await tx.order.update({
         where: { id },
         data: { status: "CANCELLED" },
+        include: { items: true },
       });
 
       for (const item of order.items) {
@@ -270,8 +406,177 @@ export const orderService = {
         }
       }
 
+      await tx.orderEvent.create({
+        data: {
+          orderId: id,
+          eventType: "CANCELLED",
+          message: "Orden cancelada y disponibilidad liberada.",
+        },
+      });
+
       return cancelledOrder;
     });
+
+    const products = await storePrisma.product.findMany({
+      where: { id: { in: order.items.map((item) => item.productId) } },
+    });
+    const birds = products.filter((product) => product.type === "BIRD");
+    const hasItems = products.some((product) => product.type === "ITEM");
+
+    let orderKind: OrderKind = { type: "mixed" };
+    if (birds.length > 0 && !hasItems) {
+      const firstPurpose = birds[0].purpose as OrderItemPurpose;
+      orderKind = {
+        type: "birds_only",
+        purpose: birds.every((bird) => bird.purpose === firstPurpose)
+          ? firstPurpose
+          : null,
+      };
+    } else if (birds.length === 0 && hasItems) {
+      orderKind = { type: "articles_only" };
+    }
+
+    await whatsappQueue.add("order-cancelled", {
+      kind: "order-cancelled",
+      orderId: cancelledOrder.id.toString(),
+      recipientPhone: cancelledOrder.customerPhone,
+      orderKind,
+    });
+
+    return cancelledOrder;
+  },
+
+  async restoreOrder(id: number) {
+    const settings = await storePrisma.setting.findMany({
+      where: {
+        key: {
+          in: [
+            "inventory_release_active",
+            "inventory_release_hours",
+            "inventory_reminder_active",
+            "inventory_reminder_hours_before",
+          ],
+        },
+      },
+    });
+    const settingsMap = settings.reduce((acc: Record<string, string>, setting) => {
+      acc[setting.key] = setting.value || "";
+      return acc;
+    }, {});
+
+    const isReleaseActive = settingsMap["inventory_release_active"] === "1";
+    const releaseHours = Number(settingsMap["inventory_release_hours"] || 24);
+    const isReminderActive = settingsMap["inventory_reminder_active"] === "1";
+    const reminderHoursBefore = Number(settingsMap["inventory_reminder_hours_before"] || 4);
+    const expiresAt = isReleaseActive
+      ? new Date(Date.now() + releaseHours * 3600 * 1000)
+      : null;
+
+    const restoredOrder = await storePrisma.$transaction(async (tx) => {
+      const order = await tx.order.findUnique({
+        where: { id },
+        include: { items: true },
+      });
+
+      if (!order) throw createOrderError("Order not found", 404);
+      if (order.status !== "CANCELLED") {
+        throw createOrderError("Solo se pueden restaurar órdenes canceladas.", 409);
+      }
+
+      for (const item of order.items) {
+        if (item.productType === "BIRD") {
+          const result = await tx.product.updateMany({
+            where: {
+              id: item.productId,
+              active: true,
+              published: true,
+              saleStatus: "AVAILABLE",
+            },
+            data: { saleStatus: "RESERVED" },
+          });
+
+          if (result.count !== 1) {
+            throw createOrderError(
+              `No se puede restaurar la orden porque el producto "${item.productName || item.productId}" ya no está disponible.`,
+              409,
+            );
+          }
+        } else {
+          const result = await tx.product.updateMany({
+            where: {
+              id: item.productId,
+              active: true,
+              published: true,
+              stock: { gte: item.quantity },
+            },
+            data: { stock: { decrement: item.quantity } },
+          });
+
+          if (result.count !== 1) {
+            throw createOrderError(
+              `No se puede restaurar la orden porque no hay stock suficiente de "${item.productName || item.productId}".`,
+              409,
+            );
+          }
+        }
+      }
+
+      const updatedOrder = await tx.order.update({
+        where: { id },
+        data: {
+          status: "PENDING",
+          expiresAt,
+        },
+        include: { items: true },
+      });
+
+      await tx.orderEvent.create({
+        data: {
+          orderId: id,
+          eventType: "RESTORED",
+          message: isReleaseActive
+            ? `Orden restaurada desde Admin con nuevo límite de ${releaseHours} horas.`
+            : "Orden restaurada desde Admin sin liberación automática activa.",
+        },
+      });
+
+      return updatedOrder;
+    });
+
+    if (isReleaseActive) {
+      await orderReleaseQueue.add(
+        "release",
+        { orderId: restoredOrder.id },
+        { delay: releaseHours * 3600 * 1000 },
+      );
+
+      const reminderDelay = getReminderDelayMs(releaseHours, reminderHoursBefore);
+      if (isReminderActive && reminderDelay && expiresAt) {
+        await reservationReminderQueue.add(
+          "order-reminder",
+          {
+            kind: "order",
+            orderId: restoredOrder.id,
+            expectedExpiresAt: expiresAt.toISOString(),
+          },
+          { delay: reminderDelay },
+        );
+      }
+    }
+
+    const products = await storePrisma.product.findMany({
+      where: { id: { in: restoredOrder.items.map((item) => item.productId) } },
+    });
+
+    await whatsappQueue.add("order-restored", {
+      kind: "order-restored",
+      orderId: restoredOrder.id.toString(),
+      recipientPhone: restoredOrder.customerPhone,
+      orderKind: resolveOrderKindFromProducts(products),
+      timeLimit: `${releaseHours} horas`,
+    });
+
+    return restoredOrder;
   },
 
   async resendNotification(id: number) {
@@ -303,7 +608,12 @@ export const orderService = {
     }
 
     await whatsappQueue.add("order-notification", {
-      kind: order.status === 'PAID' ? 'order-paid' : 'order',
+      kind:
+        order.status === "PAID"
+          ? "order-paid"
+          : order.status === "CANCELLED"
+            ? "order-cancelled"
+            : "order",
       orderId: order.id.toString(),
       recipientPhone: order.customerPhone,
       orderKind,

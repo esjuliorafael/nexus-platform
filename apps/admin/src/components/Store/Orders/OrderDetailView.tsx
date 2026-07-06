@@ -1,12 +1,15 @@
-import React, { useRef, useMemo } from 'react';
+import React, { useRef } from 'react';
 import {
   Package, Clock, CheckCircle2, Phone, MapPin, User,
-  Calendar, DollarSign, Plane, Truck, CircleX, ChevronLeft, Layers, MessageCircle
+  Calendar, DollarSign, Plane, Truck, CircleX, ChevronLeft, Layers, MessageCircle, Edit2, Save
 } from 'lucide-react';
-import { Order } from '../../../types';
-import { NexusSectionButton } from '../../ui/NexusButton';
+import { Order, WhatsAppMessageLog } from '../../../types';
+import { NexusAutonomousButton, NexusSectionButton } from '../../ui/NexusButton';
 import { NexusSection } from '../../ui/NexusSection';
+import { NexusModal, NexusModalActions } from '../../ui/NexusModal';
+import { NexusInput, NexusSelect } from '../../ui/NexusInputs';
 import { ASSET_BASE_URL, apiOrders } from '../../../api';
+import { MEXICO_STATES } from '../../../constants';
 
 // --- SUB-COMPONENTES ---
 
@@ -82,11 +85,26 @@ const OrderItemThumbnail = ({ item }: { item: any }) => {
   );
 };
 
+const DetailField = ({
+  label,
+  value,
+  wide = false,
+}: {
+  label: string;
+  value: string;
+  wide?: boolean;
+}) => (
+  <div className={wide ? 'sm:col-span-2' : ''}>
+    <p className="text-label uppercase tracking-[0.15em] text-text-muted">{label}</p>
+    <p className="text-secondary break-words font-bold text-text-main" style={{ marginTop: 'var(--space-xs)' }}>
+      {value}
+    </p>
+  </div>
+);
+
 interface OrderDetailViewProps {
   order: Order;
   onBack: () => void;
-  onMarkAsPaid: (orderId: string) => void;
-  onCancelOrder: (orderId: string) => void;
   showToast: (message: string, type?: 'success' | 'error') => void;
 }
 
@@ -100,6 +118,74 @@ const formatDate = (dateStr: string) => {
   return `${day}/${month}/${year}`;
 };
 
+const formatDateTime = (dateStr: string) => {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleString('es-MX', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const formatShortDate = (dateStr: string) => {
+  if (!dateStr) return '';
+  const date = new Date(dateStr);
+  const now = new Date();
+  const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const startOfDate = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffMs = startOfToday.getTime() - startOfDate.getTime();
+  const diffDays = Math.floor(diffMs / 86400000);
+
+  if (diffDays === 0) return 'Hoy';
+
+  if (diffDays > 0 && diffDays <= 31) {
+    return date.toLocaleDateString('es-MX', {
+      day: 'numeric',
+      month: 'short',
+    });
+  }
+
+  return date.toLocaleDateString('es-MX', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  });
+};
+
+const formatShortTime = (dateStr: string) => {
+  if (!dateStr) return '';
+  return new Date(dateStr).toLocaleTimeString('es-MX', {
+    hour: '2-digit',
+    minute: '2-digit',
+  });
+};
+
+const getWhatsAppStatusLabel = (status: string) => {
+  if (status === 'read') return 'Leído';
+  if (status === 'delivered') return 'Entregado';
+  if (status === 'server_ack') return 'Aceptado';
+  if (status === 'sent') return 'Enviado';
+  if (status === 'failed') return 'Fallido';
+  return status;
+};
+
+const getWhatsAppPurposeLabel = (template: string) => {
+  if (template === 'order-paid' || template === 'order_paid') return 'Pago';
+  if (template === 'order-reminder' || template === 'order_reminder') return 'Recordatorio';
+  if (template === 'order-restored' || template === 'order_restored') return 'Restauración';
+  if (template === 'order-cancelled' || template === 'order_cancelled') return 'Liberación';
+  if (template === 'order' || template === 'order_principal' || template.startsWith('order_')) return 'Apartado';
+  if (template === 'reservation') return 'Apartado de rifa';
+  if (template === 'reservation-paid' || template === 'reservation_paid_rifas') return 'Pago de rifa';
+  if (template === 'reservation-reminder' || template === 'reservation_reminder_rifas') return 'Recordatorio de rifa';
+  if (template === 'reservation-cancelled') return 'Liberación de rifa';
+  if (template === 'configuration') return 'Configuración';
+  if (template === 'webhook') return 'Webhook';
+  return template;
+};
+
 // Truncado inteligente a 2 palabras
 const truncateProductName = (name: string) => {
   if (!name) return 'Sin nombre';
@@ -111,26 +197,95 @@ const truncateProductName = (name: string) => {
 export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
   order,
   onBack,
-  onMarkAsPaid,
-  onCancelOrder,
   showToast
   }) => {
+  const [currentOrder, setCurrentOrder] = React.useState(order);
   const [isResending, setIsResending] = React.useState(false);
+  const [whatsappLogs, setWhatsappLogs] = React.useState<WhatsAppMessageLog[]>([]);
+  const [isLoadingWhatsappLogs, setIsLoadingWhatsappLogs] = React.useState(false);
+  const [selectedWhatsappLog, setSelectedWhatsappLog] = React.useState<WhatsAppMessageLog | null>(null);
+  const [isCustomerModalOpen, setIsCustomerModalOpen] = React.useState(false);
+  const [isSavingCustomer, setIsSavingCustomer] = React.useState(false);
+  const [customerForm, setCustomerForm] = React.useState({
+    customerName: order.customer || '',
+    customerPhone: order.customerPhone || '',
+    shippingState: order.customerState === 'N/A' ? '' : order.customerState || '',
+  });
 
-  const itemsList = order?.items || [];
+  React.useEffect(() => {
+    setCurrentOrder(order);
+    setCustomerForm({
+      customerName: order.customer || '',
+      customerPhone: order.customerPhone || '',
+      shippingState: order.customerState === 'N/A' ? '' : order.customerState || '',
+    });
+  }, [order]);
+
+  const itemsList = currentOrder?.items || [];
   const hasBirds = itemsList.some(item => item?.type?.toUpperCase() === 'BIRD');
   const hasItems = itemsList.some(item => item?.type?.toUpperCase() === 'ITEM');
 
+  const loadWhatsappLogs = async () => {
+    if (!currentOrder?.id) return;
+    setIsLoadingWhatsappLogs(true);
+    try {
+      const logs = await apiOrders.getWhatsAppLogs(String(currentOrder.id));
+      setWhatsappLogs(logs);
+    } catch (error) {
+      setWhatsappLogs([]);
+    } finally {
+      setIsLoadingWhatsappLogs(false);
+    }
+  };
+
+  React.useEffect(() => {
+    loadWhatsappLogs();
+    const timer = window.setTimeout(() => {
+      loadWhatsappLogs();
+    }, 1500);
+    return () => window.clearTimeout(timer);
+  }, [currentOrder?.id, currentOrder?.status]);
+
   const handleResendWhatsApp = async () => {
-    if (!order?.id) return;
+    if (!currentOrder?.id) return;
     setIsResending(true);
     try {
-      await apiOrders.resendWhatsApp(String(order.id));
+      await apiOrders.resendWhatsApp(String(currentOrder.id));
+      await loadWhatsappLogs();
       showToast('Notificación enviada a la cola', 'success');
     } catch (error) {
       showToast('No se pudo re-enviar la notificación', 'error');
     } finally {
       setIsResending(false);
+    }
+  };
+
+  const handleOpenCustomerModal = () => {
+    setCustomerForm({
+      customerName: currentOrder.customer || '',
+      customerPhone: currentOrder.customerPhone || '',
+      shippingState: currentOrder.customerState === 'N/A' ? '' : currentOrder.customerState || '',
+    });
+    setIsCustomerModalOpen(true);
+  };
+
+  const handleSaveCustomer = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!currentOrder?.id) return;
+    setIsSavingCustomer(true);
+    try {
+      const updatedOrder = await apiOrders.updateCustomer(currentOrder.id, {
+        customerName: customerForm.customerName,
+        customerPhone: customerForm.customerPhone,
+        shippingState: customerForm.shippingState || null,
+      });
+      setCurrentOrder(updatedOrder);
+      setIsCustomerModalOpen(false);
+      showToast('Información del cliente actualizada', 'success');
+    } catch (error) {
+      showToast('No se pudo actualizar el cliente', 'error');
+    } finally {
+      setIsSavingCustomer(false);
     }
   };
 
@@ -156,22 +311,6 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
       style={{ gap: 'var(--space-lg)', paddingBottom: 'var(--space-xl)' }}
     >
 
-      {/* Botón Volver Volante */}
-      <div className="flex items-center justify-between">
-        <NexusSectionButton variant="secondary" onClick={onBack} icon={ChevronLeft}>
-          Volver
-        </NexusSectionButton>
-        <NexusSectionButton
-          onClick={handleResendWhatsApp}
-          isLoading={isResending}
-          icon={MessageCircle}
-          variant="ghost"
-          className="bg-emerald-50 text-emerald-600 hover:bg-emerald-100 border-emerald-100"
-        >
-          Re-enviar WhatsApp
-        </NexusSectionButton>
-      </div>
-
       <div className="grid grid-cols-1 lg:grid-cols-3" style={{ gap: 'var(--space-lg)' }}>
 
         {/* Left Column: Order Summary & Items */}
@@ -179,34 +318,10 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
 
           {/* General Info Section */}
           <NexusSection
-            title={`Orden #${order.id}`}
+            title={`Orden #${currentOrder.id}`}
             subtitle="Detalle de Orden de Venta"
             icon={Layers}
             iconVariant="brand"
-            action={
-              <div className="flex flex-col sm:flex-row items-center gap-[var(--space-sm)] w-full sm:w-auto">
-                {(order.status === 'pending' || order.status === 'paid') && (
-                  <NexusSectionButton
-                    onClick={() => onCancelOrder(String(order.id))}
-                    variant="outline"
-                    icon={CircleX}
-                    className="w-full sm:w-auto border-rose-200 text-rose-500 hover:bg-rose-50 hover:border-rose-300"
-                  >
-                    Cancelar
-                  </NexusSectionButton>
-                )}
-                {order.status === 'pending' && (
-                  <NexusSectionButton
-                    onClick={() => onMarkAsPaid(String(order.id))}
-                    icon={CheckCircle2}
-                    variant="brand"
-                    className="w-full sm:w-auto shadow-xl shadow-brand-500/20"
-                  >
-                    Confirmar Pago
-                  </NexusSectionButton>
-                )}
-              </div>
-            }
           >
             <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 'var(--space-lg)' }}>
               <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
@@ -214,14 +329,14 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                   <Calendar size={14} className="opacity-50" />
                   <span className="text-label uppercase tracking-[0.15em]">Fecha</span>
                 </div>
-                <p className="text-secondary text-text-main font-bold">{formatDate(order.date)}</p>
+                <p className="text-secondary text-text-main font-bold">{formatDate(currentOrder.date)}</p>
               </div>
               <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
                 <div className="flex items-center text-stone-400" style={{ gap: 'var(--space-xs)' }}>
                   <DollarSign size={14} className="opacity-50" />
                   <span className="text-label uppercase tracking-[0.15em]">Total</span>
                 </div>
-                <p className="text-secondary text-text-main font-bold">${(order.total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
+                <p className="text-secondary text-text-main font-bold">${(currentOrder.total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
               </div>
               <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
                 <div className="flex items-center text-stone-400" style={{ gap: 'var(--space-xs)' }}>
@@ -279,60 +394,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
               }}
             >
               <span className="text-label text-text-muted uppercase tracking-[0.15em]">Total de la Orden</span>
-              <span className="text-h1 text-text-main">${(order.total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
-            </div>
-          </NexusSection>
-        </div>
-
-        {/* Right Column: Customer & Shipping */}
-        <div className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
-
-          {/* Customer Info Section */}
-          <NexusSection
-            title="Cliente"
-            subtitle="Datos de contacto"
-            icon={User}
-            iconVariant="brand"
-          >
-            <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
-              <div className="flex items-center" style={{ gap: 'var(--space-md)' }}>
-                <div
-                  className="w-12 h-12 bg-bg-muted border border-border-main flex items-center justify-center text-stone-400 shrink-0"
-                  style={{ borderRadius: 'var(--radius-inner-visual)' }}
-                >
-                  <User size={20} strokeWidth={2} />
-                </div>
-                <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                  <p className="text-label text-stone-400 uppercase tracking-[0.15em]">Nombre</p>
-                  <p className="text-secondary text-text-main font-bold">{order.customer}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center" style={{ gap: 'var(--space-md)' }}>
-                <div
-                  className="w-12 h-12 bg-bg-muted border border-border-main flex items-center justify-center text-stone-400 shrink-0"
-                  style={{ borderRadius: 'var(--radius-inner-visual)' }}
-                >
-                  <Phone size={20} strokeWidth={2} />
-                </div>
-                <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                  <p className="text-label text-stone-400 uppercase tracking-[0.15em]">Teléfono</p>
-                  <p className="text-secondary text-text-main font-bold">{order.customerPhone}</p>
-                </div>
-              </div>
-
-              <div className="flex items-center" style={{ gap: 'var(--space-md)' }}>
-                <div
-                  className="w-12 h-12 bg-bg-muted border border-border-main flex items-center justify-center text-stone-400 shrink-0"
-                  style={{ borderRadius: 'var(--radius-inner-visual)' }}
-                >
-                  <MapPin size={20} strokeWidth={2} />
-                </div>
-                <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                  <p className="text-label text-stone-400 uppercase tracking-[0.15em]">Estado</p>
-                  <p className="text-secondary text-text-main font-bold">{order.customerState}</p>
-                </div>
-              </div>
+              <span className="text-h1 text-text-main">${(currentOrder.total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
             </div>
           </NexusSection>
 
@@ -370,8 +432,8 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                   >
                     <p className="text-secondary leading-relaxed text-stone-300">
                       {hasItems
-                        ? `El envío se realizará al aeropuerto o terminal más cercana al estado de ${order.customerState}.`
-                        : (order.customerAddress || `El envío se realizará al aeropuerto o terminal más cercana al estado de ${order.customerState}.`)
+                        ? `El envío se realizará al aeropuerto o terminal más cercana al estado de ${currentOrder.customerState}.`
+                        : (currentOrder.customerAddress || `El envío se realizará al aeropuerto o terminal más cercana al estado de ${currentOrder.customerState}.`)
                       }
                     </p>
                   </div>
@@ -393,7 +455,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                   >
                     <p className="text-label text-white/30 uppercase tracking-[0.15em]" style={{ marginBottom: 'var(--space-xs)' }}>Dirección Completa</p>
                     <p className="text-secondary leading-relaxed text-stone-300">
-                      {order.customerAddress || 'No se proporcionó dirección completa.'}
+                      {currentOrder.customerAddress || 'No se proporcionó dirección completa.'}
                     </p>
                   </div>
                 </div>
@@ -405,7 +467,301 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
             </div>
           </div>
         </div>
+
+        {/* Right Column: Customer & WhatsApp */}
+        <div className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
+
+          {/* Customer Info Section */}
+          <NexusSection
+            title="Cliente"
+            subtitle="Datos de contacto"
+            icon={User}
+            iconVariant="brand"
+            actionPlacement="below"
+            action={
+              <NexusSectionButton
+                onClick={handleOpenCustomerModal}
+                icon={Edit2}
+              >
+                Editar Cliente
+              </NexusSectionButton>
+            }
+          >
+            <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
+              <div className="flex items-center" style={{ gap: 'var(--space-md)' }}>
+                <div
+                  className="w-12 h-12 bg-bg-muted border border-border-main flex items-center justify-center text-stone-400 shrink-0"
+                  style={{ borderRadius: 'var(--radius-inner-visual)' }}
+                >
+                  <User size={20} strokeWidth={2} />
+                </div>
+                <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
+                  <p className="text-label text-stone-400 uppercase tracking-[0.15em]">Nombre</p>
+                  <p className="text-secondary text-text-main font-bold">{currentOrder.customer}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center" style={{ gap: 'var(--space-md)' }}>
+                <div
+                  className="w-12 h-12 bg-bg-muted border border-border-main flex items-center justify-center text-stone-400 shrink-0"
+                  style={{ borderRadius: 'var(--radius-inner-visual)' }}
+                >
+                  <Phone size={20} strokeWidth={2} />
+                </div>
+                <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
+                  <p className="text-label text-stone-400 uppercase tracking-[0.15em]">Teléfono</p>
+                  <p className="text-secondary text-text-main font-bold">{currentOrder.customerPhone}</p>
+                </div>
+              </div>
+
+              <div className="flex items-center" style={{ gap: 'var(--space-md)' }}>
+                <div
+                  className="w-12 h-12 bg-bg-muted border border-border-main flex items-center justify-center text-stone-400 shrink-0"
+                  style={{ borderRadius: 'var(--radius-inner-visual)' }}
+                >
+                  <MapPin size={20} strokeWidth={2} />
+                </div>
+                <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
+                  <p className="text-label text-stone-400 uppercase tracking-[0.15em]">Estado</p>
+                  <p className="text-secondary text-text-main font-bold">{currentOrder.customerState}</p>
+                </div>
+              </div>
+            </div>
+          </NexusSection>
+
+          <NexusModal
+            isOpen={isCustomerModalOpen}
+            onClose={() => setIsCustomerModalOpen(false)}
+            title={currentOrder.customer || 'Cliente'}
+            eyebrow="Editar Cliente"
+            icon={User}
+            iconTone="brand"
+            size="standard"
+            zIndex={260}
+          >
+            <form onSubmit={handleSaveCustomer} className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
+              <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
+                <NexusInput
+                  label="Nombre *"
+                  value={customerForm.customerName}
+                  onChange={(event) => setCustomerForm({ ...customerForm, customerName: event.target.value })}
+                  placeholder="Nombre del cliente"
+                  icon={User}
+                  required
+                />
+
+                <NexusInput
+                  label="Teléfono / WhatsApp *"
+                  value={customerForm.customerPhone}
+                  onChange={(event) => setCustomerForm({ ...customerForm, customerPhone: event.target.value })}
+                  placeholder="Ej. 2225251930"
+                  icon={Phone}
+                  required
+                />
+
+                <NexusSelect
+                  label="Estado"
+                  value={customerForm.shippingState}
+                  onChange={(event) => setCustomerForm({ ...customerForm, shippingState: event.target.value })}
+                  icon={MapPin}
+                >
+                  <option value="">Sin estado</option>
+                  {MEXICO_STATES.map((state) => (
+                    <option key={state} value={state}>
+                      {state}
+                    </option>
+                  ))}
+                </NexusSelect>
+              </div>
+
+              <NexusModalActions>
+                <NexusAutonomousButton
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setIsCustomerModalOpen(false)}
+                  className="flex-1"
+                >
+                  Cancelar
+                </NexusAutonomousButton>
+                <NexusAutonomousButton
+                  type="submit"
+                  variant="brand"
+                  icon={Save}
+                  isLoading={isSavingCustomer}
+                  disabled={!customerForm.customerName.trim() || !customerForm.customerPhone.trim()}
+                  className="flex-[2]"
+                >
+                  Guardar Cambios
+                </NexusAutonomousButton>
+              </NexusModalActions>
+            </form>
+          </NexusModal>
+
+          <NexusSection
+            title="WhatsApp"
+            subtitle="Historial de notificaciones"
+            icon={MessageCircle}
+            iconVariant="emerald"
+            actionPlacement="below"
+            action={
+              <NexusSectionButton
+                onClick={handleResendWhatsApp}
+                isLoading={isResending}
+                icon={MessageCircle}
+              >
+                Reenviar WhatsApp
+              </NexusSectionButton>
+            }
+          >
+            <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
+              {isLoadingWhatsappLogs && (
+                <p className="text-secondary text-text-muted">Cargando historial...</p>
+              )}
+
+              {!isLoadingWhatsappLogs && whatsappLogs.length === 0 && (
+                <div
+                  className="border border-border-main bg-bg-muted text-text-muted"
+                  style={{
+                    padding: 'var(--padding-inner)',
+                    borderRadius: 'var(--radius-inner-visual)',
+                  }}
+                >
+                  <p className="text-secondary">Aún no hay intentos registrados para esta orden.</p>
+                </div>
+              )}
+
+              {whatsappLogs.map((log) => {
+                const isFailed = log.status === 'failed';
+                const statusLabel = getWhatsAppStatusLabel(log.status);
+
+                return (
+                  <button
+                    key={log.id}
+                    type="button"
+                    onClick={() => setSelectedWhatsappLog(log)}
+                    className="flex w-full flex-col border border-border-main bg-bg-muted/40 text-left transition-all duration-300 hover:-translate-y-0.5 hover:bg-bg-muted"
+                    style={{
+                      gap: 'var(--space-md)',
+                      padding: 'var(--padding-inner)',
+                      borderRadius: 'var(--radius-inner-visual)',
+                    }}
+                  >
+                    <div className="flex min-w-0 items-center" style={{ gap: 'var(--space-md)' }}>
+                      <div
+                        className={`flex h-11 w-11 shrink-0 items-center justify-center border ${
+                          !isFailed
+                            ? 'border-emerald-100 bg-emerald-50 text-emerald-600'
+                            : 'border-rose-100 bg-rose-50 text-rose-500'
+                        }`}
+                        style={{ borderRadius: 'var(--radius-nested-simple)' }}
+                      >
+                        {!isFailed ? <CheckCircle2 size={20} /> : <CircleX size={20} />}
+                      </div>
+
+                      <div className="flex min-w-0 flex-col" style={{ gap: 'var(--space-xs)' }}>
+                        <p className="text-secondary font-bold text-text-main">
+                          {statusLabel}
+                        </p>
+                        <p className="text-label truncate uppercase tracking-[0.15em] text-text-muted">
+                          {getWhatsAppPurposeLabel(log.templateUsed)}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div
+                      className="flex flex-wrap items-center justify-between border-t border-border-main"
+                      style={{ gap: 'var(--space-sm)', paddingTop: 'var(--space-md)' }}
+                    >
+                      <div className="flex items-center" style={{ gap: 'var(--space-md)' }}>
+                        <span className="flex shrink-0 flex-col uppercase tracking-[0.15em]" style={{ gap: 'var(--space-xs)' }}>
+                          <span className="text-label font-bold text-text-main">
+                            {formatShortDate(log.sentAt)}
+                          </span>
+                          <span className="text-label text-text-muted">
+                            {formatShortTime(log.sentAt)}
+                          </span>
+                        </span>
+                        {log.attempt > 1 && (
+                          <span className="text-label uppercase tracking-[0.15em] text-text-muted">
+                            Intento {log.attempt}
+                          </span>
+                        )}
+                      </div>
+                      <span className="text-label uppercase tracking-[0.15em] text-brand-600">
+                        Ver detalle
+                      </span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </NexusSection>
+
+          <NexusModal
+            isOpen={Boolean(selectedWhatsappLog)}
+            onClose={() => setSelectedWhatsappLog(null)}
+            title={selectedWhatsappLog ? getWhatsAppStatusLabel(selectedWhatsappLog.status) : 'WhatsApp'}
+            eyebrow="Detalle de notificación"
+            icon={MessageCircle}
+            iconTone={selectedWhatsappLog?.status === 'failed' ? 'danger' : 'brand'}
+            size="standard"
+            zIndex={260}
+          >
+            {selectedWhatsappLog && (
+              <div className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
+                <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 'var(--space-md)' }}>
+                  <DetailField label="Propósito" value={getWhatsAppPurposeLabel(selectedWhatsappLog.templateUsed)} />
+                  <DetailField label="Fecha del intento" value={formatDateTime(selectedWhatsappLog.sentAt)} />
+                  <DetailField label="Teléfono" value={selectedWhatsappLog.recipientPhone} />
+                  <DetailField label="Intento" value={String(selectedWhatsappLog.attempt)} />
+                  <DetailField label="Evolution" value={selectedWhatsappLog.providerStatus || 'Sin estado'} />
+                  <DetailField
+                    label="Último estado"
+                    value={selectedWhatsappLog.lastStatusAt ? formatDateTime(selectedWhatsappLog.lastStatusAt) : 'Sin actualización'}
+                  />
+                  <DetailField label="Instancia" value={selectedWhatsappLog.instanceName} wide />
+                  <DetailField label="Message ID" value={selectedWhatsappLog.messageId || 'No disponible'} wide />
+                  {selectedWhatsappLog.jobId && (
+                    <DetailField label="Job ID" value={selectedWhatsappLog.jobId} wide />
+                  )}
+                </div>
+
+                {selectedWhatsappLog.errorMessage && (
+                  <div
+                    className="border border-rose-100 bg-rose-50 text-rose-600"
+                    style={{
+                      padding: 'var(--padding-inner)',
+                      borderRadius: 'var(--radius-card-inner)',
+                    }}
+                  >
+                    <p className="text-label uppercase tracking-[0.15em]">Error</p>
+                    <p className="text-secondary leading-relaxed" style={{ marginTop: 'var(--space-xs)' }}>
+                      {selectedWhatsappLog.errorMessage}
+                    </p>
+                  </div>
+                )}
+
+                {selectedWhatsappLog.status === 'failed' && (
+                  <NexusModalActions>
+                    <NexusAutonomousButton
+                      onClick={handleResendWhatsApp}
+                      isLoading={isResending}
+                      icon={MessageCircle}
+                      variant="brand"
+                      className="w-full"
+                    >
+                      Reenviar WhatsApp
+                    </NexusAutonomousButton>
+                  </NexusModalActions>
+                )}
+              </div>
+            )}
+          </NexusModal>
+
+
+        </div>
       </div>
+
     </div>
   );
 };

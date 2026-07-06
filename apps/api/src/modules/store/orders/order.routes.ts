@@ -3,6 +3,7 @@ import { orderService } from "./order.service";
 import {
   createOrderSchema,
   markOrdersReadSchema,
+  updateOrderCustomerSchema,
   updateOrderStatusSchema,
 } from "./order.schema";
 import { OrderStatus } from "@prisma/client-store";
@@ -67,6 +68,35 @@ export async function orderRoutes(server: FastifyInstance) {
     return order;
   });
 
+  server.get("/admin/:id/whatsapp-logs", { preHandler: [server.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const orderId = parseInt(id, 10);
+    if (!Number.isInteger(orderId) || orderId < 1) {
+      return reply.status(400).send({ message: "Invalid order id" });
+    }
+    return orderService.getWhatsappLogs(orderId);
+  });
+
+  server.patch("/admin/:id/customer", { preHandler: [server.authenticate] }, async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const orderId = parseInt(id, 10);
+      if (!Number.isInteger(orderId) || orderId < 1) {
+        return reply.status(400).send({ message: "Invalid order id" });
+      }
+      const validated = updateOrderCustomerSchema.parse(request.body);
+      return orderService.updateCustomer(orderId, validated);
+    } catch (error: any) {
+      if (error?.issues) {
+        return reply.status(400).send({
+          message: "Validation error",
+          errors: error.issues,
+        });
+      }
+      throw error;
+    }
+  });
+
   server.patch("/admin/:id/status", { preHandler: [server.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const validated = updateOrderStatusSchema.parse(request.body);
@@ -76,6 +106,22 @@ export async function orderRoutes(server: FastifyInstance) {
   server.post("/admin/:id/resend-whatsapp", { preHandler: [server.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string };
     return orderService.resendNotification(parseInt(id));
+  });
+
+  server.post("/admin/:id/restore", { preHandler: [server.authenticate] }, async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const orderId = parseInt(id, 10);
+      if (!Number.isInteger(orderId) || orderId < 1) {
+        return reply.status(400).send({ message: "Invalid order id" });
+      }
+      return await orderService.restoreOrder(orderId);
+    } catch (error: any) {
+      if (error?.statusCode) {
+        return reply.status(error.statusCode).send({ message: error.message });
+      }
+      throw error;
+    }
   });
 
   server.delete("/admin/:id", { preHandler: [server.authenticate] }, async (request, reply) => {

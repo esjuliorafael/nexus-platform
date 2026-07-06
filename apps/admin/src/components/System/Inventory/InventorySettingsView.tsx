@@ -21,8 +21,12 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
     const [config, setConfig] = useState({
       storeActive: true,
       storeHours: 24,
+      storeReminderActive: false,
+      storeReminderHoursBefore: 4,
       raffleActive: true,
-      raffleHours: 24
+      raffleHours: 24,
+      raffleReminderActive: false,
+      raffleReminderHoursBefore: 4
     });
 
     // 1. Cargar datos al montar el componente
@@ -34,8 +38,12 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
           setConfig({
             storeActive: data['inventory_release_active'] === '1',
             storeHours: Number(data['inventory_release_hours'] || 24),
+            storeReminderActive: data['inventory_reminder_active'] === '1',
+            storeReminderHoursBefore: Number(data['inventory_reminder_hours_before'] || 4),
             raffleActive: data['raffle_release_active'] === '1',
-            raffleHours: Number(data['raffle_release_hours'] || 24)
+            raffleHours: Number(data['raffle_release_hours'] || 24),
+            raffleReminderActive: data['raffle_reminder_active'] === '1',
+            raffleReminderHoursBefore: Number(data['raffle_reminder_hours_before'] || 4)
           });
         } catch (error) {
           console.error("Error cargando configuración de inventario", error);
@@ -61,6 +69,15 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
           return;
         }
 
+        if (config.storeReminderActive && (!config.storeReminderHoursBefore || config.storeReminderHoursBefore <= 0 || config.storeReminderHoursBefore >= config.storeHours)) {
+          showToast('El recordatorio de tienda debe ser menor al tiempo limite.', 'error');
+          return;
+        }
+        if (config.raffleReminderActive && (!config.raffleReminderHoursBefore || config.raffleReminderHoursBefore <= 0 || config.raffleReminderHoursBefore >= config.raffleHours)) {
+          showToast('El recordatorio de rifas debe ser menor al tiempo limite.', 'error');
+          return;
+        }
+
         if (isSaving) return;
         setIsSaving(true);
 
@@ -68,8 +85,12 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
           await apiSystem.updateConfig({
             'inventory_release_active': config.storeActive ? '1' : '0',
             'inventory_release_hours': config.storeHours.toString(),
+            'inventory_reminder_active': config.storeReminderActive ? '1' : '0',
+            'inventory_reminder_hours_before': config.storeReminderHoursBefore.toString(),
             'raffle_release_active': config.raffleActive ? '1' : '0',
-            'raffle_release_hours': config.raffleHours.toString()
+            'raffle_release_hours': config.raffleHours.toString(),
+            'raffle_reminder_active': config.raffleReminderActive ? '1' : '0',
+            'raffle_reminder_hours_before': config.raffleReminderHoursBefore.toString()
           });
           showToast('Configuración de liberación guardada correctamente', 'success');
         } catch (error) {
@@ -152,6 +173,36 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
                   </div>
                 </div>
               </div>
+
+              <div className="flex items-center justify-between gap-4 rounded-[1.5rem] border border-border-main bg-bg-muted p-4">
+                <div>
+                  <p className="text-label text-text-main uppercase tracking-widest">Recordatorio de Pago</p>
+                  <p className="text-caption text-text-muted">Envía un WhatsApp antes de vencer.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConfig({ ...config, storeReminderActive: !config.storeReminderActive })}
+                  className={`flex-shrink-0 w-14 h-7 rounded-full transition-all relative ${config.storeReminderActive ? 'bg-brand-500' : 'bg-stone-300'}`}
+                >
+                  <div className={`absolute top-1 w-5 h-5 rounded-full bg-bg-card shadow-sm dark:shadow-none transition-all ${config.storeReminderActive ? 'left-8' : 'left-1'}`} />
+                </button>
+              </div>
+
+              <div className="relative" style={{ opacity: config.storeReminderActive ? 1 : 0.5, pointerEvents: config.storeReminderActive ? 'auto' : 'none' }}>
+                <NexusInput
+                  label="Horas Antes de Vencer"
+                  type="number"
+                  min="1"
+                  value={config.storeReminderHoursBefore}
+                  onChange={(e) => setConfig({ ...config, storeReminderHoursBefore: parseInt(e.target.value) || 0 })}
+                  placeholder="Ej. 4"
+                  icon={Timer}
+                  helperText="Debe ser menor al tiempo limite de pago."
+                />
+                <div className="absolute top-[3.7rem] right-5 flex items-center pointer-events-none text-stone-400 font-black text-[9px] uppercase tracking-widest">
+                  Horas
+                </div>
+              </div>
             </div>
           </div>
 
@@ -192,6 +243,36 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
                   <div className="absolute top-[3.7rem] right-5 flex items-center pointer-events-none text-stone-400 font-black text-[9px] uppercase tracking-widest">
                     Horas
                   </div>
+                </div>
+              </div>
+
+              <div className="flex items-center justify-between gap-4 rounded-[1.5rem] border border-border-main bg-bg-muted p-4">
+                <div>
+                  <p className="text-label text-text-main uppercase tracking-widest">Recordatorio de Pago</p>
+                  <p className="text-caption text-text-muted">Envía un WhatsApp antes de liberar boletos.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setConfig({ ...config, raffleReminderActive: !config.raffleReminderActive })}
+                  className={`flex-shrink-0 w-14 h-7 rounded-full transition-all relative ${config.raffleReminderActive ? 'bg-brand-500' : 'bg-stone-300'}`}
+                >
+                  <div className={`absolute top-1 w-5 h-5 rounded-full bg-bg-card shadow-sm dark:shadow-none transition-all ${config.raffleReminderActive ? 'left-8' : 'left-1'}`} />
+                </button>
+              </div>
+
+              <div className="relative" style={{ opacity: config.raffleReminderActive ? 1 : 0.5, pointerEvents: config.raffleReminderActive ? 'auto' : 'none' }}>
+                <NexusInput
+                  label="Horas Antes de Vencer"
+                  type="number"
+                  min="1"
+                  value={config.raffleReminderHoursBefore}
+                  onChange={(e) => setConfig({ ...config, raffleReminderHoursBefore: parseInt(e.target.value) || 0 })}
+                  placeholder="Ej. 4"
+                  icon={Timer}
+                  helperText="Debe ser menor al tiempo limite de apartado."
+                />
+                <div className="absolute top-[3.7rem] right-5 flex items-center pointer-events-none text-stone-400 font-black text-[9px] uppercase tracking-widest">
+                  Horas
                 </div>
               </div>
             </div>

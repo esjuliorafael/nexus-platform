@@ -19,6 +19,7 @@ import { rafflePlugin } from "./modules/raffle/raffle.plugin";
 // Queues & Workers
 import { orderReleaseWorker } from "./queues/order-release.queue";
 import { ticketReleaseWorker } from "./queues/ticket-release.queue";
+import { reservationReminderWorker } from "./queues/reservation-reminder.queue";
 import { whatsappWorker } from "./workers/whatsapp.worker";
 import { mediaProcessingWorker } from "./workers/media-processing.worker";
 
@@ -144,6 +145,10 @@ async function bootstrap() {
 
     ticketReleaseWorker.on("failed", (job, err) => {
       server.log.error(`Ticket release job ${job?.id} failed: ${err.message}`);
+    });
+
+    reservationReminderWorker.on("failed", (job, err) => {
+      server.log.error(`Reservation reminder job ${job?.id} failed: ${err.message}`);
     });
 
     whatsappWorker.on("failed", (job, err) => {

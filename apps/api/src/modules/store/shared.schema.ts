@@ -5,6 +5,7 @@ export const paymentChannelSchema = z.object({
   purpose: z.string().min(1),
   bank: z.string().min(1),
   beneficiary: z.string().min(1),
+  accountNumber: z.string().optional(),
   clabe: z.string().optional(),
   card: z.string().optional(),
 });

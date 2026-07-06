@@ -26,6 +26,8 @@ import {
   MonitorPlay,
   UserRound,
   KeyRound,
+  Store,
+  BadgePercent,
 } from "lucide-react";
 import { QuickActionGroup } from "../types";
 
@@ -63,6 +65,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
         { icon: <ShoppingBag size={20} />, label: "Ver Productos" },
         { icon: <PackagePlus size={20} />, label: "Nuevo Producto" },
         { icon: <MonitorPlay size={20} />, label: "Héroes Tienda" },
+        { icon: <BadgePercent size={20} />, label: "Cupones" },
         {
           icon: isDetail ? (
             <ArrowLeft size={20} />
@@ -84,6 +87,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
       group: "Sistema",
       items: [
         { icon: <Receipt size={20} />, label: "Estado de Cuenta" },
+        { icon: <Store size={20} />, label: "Estado Storefront" },
         ...(userRole?.toLowerCase() === "superadmin"
           ? [{ icon: <Settings size={20} />, label: "Plataforma" }]
           : []),
@@ -120,6 +124,15 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
     filteredActions = filteredActions.filter(
       (group) => group.group !== "Rifas",
     );
+  }
+
+  if (isDetail) {
+    filteredActions = [
+      {
+        group: "Tienda",
+        items: [{ icon: <ArrowLeft size={20} />, label: "Volver" }],
+      },
+    ];
   }
 
   return (

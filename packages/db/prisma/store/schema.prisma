@@ -160,21 +160,55 @@ model ProductGallery {
 model Order {
   id              Int          @id @default(autoincrement())
   subtotal        Decimal      @map("subtotal")
+  discountTotal   Decimal      @default(0.00) @map("discount_total")
   total           Decimal      @map("total")
   createdAt       DateTime     @default(now()) @map("created_at")
   customerName    String       @map("customer_name")
   customerPhone   String       @map("customer_phone")
+  receiverName    String?      @map("receiver_name")
   deliveryType    DeliveryType @default(SHIPPING) @map("delivery_type")
+  deliveryMethod  String?      @map("delivery_method")
   shippingAddress String?      @map("shipping_address")
+  shippingStreet  String?      @map("shipping_street")
+  shippingNeighborhood String? @map("shipping_neighborhood")
+  shippingPostalCode String?   @map("shipping_postal_code")
+  shippingCity    String?      @map("shipping_city")
   shippingCost    Decimal      @map("shipping_cost")
   shippingState   String?      @map("shipping_state")
   status          OrderStatus  @default(PENDING) @map("status")
   customerEmail   String?      @map("customer_email")
+  couponId        Int?         @map("coupon_id")
+  couponCode      String?      @map("coupon_code")
   expiresAt       DateTime?    @map("expires_at")
+  coupon          Coupon?      @relation(fields: [couponId], references: [id], onDelete: SetNull)
   items           OrderItem[]
   reads           OrderRead[]
+  events          OrderEvent[]
 
+  @@index([couponId])
   @@map("orders")
+}
+
+model Coupon {
+  id            Int                @id @default(autoincrement())
+  code          String             @unique @map("code")
+  name          String?            @map("name")
+  discountType  CouponDiscountType @map("discount_type")
+  discountValue Decimal            @map("discount_value")
+  scope         CouponScope        @default(ALL) @map("scope")
+  minSubtotal   Decimal?           @map("min_subtotal")
+  maxDiscount   Decimal?           @map("max_discount")
+  usageLimit    Int?               @map("usage_limit")
+  usedCount     Int                @default(0) @map("used_count")
+  active        Boolean            @default(true) @map("active")
+  startsAt      DateTime?          @map("starts_at")
+  expiresAt     DateTime?          @map("expires_at")
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+  orders        Order[]
+
+  @@index([active, startsAt, expiresAt])
+  @@map("coupons")
 }
 
 model OrderRead {
@@ -187,6 +221,18 @@ model OrderRead {
   @@id([orderId, userId])
   @@index([userId, readAt])
   @@map("order_reads")
+}
+
+model OrderEvent {
+  id        Int      @id @default(autoincrement())
+  orderId   Int      @map("order_id")
+  eventType String   @map("event_type")
+  message   String?  @map("message")
+  createdAt DateTime @default(now()) @map("created_at")
+  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@map("order_events")
 }
 
 model OrderItem {
@@ -290,6 +336,7 @@ model PaymentChannel {
   clabe          String?  @map("clabe")
   bank           String   @map("bank")
   beneficiary    String   @map("beneficiary")
+  accountNumber  String?  @map("account_number")
   card           String?  @map("card")
   createdAt      DateTime @default(now()) @map("created_at")
   name           String   @map("name")
@@ -382,10 +429,16 @@ model BillingPayment {
 
 model WhatsappMessageLog {
   id             Int      @id @default(autoincrement())
+  attempt        Int      @default(1) @map("attempt")
   status         String   @map("status")
   errorMessage   String?  @map("error_message")
   instanceName   String   @map("instance_name")
+  jobId          String?  @map("job_id")
+  lastStatusAt   DateTime? @map("last_status_at")
+  messageId      String?  @map("message_id")
   orderId        String?  @map("order_id")
+  providerStatus String?  @map("provider_status")
+  responsePayload Json?   @map("response_payload")
   recipientPhone String   @map("recipient_phone")
   sentAt         DateTime @default(now()) @map("sent_at")
   templateUsed   String   @map("template_used")
@@ -406,6 +459,17 @@ enum ProductType {
 }
 
 enum StoreHeroScope {
+  ALL  @map("all")
+  ITEM @map("item")
+  BIRD @map("bird")
+}
+
+enum CouponDiscountType {
+  PERCENTAGE @map("percentage")
+  FIXED      @map("fixed")
+}
+
+enum CouponScope {
   ALL  @map("all")
   ITEM @map("item")
   BIRD @map("bird")
@@ -463,6 +527,8 @@ enum TemplateType {
   RESERVATION       @map("reservation")
   RELEASE           @map("release")
   PAYMENT_CONFIRMED @map("payment_confirmed")
+  RESTORED          @map("restored")
+  REMINDER          @map("reminder")
 }
 
 enum ShippingType {

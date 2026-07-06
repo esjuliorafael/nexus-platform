@@ -15,11 +15,22 @@ const PURPOSE_DESCRIPTIONS: Record<string, string> = {
 const getSetting = (settings: Array<{ key: string; value: string | null }>, key: string) =>
   settings.find((setting) => setting.key === key)?.value || "";
 
+const requiredTemplatesForPurpose = (purpose: string) =>
+  purpose === "RAFFLES"
+    ? ["RESERVATION", "PAYMENT_CONFIRMED", "RELEASE"]
+    : ["RESERVATION", "PAYMENT_CONFIRMED", "RESTORED", "RELEASE"];
+
 const buildSpecializedChannel = (purpose: string, payment: any, whatsapp: any) => {
   const hasBank = Boolean(payment?.bank && payment?.beneficiary);
   const hasMercadoPago = Boolean(payment?.mpAccessToken);
   const hasWhatsApp = Boolean(whatsapp?.active && whatsapp?.phone);
-  const hasTemplates = Boolean(whatsapp?.templates?.length);
+  const requiredTemplates = requiredTemplatesForPurpose(purpose);
+  const configuredTemplates = new Set(
+    (whatsapp?.templates || [])
+      .filter((template: any) => Boolean(template.content))
+      .map((template: any) => String(template.type).toUpperCase()),
+  );
+  const hasTemplates = requiredTemplates.every((template) => configuredTemplates.has(template));
   const readyCount = [hasBank, hasMercadoPago, hasWhatsApp, hasTemplates].filter(Boolean).length;
 
   return {
@@ -34,6 +45,7 @@ const buildSpecializedChannel = (purpose: string, payment: any, whatsapp: any) =
       ready: hasBank,
       bank: payment?.bank || "",
       beneficiary: payment?.beneficiary || "",
+      account: payment?.accountNumber || "",
       clabe: payment?.clabe || "",
       card: payment?.card || "",
     },
@@ -50,6 +62,7 @@ const buildSpecializedChannel = (purpose: string, payment: any, whatsapp: any) =
     templates: {
       ready: hasTemplates,
       count: whatsapp?.templates?.length || 0,
+      required: requiredTemplates.length,
     },
     readyCount,
     usesPrincipalFallback: readyCount < 4,
@@ -66,6 +79,7 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
               in: [
                 "bank_main_name",
                 "bank_main_beneficiary",
+                "bank_main_account",
                 "bank_main_clabe",
                 "bank_main_card",
                 "mp_seller_access_token",
@@ -77,9 +91,12 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
                 "whatsapp_global_store_res",
                 "whatsapp_global_store_rel",
                 "whatsapp_global_store_pay",
+                "whatsapp_global_store_restored",
+                "whatsapp_global_store_reminder",
                 "whatsapp_global_raffle_res",
                 "whatsapp_global_raffle_rel",
                 "whatsapp_global_raffle_pay",
+                "whatsapp_global_raffle_reminder",
               ],
             },
           },
@@ -96,6 +113,7 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
           ready: Boolean(getSetting(settings, "bank_main_name") && getSetting(settings, "bank_main_beneficiary")),
           bank: getSetting(settings, "bank_main_name"),
           beneficiary: getSetting(settings, "bank_main_beneficiary"),
+          account: getSetting(settings, "bank_main_account"),
           clabe: getSetting(settings, "bank_main_clabe"),
           card: getSetting(settings, "bank_main_card"),
         },
@@ -116,19 +134,25 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
             getSetting(settings, "whatsapp_global_store_res") ||
             getSetting(settings, "whatsapp_global_store_rel") ||
             getSetting(settings, "whatsapp_global_store_pay") ||
+            getSetting(settings, "whatsapp_global_store_restored") ||
+            getSetting(settings, "whatsapp_global_store_reminder") ||
             getSetting(settings, "whatsapp_global_raffle_res") ||
             getSetting(settings, "whatsapp_global_raffle_rel") ||
-            getSetting(settings, "whatsapp_global_raffle_pay")
+            getSetting(settings, "whatsapp_global_raffle_pay") ||
+            getSetting(settings, "whatsapp_global_raffle_reminder")
           ),
           storeCount: [
             getSetting(settings, "whatsapp_global_store_res"),
             getSetting(settings, "whatsapp_global_store_rel"),
             getSetting(settings, "whatsapp_global_store_pay"),
+            getSetting(settings, "whatsapp_global_store_restored"),
+            getSetting(settings, "whatsapp_global_store_reminder"),
           ].filter(Boolean).length,
           raffleCount: [
             getSetting(settings, "whatsapp_global_raffle_res"),
             getSetting(settings, "whatsapp_global_raffle_rel"),
             getSetting(settings, "whatsapp_global_raffle_pay"),
+            getSetting(settings, "whatsapp_global_raffle_reminder"),
           ].filter(Boolean).length,
         },
       };

@@ -30,36 +30,50 @@ export async function sendAndLog(params: {
   templateName: string;
   orderId?: string;
   ticketSaleId?: number;
+  jobId?: string;
+  attempt?: number;
 }): Promise<void> {
+  const attempt = params.attempt ?? 1;
+  const formattedPhone = formatPhoneNumber(params.recipientPhone);
+
   try {
-    const formattedPhone = formatPhoneNumber(params.recipientPhone);
-    
-    await evolutionClient.sendText(params.instance, {
+    const result = await evolutionClient.sendText(params.instance, {
       number: formattedPhone,
       text: params.message,
     });
+
     await storePrisma.whatsappMessageLog.create({
       data: {
+        attempt,
         orderId: params.orderId ?? null,
         ticketSaleId: params.ticketSaleId ?? null,
         recipientPhone: params.recipientPhone,
         instanceName: params.instance.instanceName,
+        jobId: params.jobId ?? null,
+        messageId: result.key?.id ?? null,
+        providerStatus: result.status ?? null,
+        responsePayload: result as any,
         templateUsed: params.templateName,
         status: "sent",
       },
+    }).catch((logError) => {
+      console.error("[WhatsApp] Message sent but log creation failed:", logError?.message);
     });
   } catch (err: any) {
     await storePrisma.whatsappMessageLog.create({
       data: {
+        attempt,
         orderId: params.orderId ?? null,
         ticketSaleId: params.ticketSaleId ?? null,
         recipientPhone: params.recipientPhone,
         instanceName: params.instance.instanceName,
+        jobId: params.jobId ?? null,
         templateUsed: params.templateName,
         status: "failed",
         errorMessage: err?.message ?? "Unknown error",
       },
     }).catch(() => {}); // never throw
     console.error("[WhatsApp] sendAndLog failed:", err?.message);
+    throw err;
   }
 }

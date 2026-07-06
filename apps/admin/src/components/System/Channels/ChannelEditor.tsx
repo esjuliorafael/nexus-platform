@@ -67,36 +67,68 @@ const TEMPLATE_GROUPS = [
         globalKey: "whatsapp_global_store_res",
         variables: [
           "{{greeting}}",
-          "{{customerName}}",
-          "{{orderId}}",
-          "{{itemList}}",
+          "{{customer_name}}",
+          "{{order_id}}",
+          "{{item_list}}",
           "{{amount}}",
           "{{bank_info}}",
           "{{time_store}}",
         ],
         sample:
-          "{{greeting}}, {{customerName}}. Tu orden #{{orderId}} fue apartada correctamente.\n\nProductos: {{itemList}}\nTotal: ${{amount}}\n\n{{bank_info}}\n\nTienes {{time_store}} para realizar tu pago.",
+          "{{greeting}}, {{customer_name}}. Tu orden #{{order_id}} fue apartada correctamente.\n\nProductos: {{item_list}}\nTotal: ${{amount}}\n\n{{bank_info}}\n\nTienes {{time_store}} para realizar tu pago.",
       },
       {
         type: "PAYMENT_CONFIRMED",
         label: "Pago confirmado",
         globalKey: "whatsapp_global_store_pay",
         variables: [
-          "{{customerName}}",
-          "{{orderId}}",
-          "{{itemList}}",
+          "{{customer_name}}",
+          "{{order_id}}",
+          "{{item_list}}",
           "{{amount}}",
         ],
         sample:
-          "Hola {{customerName}}, hemos confirmado el pago de tu orden #{{orderId}} por ${{amount}}. Tu pedido ya esta en proceso.",
+          "Hola {{customer_name}}, hemos confirmado el pago de tu orden #{{order_id}} por ${{amount}}. Tu pedido ya esta en proceso.",
+      },
+      {
+        type: "RESTORED",
+        label: "Apartado restaurado",
+        globalKey: "whatsapp_global_store_restored",
+        variables: [
+          "{{greeting}}",
+          "{{customer_name}}",
+          "{{order_id}}",
+          "{{item_list}}",
+          "{{amount}}",
+          "{{bank_info}}",
+          "{{time_store}}",
+        ],
+        sample:
+          "{{greeting}}, {{customer_name}}. Tu apartado de la orden #{{order_id}} fue restaurado correctamente.\n\nProductos: {{item_list}}\nTotal: ${{amount}}\n\n{{bank_info}}\n\nTienes {{time_store}} para completar tu pago.",
+      },
+      {
+        type: "REMINDER",
+        label: "Recordatorio de pago",
+        globalKey: "whatsapp_global_store_reminder",
+        variables: [
+          "{{greeting}}",
+          "{{customer_name}}",
+          "{{order_id}}",
+          "{{item_list}}",
+          "{{amount}}",
+          "{{bank_info}}",
+          "{{time_remaining}}",
+        ],
+        sample:
+          "{{greeting}}, {{customer_name}}. Te recordamos que tu orden #{{order_id}} sigue pendiente de pago.\n\nProductos: {{item_list}}\nTotal: ${{amount}}\n\n{{bank_info}}\n\nTu apartado vence en {{time_remaining}}.",
       },
       {
         type: "RELEASE",
         label: "Liberacion de orden",
         globalKey: "whatsapp_global_store_rel",
-        variables: ["{{customerName}}", "{{orderId}}", "{{time_store}}"],
+        variables: ["{{customer_name}}", "{{order_id}}", "{{time_store}}"],
         sample:
-          "Hola {{customerName}}, tu orden #{{orderId}} fue liberada porque se supero el tiempo limite de pago de {{time_store}}.",
+          "Hola {{customer_name}}, tu orden #{{order_id}} fue liberada porque se supero el tiempo limite de pago de {{time_store}}.",
       },
     ],
   },
@@ -110,41 +142,56 @@ const TEMPLATE_GROUPS = [
         label: "Apartado de boletos",
         globalKey: "whatsapp_global_raffle_res",
         variables: [
-          "{{customerName}}",
-          "{{ticket}}",
-          "{{raffleName}}",
+          "{{customer_name}}",
+          "{{ticket_list}}",
+          "{{raffle_name}}",
           "{{amount}}",
           "{{bank_info}}",
-          "{{time_limit_raffle}}",
+          "{{time_raffle}}",
         ],
         sample:
-          'Hola {{customerName}}, tus boletos {{ticket}} para la rifa "{{raffleName}}" fueron apartados.\nTotal: ${{amount}}\n\n{{bank_info}}\n\nTienes {{time_limit_raffle}} para realizar tu pago.',
+          'Hola {{customer_name}}, tus boletos {{ticket_list}} para la rifa "{{raffle_name}}" fueron apartados.\nTotal: ${{amount}}\n\n{{bank_info}}\n\nTienes {{time_raffle}} para realizar tu pago.',
       },
       {
         type: "PAYMENT_CONFIRMED",
         label: "Pago confirmado",
         globalKey: "whatsapp_global_raffle_pay",
         variables: [
-          "{{customerName}}",
-          "{{ticket}}",
-          "{{raffleName}}",
+          "{{customer_name}}",
+          "{{ticket_list}}",
+          "{{raffle_name}}",
           "{{amount}}",
         ],
         sample:
-          'Hola {{customerName}}, recibimos tu pago por los boletos {{ticket}} de la rifa "{{raffleName}}". Ya estas participando. Mucha suerte.',
+          'Hola {{customer_name}}, recibimos tu pago por los boletos {{ticket_list}} de la rifa "{{raffle_name}}". Ya estas participando. Mucha suerte.',
+      },
+      {
+        type: "REMINDER",
+        label: "Recordatorio de pago",
+        globalKey: "whatsapp_global_raffle_reminder",
+        variables: [
+          "{{customer_name}}",
+          "{{ticket_list}}",
+          "{{raffle_name}}",
+          "{{amount}}",
+          "{{bank_info}}",
+          "{{time_remaining}}",
+        ],
+        sample:
+          'Hola {{customer_name}}, te recordamos que tus boletos {{ticket_list}} para la rifa "{{raffle_name}}" siguen pendientes de pago.\nTotal: ${{amount}}\n\n{{bank_info}}\n\nTus boletos se liberaran en {{time_remaining}}.',
       },
       {
         type: "RELEASE",
         label: "Liberacion de boletos",
         globalKey: "whatsapp_global_raffle_rel",
         variables: [
-          "{{customerName}}",
-          "{{ticket}}",
-          "{{raffleName}}",
-          "{{time_limit_raffle}}",
+          "{{customer_name}}",
+          "{{ticket_list}}",
+          "{{raffle_name}}",
+          "{{time_raffle}}",
         ],
         sample:
-          'Hola {{customerName}}, tus boletos {{ticket}} para la rifa "{{raffleName}}" fueron liberados porque paso el limite de pago de {{time_limit_raffle}}.',
+          'Hola {{customer_name}}, tus boletos {{ticket_list}} para la rifa "{{raffle_name}}" fueron liberados porque paso el limite de pago de {{time_raffle}}.',
       },
     ],
   },
@@ -203,6 +250,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
   const [paymentData, setPaymentData] = useState({
     bank: "",
     beneficiary: "",
+    account: "",
     clabe: "",
     card: "",
   });
@@ -282,6 +330,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       setPaymentData({
         bank: payment?.bank || "",
         beneficiary: payment?.beneficiary || "",
+        account: payment?.account || "",
         clabe: payment?.clabe || "",
         card: payment?.card || "",
       });
@@ -359,7 +408,11 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
     }
     setIsSaving(true);
     try {
-      const paymentPayload = { ...generalData, ...paymentData };
+      const paymentPayload = {
+        ...generalData,
+        ...paymentData,
+        accountNumber: paymentData.account,
+      };
       const whatsappPayload = {
         ...generalData,
         phone: whatsappData.phone,
@@ -390,7 +443,11 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
     }
     setIsSaving(true);
     try {
-      const payload = { ...generalData, ...paymentData };
+      const payload = {
+        ...generalData,
+        ...paymentData,
+        accountNumber: paymentData.account,
+      };
       if (paymentObj) await apiPayments.update(paymentObj.id, payload);
       else await apiPayments.create(payload);
       showToast("Informacion bancaria guardada");
@@ -518,21 +575,23 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
     const bankInfo = [
       "Banco: BBVA",
       "Beneficiario: Rancho Demo",
+      "No. Cuenta: 1234567890",
       "CLABE: 012345678901234567",
       "Tarjeta: 1234 5678 9012 3456",
     ].join("\n");
 
     return content
       .replace(/\{\{greeting\}\}/g, "Buena tarde")
-      .replace(/\{\{customerName\}\}/g, "Carlos Ramirez")
-      .replace(/\{\{orderId\}\}/g, "1284")
-      .replace(/\{\{itemList\}\}/g, "1x Gallo colorado, 2x Alimento premium")
-      .replace(/\{\{ticket\}\}/g, "018, 042, 119")
-      .replace(/\{\{raffleName\}\}/g, "Rifa Especial de Junio")
+      .replace(/\{\{customer_name\}\}/g, "Carlos Ramirez")
+      .replace(/\{\{order_id\}\}/g, "1284")
+      .replace(/\{\{item_list\}\}/g, "1x Gallo colorado, 2x Alimento premium")
+      .replace(/\{\{ticket_list\}\}/g, "018, 042, 119")
+      .replace(/\{\{raffle_name\}\}/g, "Rifa Especial de Junio")
       .replace(/\{\{amount\}\}/g, "1,250.00")
       .replace(/\{\{bank_info\}\}/g, bankInfo)
       .replace(/\{\{time_store\}\}/g, "24 horas")
-      .replace(/\{\{time_limit_raffle\}\}/g, "12 horas");
+      .replace(/\{\{time_raffle\}\}/g, "12 horas")
+      .replace(/\{\{time_remaining\}\}/g, "4 horas");
   };
 
   const openTemplate = (
@@ -802,6 +861,8 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
                   const Icon =
                     template.type === "PAYMENT_CONFIRMED"
                       ? CheckCircle2
+                      : template.type === "RESTORED"
+                        ? RefreshCw
                       : template.type === "RELEASE"
                         ? LogOut
                         : Ticket;
@@ -904,6 +965,14 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
                 setPaymentData({ ...paymentData, beneficiary: e.target.value })
               }
               icon={User}
+            />
+            <NexusInput
+              label="No. Cuenta"
+              value={paymentData.account}
+              onChange={(e) =>
+                setPaymentData({ ...paymentData, account: e.target.value })
+              }
+              icon={Hash}
             />
             <NexusInput
               label="CLABE"

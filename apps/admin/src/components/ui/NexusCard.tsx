@@ -180,24 +180,30 @@ export const NexusControlRow: React.FC<LegacyCardProps & { statusColor?: string 
     className={`animate-in fade-in zoom-in-95 duration-300 [animation-fill-mode:both] group/card relative overflow-hidden border border-border-main/50 bg-bg-card transition-all duration-500 hover:shadow-lg hover:shadow-stone-200/20 ${isMuted ? 'opacity-60' : ''} ${className}`}
     style={{
       animationDelay: delay,
-      borderRadius: 'var(--radius-card-nested)',
+      borderRadius: 'var(--radius-inner-visual)',
       padding: 'var(--space-md)'
     }}
   >
-    <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+    <div className="flex flex-col lg:flex-row lg:items-center justify-between" style={{ gap: 'var(--space-md)' }}>
       {/* Name and Dot Row */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center" style={{ gap: 'var(--space-sm)' }}>
         {statusColor && (
-          <div className={`w-2.5 h-2.5 rounded-full transition-all duration-500 shrink-0 ${statusColor}`} />
+          <div
+            className={`rounded-full transition-all duration-500 shrink-0 ${statusColor}`}
+            style={{
+              width: 'var(--size-inner-icon-badge)',
+              height: 'var(--size-inner-icon-badge)',
+            }}
+          />
         )}
-        <span className={`font-black text-xs uppercase tracking-tight truncate ${isMuted ? 'text-stone-400' : 'text-stone-800'}`}>
+        <span className={`text-secondary font-black uppercase tracking-tight truncate ${isMuted ? 'text-stone-400' : 'text-stone-800'}`}>
           {title}
         </span>
       </div>
 
       {/* Actions Row: Full width distribution on mobile */}
       {actions && (
-        <div className="flex items-center justify-between lg:justify-end gap-4 lg:gap-6 border-t lg:border-t-0 border-border-main/30 pt-3 lg:pt-0 w-full lg:w-auto">
+        <div className="flex items-center justify-between lg:justify-end border-t lg:border-t-0 border-border-main/30 pt-[var(--space-sm)] lg:pt-0 w-full lg:w-auto" style={{ gap: 'var(--space-lg)' }}>
           {actions}
         </div>
       )}
@@ -212,46 +218,52 @@ export const NexusControlRow: React.FC<LegacyCardProps & { statusColor?: string 
  */
 export const NexusSectionCard: React.FC<LegacyCardProps> = ({
   title, subtitle, icon, thumbnail, iconVariant, isMuted, delay, rightContent, actions, onEdit, onDelete, showActionsAlways, onClick, className, swipeable
-}) => (
-  <NexusCardBase level={2} swipeable={swipeable} onEdit={onEdit} onDelete={onDelete} isMuted={isMuted} delay={delay} className={`${className} ${onClick ? 'cursor-pointer active:scale-[0.99] transition-transform' : ''}`}>
-    <div onClick={onClick} className="flex flex-col md:flex-row md:items-center justify-between h-full" style={{ gap: 'var(--space-lg)' }}>
-      <div className="flex items-center min-w-0 flex-1" style={{ gap: 'var(--space-md)' }}>
-        {thumbnail ? (
-          <NexusCardThumbnailIcon src={thumbnail} alt={typeof title === 'string' ? title : ''} isMuted={isMuted} hoverGroup="group/card" />
-        ) : icon ? (
-          <NexusCardIcon icon={icon} variant={iconVariant} isMuted={isMuted} hoverGroup="group/card" />
-        ) : null}
-        <div className="flex flex-col min-w-0 flex-1" style={{ gap: 'var(--space-xs)' }}>
-          {typeof title === 'string' ? (
-            <h4 className={`text-h2 transition-colors duration-500 truncate ${isMuted ? 'text-text-muted' : 'text-text-main'} ${onClick ? 'group-hover/card:text-brand-600' : ''}`}>{title}</h4>
-          ) : (
-            <div className="min-w-0">{title}</div>
-          )}
-          {subtitle && <div className="text-secondary text-text-muted/60 flex items-center gap-2 truncate">{subtitle}</div>}
+}) => {
+  const hasActionContent = Boolean(actions || onEdit || onDelete);
+
+  return (
+    <NexusCardBase level={2} swipeable={swipeable} onEdit={onEdit} onDelete={onDelete} isMuted={isMuted} delay={delay} className={`${className} ${onClick ? 'cursor-pointer active:scale-[0.99] transition-transform' : ''}`}>
+      <div onClick={onClick} className="flex flex-col md:flex-row md:items-center justify-between h-full" style={{ gap: 'var(--space-lg)' }}>
+        <div className="flex items-center min-w-0 flex-1" style={{ gap: 'var(--space-md)' }}>
+          {thumbnail ? (
+            <NexusCardThumbnailIcon src={thumbnail} alt={typeof title === 'string' ? title : ''} isMuted={isMuted} hoverGroup="group/card" />
+          ) : icon ? (
+            <NexusCardIcon icon={icon} variant={iconVariant} isMuted={isMuted} hoverGroup="group/card" />
+          ) : null}
+          <div className="flex flex-col min-w-0 flex-1" style={{ gap: 'var(--space-xs)' }}>
+            {typeof title === 'string' ? (
+              <h4 className={`text-h2 transition-colors duration-500 truncate ${isMuted ? 'text-text-muted' : 'text-text-main'} ${onClick ? 'group-hover/card:text-brand-600' : ''}`}>{title}</h4>
+            ) : (
+              <div className="min-w-0">{title}</div>
+            )}
+            {subtitle && <div className="text-secondary text-text-muted/60 flex items-center gap-2 truncate">{subtitle}</div>}
+          </div>
         </div>
-      </div>
-      <div className="flex items-center justify-between md:justify-end shrink-0 border-t md:border-t-0 border-border-main pt-[var(--space-md)] md:pt-0" style={{ gap: 'var(--space-lg)' }}>
-        {rightContent && <div className="text-left md:text-right flex flex-col items-start md:items-end" style={{ gap: 'var(--space-xs)' }}>{rightContent}</div>}
-        <div className="flex w-full items-center md:w-auto" style={{ gap: 'var(--space-sm)' }}>
-          {actions}
-          {(onEdit || onDelete) && (
-            <div
-              className={`${showActionsAlways ? 'flex' : 'hidden sm:flex'} transition-all duration-500 ${
-                showActionsAlways
-                  ? 'opacity-100 translate-x-0'
-                  : 'opacity-0 translate-x-2 group-hover/card:opacity-100 group-hover/card:translate-x-0'
-              }`}
-              style={{ gap: 'var(--space-sm)' }}
-            >
-              {onEdit && <NexusCardButton onClick={(e) => { e.stopPropagation(); onEdit(); }} variant="secondary" isIconOnly icon={Edit2} />}
-              {onDelete && <NexusCardButton onClick={(e) => { e.stopPropagation(); onDelete(); }} variant="secondary" isIconOnly icon={Trash2} className="hover:bg-rose-50 hover:text-rose-500 hover:border-rose-200" />}
+        <div className="flex items-center justify-between md:justify-end shrink-0 border-t md:border-t-0 border-border-main pt-[var(--space-md)] md:pt-0" style={{ gap: 'var(--space-lg)' }}>
+          {rightContent && <div className="text-left md:text-right flex flex-col items-start md:items-end" style={{ gap: 'var(--space-xs)' }}>{rightContent}</div>}
+          {hasActionContent && (
+            <div className="flex w-full items-center md:w-auto" style={{ gap: 'var(--space-sm)' }}>
+              {actions}
+              {(onEdit || onDelete) && (
+                <div
+                  className={`${showActionsAlways ? 'flex' : 'hidden sm:flex'} transition-all duration-500 ${
+                    showActionsAlways
+                      ? 'opacity-100 translate-x-0'
+                      : 'opacity-0 translate-x-2 group-hover/card:opacity-100 group-hover/card:translate-x-0'
+                  }`}
+                  style={{ gap: 'var(--space-sm)' }}
+                >
+                  {onEdit && <NexusCardButton onClick={(e) => { e.stopPropagation(); onEdit(); }} variant="secondary" isIconOnly icon={Edit2} />}
+                  {onDelete && <NexusCardButton onClick={(e) => { e.stopPropagation(); onDelete(); }} variant="secondary" isIconOnly icon={Trash2} className="hover:bg-rose-50 hover:text-rose-500 hover:border-rose-200" />}
+                </div>
+              )}
             </div>
           )}
         </div>
       </div>
-    </div>
-  </NexusCardBase>
-);
+    </NexusCardBase>
+  );
+};
 
 /**
  * NexusAutonomousCard: Tarjeta de Nivel 1 (Widget).

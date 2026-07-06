@@ -29,7 +29,6 @@ const widthBySize = {
 export const NexusModal: React.FC<NexusModalProps> = ({
   isOpen,
   title,
-  subtitle,
   eyebrow,
   icon: Icon,
   iconTone = "brand",
@@ -105,9 +104,6 @@ export const NexusModal: React.FC<NexusModalProps> = ({
                   </span>
                 )}
                 <h3 className="text-h1 text-text-main">{title}</h3>
-                {subtitle && (
-                  <p className="text-secondary text-text-muted">{subtitle}</p>
-                )}
               </div>
             </div>
             <NexusAutonomousButton

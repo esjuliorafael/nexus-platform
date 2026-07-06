@@ -56,6 +56,9 @@
   --sf-h-input: clamp(3rem, 4vw, 3.5rem);           /* 48px -> 56px */
   --sf-h-button-section: clamp(3rem, 4vw, 3.5rem);  /* 48px -> 56px */
   --sf-h-button-card: clamp(2.5rem, 3vw, 3rem);     /* 40px -> 48px */
+  --sf-h-button-field: var(--sf-h-input);
+  --sf-size-check-control: 1.5rem;
+  --sf-size-check-icon: 0.875rem;
   --sf-h-mobile-nav: clamp(3.75rem, 14vw, 4.25rem); /* 60px -> 68px */
   --sf-size-mobile-nav-item: calc(var(--sf-h-mobile-nav) - (var(--sf-space-sm) * 2));
   --sf-size-mobile-nav-icon: 1.25rem;
@@ -107,6 +110,7 @@
 
   --sf-text-button-section:    clamp(0.875rem, 1.2vw, 1rem);
   --sf-text-button-autonomous: clamp(0.875rem, 1.2vw, 1rem);
+  --sf-text-button-field:      clamp(0.8125rem, 1vw, 0.875rem);
   --sf-text-button-card:       clamp(0.75rem,  0.9vw, 0.8125rem);
 
   --sf-padding-button-card-inline: calc(var(--sf-space-base) * 2);
@@ -369,6 +373,13 @@
     font-size: var(--sf-text-button-autonomous);
     font-weight: 600;
     letter-spacing: -0.01em;
+    line-height: 1;
+  }
+
+  .sf-text-button-field {
+    font-size: var(--sf-text-button-field);
+    font-weight: 700;
+    letter-spacing: 0;
     line-height: 1;
   }
 

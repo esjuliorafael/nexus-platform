@@ -97,8 +97,8 @@ export const settingService = {
 
   async provisionEvolutionInstances(prefix: string) {
     const settings = await this.getAllGrouped();
-    const baseUrl = settings.general?.whatsapp_evolution_url;
-    const apiKey = settings.general?.whatsapp_evolution_key;
+    const baseUrl = settings.general?.whatsapp_evolution_url || process.env.EVOLUTION_API_URL;
+    const apiKey = settings.general?.whatsapp_evolution_key || process.env.EVOLUTION_API_KEY;
 
     if (!baseUrl || !apiKey) {
       console.warn("[WhatsApp] Provisioning skipped: URL or Key missing in settings.");

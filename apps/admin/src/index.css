@@ -40,6 +40,10 @@
     0.5rem,
     calc(var(--radius-inner-visual) - var(--padding-inner))
   );
+  --radius-nested-compact: max(
+    0.375rem,
+    calc(var(--radius-nested-simple) - var(--space-xs))
+  );
   --padding-inner: clamp(1rem, 3vw, 1.5rem);
 
   /* Autonomous Cards Geometry (Level 1 containers using padding-inner) */
@@ -53,6 +57,8 @@
   --radius-card-micro-inner: calc(var(--radius-outer) - (var(--padding-card-micro) * 0.75));
   --padding-card-rail: var(--space-base);
   --radius-card-rail-inner: calc(var(--radius-outer) - (var(--padding-card-rail) * 0.75));
+  --radius-pill: 9999px;
+  --radius-circle: 9999px;
   --size-card-thumb: clamp(5rem, 8vw, 7rem); /* 80px to 112px */
   --size-quick-action-mobile: clamp(5.75rem, 27vw, 7rem); /* 92px to 112px */
   --size-slide-thumb-height: var(--size-card-thumb); /* Matches ProductCard thumbnail height */

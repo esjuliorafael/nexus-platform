@@ -19,6 +19,9 @@ This document defines how Admin UI components should use the recursive geometry 
 `--radius-nested-simple`
 : Level 3 radius inside section children. Formula: `--radius-inner-visual - --padding-inner`.
 
+`--radius-nested-compact`
+: Compact child radius inside a level 3 section control. Formula: `--radius-nested-simple - --space-xs`. Use it for selected options inside segmented controls that live inside `NexusSectionCard` or `NexusControlRow`.
+
 `--radius-card-inner`
 : Level 2 radius inside an autonomous card. Formula: `--radius-outer - (--padding-inner * 0.75)`.
 
@@ -36,6 +39,12 @@ This document defines how Admin UI components should use the recursive geometry 
 
 `--radius-card-rail-inner`
 : Level 2 radius inside an autonomous rail/toolstrip. Formula: `--radius-outer - (--padding-card-rail * 0.75)`.
+
+`--radius-pill`
+: Semantic radius for pill-shaped controls whose affordance requires a capsule, such as `NexusSwitch` tracks. This token is intentionally not level-derived.
+
+`--radius-circle`
+: Semantic radius for circular controls whose affordance requires a circle, such as `NexusSwitch` thumbs and small status dots. This token is intentionally not level-derived.
 
 `--padding-button-card-inline`
 : Horizontal inset for card-context buttons. Formula: `--space-base * 2` (24px).
@@ -66,6 +75,7 @@ Use this when content lives inside `NexusSection`.
 | Main section action                     | `NexusSectionButton`                                 | `--radius-inner-visual`  |
 | Card inside section                     | `NexusSectionCard`                                   | `--radius-inner-visual`  |
 | Icon/button/badge inside section card   | `NexusCardIcon`, `NexusCardButton`, `NexusCardBadge` | `--radius-nested-simple` |
+| Compact option inside section control   | Segmented options inside `NexusControlRow`           | `--radius-nested-compact` |
 | Passive empty state icon, level 1       | `EmptyState level={1}`                               | `--radius-inner-visual`  |
 | Interactive empty/upload stage, level 1 | `InteractionStage level={1}` icon                    | `--radius-inner-visual`  |
 
@@ -167,6 +177,19 @@ Avoid adding external margins inside reusable components to solve page compositi
 9. Use `InteractionStage` for an interactive empty/upload/select state.
 10. Use `EmptyState` for passive empty states only.
 11. Use `UploadPreviewOverlay` only when a media preview already exists and the hover action is to change that media.
+
+## Switch Rules
+
+`NexusSwitch` is a semantic control, not a rectangular surface. Its radius does not change by section, card, autonomous-card, or modal context.
+
+| Element          | Radius              | Reason                                                                 |
+| ---------------- | ------------------- | ---------------------------------------------------------------------- |
+| Switch track     | `--radius-pill`     | The switch affordance must read as a capsule in every visual context.  |
+| Switch thumb     | `--radius-circle`   | The draggable/toggle indicator must remain circular.                   |
+| Switch label     | Typography pattern  | Use `text-label`, uppercase text, and parent-owned color/state rules.  |
+| Switch spacing   | Parent-owned tokens | Use `--space-xs` between switch and label; surrounding layout owns gap. |
+
+Do not add `context="card"`, `context="section"`, or `context="autonomous"` to `NexusSwitch` unless the component gains a real size variant. The surrounding card or section decides spacing; the switch itself owns only its capsule geometry, state color, and interaction timing.
 
 ## Badge Rules
 

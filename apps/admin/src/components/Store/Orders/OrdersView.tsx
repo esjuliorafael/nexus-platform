@@ -73,7 +73,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
       variant: "danger",
       onConfirm: async () => {
         try {
-          await apiOrders.updateStatus(id, "CANCELLED");
+          await apiOrders.cancel(id);
           onOrdersChange(
             orders.map((order) =>
               order.id === id ? { ...order, status: "cancelled" } : order,

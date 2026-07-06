@@ -52,6 +52,10 @@ import {
 import { RaffleView } from "./components/Raffle/RaffleView";
 import { RaffleSettingsView } from "./components/System/Raffle/RaffleSettingsView";
 import { RaffleIntelligenceView } from "./components/System/Intelligence/RaffleIntelligenceView";
+import {
+  StorefrontStatusView,
+  StorefrontStatusViewRef,
+} from "./components/System/StorefrontStatus/StorefrontStatusView";
 import { LoginView } from "./components/Auth/LoginView";
 import { SetupAccountView } from "./components/Auth/SetupAccountView";
 import {
@@ -89,6 +93,7 @@ type SystemViewType =
   | "channels"
   | "inventory"
   | "billing"
+  | "storefront"
   | "raffle"
   | "intelligence";
 
@@ -117,6 +122,9 @@ type StoreModeType =
   | "hero_list"
   | "hero_create"
   | "hero_edit"
+  | "coupon_list"
+  | "coupon_create"
+  | "coupon_edit"
   | "orders"
   | "order-detail";
 
@@ -151,6 +159,9 @@ const STORE_MODES: StoreModeType[] = [
   "hero_list",
   "hero_create",
   "hero_edit",
+  "coupon_list",
+  "coupon_create",
+  "coupon_edit",
   "orders",
   "order-detail",
 ];
@@ -266,7 +277,7 @@ const ConfirmModal = ({
   confirmLabel: string;
   onConfirm: () => void;
   onCancel: () => void;
-  variant?: "danger" | "warning";
+  variant?: "danger" | "warning" | "brand";
 }) => {
   if (!isOpen) return null;
   return (
@@ -411,6 +422,7 @@ function App() {
       "channels",
       "inventory",
       "billing",
+      "storefront",
       "raffle",
       "intelligence",
     ];
@@ -476,6 +488,7 @@ function App() {
   const billingRef = React.useRef<BillingViewRef>(null);
   const raffleSettingsRef = React.useRef<{ handleSave: () => void }>(null);
   const platformSettingsRef = React.useRef<{ handleSave: () => void }>(null);
+  const storefrontStatusRef = React.useRef<StorefrontStatusViewRef>(null);
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
@@ -503,7 +516,7 @@ function App() {
     confirmLabel: string;
     onConfirm: () => void;
     onCancel?: () => void;
-    variant?: "danger" | "warning";
+    variant?: "danger" | "warning" | "brand";
   }>({
     isOpen: false,
     title: "",
@@ -733,6 +746,8 @@ function App() {
   const isEditingProduct = isStoreMode && storeViewMode === "edit";
   const isCreatingStoreHero = isStoreMode && storeViewMode === "hero_create";
   const isEditingStoreHero = isStoreMode && storeViewMode === "hero_edit";
+  const isCreatingCoupon = isStoreMode && storeViewMode === "coupon_create";
+  const isEditingCoupon = isStoreMode && storeViewMode === "coupon_edit";
   const isCreatingRaffle = isRafflesMode && raffleViewMode === "create";
   const isEditingRaffle = isRafflesMode && raffleViewMode === "edit";
 
@@ -745,6 +760,8 @@ function App() {
     isEditingProduct ||
     isCreatingStoreHero ||
     isEditingStoreHero ||
+    isCreatingCoupon ||
+    isEditingCoupon ||
     isCreatingRaffle ||
     isEditingRaffle;
 
@@ -803,11 +820,17 @@ function App() {
       case "Héroes Tienda":
         navigateToStore("hero_list");
         break;
+      case "Cupones":
+        navigateToStore("coupon_list");
+        break;
       case "Ver Órdenes":
         navigateToOrders();
         break;
       case "Estado de Cuenta":
         navigateToSystem("billing");
+        break;
+      case "Estado Storefront":
+        navigateToSystem("storefront");
         break;
       case "Plataforma":
         navigateToSystem("config");
@@ -883,6 +906,8 @@ function App() {
       onConfirm: () => {
         if (isCreatingStoreHero || isEditingStoreHero)
           setStoreViewMode("hero_list");
+        else if (isCreatingCoupon || isEditingCoupon)
+          setStoreViewMode("coupon_list");
         else if (isStoreMode) setStoreViewMode("list");
         else if (isCreatingSlide || isEditingSlide)
           setMediaViewMode("slider_list");
@@ -898,6 +923,63 @@ function App() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
+  const handleDetailOrderStatusChange = async (
+    orderId: string,
+    status: "PAID" | "CANCELLED",
+  ) => {
+    try {
+      const updatedOrder =
+        status === "PAID"
+          ? await apiOrders.updateStatus(orderId, status)
+          : selectedOrder?.id === orderId
+            ? { ...selectedOrder, status: "cancelled" as const }
+            : null;
+
+      if (status === "CANCELLED") {
+        await apiOrders.cancel(orderId);
+      }
+
+      if (!updatedOrder) return;
+
+      setOrders((current) =>
+        current.map((order) => (order.id === orderId ? updatedOrder : order)),
+      );
+      setSelectedOrder((current) =>
+        current?.id === orderId ? updatedOrder : current,
+      );
+      showToast(
+        status === "PAID"
+          ? "Orden marcada como pagada"
+          : "Orden cancelada correctamente",
+      );
+    } catch (error) {
+      showToast(
+        status === "PAID"
+          ? "Error al actualizar estado"
+          : "Error al cancelar",
+        "error",
+      );
+    }
+  };
+
+  const handleRestoreOrder = async (orderId: string) => {
+    try {
+      const updatedOrder = await apiOrders.restore(orderId);
+      setOrders((current) =>
+        current.map((order) => (order.id === orderId ? updatedOrder : order)),
+      );
+      setSelectedOrder((current) =>
+        current?.id === orderId ? updatedOrder : current,
+      );
+      showToast("Orden restaurada correctamente");
+    } catch (error: any) {
+      showToast(
+        error?.response?.data?.message || "No se pudo restaurar la orden",
+        "error",
+      );
+    }
+  };
+
   const getActionAddon = () => {
     if (isFormMode) {
       return (
@@ -911,6 +993,8 @@ function App() {
                 storeRef.current?.handleSave();
               if (isCreatingStoreHero || isEditingStoreHero)
                 storeRef.current?.handleSave();
+              if (isCreatingCoupon || isEditingCoupon)
+                storeRef.current?.handleSave();
               if (isCreatingMedia || isEditingMedia)
                 galleryRef.current?.handleSave();
               if (isCreatingSlide || isEditingSlide)
@@ -921,6 +1005,78 @@ function App() {
           >
             Guardar Cambios
           </NexusSectionButton>
+        </>
+      );
+    }
+
+    if ((isStoreMode || isOrdersTab) && storeViewMode === "order-detail" && selectedOrder) {
+      return (
+        <>
+          {(selectedOrder.status === "pending" || selectedOrder.status === "paid") && (
+            <NexusSectionButton
+              onClick={() =>
+                setConfirmDialog({
+                  isOpen: true,
+                  title: "Cancelar orden",
+                  message:
+                    "Esta acción cancelará la orden y liberará el inventario reservado cuando aplique.",
+                  confirmLabel: "Cancelar Orden",
+                  variant: "danger",
+                  onConfirm: async () => {
+                    await handleDetailOrderStatusChange(selectedOrder.id, "CANCELLED");
+                    closeConfirm();
+                  },
+                })
+              }
+              variant="secondary"
+            >
+              Cancelar
+            </NexusSectionButton>
+          )}
+          {selectedOrder.status === "pending" && (
+            <NexusSectionButton
+              onClick={() =>
+                setConfirmDialog({
+                  isOpen: true,
+                  title: "Confirmar pago",
+                  message:
+                    "Esta acción marcará la orden como pagada y puede activar cambios de estado y notificaciones.",
+                  confirmLabel: "Confirmar Pago",
+                  variant: "brand",
+                  onConfirm: async () => {
+                    await handleDetailOrderStatusChange(selectedOrder.id, "PAID");
+                    closeConfirm();
+                  },
+                })
+              }
+              variant="brand"
+              icon={CheckCircle2}
+            >
+              Confirmar Pago
+            </NexusSectionButton>
+          )}
+          {selectedOrder.status === "cancelled" && (
+            <NexusSectionButton
+              onClick={() =>
+                setConfirmDialog({
+                  isOpen: true,
+                  title: "Restaurar orden",
+                  message:
+                    "Se validará que los productos sigan disponibles y se generará un nuevo tiempo límite de apartado.",
+                  confirmLabel: "Restaurar Orden",
+                  variant: "brand",
+                  onConfirm: async () => {
+                    await handleRestoreOrder(selectedOrder.id);
+                    closeConfirm();
+                  },
+                })
+              }
+              variant="brand"
+              icon={RefreshCw}
+            >
+              Restaurar Orden
+            </NexusSectionButton>
+          )}
         </>
       );
     }
@@ -981,6 +1137,18 @@ function App() {
           icon={Plus}
         >
           Nuevo Hero
+        </NexusSectionButton>
+      );
+    }
+
+    if (isStoreMode && storeViewMode === "coupon_list") {
+      return (
+        <NexusSectionButton
+          onClick={() => setStoreViewMode("coupon_create")}
+          variant="brand"
+          icon={Plus}
+        >
+          Nuevo Cupón
         </NexusSectionButton>
       );
     }
@@ -1054,6 +1222,17 @@ function App() {
             icon={Save}
           >
             Guardar Ajustes
+          </NexusSectionButton>
+        );
+      }
+      if (systemViewMode === "storefront") {
+        return (
+          <NexusSectionButton
+            onClick={() => storefrontStatusRef.current?.handleSave()}
+            variant="brand"
+            icon={Save}
+          >
+            Guardar Estado
           </NexusSectionButton>
         );
       }
@@ -1214,7 +1393,6 @@ function App() {
                     viewMode={mediaViewMode}
                     onSetViewMode={setMediaViewMode}
                     showToast={showToast}
-                    setConfirmDialog={setConfirmDialog}
                     onValidationChange={setIsFormValid}
                   />
                 ) : (
@@ -1248,7 +1426,6 @@ function App() {
                         : setStoreViewMode("orders")
                     }
                     showToast={showToast}
-                    setConfirmDialog={setConfirmDialog}
                   />
                 ) : (
                   <StoreView
@@ -1348,6 +1525,11 @@ function App() {
                       ref={billingRef}
                       showToast={showToast}
                       setConfirmDialog={setConfirmDialog}
+                    />
+                  ) : systemViewMode === "storefront" ? (
+                    <StorefrontStatusView
+                      ref={storefrontStatusRef}
+                      showToast={showToast}
                     />
                   ) : systemViewMode === "raffle" ? (
                     <RaffleSettingsView

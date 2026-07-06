@@ -39,9 +39,29 @@ export type WhatsappJobData =
       orderKind: OrderKind;
     }
   | {
+      kind: "order-restored";
+      orderId: string;
+      recipientPhone: string;
+      orderKind: OrderKind;
+      timeLimit?: string;
+    }
+  | {
+      kind: "order-reminder";
+      orderId: string;
+      recipientPhone: string;
+      orderKind: OrderKind;
+      timeRemaining: string;
+    }
+  | {
       kind: "reservation-paid";
       ticketSaleIds: number[];
       recipientPhone: string;
+    }
+  | {
+      kind: "reservation-reminder";
+      ticketSaleIds: number[];
+      recipientPhone: string;
+      timeRemaining: string;
     };
 
 export const whatsappQueue = new Queue<WhatsappJobData>(

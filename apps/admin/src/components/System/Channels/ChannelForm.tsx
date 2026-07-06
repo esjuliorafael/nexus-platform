@@ -45,7 +45,7 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
 
   // Form States
   const [generalData, setGeneralData] = useState({ name: '', purpose: '' });
-  const [paymentData, setPaymentData] = useState({ bank: '', beneficiary: '', clabe: '', card: '' });
+  const [paymentData, setPaymentData] = useState({ bank: '', beneficiary: '', account: '', clabe: '', card: '' });
   const [whatsappData, setWhatsappData] = useState({ phone: '', active: true });
 
   // WhatsApp Connection State
@@ -153,7 +153,7 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
       const purposeSuffix = generalData.purpose.toLowerCase();
       const instanceName = `${prefix}_${purposeSuffix === 'raffles' ? 'raffles' : purposeSuffix === 'breeding' ? 'breeding' : 'combat'}`;
       
-      const payload = { ...generalData, ...paymentData, phone: whatsappData.phone, active: whatsappData.active, instanceName };
+      const payload = { ...generalData, ...paymentData, accountNumber: paymentData.account, phone: whatsappData.phone, active: whatsappData.active, instanceName };
       
       await Promise.all([
         apiPayments.create(payload),
@@ -261,6 +261,7 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-10">
                     <NexusInput label="Banco Receptor" value={paymentData.bank} onChange={(e) => setPaymentData({ ...paymentData, bank: e.target.value })} icon={Building2} placeholder="Ej. BBVA" />
                     <NexusInput label="Titular de Cuenta" value={paymentData.beneficiary} onChange={(e) => setPaymentData({ ...paymentData, beneficiary: e.target.value })} icon={User} placeholder="Nombre completo" />
+                    <NexusInput label="No. Cuenta" value={paymentData.account} onChange={(e) => setPaymentData({ ...paymentData, account: e.target.value })} icon={Hash} placeholder="No. de cuenta" />
                     <NexusInput label="CLABE Interbancaria" value={paymentData.clabe} onChange={(e) => setPaymentData({ ...paymentData, clabe: e.target.value })} icon={Hash} placeholder="18 dígitos" />
                     <NexusInput label="Número de Tarjeta" value={paymentData.card} onChange={(e) => setPaymentData({ ...paymentData, card: e.target.value })} icon={CreditCard} placeholder="16 dígitos" />
                 </div>

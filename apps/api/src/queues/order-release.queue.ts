@@ -19,7 +19,12 @@ export const orderReleaseWorker = new Worker(
       include: { items: { include: { product: true } } },
     });
 
-    if (order && order.status === "PENDING") {
+    if (
+      order &&
+      order.status === "PENDING" &&
+      order.expiresAt &&
+      order.expiresAt.getTime() <= Date.now()
+    ) {
       await storePrisma.$transaction(async (tx) => {
         // Cancel the order
         await tx.order.update({
@@ -41,6 +46,14 @@ export const orderReleaseWorker = new Worker(
             });
           }
         }
+
+        await tx.orderEvent.create({
+          data: {
+            orderId,
+            eventType: "AUTO_CANCELLED",
+            message: "Orden cancelada automáticamente por vencimiento del tiempo límite.",
+          },
+        });
       });
 
       console.log(`Order ${orderId} auto-cancelled and inventory released.`);

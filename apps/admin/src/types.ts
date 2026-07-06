@@ -12,14 +12,37 @@ export interface Order {
   id: string;
   customer: string;
   customerPhone?: string;
+  receiverName?: string | null;
   customerState: string;
   customerAddress?: string;
+  deliveryMethod?: string | null;
+  shippingStreet?: string | null;
+  shippingNeighborhood?: string | null;
+  shippingPostalCode?: string | null;
+  shippingCity?: string | null;
   items: OrderItem[];
   total: number;
   status: "paid" | "pending" | "cancelled" | "shipped" | "delivered";
   date: string;
   isRead: boolean;
   readAt?: string;
+}
+
+export interface WhatsAppMessageLog {
+  id: string;
+  status: "sent" | "failed" | string;
+  errorMessage?: string | null;
+  instanceName: string;
+  orderId?: string | null;
+  recipientPhone: string;
+  sentAt: string;
+  templateUsed: string;
+  ticketSaleId?: number | null;
+  attempt: number;
+  jobId?: string | null;
+  lastStatusAt?: string | null;
+  messageId?: string | null;
+  providerStatus?: string | null;
 }
 
 export interface Product {
@@ -107,6 +130,27 @@ export interface HomeSlide {
 }
 
 export type StoreHeroScope = "ALL" | "BIRD" | "ITEM";
+
+export type CouponDiscountType = "PERCENTAGE" | "FIXED";
+export type CouponScope = "ALL" | "BIRD" | "ITEM";
+
+export interface Coupon {
+  id: string;
+  code: string;
+  name?: string | null;
+  discountType: CouponDiscountType;
+  discountValue: number;
+  scope: CouponScope;
+  minSubtotal?: number | null;
+  maxDiscount?: number | null;
+  usageLimit?: number | null;
+  usedCount: number;
+  active: boolean;
+  startsAt?: string | null;
+  expiresAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
 
 export interface StoreHero {
   id: string;
@@ -273,6 +317,7 @@ export interface BillingPayment {
 export interface BankDetails {
   bank: string;
   beneficiary: string;
+  account: string;
   clabe: string;
   card: string;
 }
@@ -283,7 +328,7 @@ export interface SalesChannel extends BankDetails {
   purpose: string;
 }
 
-export type TemplateType = "RESERVATION" | "RELEASE" | "PAYMENT_CONFIRMED";
+export type TemplateType = "RESERVATION" | "RELEASE" | "PAYMENT_CONFIRMED" | "RESTORED" | "REMINDER";
 
 export interface WhatsAppTemplate {
   id: string;
@@ -438,6 +483,7 @@ export interface ChannelReadiness {
 export interface ChannelBankStatus extends ChannelReadiness {
   bank: string;
   beneficiary: string;
+  account: string;
   clabe: string;
   card: string;
 }
