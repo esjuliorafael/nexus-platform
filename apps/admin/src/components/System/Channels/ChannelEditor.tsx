@@ -21,7 +21,7 @@ import {
   User,
   Variable,
 } from "lucide-react";
-import { apiPayments, apiSystem, apiWhatsApp } from "../../../api";
+import { apiMercadoPago, apiPayments, apiSystem, apiWhatsApp } from "../../../api";
 import { SalesChannel, WhatsAppChannel } from "../../../types";
 import {
   NexusSectionButton,
@@ -497,13 +497,10 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       return;
     }
     try {
-      const response = await fetch(
-        `${import.meta.env.VITE_API_URL}/mp/auth-url?channelId=${paymentObj.id}`,
-      );
-      const { url } = await response.json();
+      const url = await apiMercadoPago.getAuthUrl(paymentObj.id);
       if (url) window.location.href = url;
-    } catch (error) {
-      showToast("Error al conectar con Mercado Pago", "error");
+    } catch (error: any) {
+      showToast(error?.response?.data?.message || "Error al conectar con Mercado Pago", "error");
     }
   };
 

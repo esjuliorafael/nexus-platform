@@ -130,17 +130,7 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
   }, [isQRModalOpen, qrData?.instanceName]);
 
   const handleConnectMP = async () => {
-    if (!isStep1Valid) {
-      showToast('Completa la identidad primero', 'error');
-      return;
-    }
-    try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/mp/auth-url?channelId=${generalData.purpose}`);
-      const { url } = await response.json();
-      if (url) window.location.href = url;
-    } catch (error) {
-      showToast('Error al conectar con Mercado Pago', 'error');
-    }
+    showToast('Guarda primero el canal y despues vincula Mercado Pago desde su editor.', 'error');
   };
 
   const handleSubmit = async () => {

@@ -9,7 +9,7 @@ import {
   ShieldCheck,
   Link as LinkIcon
 } from 'lucide-react';
-import { apiSystem } from '../../../api';
+import { apiMercadoPago, apiSystem } from '../../../api';
 import { NexusInput } from '../../ui/NexusInputs';
 import { NexusButton } from '../../ui/NexusButton';
 import { NexusSection } from '../../ui/NexusSection';
@@ -57,11 +57,10 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ showTo
   const handleConnectMP = async () => {
     setIsConnectingMP(true);
     try {
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/mp/auth-url`);
-      const { url } = await response.json();
+      const url = await apiMercadoPago.getAuthUrl();
       if (url) window.location.href = url;
-    } catch (error) {
-      showToast('Error al conectar con Mercado Pago', 'error');
+    } catch (error: any) {
+      showToast(error?.response?.data?.message || 'Error al conectar con Mercado Pago', 'error');
     } finally {
       setIsConnectingMP(false);
     }

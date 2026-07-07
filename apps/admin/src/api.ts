@@ -66,6 +66,14 @@ export const api = axios.create({
   baseURL: API_BASE_URL,
 });
 
+export const apiMercadoPago = {
+  getAuthUrl: async (channelId?: string | number): Promise<string> => {
+    const query = channelId ? `?channelId=${encodeURIComponent(String(channelId))}` : "";
+    const res = await api.get(`/mp/auth-url${query}`);
+    return res.data.url;
+  },
+};
+
 export interface MediaUploadResult {
   assetId: string;
   status: "UPLOADING" | "PROCESSING" | "READY" | "FAILED";

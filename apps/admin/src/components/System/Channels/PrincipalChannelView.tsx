@@ -18,7 +18,7 @@ import {
   Variable,
   WalletCards,
 } from 'lucide-react';
-import { apiSystem, apiWhatsApp } from '../../../api';
+import { apiMercadoPago, apiSystem, apiWhatsApp } from '../../../api';
 import { NexusSection } from '../../ui/NexusSection';
 import { NexusSectionCard } from '../../ui/NexusCard';
 import { NexusAutonomousButton, NexusCardButton, NexusSectionButton } from '../../ui/NexusButton';
@@ -387,9 +387,12 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
               <NexusAutonomousButton
                 icon={LinkIcon}
                 onClick={async () => {
-                  const response = await fetch(`${import.meta.env.VITE_API_URL}/mp/auth-url`);
-                  const { url } = await response.json();
-                  if (url) window.location.href = url;
+                  try {
+                    const url = await apiMercadoPago.getAuthUrl();
+                    if (url) window.location.href = url;
+                  } catch (error: any) {
+                    showToast(error?.response?.data?.message || 'Error al conectar con Mercado Pago', 'error');
+                  }
                 }}
               >
                 {mpReady ? 'Re-vincular' : 'Vincular'}
