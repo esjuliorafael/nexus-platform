@@ -272,7 +272,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           actionAddon
         ) : currentDate ? (
           <div
-            className="inline-flex items-center justify-center select-none bg-bg-card text-text-main border border-border-main text-button-section"
+            className="group inline-flex items-center justify-center select-none bg-bg-card text-text-muted hover:text-text-main border border-border-main text-button-section transition-colors duration-300"
             style={{
               height: "var(--size-button-section)",
               padding: "0 2rem",
@@ -280,7 +280,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
               gap: "var(--space-sm)",
             }}
           >
-            <Calendar className="text-brand-500" size={20} strokeWidth={2.5} />
+            <Calendar className="text-text-muted transition-colors duration-300 group-hover:text-text-main" size={20} strokeWidth={2.5} />
             <span className="capitalize">{currentDate}</span>
           </div>
         ) : null}

@@ -43,9 +43,9 @@ export const PlatformSettingsView = forwardRef<PlatformSettingsViewRef, Platform
             r2SecretKey: data.storage_r2_secret_key || '',
             r2BucketName: data.storage_r2_bucket_name || '',
             r2PublicDomain: data.storage_r2_public_domain || '',
-            mpClientId: data.mp_client_id || '',
-            mpClientSecret: data.mp_client_secret || '',
-            mpFee: data.mp_application_fee || '0'
+            mpClientId: data.mp_app_client_id || data.mp_client_id || '',
+            mpClientSecret: data.mp_app_client_secret || data.mp_client_secret || '',
+            mpFee: data.mp_app_fee_percentage || data.mp_application_fee || '0'
           });
         } catch (error) {
           console.error("Error loading config:", error);
@@ -66,9 +66,9 @@ export const PlatformSettingsView = forwardRef<PlatformSettingsViewRef, Platform
           storage_r2_secret_key: config.r2SecretKey,
           storage_r2_bucket_name: config.r2BucketName,
           storage_r2_public_domain: config.r2PublicDomain,
-          mp_client_id: config.mpClientId,
-          mp_client_secret: config.mpClientSecret,
-          mp_application_fee: config.mpFee
+          mp_app_client_id: config.mpClientId,
+          mp_app_client_secret: config.mpClientSecret,
+          mp_app_fee_percentage: config.mpFee
         };
         await apiSystem.updateConfig(payload);
         showToast('Configuración global actualizada');

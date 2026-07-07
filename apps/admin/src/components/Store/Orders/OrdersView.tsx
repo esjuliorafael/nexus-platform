@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Package } from "lucide-react";
 import { Order } from "../../../types";
 import { apiOrders } from "../../../api";
@@ -10,6 +10,8 @@ import { OrderCard } from "./OrderCard";
 interface OrdersViewProps {
   orders: Order[];
   isLoading: boolean;
+  statusFilter?: OrderStatusFilter;
+  searchQuery?: string;
   onOrdersChange: (orders: Order[]) => void;
   onViewDetail: (order: Order) => void;
   showToast: (message: string, type?: "success" | "error") => void;
@@ -18,9 +20,24 @@ interface OrdersViewProps {
 
 const ITEMS_PER_PAGE = 8;
 
+export type OrderStatusFilter =
+  | "pending"
+  | "paid"
+  | "cancelled"
+  | "all";
+
+const normalizeSearch = (value: string) =>
+  value
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
+
 export const OrdersView: React.FC<OrdersViewProps> = ({
   orders,
   isLoading,
+  statusFilter = "pending",
+  searchQuery = "",
   onOrdersChange,
   onViewDetail,
   showToast,
@@ -29,11 +46,38 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   const [currentPage, setCurrentPage] = useState(1);
   const ordersTopRef = useRef<HTMLDivElement>(null);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [statusFilter, searchQuery]);
+
   const filtered = useMemo(() => {
-    return [...orders].sort(
-      (a, b) => new Date(b.date).getTime() - new Date(a.date).getTime(),
-    );
-  }, [orders]);
+    const query = normalizeSearch(searchQuery);
+
+    return [...orders]
+      .filter((order) => {
+        if (statusFilter === "all") return true;
+        return order.status === statusFilter;
+      })
+      .filter((order) => {
+        if (!query) return true;
+
+        const content = normalizeSearch(
+          [
+            order.id,
+            order.customer,
+            order.customerPhone,
+            order.customerState,
+            order.shippingCity,
+            order.items.map((item) => item.name).join(" "),
+          ]
+            .filter(Boolean)
+            .join(" "),
+        );
+
+        return content.includes(query);
+      })
+      .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+  }, [orders, searchQuery, statusFilter]);
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
   const paginatedOrders = useMemo(() => {
@@ -67,9 +111,9 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
   const handleCancelOrder = (id: string) => {
     setConfirmDialog({
       isOpen: true,
-      title: "¿Cancelar Orden?",
+      title: "¿Cancelar orden?",
       message: "Esta acción cancelará la orden y liberará el inventario.",
-      confirmLabel: "Sí, Cancelar",
+      confirmLabel: "Sí, cancelar",
       variant: "danger",
       onConfirm: async () => {
         try {
@@ -121,10 +165,15 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
       ) : (
         <EmptyState
           icon={Package}
-          title="No hay órdenes"
-          description="Aún no se han registrado órdenes en la tienda. Todas las transacciones de tus clientes aparecerán en este listado."
+          title={orders.length > 0 ? "No encontramos órdenes" : "No hay órdenes"}
+          description={
+            orders.length > 0
+              ? "Ajusta la búsqueda o cambia el filtro para ver otros resultados."
+              : "Aún no se han registrado órdenes en la tienda. Todas las transacciones de tus clientes aparecerán en este listado."
+          }
         />
       )}
     </div>
   );
 };
+

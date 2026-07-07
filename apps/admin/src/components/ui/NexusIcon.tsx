@@ -8,6 +8,7 @@ interface NexusIconProps {
   isMuted?: boolean;
   className?: string;
   hoverGroup?: string;
+  style?: React.CSSProperties;
 }
 
 /**
@@ -196,7 +197,8 @@ export const NexusAutonomousIcon: React.FC<NexusIconProps> = ({
   variant = 'brand',
   isMuted = false,
   className = '',
-  hoverGroup = 'group'
+  hoverGroup = 'group',
+  style
 }) => {
   const variantStyles = {
     brand: 'bg-brand-50 text-brand-500 border-brand-100/50 shadow-sm shadow-brand-500/5',
@@ -218,7 +220,8 @@ export const NexusAutonomousIcon: React.FC<NexusIconProps> = ({
         transitionTimingFunction: 'var(--ease-emil)',
         borderRadius: 'var(--radius-card-inner)',
         width: 'var(--size-icon-autonomous)',
-        height: 'var(--size-icon-autonomous)'
+        height: 'var(--size-icon-autonomous)',
+        ...style
       }}
     >
       <div className="absolute inset-0 rounded-[inherit] bg-gradient-to-tr from-white/10 to-transparent pointer-events-none" />

@@ -185,13 +185,89 @@ export const OrderCard: React.FC<OrderCardProps> = ({
       <div
         onClick={handleCardInteraction}
         onDoubleClick={() => onViewDetail(order)}
-        className="flex w-full cursor-pointer select-none flex-row items-center"
+        className="flex w-full cursor-pointer select-none flex-col sm:hidden"
+        style={{ gap: 'var(--space-md)' }}
+      >
+        <div className="flex w-full items-center" style={{ gap: 'var(--space-md)' }}>
+          <NexusAutonomousIcon
+            icon={orderType.mainIcon}
+            variant={statusConfig.iconVariant}
+            isMuted={order.status === 'cancelled'}
+            style={{
+              width: 'var(--size-card-thumb)',
+              height: 'var(--size-card-thumb)',
+            }}
+          />
+
+          <div className="flex min-w-0 flex-1 flex-col justify-center" style={{ gap: 'var(--space-sm)' }}>
+            <div className="flex min-w-0 flex-wrap items-center" style={{ gap: 'var(--space-xs)' }}>
+              <NexusAutonomousBadge
+                variant="muted"
+                icon={orderType.icon}
+                className="border-border-main/50 bg-bg-muted/80 backdrop-blur-sm"
+              >
+                {orderType.label}
+              </NexusAutonomousBadge>
+              <NexusAutonomousBadge
+                variant="brand"
+                icon={Hash}
+                className="border-brand-100/50 bg-brand-50/80 backdrop-blur-sm"
+              >
+                {order.id}
+              </NexusAutonomousBadge>
+              {statusConfig.showStatusPill && (
+                <NexusAutonomousBadge
+                  variant={statusConfig.badgeVariant}
+                  icon={statusConfig.icon}
+                  className="shadow-sm transition-colors duration-500 dark:shadow-none"
+                >
+                  {statusConfig.label}
+                </NexusAutonomousBadge>
+              )}
+            </div>
+
+            <h3 className="truncate text-h2 font-bold text-text-main">
+              {order.customer}
+            </h3>
+          </div>
+        </div>
+
+        <div
+          className="flex w-full items-center justify-between border-t border-border-main pt-[var(--space-md)]"
+          style={{ gap: 'var(--space-md)' }}
+        >
+          <div className="flex min-w-0 flex-col" style={{ gap: 'var(--space-xs)' }}>
+            <span className="text-label uppercase tracking-[0.15em] text-stone-400">Fecha</span>
+            <div className="flex items-center text-secondary font-bold text-text-main" style={{ gap: 'var(--space-xs)' }}>
+              <Calendar size={12} className="text-stone-300" strokeWidth={2.5} />
+              {formatDate(order.date)}
+            </div>
+          </div>
+
+          <div className="flex shrink-0 flex-col items-end" style={{ gap: 'var(--space-xs)' }}>
+            <span className="text-label uppercase tracking-[0.15em] text-stone-400">Total</span>
+            <div className="flex items-baseline text-h1 font-black text-text-main">
+              <span className="mr-0.5 text-secondary opacity-50">$</span>
+              {order.total.toLocaleString('es-MX', { minimumFractionDigits: 0 })}
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div
+        onClick={handleCardInteraction}
+        onDoubleClick={() => onViewDetail(order)}
+        className="hidden w-full cursor-pointer select-none flex-row items-center sm:flex"
         style={{ gap: 'var(--space-md)' }}
       >
         <NexusAutonomousIcon
           icon={orderType.mainIcon}
           variant={statusConfig.iconVariant}
           isMuted={order.status === 'cancelled'}
+          style={{
+            width: 'var(--size-card-thumb)',
+            height: 'var(--size-card-thumb)',
+          }}
         />
 
         <div className="flex min-w-0 flex-1 flex-col lg:flex-row lg:items-center" style={{ gap: 'var(--space-md)' }}>

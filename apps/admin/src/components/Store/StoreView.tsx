@@ -7,6 +7,7 @@ import { StoreHeroView } from './Hero/StoreHeroView';
 import { StoreHeroForm } from './Hero/StoreHeroForm';
 import { CouponsView } from './Coupons/CouponsView';
 import { CouponForm } from './Coupons/CouponForm';
+import type { StoreProductAdvancedFilters } from './StoreProductFiltersModal';
 import { apiProducts } from '../../api';
 import { NexusSectionButton } from '../ui/NexusButton';
 import { EmptyState } from '../ui/EmptyState';
@@ -14,7 +15,9 @@ import { NexusSpinner } from '../ui/NexusSpinner';
 import { NexusPaginator } from '../ui/NexusPaginator';
 
 interface StoreViewProps {
-  searchQuery: string;
+  productSearchQuery?: string;
+  productFilter?: StoreProductFilter;
+  advancedFilters?: StoreProductAdvancedFilters;
   viewMode?: 'list' | 'create' | 'edit' | 'hero_list' | 'hero_create' | 'hero_edit' | 'coupon_list' | 'coupon_create' | 'coupon_edit' | 'orders' | 'order-detail';
   onSetViewMode?: (mode: 'list' | 'create' | 'edit' | 'hero_list' | 'hero_create' | 'hero_edit' | 'coupon_list' | 'coupon_create' | 'coupon_edit' | 'orders' | 'order-detail') => void;
   showToast: (message: string, type?: 'success' | 'error') => void;
@@ -24,12 +27,53 @@ interface StoreViewProps {
 
 const ITEMS_PER_PAGE = 8;
 
+export type StoreProductFilter = 'all' | 'bird' | 'item';
+
+const normalizeSearch = (value: string) =>
+  value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .trim();
+
+const productTypeLabel = (product: Product) =>
+  product.type === 'BIRD' ? 'ave aves' : 'articulo articulos item items';
+
+const productStatusLabel = (product: Product) => {
+  if (product.status === 'reserved') return 'reservado apartada apartado';
+  if (product.status === 'sold') return 'vendido vendida';
+  return 'disponible';
+};
+
+const productPurposeLabel = (product: Product) => {
+  if (product.purpose === 'BREEDING') return 'cria crianza breeding';
+  if (product.purpose === 'COMBAT') return 'combate combat';
+  return '';
+};
+
+const productAgeLabel = (product: Product) => {
+  if (product.age === 'STAG') return 'pollo';
+  if (product.age === 'COCK') return 'gallo';
+  if (product.age === 'PULLET') return 'polla';
+  if (product.age === 'HEN') return 'gallina';
+  return '';
+};
+
 export interface StoreViewRef {
   handleSave: () => void;
 }
 
 export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
-  ({ searchQuery, viewMode = 'list', onSetViewMode, showToast, setConfirmDialog, onValidationChange }, ref) => {
+  ({
+    productSearchQuery = '',
+    productFilter = 'all',
+    advancedFilters = { publication: 'all', purpose: 'all', age: 'all' },
+    viewMode = 'list',
+    onSetViewMode,
+    showToast,
+    setConfirmDialog,
+    onValidationChange,
+  }, ref) => {
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
@@ -98,17 +142,77 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
   }, []);
 
   const filtered = useMemo(() => {
-    return products.filter(p => 
-      p.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      p.ringNumber?.toLowerCase().includes(searchQuery.toLowerCase())
-    ).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [products, searchQuery]);
+    const query = normalizeSearch(productSearchQuery);
+
+    return products.filter((product) => {
+      const matchesFilter =
+        productFilter === 'all' ||
+        (productFilter === 'bird' && product.type === 'BIRD') ||
+        (productFilter === 'item' && product.type === 'ITEM');
+
+      if (!matchesFilter) return false;
+
+      if (
+        advancedFilters.publication === 'published' &&
+        product.published === false
+      ) {
+        return false;
+      }
+      if (
+        advancedFilters.publication === 'paused' &&
+        product.published !== false
+      ) {
+        return false;
+      }
+
+      const hasBirdAdvancedFilter =
+        advancedFilters.purpose !== 'all' || advancedFilters.age !== 'all';
+      if (hasBirdAdvancedFilter && product.type !== 'BIRD') return false;
+      if (advancedFilters.purpose !== 'all' && product.purpose !== advancedFilters.purpose) {
+        return false;
+      }
+      if (advancedFilters.age !== 'all' && product.age !== advancedFilters.age) {
+        return false;
+      }
+
+      if (!query) return true;
+
+      const searchableText = [
+        product.name,
+        product.ringNumber,
+        productTypeLabel(product),
+        productStatusLabel(product),
+        productPurposeLabel(product),
+        productAgeLabel(product),
+        product.published === false ? 'pausado' : 'publicado',
+        product.featured ? 'destacado' : '',
+        product.price?.toString(),
+        product.stock?.toString(),
+      ]
+        .filter(Boolean)
+        .map((value) => normalizeSearch(String(value)))
+        .join(' ');
+
+      return searchableText.includes(query);
+    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
+  }, [products, productFilter, productSearchQuery, advancedFilters]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [searchQuery]);
+  }, [advancedFilters, productFilter, productSearchQuery]);
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+  const hasActiveProductFilters = Boolean(
+    productSearchQuery ||
+      productFilter !== 'all' ||
+      advancedFilters.publication !== 'all' ||
+      advancedFilters.purpose !== 'all' ||
+      advancedFilters.age !== 'all',
+  );
+  const emptyStateTitle = hasActiveProductFilters ? 'Sin resultados' : 'Inventario Vacío';
+  const emptyStateDescription = hasActiveProductFilters
+    ? 'Ajusta la búsqueda o cambia el filtro para ver más productos.'
+    : 'Aún no has registrado productos en tu tienda. Comienza añadiendo tu primer artículo.';
   const paginatedProducts = useMemo(() => {
     const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
     return filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
@@ -325,11 +429,9 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
         <EmptyState 
           level={1}
           icon={ShoppingBag}
-          title={searchQuery ? "Sin resultados" : "Inventario Vacío"}
-          description={searchQuery 
-            ? `No encontramos productos que coincidan con "${searchQuery}". Prueba con otros términos.` 
-            : "Aún no has registrado productos en tu tienda. Comienza añadiendo tu primer artículo."}
-          action={!searchQuery && onSetViewMode && (
+          title={emptyStateTitle}
+          description={emptyStateDescription}
+          action={!hasActiveProductFilters && onSetViewMode && (
             <NexusSectionButton onClick={() => onSetViewMode('create')} icon={Plus}>
               Nuevo Producto
             </NexusSectionButton>

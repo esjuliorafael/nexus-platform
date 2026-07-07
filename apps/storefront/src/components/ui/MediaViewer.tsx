@@ -53,6 +53,7 @@ function MediaViewerLayeredVideoControls({
   isPlaying,
   isMuted,
   isWaiting,
+  isVisible,
   currentTime,
   duration,
   onPlayPause,
@@ -62,6 +63,7 @@ function MediaViewerLayeredVideoControls({
   isPlaying: boolean;
   isMuted: boolean;
   isWaiting: boolean;
+  isVisible: boolean;
   currentTime: number;
   duration: number;
   onPlayPause: () => void;
@@ -71,12 +73,17 @@ function MediaViewerLayeredVideoControls({
   const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   return (
-    <>
+    <div
+      className={`absolute inset-0 z-20 transition-opacity duration-300 ${
+        isVisible ? "opacity-100" : "pointer-events-none opacity-0"
+      }`}
+      style={{ transitionTimingFunction: "var(--sf-ease)" }}
+    >
       <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
         <button
           type="button"
           onClick={onPlayPause}
-          className="pointer-events-auto flex items-center justify-center border border-white/15 bg-white/10 text-white shadow-[0_24px_72px_rgba(0,0,0,0.28)] backdrop-blur-md transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/15"
+          className="pointer-events-auto flex items-center justify-center border border-white/20 bg-white/20 text-white shadow-[0_12px_32px_rgba(0,0,0,0.18)] transition-colors hover:bg-white/25 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/15"
           style={{
             width: "var(--sf-h-mobile-chrome-rail)",
             height: "var(--sf-h-mobile-chrome-rail)",
@@ -114,7 +121,7 @@ function MediaViewerLayeredVideoControls({
       <button
         type="button"
         onClick={onMuteToggle}
-        className="pointer-events-auto absolute right-[var(--sf-space-sm)] top-[var(--sf-space-sm)] z-20 flex items-center justify-center border border-white/15 bg-white/10 text-white shadow-[0_18px_48px_rgba(0,0,0,0.22)] backdrop-blur-md transition-colors hover:bg-white/15 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/15 md:right-[var(--sf-padding-inner)] md:top-[var(--sf-padding-inner)]"
+        className="pointer-events-auto absolute right-[var(--sf-space-sm)] top-[var(--sf-space-sm)] z-20 flex items-center justify-center border border-white/20 bg-white/20 text-white shadow-[0_12px_32px_rgba(0,0,0,0.18)] transition-colors hover:bg-white/25 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/15 md:right-[var(--sf-padding-inner)] md:top-[var(--sf-padding-inner)]"
         style={{
           width: "var(--sf-h-button-card)",
           height: "var(--sf-h-button-card)",
@@ -156,7 +163,7 @@ function MediaViewerLayeredVideoControls({
           {formatVideoTime(duration)}
         </span>
       </div>
-    </>
+    </div>
   );
 }
 
@@ -233,6 +240,7 @@ export function MediaViewer({
   const viewerRef = useRef<HTMLDivElement>(null);
   const mediaStageRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
+  const controlsTimeoutRef = useRef<number | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const onPreviousRef = useRef(onPrevious);
   const onNextRef = useRef(onNext);
@@ -242,6 +250,7 @@ export function MediaViewer({
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
   const [videoDuration, setVideoDuration] = useState(0);
   const [mediaAspectRatio, setMediaAspectRatio] = useState<number | null>(null);
+  const [areVideoControlsVisible, setAreVideoControlsVisible] = useState(true);
 
   onPreviousRef.current = onPrevious;
   onNextRef.current = onNext;
@@ -309,7 +318,32 @@ export function MediaViewer({
     setVideoCurrentTime(0);
     setVideoDuration(0);
     setMediaAspectRatio(null);
+    setAreVideoControlsVisible(true);
   }, [isOpen, media?.mediaUrl, media?.filePath]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+
+    if (controlsTimeoutRef.current) {
+      window.clearTimeout(controlsTimeoutRef.current);
+      controlsTimeoutRef.current = null;
+    }
+
+    if (isVideoPlaying) {
+      controlsTimeoutRef.current = window.setTimeout(() => {
+        setAreVideoControlsVisible(false);
+      }, 1400);
+    } else {
+      setAreVideoControlsVisible(true);
+    }
+
+    return () => {
+      if (controlsTimeoutRef.current) {
+        window.clearTimeout(controlsTimeoutRef.current);
+        controlsTimeoutRef.current = null;
+      }
+    };
+  }, [isOpen, isVideoPlaying]);
 
   if (!isOpen || !media) return null;
 
@@ -336,6 +370,15 @@ export function MediaViewer({
     video.pause();
   };
 
+  const handleVideoTap = () => {
+    if (isVideoPlaying && !areVideoControlsVisible) {
+      revealVideoControls();
+      return;
+    }
+
+    handleVideoPlayPause();
+  };
+
   const handleVideoMuteToggle = () => {
     const video = videoRef.current;
     if (!video) return;
@@ -350,6 +393,21 @@ export function MediaViewer({
 
     video.currentTime = value;
     setVideoCurrentTime(value);
+  };
+
+  const revealVideoControls = () => {
+    setAreVideoControlsVisible(true);
+
+    if (controlsTimeoutRef.current) {
+      window.clearTimeout(controlsTimeoutRef.current);
+      controlsTimeoutRef.current = null;
+    }
+
+    if (isVideoPlaying) {
+      controlsTimeoutRef.current = window.setTimeout(() => {
+        setAreVideoControlsVisible(false);
+      }, 1400);
+    }
   };
 
   const handleTouchStart = (event: React.TouchEvent<HTMLDivElement>) => {
@@ -484,6 +542,10 @@ export function MediaViewer({
           ref={mediaStageRef}
           className="sf-media-viewer-stage relative w-fit max-w-full overflow-hidden"
           style={{ borderRadius: "var(--sf-radius-card-inner)" }}
+          onMouseEnter={isVideo ? revealVideoControls : undefined}
+          onMouseMove={isVideo ? revealVideoControls : undefined}
+          onFocusCapture={isVideo ? revealVideoControls : undefined}
+          onPointerDown={isVideo ? revealVideoControls : undefined}
         >
           {isVideo ? (
             <video
@@ -493,7 +555,7 @@ export function MediaViewer({
               autoPlay
               playsInline
               muted={isVideoMuted}
-              onClick={handleVideoPlayPause}
+              onClick={handleVideoTap}
               onPlay={() => setIsVideoPlaying(true)}
               onPause={() => setIsVideoPlaying(false)}
               onWaiting={() => setIsVideoWaiting(true)}
@@ -531,6 +593,9 @@ export function MediaViewer({
               isPlaying={isVideoPlaying}
               isMuted={isVideoMuted}
               isWaiting={isVideoWaiting}
+              isVisible={
+                !isVideoPlaying || isVideoWaiting || areVideoControlsVisible
+              }
               currentTime={videoCurrentTime}
               duration={videoDuration}
               onPlayPause={handleVideoPlayPause}

@@ -27,7 +27,15 @@ import {
   HomeSliderViewMode,
   HomeSliderViewRef,
 } from "./components/Media/Slider/HomeSliderView";
-import { StoreView, StoreViewRef } from "./components/Store/StoreView";
+import {
+  StoreView,
+  StoreViewRef,
+  StoreProductFilter,
+} from "./components/Store/StoreView";
+import {
+  StoreProductAdvancedFilters,
+  StoreProductFiltersModal,
+} from "./components/Store/StoreProductFiltersModal";
 import { OrdersView } from "./components/Store/Orders/OrdersView";
 import { OrderDetailView } from "./components/Store/Orders/OrderDetailView";
 import { PlatformSettingsView } from "./components/System/Config/PlatformSettingsView";
@@ -73,6 +81,10 @@ import {
 import { NexusAutonomousCard } from "./components/ui/NexusCard";
 import { NexusAutonomousIcon } from "./components/ui/NexusIcon";
 import { NexusConfirmModal } from "./components/ui/NexusConfirmModal";
+import {
+  NexusViewToolbar,
+  NexusViewToolbarSegment,
+} from "./components/ui/NexusViewToolbar";
 import { UploadQueueProvider } from "./components/uploads/UploadQueueProvider";
 import { ProfileView, ProfileViewMode } from "./components/Profile/ProfileView";
 import type { OwnProfile } from "./types";
@@ -128,7 +140,19 @@ type StoreModeType =
   | "orders"
   | "order-detail";
 
+type OrderStatusFilter =
+  | "pending"
+  | "paid"
+  | "cancelled"
+  | "all";
+
 type RaffleModeType = "list" | "create" | "edit" | "detail";
+
+const DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS: StoreProductAdvancedFilters = {
+  publication: "all",
+  purpose: "all",
+  age: "all",
+};
 
 const ACTIVE_TABS: ActiveTabType[] = [
   "Inicio",
@@ -394,6 +418,18 @@ function App() {
   const homeSliderRef = React.useRef<HomeSliderViewRef>(null);
 
   const [activeTab, setActiveTab] = useState<ActiveTabType>(getStoredActiveTab);
+  const [orderSearchQuery, setOrderSearchQuery] = useState("");
+  const [orderStatusFilter, setOrderStatusFilter] =
+    useState<OrderStatusFilter>("pending");
+  const [storeProductSearchQuery, setStoreProductSearchQuery] = useState("");
+  const [storeProductFilter, setStoreProductFilter] =
+    useState<StoreProductFilter>("all");
+  const [storeProductAdvancedFilters, setStoreProductAdvancedFilters] =
+    useState<StoreProductAdvancedFilters>(
+      DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS,
+    );
+  const [isStoreProductFiltersOpen, setIsStoreProductFiltersOpen] =
+    useState(false);
   const [mediaViewMode, setMediaViewMode] =
     useState<MediaModeType>(getStoredMediaMode);
   const [storeViewMode, setStoreViewMode] = useState<StoreModeType>(() => {
@@ -688,9 +724,61 @@ function App() {
   const isOrdersTab = activeTab === "Órdenes";
   const isOrdersViewActive =
     isOrdersTab || (isStoreMode && storeViewMode === "orders");
+  const isOrdersListViewActive =
+    isOrdersViewActive && storeViewMode !== "order-detail";
+  const isStoreProductListViewActive = isStoreMode && storeViewMode === "list";
   const isSystemMode = activeTab === "Sistema";
   const isProfileMode = activeTab === "Mi Perfil";
   const isRafflesMode = activeTab === "Rifas";
+
+  const orderToolbarSegments = React.useMemo<
+    NexusViewToolbarSegment<OrderStatusFilter>[]
+  >(
+    () => [
+      {
+        value: "all",
+        label: "Todas",
+      },
+      {
+        value: "pending",
+        label: "Pendientes",
+      },
+      {
+        value: "paid",
+        label: "Pagadas",
+      },
+      {
+        value: "cancelled",
+        label: "Canceladas",
+      },
+    ],
+    [],
+  );
+
+  const storeProductToolbarSegments = React.useMemo<
+    NexusViewToolbarSegment<StoreProductFilter>[]
+  >(
+    () => [
+      {
+        value: "all",
+        label: "Todos",
+      },
+      {
+        value: "bird",
+        label: "Aves",
+      },
+      {
+        value: "item",
+        label: "Artículos",
+      },
+    ],
+    [],
+  );
+
+  const hasStoreProductAdvancedFilters =
+    storeProductAdvancedFilters.publication !== "all" ||
+    storeProductAdvancedFilters.purpose !== "all" ||
+    storeProductAdvancedFilters.age !== "all";
 
   useEffect(() => {
     if (!token || !isOrdersViewActive) return;
@@ -984,7 +1072,11 @@ function App() {
     if (isFormMode) {
       return (
         <>
-          <NexusSectionButton onClick={handleCancelAction} variant="secondary">
+          <NexusSectionButton
+            onClick={handleCancelAction}
+            variant="secondary"
+            className="text-text-muted hover:text-text-main"
+          >
             Cancelar
           </NexusSectionButton>
           <NexusSectionButton
@@ -1029,6 +1121,7 @@ function App() {
                 })
               }
               variant="secondary"
+              className="text-text-muted hover:text-text-main"
             >
               Cancelar
             </NexusSectionButton>
@@ -1199,6 +1292,7 @@ function App() {
               <NexusSectionButton
                 onClick={() => identityRef.current?.handleCancel()}
                 variant="secondary"
+                className="text-text-muted hover:text-text-main"
               >
                 Cancelar
               </NexusSectionButton>
@@ -1256,6 +1350,7 @@ function App() {
             <NexusSectionButton
               onClick={() => setChannelsViewMode("hub")}
               variant="secondary"
+              className="text-text-muted hover:text-text-main"
             >
               Cancelar
             </NexusSectionButton>
@@ -1328,7 +1423,12 @@ function App() {
         >
           <div
             className="flex flex-col justify-between sm:flex-row sm:items-end"
-            style={{ gap: "var(--space-md)", marginBottom: "var(--space-lg)" }}
+            style={{
+              gap: "var(--space-md)",
+              marginBottom: isOrdersListViewActive || isStoreProductListViewActive
+                ? "var(--space-md)"
+                : "var(--space-lg)",
+            }}
           >
             <PageHeader
               activeTab={activeTab}
@@ -1354,6 +1454,35 @@ function App() {
               actionAddon={getActionAddon()}
             />
           </div>
+
+          {isOrdersListViewActive && (
+            <div style={{ marginBottom: "var(--space-lg)" }}>
+              <NexusViewToolbar
+                searchValue={orderSearchQuery}
+                onSearchChange={setOrderSearchQuery}
+                searchPlaceholder="Buscar orden, producto, cliente, teléfono o estado..."
+                segments={orderToolbarSegments}
+                activeSegment={orderStatusFilter}
+                onSegmentChange={setOrderStatusFilter}
+              />
+            </div>
+          )}
+
+          {isStoreProductListViewActive && (
+            <div style={{ marginBottom: "var(--space-lg)" }}>
+              <NexusViewToolbar
+                searchValue={storeProductSearchQuery}
+                onSearchChange={setStoreProductSearchQuery}
+                searchPlaceholder="Buscar producto, anillo, precio o estado..."
+                segments={storeProductToolbarSegments}
+                activeSegment={storeProductFilter}
+                onSegmentChange={setStoreProductFilter}
+                filterLabel="Avanzados"
+                filterActive={hasStoreProductAdvancedFilters}
+                onFilterClick={() => setIsStoreProductFiltersOpen(true)}
+              />
+            </div>
+          )}
 
           <div
             className="flex flex-col lg:flex-row"
@@ -1412,6 +1541,8 @@ function App() {
                   <OrdersView
                     orders={orders}
                     isLoading={isLoadingDashboard}
+                    statusFilter={orderStatusFilter}
+                    searchQuery={orderSearchQuery}
                     onOrdersChange={setOrders}
                     onViewDetail={handleViewOrderDetail}
                     showToast={showToast}
@@ -1430,7 +1561,9 @@ function App() {
                 ) : (
                   <StoreView
                     ref={storeRef}
-                    searchQuery={searchQuery}
+                    productSearchQuery={storeProductSearchQuery}
+                    productFilter={storeProductFilter}
+                    advancedFilters={storeProductAdvancedFilters}
                     viewMode={storeViewMode}
                     onSetViewMode={setStoreViewMode}
                     showToast={showToast}
@@ -1578,6 +1711,19 @@ function App() {
           onTabChange={setActiveTab as any}
           tabs={bottomNavTabs}
           newOrdersCount={pendingOrderIds.size}
+        />
+        <StoreProductFiltersModal
+          isOpen={isStoreProductFiltersOpen}
+          value={storeProductAdvancedFilters}
+          onClose={() => setIsStoreProductFiltersOpen(false)}
+          onApply={(filters) => {
+            setStoreProductAdvancedFilters(filters);
+            setIsStoreProductFiltersOpen(false);
+          }}
+          onClear={() => {
+            setStoreProductAdvancedFilters(DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS);
+            setIsStoreProductFiltersOpen(false);
+          }}
         />
         <ConfirmModal {...confirmDialog} onCancel={closeConfirm} />
         {toast && (
