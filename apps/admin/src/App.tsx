@@ -502,10 +502,28 @@ function App() {
   );
   const [channelsViewMode, setChannelsViewMode] = useState<
     "hub" | "create" | "edit" | "principal"
-  >("hub");
-  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
-    null,
+  >(() =>
+    getStoredEnum(
+      "admin_channels_view_mode",
+      ["hub", "create", "edit", "principal"],
+      "hub",
+    ),
   );
+  const [selectedChannelId, setSelectedChannelId] = useState<string | null>(
+    () => localStorage.getItem("admin_selected_channel_id"),
+  );
+
+  useEffect(() => {
+    localStorage.setItem("admin_channels_view_mode", channelsViewMode);
+  }, [channelsViewMode]);
+
+  useEffect(() => {
+    if (selectedChannelId) {
+      localStorage.setItem("admin_selected_channel_id", selectedChannelId);
+    } else {
+      localStorage.removeItem("admin_selected_channel_id");
+    }
+  }, [selectedChannelId]);
   const [identityStatus, setIdentityStatus] = useState<
     "empty" | "preview" | "editing"
   >("preview");
@@ -579,6 +597,25 @@ function App() {
     },
     [],
   );
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const mpConnect = params.get("mp_connect");
+    if (!mpConnect) return;
+
+    if (mpConnect === "success") {
+      showToast("Mercado Pago vinculado correctamente");
+    } else if (mpConnect === "cancelled") {
+      showToast("Vinculación de Mercado Pago cancelada", "error");
+    } else {
+      showToast("No se pudo vincular Mercado Pago", "error");
+    }
+
+    params.delete("mp_connect");
+    const nextSearch = params.toString();
+    const nextUrl = `${window.location.pathname}${nextSearch ? `?${nextSearch}` : ""}${window.location.hash}`;
+    window.history.replaceState({}, "", nextUrl);
+  }, [showToast]);
 
   const openOrdersFromNotification = useCallback(() => {
     setActiveTab("Órdenes");

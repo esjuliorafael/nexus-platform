@@ -17,16 +17,22 @@ export async function mpRoutes(server: FastifyInstance) {
 
   // Public: Callback for OAuth
   server.get("/callback", async (request, reply) => {
-    const { code, state } = request.query as { code: string, state: string };
-    if (!code) return reply.status(400).send({ message: "Code is required" });
+    const { code, error } = request.query as { code?: string; state?: string; error?: string };
+    const adminUrl = process.env.ADMIN_URL || "http://localhost:4000";
+
+    if (error) {
+      const status = error === "access_denied" ? "cancelled" : "error";
+      return reply.redirect(`${adminUrl}?mp_connect=${status}`);
+    }
+
+    if (!code) return reply.redirect(`${adminUrl}?mp_connect=error`);
 
     try {
-      await mpService.handleCallback(code, state);
-      // Redirigir al admin con un query param de \u00e9xito
-      return reply.redirect(`${process.env.ADMIN_URL}?mp_connect=success`);
+      await mpService.handleCallback(code, (request.query as { state?: string }).state || "main");
+      return reply.redirect(`${adminUrl}?mp_connect=success`);
     } catch (error: any) {
       console.error("MP OAuth Error:", error);
-      return reply.redirect(`${process.env.ADMIN_URL}?mp_connect=error`);
+      return reply.redirect(`${adminUrl}?mp_connect=error`);
     }
   });
 
