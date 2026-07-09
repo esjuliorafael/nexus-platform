@@ -22,6 +22,7 @@ import { ticketReleaseWorker } from "./queues/ticket-release.queue";
 import { reservationReminderWorker } from "./queues/reservation-reminder.queue";
 import { whatsappWorker } from "./workers/whatsapp.worker";
 import { mediaProcessingWorker } from "./workers/media-processing.worker";
+import { expireOverduePendingOrders } from "./services/order-expiration.service";
 
 const server = fastify({
   logger: true,
@@ -158,6 +159,23 @@ async function bootstrap() {
     mediaProcessingWorker.on("failed", (job, err) => {
       server.log.error(`Media processing job ${job?.id} failed: ${err.message}`);
     });
+
+    const sweepOverdueOrders = async () => {
+      try {
+        const result = await expireOverduePendingOrders();
+        if (result.expired > 0) {
+          server.log.info(
+            `Expired ${result.expired} overdue pending orders (${result.scanned} scanned).`,
+          );
+        }
+      } catch (error: any) {
+        server.log.error(`Overdue order sweep failed: ${error.message}`);
+      }
+    };
+
+    await sweepOverdueOrders();
+    const overdueOrderSweepTimer = setInterval(sweepOverdueOrders, 5 * 60 * 1000);
+    overdueOrderSweepTimer.unref?.();
 
     // Start Server
     const port = parseInt(process.env.PORT || "3001", 10);
