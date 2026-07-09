@@ -29,7 +29,11 @@ export const orderReleaseWorker = new Worker(
         // Cancel the order
         await tx.order.update({
           where: { id: orderId },
-          data: { status: "CANCELLED" },
+          data: {
+            status: "CANCELLED",
+            paymentStatus: order.paymentMethod === "MERCADOPAGO" ? "EXPIRED" : "CANCELLED",
+            paymentExpiresAt: null,
+          },
         });
 
         // Restore product availability for each item in the order
@@ -51,12 +55,16 @@ export const orderReleaseWorker = new Worker(
           data: {
             orderId,
             eventType: "AUTO_CANCELLED",
-            message: "Orden cancelada automáticamente por vencimiento del tiempo límite.",
+            message: order.paymentMethod === "MERCADOPAGO"
+              ? "Intento de pago con tarjeta expirado. Inventario liberado sin notificacion de apartado."
+              : "Orden cancelada automaticamente por vencimiento del tiempo limite.",
           },
         });
       });
 
       console.log(`Order ${orderId} auto-cancelled and inventory released.`);
+
+      if (order.paymentMethod === "MERCADOPAGO") return;
 
       // Determine orderKind for notification
       const products = order.items.map(i => i.product);

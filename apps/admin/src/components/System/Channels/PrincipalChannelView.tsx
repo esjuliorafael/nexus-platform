@@ -24,9 +24,10 @@ import { NexusSectionCard } from '../../ui/NexusCard';
 import { NexusAutonomousButton, NexusCardButton, NexusSectionButton } from '../../ui/NexusButton';
 import { NexusInput, NexusTextarea } from '../../ui/NexusInputs';
 import { NexusModal } from '../../ui/NexusModal';
+import { NexusSwitch } from '../../ui/NexusSwitch';
+import { NexusConfirmModal } from '../../ui/NexusConfirmModal';
 
 interface PrincipalChannelViewProps {
-  onBack: () => void;
   showToast: (message: string, type?: 'success' | 'error') => void;
 }
 
@@ -69,7 +70,7 @@ const previewMessage = (content: string) => (
     .replace(/\{\{time_remaining\}\}/g, '4 horas')
 );
 
-export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBack, showToast }) => {
+export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ showToast }) => {
   const [config, setConfig] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
@@ -77,6 +78,8 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
   const [instanceStatus, setInstanceStatus] = useState<'open' | 'close' | 'connecting' | 'loading'>('loading');
   const [qrData, setQRData] = useState<{ base64?: string; instanceName?: string; timeLeft?: number } | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<{ key: string; label: string; variables: string[] } | null>(null);
+  const [confirmDisconnectMP, setConfirmDisconnectMP] = useState(false);
+  const [isDisconnectingMP, setIsDisconnectingMP] = useState(false);
 
   const loadConfig = async () => {
     setIsLoading(true);
@@ -176,6 +179,35 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
     }
   };
 
+  const connectMercadoPago = async () => {
+    try {
+      const url = await apiMercadoPago.getAuthUrl();
+      if (url) window.location.href = url;
+    } catch (error: any) {
+      showToast(error?.response?.data?.message || 'Error al conectar con Mercado Pago', 'error');
+    }
+  };
+
+  const disconnectMercadoPago = async () => {
+    setIsDisconnectingMP(true);
+    try {
+      await apiMercadoPago.disconnectMain();
+      setConfig(prev => ({
+        ...prev,
+        mp_seller_access_token: '',
+        mp_seller_refresh_token: '',
+        mp_seller_user_id: '',
+        mp_main_checkout_enabled: '0',
+      }));
+      setConfirmDisconnectMP(false);
+      showToast('Mercado Pago desvinculado');
+    } catch (error: any) {
+      showToast(error?.response?.data?.message || 'No se pudo desvincular Mercado Pago', 'error');
+    } finally {
+      setIsDisconnectingMP(false);
+    }
+  };
+
   const updateConfig = async (data: Record<string, string>, closeModal = true) => {
     setIsSaving(true);
     try {
@@ -195,6 +227,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
 
   const bankReady = Boolean(config.bank_main_name && config.bank_main_beneficiary);
   const mpReady = Boolean(config.mp_seller_access_token);
+  const mpCheckoutEnabled = mpReady && config.mp_main_checkout_enabled !== '0';
   const waReady = Boolean(config.whatsapp_main_phone && config.whatsapp_evolution_instance && instanceStatus === 'open');
 
   const templateCounts = useMemo(() => {
@@ -266,10 +299,6 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
 
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-300">
-      <NexusCardButton onClick={onBack} variant="secondary" icon={ArrowLeft}>
-        Volver a Departamentos
-      </NexusCardButton>
-
       <NexusSection
         title="Canal Principal"
         subtitle="Fallback para tienda general, pedidos mixtos, rifas sin canal y cualquier flujo incompleto"
@@ -289,8 +318,25 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
             icon={CreditCard}
             iconVariant={mpReady ? 'blue' : 'muted'}
             title="Mercado Pago Principal"
-            subtitle={mpReady ? `Cuenta vinculada ${config.mp_seller_user_id || ''}` : 'Pasarela principal pendiente'}
-            rightContent={<p className="text-label text-text-muted">{config.mp_statement_descriptor || 'NEXUS*SHOP'}</p>}
+            subtitle={
+              mpReady
+                ? `${mpCheckoutEnabled ? 'Disponible en checkout' : 'Vinculado, oculto en checkout'} · ${config.mp_statement_descriptor || 'NEXUS*SHOP'}`
+                : 'Pasarela principal pendiente'
+            }
+            rightContent={
+              <div className="flex flex-col items-center" style={{ gap: 'var(--space-xs)' }}>
+                <NexusSwitch
+                  checked={mpCheckoutEnabled}
+                  disabled={!mpReady || isSaving}
+                  onChange={(checked) => updateConfig({ mp_main_checkout_enabled: checked ? '1' : '0' }, false)}
+                  aria-label={mpCheckoutEnabled ? 'Ocultar Mercado Pago del checkout' : 'Mostrar Mercado Pago en checkout'}
+                  title={mpReady ? undefined : 'Vincula Mercado Pago para activarlo en checkout'}
+                />
+                <span className={`text-label uppercase tracking-[0.15em] transition-colors duration-500 ${mpCheckoutEnabled ? 'text-text-muted' : 'text-text-muted/40'}`}>
+                  {mpCheckoutEnabled ? 'Activo' : 'Inactivo'}
+                </span>
+              </div>
+            }
             actions={<NexusCardButton onClick={() => setModal('mercadopago')} icon={Edit2}>Configurar</NexusCardButton>}
           />
           <NexusSectionCard
@@ -385,22 +431,29 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ onBa
                 Guardar Extracto
               </NexusAutonomousButton>
               <NexusAutonomousButton
-                icon={LinkIcon}
-                onClick={async () => {
-                  try {
-                    const url = await apiMercadoPago.getAuthUrl();
-                    if (url) window.location.href = url;
-                  } catch (error: any) {
-                    showToast(error?.response?.data?.message || 'Error al conectar con Mercado Pago', 'error');
-                  }
-                }}
+                icon={mpReady ? LogOut : LinkIcon}
+                variant={mpReady ? 'danger' : 'brand'}
+                onClick={mpReady ? () => setConfirmDisconnectMP(true) : connectMercadoPago}
               >
-                {mpReady ? 'Re-vincular' : 'Vincular'}
+                {mpReady ? 'Desvincular' : 'Vincular'}
               </NexusAutonomousButton>
             </div>
           </div>
         </NexusModal>
       )}
+
+      <NexusConfirmModal
+        isOpen={confirmDisconnectMP}
+        title="¿Desvincular Mercado Pago?"
+        message="El checkout dejará de aceptar pagos con tarjeta hasta que vincules una cuenta nuevamente."
+        confirmLabel={isDisconnectingMP ? 'Desvinculando...' : 'Desvincular'}
+        cancelLabel="Cancelar"
+        tone="danger"
+        icon={LogOut}
+        onConfirm={disconnectMercadoPago}
+        onCancel={() => setConfirmDisconnectMP(false)}
+        zIndex={270}
+      />
 
       {modal === 'whatsapp' && (
         <NexusModal isOpen title="Mensajeria Principal" onClose={() => setModal(null)}>

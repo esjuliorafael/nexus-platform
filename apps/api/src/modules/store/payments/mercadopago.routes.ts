@@ -15,6 +15,16 @@ export async function mpRoutes(server: FastifyInstance) {
     }
   });
 
+  server.post("/disconnect-main", { preHandler: [server.authenticate] }, async (_request, reply) => {
+    try {
+      return await mpService.disconnectMainAccount();
+    } catch (error: any) {
+      return reply.status(500).send({
+        message: error?.message || "No se pudo desvincular Mercado Pago",
+      });
+    }
+  });
+
   // Public: Callback for OAuth
   server.get("/callback", async (request, reply) => {
     const { code, error } = request.query as { code?: string; state?: string; error?: string };
@@ -64,14 +74,20 @@ export async function mpRoutes(server: FastifyInstance) {
       orderId: z.number(),
       isRaffle: z.boolean().optional()
     });
+    let parsed: z.infer<typeof schema> | null = null;
 
     try {
-      const { orderId, isRaffle } = schema.parse(request.body);
+      parsed = schema.parse(request.body);
+      const { orderId, isRaffle } = parsed;
       const preference = await mpService.createPreference(orderId, isRaffle);
       console.log('[MP] Preference created successfully:', preference.id);
       return preference;
     } catch (error: any) {
       console.error('[MP] Preference creation error:', error);
+      if (parsed?.orderId && !parsed.isRaffle) {
+        const { orderService } = await import("../orders/order.service");
+        await orderService.cancelPaymentAttempt(parsed.orderId, "FAILED");
+      }
       return reply.status(500).send({ message: error.message });
     }
   });

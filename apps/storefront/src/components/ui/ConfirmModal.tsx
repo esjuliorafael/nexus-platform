@@ -14,6 +14,7 @@ interface StorefrontConfirmModalProps {
   cancelLabel?: string;
   isLoading?: boolean;
   onConfirm: () => void | Promise<void>;
+  onCancel?: () => void | Promise<void>;
   onClose: () => void;
 }
 
@@ -27,6 +28,7 @@ export function StorefrontConfirmModal({
   cancelLabel = "Cancelar",
   isLoading = false,
   onConfirm,
+  onCancel,
   onClose,
 }: StorefrontConfirmModalProps) {
   const confirmVariant = variant === "danger" ? "danger" : variant === "success" ? "success" : "primary";
@@ -61,7 +63,13 @@ export function StorefrontConfirmModal({
           variant="outline"
           context="section"
           icon={X}
-          onClick={onClose}
+          onClick={async () => {
+            if (onCancel) {
+              await onCancel();
+              return;
+            }
+            onClose();
+          }}
           className="w-full border-stone-100 text-stone-500 hover:bg-stone-50"
         >
           {cancelLabel}

@@ -203,13 +203,18 @@ export const orderService = {
     const discountTotal = couponResult?.discountTotal || 0;
     const total = Math.max(0, subtotal + shippingCost - discountTotal);
 
+    const paymentMethod = data.paymentMethod === "MERCADOPAGO" ? "MERCADOPAGO" : "TRANSFER";
+    const isMercadoPagoOrder = paymentMethod === "MERCADOPAGO";
     const isReleaseActive = settingsMap["inventory_release_active"] === "1";
     const releaseHours = Number(settingsMap["inventory_release_hours"] || 24);
     const isReminderActive = settingsMap["inventory_reminder_active"] === "1";
     const reminderHoursBefore = Number(settingsMap["inventory_reminder_hours_before"] || 4);
-    const expiresAt = isReleaseActive 
-      ? new Date(Date.now() + releaseHours * 3600 * 1000) 
-      : null;
+    const mpHoldMinutes = Math.max(5, Number(settingsMap["mp_payment_hold_minutes"] || 30));
+    const expiresAt = isMercadoPagoOrder
+      ? new Date(Date.now() + mpHoldMinutes * 60 * 1000)
+      : isReleaseActive
+        ? new Date(Date.now() + releaseHours * 3600 * 1000)
+        : null;
 
     const order = await storePrisma.$transaction(async (tx) => {
       const newOrder = await tx.order.create({
@@ -233,6 +238,9 @@ export const orderService = {
           couponId: couponResult?.coupon.id || null,
           couponCode: couponResult?.code || null,
           status: "PENDING",
+          paymentMethod,
+          paymentStatus: "PENDING",
+          paymentExpiresAt: isMercadoPagoOrder ? expiresAt : null,
           expiresAt,
           items: {
             create: orderItemsData,
@@ -265,8 +273,14 @@ export const orderService = {
       return newOrder;
     });
 
-    // Schedule auto-release if active
-    if (isReleaseActive) {
+    // Schedule auto-release. Mercado Pago uses a short silent hold while the customer pays.
+    if (isMercadoPagoOrder && expiresAt) {
+      await orderReleaseQueue.add(
+        "release",
+        { orderId: order.id },
+        { delay: mpHoldMinutes * 60 * 1000 }
+      );
+    } else if (isReleaseActive) {
       await orderReleaseQueue.add(
         "release",
         { orderId: order.id },
@@ -299,13 +313,15 @@ export const orderService = {
       orderKind = { type: "articles_only" };
     }
 
-    await whatsappQueue.add("order-notification", {
-      kind: "order",
-      orderId: order.id.toString(),
-      recipientPhone: order.customerPhone,
-      orderKind,
-      timeLimit: `${releaseHours} horas`
-    });
+    if (!isMercadoPagoOrder) {
+      await whatsappQueue.add("order-notification", {
+        kind: "order",
+        orderId: order.id.toString(),
+        recipientPhone: order.customerPhone,
+        orderKind,
+        timeLimit: `${releaseHours} horas`
+      });
+    }
 
     return order;
   },
@@ -321,7 +337,15 @@ export const orderService = {
     const order = await storePrisma.$transaction(async (tx) => {
       const updatedOrder = await tx.order.update({
         where: { id },
-        data: { status },
+        data: {
+          status,
+          ...(status === "PAID"
+            ? { paymentStatus: "APPROVED", paymentExpiresAt: null, expiresAt: null }
+            : {}),
+          ...(status === "CANCELLED"
+            ? { paymentStatus: "CANCELLED", paymentExpiresAt: null }
+            : {}),
+        },
         include: { items: true }
       });
 
@@ -388,7 +412,11 @@ export const orderService = {
     const cancelledOrder = await storePrisma.$transaction(async (tx) => {
       const cancelledOrder = await tx.order.update({
         where: { id },
-        data: { status: "CANCELLED" },
+        data: {
+          status: "CANCELLED",
+          paymentStatus: "CANCELLED",
+          paymentExpiresAt: null,
+        },
         include: { items: true },
       });
 
@@ -436,14 +464,64 @@ export const orderService = {
       orderKind = { type: "articles_only" };
     }
 
-    await whatsappQueue.add("order-cancelled", {
-      kind: "order-cancelled",
-      orderId: cancelledOrder.id.toString(),
-      recipientPhone: cancelledOrder.customerPhone,
-      orderKind,
-    });
+    if (cancelledOrder.paymentMethod !== "MERCADOPAGO") {
+      await whatsappQueue.add("order-cancelled", {
+        kind: "order-cancelled",
+        orderId: cancelledOrder.id.toString(),
+        recipientPhone: cancelledOrder.customerPhone,
+        orderKind,
+      });
+    }
 
     return cancelledOrder;
+  },
+
+  async cancelPaymentAttempt(id: number, paymentStatus: "FAILED" | "EXPIRED" = "FAILED") {
+    const order = await storePrisma.order.findUnique({
+      where: { id },
+      include: { items: true },
+    });
+
+    if (!order) return null;
+    if (order.paymentMethod !== "MERCADOPAGO" || order.status !== "PENDING") return order;
+
+    return storePrisma.$transaction(async (tx) => {
+      const cancelledOrder = await tx.order.update({
+        where: { id },
+        data: {
+          status: "CANCELLED",
+          paymentStatus,
+          paymentExpiresAt: null,
+        },
+        include: { items: true },
+      });
+
+      for (const item of order.items) {
+        if (item.productType === "BIRD") {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { saleStatus: "AVAILABLE" },
+          });
+        } else {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: { increment: item.quantity } },
+          });
+        }
+      }
+
+      await tx.orderEvent.create({
+        data: {
+          orderId: id,
+          eventType: paymentStatus === "EXPIRED" ? "PAYMENT_EXPIRED" : "PAYMENT_FAILED",
+          message: paymentStatus === "EXPIRED"
+            ? "Intento de pago con tarjeta expirado. Inventario liberado."
+            : "Intento de pago con tarjeta no completado. Inventario liberado.",
+        },
+      });
+
+      return cancelledOrder;
+    });
   },
 
   async restoreOrder(id: number) {
@@ -525,6 +603,9 @@ export const orderService = {
         where: { id },
         data: {
           status: "PENDING",
+          paymentMethod: "TRANSFER",
+          paymentStatus: "PENDING",
+          paymentExpiresAt: null,
           expiresAt,
         },
         include: { items: true },

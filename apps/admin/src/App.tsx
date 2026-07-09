@@ -1006,7 +1006,11 @@ function App() {
         navigateToSystem("identity");
         break;
       case "Volver":
-        if (
+        if (isSystemMode && systemViewMode === "channels") {
+          setChannelsViewMode("hub");
+          setSelectedChannelId(null);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } else if (
           isOrdersTab ||
           storeViewMode === "orders" ||
           storeViewMode === "order-detail"
@@ -1529,7 +1533,12 @@ function App() {
               <QuickActions
                 context={isOrdersTab ? "Tienda" : activeTab}
                 onAction={handleQuickAction}
-                isDetail={storeViewMode === "order-detail"}
+                isDetail={
+                  storeViewMode === "order-detail" ||
+                  (isSystemMode &&
+                    systemViewMode === "channels" &&
+                    channelsViewMode === "principal")
+                }
                 raffleEnabled={raffleEnabled}
                 userRole={userRole}
               />
@@ -1664,7 +1673,6 @@ function App() {
                       />
                     ) : channelsViewMode === "principal" ? (
                       <PrincipalChannelView
-                        onBack={() => setChannelsViewMode("hub")}
                         showToast={showToast}
                       />
                     ) : channelsViewMode === "create" ? (

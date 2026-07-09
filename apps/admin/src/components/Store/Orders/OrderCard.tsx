@@ -7,6 +7,7 @@ import {
   ChevronRight,
   CircleX,
   Clock,
+  CreditCard,
   Hash,
   Layers,
   MapPin,
@@ -157,6 +158,24 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     }
   }, [order.status]);
 
+  const isCardPayment = order.paymentMethod === 'MERCADOPAGO';
+  const cardPaymentLabel = order.paymentStatus === 'APPROVED'
+    ? 'Tarjeta pagada'
+    : order.paymentStatus === 'REFUNDED'
+      ? 'Tarjeta devuelta'
+    : order.paymentStatus === 'FAILED'
+      ? 'Tarjeta fallida'
+      : order.paymentStatus === 'EXPIRED'
+        ? 'Tarjeta expirada'
+        : 'Tarjeta pendiente';
+  const cardPaymentBadgeVariant: NexusBadgeVariant = order.paymentStatus === 'APPROVED'
+    ? 'success'
+    : order.paymentStatus === 'REFUNDED'
+      ? 'muted'
+    : order.paymentStatus === 'FAILED' || order.paymentStatus === 'EXPIRED'
+      ? 'danger'
+      : 'warning';
+
   return (
     <NexusAutonomousCard
       swipeable={order.status === 'pending'}
@@ -224,6 +243,15 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                   {statusConfig.label}
                 </NexusAutonomousBadge>
               )}
+              {isCardPayment && (
+                <NexusAutonomousBadge
+                  variant={cardPaymentBadgeVariant}
+                  icon={CreditCard}
+                  className="shadow-sm transition-colors duration-500 dark:shadow-none"
+                >
+                  {cardPaymentLabel}
+                </NexusAutonomousBadge>
+              )}
             </div>
 
             <h3 className="truncate text-h2 font-bold text-text-main">
@@ -287,6 +315,15 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               >
                 {order.id}
               </NexusAutonomousBadge>
+              {isCardPayment && (
+                <NexusAutonomousBadge
+                  variant={cardPaymentBadgeVariant}
+                  icon={CreditCard}
+                  className="shadow-sm transition-colors duration-500 dark:shadow-none"
+                >
+                  {cardPaymentLabel}
+                </NexusAutonomousBadge>
+              )}
             </div>
 
             <h3 className="truncate text-h2 font-bold text-text-main">{order.customer}</h3>

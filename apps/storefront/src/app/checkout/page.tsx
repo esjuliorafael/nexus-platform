@@ -70,7 +70,7 @@ interface BankInfo {
 
 export default function CheckoutPage() {
   const { items, coupon, getTotalPrice, getDiscountTotal, clearCart, removeItem } = useCartStore();
-  const { settings, getSetting } = useSettings();
+  const { settings } = useSettings();
   const { showToast } = useToastStore();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -84,6 +84,12 @@ export default function CheckoutPage() {
   const [cartProducts, setCartProducts] = useState<any[]>([]);
   const [someoneElseReceives, setSomeoneElseReceives] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<any | null>(null);
+  const [checkoutIssue, setCheckoutIssue] = useState<{
+    title: string;
+    message: string;
+    confirmLabel: string;
+    cancelLabel: string;
+  } | null>(null);
   const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>(0);
   const [showMobileSummary, setShowMobileSummary] = useState(false);
   const checkoutFormRef = useRef<HTMLFormElement>(null);
@@ -185,7 +191,8 @@ export default function CheckoutPage() {
     return { total, details };
   }, [hasBirds, hasItems, selectedZone, settings]);
 
-  const isMPEnabled = !!getSetting("payments", "mp_seller_access_token");
+  const mpCheckoutSetting = findSetting("mp_main_checkout_enabled");
+  const isMPEnabled = Boolean(findSetting("mp_seller_access_token")) && mpCheckoutSetting !== "0";
   const discountTotal = getDiscountTotal();
   const orderTotal = Math.max(0, getTotalPrice() + shippingCalculation.total - discountTotal);
   const selectedZoneMethod = selectedZone?.zoneType === "EXTENDED" ? "AIRPORT" : "BUS_STATION";
@@ -209,6 +216,49 @@ export default function CheckoutPage() {
     return `Para ${selectedZone.name}, la entrega se coordina por ${birdDelivery}. Te contactaremos para afinar los detalles.`;
   }, [hasItems, isArticlesOnly, selectedZone]);
   const shippingStatusTone = deliveryMethodMismatch ? "warning" : "default";
+
+  const refreshCartAvailability = async () => {
+    const results = await Promise.allSettled(
+      items.map(async (cartItem) => ({
+        cartItem,
+        product: await productApi.getById(cartItem.productId),
+      })),
+    );
+
+    const availableProducts: any[] = [];
+    const unavailableIds: number[] = [];
+
+    results.forEach((result) => {
+      if (result.status === "rejected") {
+        return;
+      }
+
+      const { cartItem, product } = result.value;
+      const isUnavailable =
+        product.saleStatus !== "AVAILABLE" ||
+        !product.active ||
+        product.published === false ||
+        (product.type === "ITEM" && Number(product.stock) < cartItem.quantity);
+
+      if (isUnavailable) {
+        unavailableIds.push(cartItem.productId);
+        return;
+      }
+
+      availableProducts.push(product);
+    });
+
+    results.forEach((result, index) => {
+      if (result.status === "rejected") {
+        unavailableIds.push(items[index].productId);
+      }
+    });
+
+    Array.from(new Set(unavailableIds)).forEach((productId) => removeItem(productId));
+    setCartProducts(availableProducts);
+
+    return unavailableIds.length;
+  };
 
   const bankInfo = useMemo<BankInfo>(() => {
     const birdPurposes = cartProducts
@@ -287,6 +337,7 @@ export default function CheckoutPage() {
         shippingCost: shippingCalculation.total,
         couponCode: coupon?.code || "",
         deliveryType: "SHIPPING",
+        paymentMethod,
         items: items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
       });
 
@@ -302,7 +353,26 @@ export default function CheckoutPage() {
       clearCart();
     } catch (error: unknown) {
       console.error("Order failed details:", error);
-      alert(getErrorMessage(error) || "Error al procesar el pedido. Por favor intente de nuevo.");
+      const errorMessage = getErrorMessage(error);
+
+      if (isAvailabilityError(errorMessage)) {
+        await refreshCartAvailability();
+        setCheckoutIssue({
+          title: "Producto no disponible",
+          message: paymentMethod === "MERCADOPAGO"
+            ? "Uno de los productos de tu carrito acaba de ser reservado por otro cliente. No se realizó ningún cobro. Actualiza tu carrito para continuar."
+            : "Uno de los productos de tu carrito acaba de ser reservado por otro cliente. Actualiza tu carrito para continuar.",
+          confirmLabel: "Actualizar carrito",
+          cancelLabel: "Volver a tienda",
+        });
+      } else {
+        setCheckoutIssue({
+          title: "No se pudo procesar el pedido",
+          message: "Ocurrió un problema al crear tu orden. Revisa tu información e intenta nuevamente.",
+          confirmLabel: "Entendido",
+          cancelLabel: "Volver a tienda",
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -411,6 +481,28 @@ export default function CheckoutPage() {
   }
 
   if (orderComplete) return <OrderComplete order={orderComplete} />;
+  if (items.length === 0 && checkoutIssue) {
+    return (
+      <>
+        <EmptyCart />
+        <StorefrontConfirmModal
+          isOpen={!!checkoutIssue}
+          onClose={() => setCheckoutIssue(null)}
+          title={checkoutIssue.title}
+          message={checkoutIssue.message}
+          icon={AlertCircle}
+          variant="danger"
+          confirmLabel={checkoutIssue.confirmLabel}
+          cancelLabel={checkoutIssue.cancelLabel}
+          onConfirm={() => setCheckoutIssue(null)}
+          onCancel={() => {
+            setCheckoutIssue(null);
+            router.push("/store");
+          }}
+        />
+      </>
+    );
+  }
   if (items.length === 0) return <EmptyCart />;
 
   return (
@@ -649,8 +741,8 @@ export default function CheckoutPage() {
                       {isMPEnabled && (
                         <PaymentButton
                           icon={CreditCard}
-                          title="Tarjeta / Efectivo"
-                          subtitle="Aprobación instantánea"
+                          title="Tarjeta de crédito o débito"
+                          subtitle="Pago seguro con Mercado Pago"
                           active={paymentMethod === "MERCADOPAGO"}
                           onClick={() => setPaymentMethod("MERCADOPAGO")}
                         />
@@ -706,6 +798,22 @@ export default function CheckoutPage() {
         onConfirm={handleConfirmRemove}
       />
 
+      <StorefrontConfirmModal
+        isOpen={!!checkoutIssue}
+        onClose={() => setCheckoutIssue(null)}
+        title={checkoutIssue?.title || ""}
+        message={checkoutIssue?.message || ""}
+        icon={AlertCircle}
+        variant="danger"
+        confirmLabel={checkoutIssue?.confirmLabel || "Entendido"}
+        cancelLabel={checkoutIssue?.cancelLabel || "Volver a tienda"}
+        onConfirm={() => setCheckoutIssue(null)}
+        onCancel={() => {
+          setCheckoutIssue(null);
+          router.push("/store");
+        }}
+      />
+
       <BottomSheet
         isOpen={showMobileSummary}
         onClose={() => setShowMobileSummary(false)}
@@ -753,6 +861,18 @@ function getErrorMessage(error: unknown) {
   }
 
   return null;
+}
+
+function isAvailabilityError(message: string | null) {
+  if (!message) return false;
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("not available") ||
+    normalized.includes("no está disponible") ||
+    normalized.includes("no esta disponible") ||
+    normalized.includes("reservado") ||
+    normalized.includes("vendido")
+  );
 }
 
 function CheckoutTopBar({

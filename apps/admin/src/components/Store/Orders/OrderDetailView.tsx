@@ -1,12 +1,14 @@
 import React, { useRef } from 'react';
 import {
   Package, Clock, CheckCircle2, Phone, MapPin, User,
-  Calendar, DollarSign, Plane, Truck, CircleX, ChevronLeft, Layers, MessageCircle, Edit2, Save
+  Calendar, DollarSign, Plane, Truck, CircleX, ChevronLeft, Layers, MessageCircle, Edit2, Save,
+  CreditCard, RotateCcw
 } from 'lucide-react';
 import { Order, WhatsAppMessageLog } from '../../../types';
 import { NexusAutonomousButton, NexusSectionButton } from '../../ui/NexusButton';
 import { NexusSection } from '../../ui/NexusSection';
 import { NexusModal, NexusModalActions } from '../../ui/NexusModal';
+import { NexusConfirmModal } from '../../ui/NexusConfirmModal';
 import { NexusInput, NexusSelect } from '../../ui/NexusInputs';
 import { ASSET_BASE_URL, apiOrders } from '../../../api';
 import { MEXICO_STATES } from '../../../constants';
@@ -129,6 +131,23 @@ const formatDateTime = (dateStr: string) => {
   });
 };
 
+const formatCurrency = (value?: number | null) => {
+  return (value || 0).toLocaleString('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    minimumFractionDigits: 2,
+  });
+};
+
+const getPaymentStatusLabel = (status?: string | null) => {
+  if (status === 'APPROVED') return 'Pagado';
+  if (status === 'REFUNDED') return 'Devuelto';
+  if (status === 'FAILED') return 'Fallido';
+  if (status === 'EXPIRED') return 'Expirado';
+  if (status === 'CANCELLED') return 'Cancelado';
+  return 'Pendiente';
+};
+
 const formatShortDate = (dateStr: string) => {
   if (!dateStr) return '';
   const date = new Date(dateStr);
@@ -206,6 +225,8 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
   const [selectedWhatsappLog, setSelectedWhatsappLog] = React.useState<WhatsAppMessageLog | null>(null);
   const [isCustomerModalOpen, setIsCustomerModalOpen] = React.useState(false);
   const [isSavingCustomer, setIsSavingCustomer] = React.useState(false);
+  const [isRefundModalOpen, setIsRefundModalOpen] = React.useState(false);
+  const [isRefunding, setIsRefunding] = React.useState(false);
   const [customerForm, setCustomerForm] = React.useState({
     customerName: order.customer || '',
     customerPhone: order.customerPhone || '',
@@ -224,6 +245,13 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
   const itemsList = currentOrder?.items || [];
   const hasBirds = itemsList.some(item => item?.type?.toUpperCase() === 'BIRD');
   const hasItems = itemsList.some(item => item?.type?.toUpperCase() === 'ITEM');
+  const isMercadoPagoOrder = currentOrder.paymentMethod === 'MERCADOPAGO';
+  const canRefundMercadoPago =
+    isMercadoPagoOrder &&
+    currentOrder.status === 'paid' &&
+    currentOrder.paymentStatus === 'APPROVED' &&
+    Boolean(currentOrder.mpPaymentId) &&
+    Number(currentOrder.mpRefundedAmount || 0) <= 0;
 
   const loadWhatsappLogs = async () => {
     if (!currentOrder?.id) return;
@@ -286,6 +314,21 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
       showToast('No se pudo actualizar el cliente', 'error');
     } finally {
       setIsSavingCustomer(false);
+    }
+  };
+
+  const handleRefundMercadoPago = async () => {
+    if (!currentOrder?.id || isRefunding) return;
+    setIsRefunding(true);
+    try {
+      const updatedOrder = await apiOrders.refundMercadoPago(currentOrder.id);
+      setCurrentOrder(updatedOrder);
+      setIsRefundModalOpen(false);
+      showToast('Pago devuelto correctamente', 'success');
+    } catch (error: any) {
+      showToast(error?.response?.data?.message || 'No se pudo devolver el pago', 'error');
+    } finally {
+      setIsRefunding(false);
     }
   };
 
@@ -597,6 +640,48 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
             </form>
           </NexusModal>
 
+          {isMercadoPagoOrder && (
+            <NexusSection
+              title="Mercado Pago"
+              subtitle="Pago con tarjeta"
+              icon={CreditCard}
+              iconVariant={currentOrder.paymentStatus === 'APPROVED' ? 'emerald' : 'brand'}
+              actionPlacement="below"
+              action={
+                canRefundMercadoPago ? (
+                  <NexusSectionButton
+                    onClick={() => setIsRefundModalOpen(true)}
+                    icon={RotateCcw}
+                    variant="secondary"
+                  >
+                    Devolver Pago
+                  </NexusSectionButton>
+                ) : undefined
+              }
+            >
+              <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 'var(--space-md)' }}>
+                <DetailField label="Estado" value={getPaymentStatusLabel(currentOrder.paymentStatus)} />
+                <DetailField label="Monto pagado" value={formatCurrency(currentOrder.mpPaidAmount || currentOrder.total)} />
+                <DetailField label="ID de pago" value={currentOrder.mpPaymentId || 'No disponible'} wide />
+                <DetailField
+                  label="Método"
+                  value={[
+                    currentOrder.mpPaymentMethodId,
+                    currentOrder.mpPaymentTypeId,
+                  ].filter(Boolean).join(' / ') || 'Mercado Pago'}
+                  wide
+                />
+                {currentOrder.mpRefundedAt && (
+                  <>
+                    <DetailField label="Monto devuelto" value={formatCurrency(currentOrder.mpRefundedAmount)} />
+                    <DetailField label="Fecha de devolución" value={formatDateTime(currentOrder.mpRefundedAt)} />
+                    <DetailField label="ID de devolución" value={currentOrder.mpRefundId || 'No disponible'} wide />
+                  </>
+                )}
+              </div>
+            </NexusSection>
+          )}
+
           <NexusSection
             title="WhatsApp"
             subtitle="Historial de notificaciones"
@@ -758,6 +843,17 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
             )}
           </NexusModal>
 
+          <NexusConfirmModal
+            isOpen={isRefundModalOpen}
+            onCancel={() => setIsRefundModalOpen(false)}
+            onConfirm={handleRefundMercadoPago}
+            title="¿Devolver pago?"
+            message="Se realizará la devolución total en Mercado Pago, se cancelará la orden y se liberará el inventario."
+            confirmLabel={isRefunding ? 'Devolviendo...' : 'Devolver pago'}
+            tone="danger"
+            icon={RotateCcw}
+            zIndex={270}
+          />
 
         </div>
       </div>

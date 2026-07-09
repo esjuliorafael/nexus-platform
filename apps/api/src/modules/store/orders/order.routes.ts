@@ -124,6 +124,26 @@ export async function orderRoutes(server: FastifyInstance) {
     }
   });
 
+  server.post("/admin/:id/refund", { preHandler: [server.authenticate] }, async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const orderId = parseInt(id, 10);
+      if (!Number.isInteger(orderId) || orderId < 1) {
+        return reply.status(400).send({ message: "Invalid order id" });
+      }
+
+      const { mpService } = await import("../payments/mercadopago.service");
+      return await mpService.refundOrder(orderId);
+    } catch (error: any) {
+      if (error?.statusCode) {
+        return reply.status(error.statusCode).send({ message: error.message });
+      }
+      return reply.status(400).send({
+        message: error?.message || "No se pudo devolver el pago.",
+      });
+    }
+  });
+
   server.delete("/admin/:id", { preHandler: [server.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string };
     await orderService.cancelOrder(parseInt(id));

@@ -99,7 +99,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
       await apiOrders.updateStatus(id, "PAID");
       onOrdersChange(
         orders.map((order) =>
-          order.id === id ? { ...order, status: "paid" } : order,
+          order.id === id ? { ...order, status: "paid", paymentStatus: "APPROVED" } : order,
         ),
       );
       showToast("Orden marcada como pagada");
@@ -120,7 +120,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
           await apiOrders.cancel(id);
           onOrdersChange(
             orders.map((order) =>
-              order.id === id ? { ...order, status: "cancelled" } : order,
+              order.id === id ? { ...order, status: "cancelled", paymentStatus: "CANCELLED" } : order,
             ),
           );
           showToast("Orden cancelada correctamente");

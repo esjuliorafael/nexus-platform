@@ -1,6 +1,6 @@
 import { storePrisma } from "@nexus/db/store";
 import { rafflePrisma } from "@nexus/db/raffle";
-import { MercadoPagoConfig, Preference } from 'mercadopago';
+import { MercadoPagoConfig, Preference, PaymentRefund } from 'mercadopago';
 import axios from "axios";
 import crypto from "crypto";
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
@@ -182,6 +182,11 @@ export const mpService = {
       statement_descriptor: statementDescriptor, // dynamic brand name
     };
 
+    if (!isRaffle && order?.paymentExpiresAt) {
+      body.expires = true;
+      body.expiration_date_to = order.paymentExpiresAt.toISOString();
+    }
+
     if (marketplaceFee > 0) {
       body.marketplace_fee = Number(marketplaceFee.toFixed(2));
     }
@@ -192,6 +197,129 @@ export const mpService = {
     console.log('[MP] Using Seller Token:', sellerToken.substring(0, 10) + '...');
 
     return preference.create({ body });
+  },
+
+  async getSellerTokenByUserId(sellerUserId?: string | null) {
+    if (sellerUserId) {
+      const channel = await storePrisma.paymentChannel.findFirst({
+        where: { mpUserId: sellerUserId },
+      });
+      if (channel?.mpAccessToken) return channel.mpAccessToken;
+
+      const globalSellerId = await this.getSetting("mp_seller_user_id");
+      if (globalSellerId === sellerUserId) {
+        return await this.getSetting("mp_seller_access_token");
+      }
+    }
+
+    return await this.getSetting("mp_seller_access_token");
+  },
+
+  async recordOrderPayment(orderId: number, payment: any, sellerUserId?: string | null) {
+    const paidAmount = Number(payment.transaction_amount || payment.total_paid_amount || 0);
+
+    return storePrisma.order.update({
+      where: { id: orderId },
+      data: {
+        mpPaymentId: payment.id ? String(payment.id) : null,
+        mpSellerUserId: sellerUserId || payment.collector_id?.toString() || null,
+        mpPaymentStatus: payment.status || null,
+        mpPaymentStatusDetail: payment.status_detail || null,
+        mpPaymentMethodId: payment.payment_method_id || null,
+        mpPaymentTypeId: payment.payment_type_id || null,
+        mpPaidAmount: Number.isFinite(paidAmount) && paidAmount > 0 ? paidAmount : null,
+      },
+    });
+  },
+
+  async refundOrder(orderId: number) {
+    const order = await storePrisma.order.findUnique({
+      where: { id: orderId },
+      include: { items: true },
+    });
+
+    if (!order) {
+      const error = new Error("Orden no encontrada") as Error & { statusCode?: number };
+      error.statusCode = 404;
+      throw error;
+    }
+
+    if (order.paymentMethod !== "MERCADOPAGO") {
+      const error = new Error("Esta orden no fue pagada con Mercado Pago.") as Error & { statusCode?: number };
+      error.statusCode = 409;
+      throw error;
+    }
+
+    if (Number(order.mpRefundedAmount) > 0 || order.paymentStatus === "REFUNDED") {
+      const error = new Error("El pago de esta orden ya fue devuelto.") as Error & { statusCode?: number };
+      error.statusCode = 409;
+      throw error;
+    }
+
+    if (order.status !== "PAID" || order.paymentStatus !== "APPROVED") {
+      const error = new Error("Solo se pueden devolver órdenes pagadas con tarjeta.") as Error & { statusCode?: number };
+      error.statusCode = 409;
+      throw error;
+    }
+
+    if (!order.mpPaymentId) {
+      const error = new Error("La orden no tiene un ID de pago de Mercado Pago.") as Error & { statusCode?: number };
+      error.statusCode = 409;
+      throw error;
+    }
+
+    const sellerToken = await this.getSellerTokenByUserId(order.mpSellerUserId);
+    if (!sellerToken) {
+      const error = new Error("No se encontró la cuenta de Mercado Pago para procesar la devolución.") as Error & { statusCode?: number };
+      error.statusCode = 409;
+      throw error;
+    }
+
+    const client = new MercadoPagoConfig({ accessToken: sellerToken });
+    const refundClient = new PaymentRefund(client);
+    const refund = await refundClient.create({ payment_id: order.mpPaymentId });
+    const refundAmount = Number((refund as any).amount || order.mpPaidAmount || order.total);
+
+    return storePrisma.$transaction(async (tx) => {
+      const refundedOrder = await tx.order.update({
+        where: { id: orderId },
+        data: {
+          status: "CANCELLED",
+          paymentStatus: "REFUNDED",
+          paymentExpiresAt: null,
+          expiresAt: null,
+          mpPaymentStatus: "refunded",
+          mpRefundId: (refund as any).id ? String((refund as any).id) : null,
+          mpRefundedAmount: Number.isFinite(refundAmount) ? refundAmount : Number(order.total),
+          mpRefundedAt: new Date(),
+        },
+        include: { items: true },
+      });
+
+      for (const item of order.items) {
+        if (item.productType === "BIRD") {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { saleStatus: "AVAILABLE" },
+          });
+        } else {
+          await tx.product.update({
+            where: { id: item.productId },
+            data: { stock: { increment: item.quantity } },
+          });
+        }
+      }
+
+      await tx.orderEvent.create({
+        data: {
+          orderId,
+          eventType: "PAYMENT_REFUNDED",
+          message: "Pago devuelto en Mercado Pago. Orden cancelada e inventario liberado.",
+        },
+      });
+
+      return refundedOrder;
+    });
   },
 
   async handleWebhook(data: any, headers?: any) {
@@ -273,8 +401,8 @@ export const mpService = {
         const payment = response.data as any;
         console.log(`[MP] Payment details for ${resourceId}: status=${payment.status}, external_ref=${payment.external_reference}`);
 
+        const externalReference = payment.external_reference;
         if (payment.status === "approved") {
-          const externalReference = payment.external_reference;
           
           if (externalReference?.startsWith("order_")) {
             const orderId = parseInt(externalReference.replace("order_", ""));
@@ -282,27 +410,10 @@ export const mpService = {
             const { orderService } = await import("../orders/order.service");
             const order = await storePrisma.order.findUnique({ where: { id: orderId }, include: { items: true } });
             
-            if (order && order.status !== 'PAID') {
+            if (order && order.status === 'PENDING' && order.paymentStatus === 'PENDING') {
+              await this.recordOrderPayment(orderId, payment, sellerId || payment.collector_id?.toString() || null);
               await orderService.updateStatus(orderId, "PAID");
-              // Resolver orderKind para WhatsApp
-              const products = await storePrisma.product.findMany({ where: { id: { in: order.items.map(i => i.productId) } } });
-              const birds = products.filter(p => p.type === 'BIRD');
-              const hasItems = products.some(p => p.type === 'ITEM');
-              let orderKind: OrderKind = { type: "mixed" };
-              if (birds.length > 0 && !hasItems) {
-                const firstPurpose = birds[0].purpose as OrderItemPurpose;
-                orderKind = { type: "birds_only", purpose: birds.every(b => b.purpose === firstPurpose) ? firstPurpose : null };
-              } else if (birds.length === 0 && hasItems) {
-                orderKind = { type: "articles_only" };
-              }
-
-              await whatsappQueue.add("order-paid", {
-                kind: "order-paid",
-                orderId: order.id.toString(),
-                recipientPhone: order.customerPhone,
-                orderKind
-              });
-              console.log(`[MP] Order #${orderId} marked as PAID and WhatsApp notification queued`);
+              console.log(`[MP] Order #${orderId} marked as PAID`);
             }
           } else if (externalReference?.startsWith("raffle_")) {
             const saleId = parseInt(externalReference.replace("raffle_", ""));
@@ -317,6 +428,12 @@ export const mpService = {
               });
               console.log(`[MP] Raffle Sale #${saleId} marked as PAID and WhatsApp notification queued`);
             }
+          }
+        } else if (["cancelled", "rejected", "refunded", "charged_back"].includes(payment.status)) {
+          if (externalReference?.startsWith("order_")) {
+            const orderId = parseInt(externalReference.replace("order_", ""));
+            const { orderService } = await import("../orders/order.service");
+            await orderService.cancelPaymentAttempt(orderId, "FAILED");
           }
         }
       } catch (e: any) {
@@ -338,5 +455,23 @@ export const mpService = {
       update: { value, updated_at: new Date() },
       create: { key, value, group: "payments", updated_at: new Date() }
     });
+  },
+
+  async disconnectMainAccount() {
+    const keys = [
+      "mp_seller_access_token",
+      "mp_seller_refresh_token",
+      "mp_seller_user_id",
+      "mp_main_checkout_enabled",
+    ];
+
+    await storePrisma.setting.updateMany({
+      where: { key: { in: keys } },
+      data: { value: "", updated_at: new Date() },
+    });
+
+    await this.saveSetting("mp_main_checkout_enabled", "0");
+
+    return { success: true };
   }
 };

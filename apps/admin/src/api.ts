@@ -72,6 +72,10 @@ export const apiMercadoPago = {
     const res = await api.get(`/mp/auth-url${query}`);
     return res.data.url;
   },
+  disconnectMain: async (): Promise<{ success: boolean }> => {
+    const res = await api.post("/mp/disconnect-main");
+    return res.data;
+  },
 };
 
 export interface MediaUploadResult {
@@ -476,6 +480,10 @@ export const apiOrders = {
   resendWhatsApp: async (id: string) => {
     return api.post(`/store/orders/admin/${id}/resend-whatsapp`);
   },
+  refundMercadoPago: async (id: string): Promise<Order> => {
+    const res = await api.post(`/store/orders/admin/${id}/refund`);
+    return mapOrderResponse(res.data);
+  },
   updateCustomer: async (
     id: string,
     data: { customerName: string; customerPhone: string; shippingState?: string | null },
@@ -843,6 +851,19 @@ function mapOrderResponse(item: any): Order {
     shippingCity: item.shippingCity,
     total: parseFloat(item.total),
     status: mapOrderStatus(item.status),
+    paymentMethod: item.paymentMethod,
+    paymentStatus: item.paymentStatus,
+    paymentExpiresAt: item.paymentExpiresAt,
+    mpPaymentId: item.mpPaymentId,
+    mpSellerUserId: item.mpSellerUserId,
+    mpPaymentStatus: item.mpPaymentStatus,
+    mpPaymentStatusDetail: item.mpPaymentStatusDetail,
+    mpPaymentMethodId: item.mpPaymentMethodId,
+    mpPaymentTypeId: item.mpPaymentTypeId,
+    mpPaidAmount: item.mpPaidAmount != null ? parseFloat(item.mpPaidAmount) : null,
+    mpRefundId: item.mpRefundId,
+    mpRefundedAmount: item.mpRefundedAmount != null ? parseFloat(item.mpRefundedAmount) : null,
+    mpRefundedAt: item.mpRefundedAt,
     date: item.createdAt,
     isRead: Boolean(item.isRead),
     readAt: item.readAt || undefined,

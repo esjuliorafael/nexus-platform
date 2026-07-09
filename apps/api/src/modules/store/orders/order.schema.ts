@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const deliveryTypeEnum = z.enum(["SHIPPING", "PICKUP"]);
 export const orderStatusEnum = z.enum(["PENDING", "PAID", "SHIPPED", "DELIVERED", "CANCELLED"]);
+export const paymentMethodEnum = z.enum(["TRANSFER", "MERCADOPAGO"]);
 
 export const createOrderSchema = z.object({
   customerName: z.string().min(1),
@@ -18,6 +19,7 @@ export const createOrderSchema = z.object({
   shippingCost: z.number().optional(),
   couponCode: z.string().trim().optional().or(z.literal("")),
   deliveryType: deliveryTypeEnum,
+  paymentMethod: paymentMethodEnum.optional().default("TRANSFER"),
   items: z.array(
     z.object({
       productId: z.number().int().positive(),

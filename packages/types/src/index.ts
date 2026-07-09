@@ -49,6 +49,19 @@ export interface Order {
   shippingCost: number;
   total: number;
   status: "PENDING" | "PAID" | "SHIPPED" | "DELIVERED" | "CANCELLED";
+  paymentMethod: "TRANSFER" | "MERCADOPAGO" | string;
+  paymentStatus: "PENDING" | "APPROVED" | "FAILED" | "EXPIRED" | "CANCELLED" | "REFUNDED" | string;
+  paymentExpiresAt: Date | null;
+  mpPaymentId: string | null;
+  mpSellerUserId: string | null;
+  mpPaymentStatus: string | null;
+  mpPaymentStatusDetail: string | null;
+  mpPaymentMethodId: string | null;
+  mpPaymentTypeId: string | null;
+  mpPaidAmount: number | null;
+  mpRefundId: string | null;
+  mpRefundedAmount: number;
+  mpRefundedAt: Date | null;
   createdAt: Date;
 }
 
