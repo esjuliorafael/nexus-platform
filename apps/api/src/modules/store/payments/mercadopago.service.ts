@@ -158,6 +158,19 @@ export const mpService = {
 
     const statementDescriptor = await this.getSetting("mp_statement_descriptor") || "NEXUS*SHOP";
 
+    const payerEmail = isRaffle ? tickets[0].customerEmail : order!.customerEmail;
+    const payer: any = {
+      name: isRaffle ? tickets[0].customerName : order!.customerName,
+      phone: {
+          area_code: '52',
+          number: isRaffle ? tickets[0].customerPhone : order!.customerPhone
+      }
+    };
+
+    if (payerEmail && String(payerEmail).trim()) {
+      payer.email = String(payerEmail).trim();
+    }
+
     const body: any = {
       items: items.map((item: any) => ({
         ...item,
@@ -170,14 +183,7 @@ export const mpService = {
         failure: `${apiUrl}/api/v1/mp/redirect?target=failure&ref=${externalReference}`,
         pending: `${apiUrl}/api/v1/mp/redirect?target=pending&ref=${externalReference}`,
       },
-      payer: {
-        email: isRaffle ? tickets[0].customerEmail : order!.customerEmail || 'test_user_123@testuser.com',
-        name: isRaffle ? tickets[0].customerName : order!.customerName,
-        phone: {
-            area_code: '52',
-            number: isRaffle ? tickets[0].customerPhone : order!.customerPhone
-        }
-      },
+      payer,
       binary_mode: true, // Quality score: Approved or Rejected instantly
       statement_descriptor: statementDescriptor, // dynamic brand name
     };
