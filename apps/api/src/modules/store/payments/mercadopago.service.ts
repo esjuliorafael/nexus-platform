@@ -4,7 +4,7 @@ import { MercadoPagoConfig, Preference, PaymentRefund } from 'mercadopago';
 import axios from "axios";
 import crypto from "crypto";
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
-import type { OrderKind, OrderItemPurpose } from "../../../services/evolution/channel.resolver";
+import type { OrderItemPurpose } from "../../../services/evolution/channel.resolver";
 
 const getRedirectUri = () => `${process.env.API_URL}/api/v1/mp/callback`;
 
@@ -61,8 +61,6 @@ export const mpService = {
     let items = [];
     let externalReference = "";
     let totalAmount = 0;
-    let orderKind: OrderKind = { type: "mixed" };
-    
     let order: any = null;
     let tickets: any[] = [];
 
@@ -118,11 +116,8 @@ export const mpService = {
               where: { purpose: firstPurpose as string }
             });
             sellerToken = channel?.mpAccessToken || "";
-            orderKind = { type: "birds_only", purpose: firstPurpose };
           }
         }
-      } else if (birds.length === 0 && hasItems) {
-        orderKind = { type: "articles_only" };
       }
 
       // Fallback a token principal
@@ -130,17 +125,22 @@ export const mpService = {
         sellerToken = await this.getSetting("mp_seller_access_token") || "";
       }
 
-      items = (order.items as any[]).map((item: any) => ({
-        id: item.productId.toString(),
-        title: item.productName || "Producto Nexus",
-        quantity: item.quantity,
-        unit_price: Number(item.unitPrice),
-        currency_id: 'MXN'
-      }));
-
-      if (Number(order.shippingCost) > 0) {
-        items.push({ id: 'shipping', title: 'Env\u00edo', quantity: 1, unit_price: Number(order.shippingCost), currency_id: 'MXN' });
+      if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
+        throw new Error("El total de la orden no es válido para Mercado Pago");
       }
+
+      items = [{
+        id: `order_${order.id}`,
+        title: `Orden #${order.id}`,
+        description: [
+          `Subtotal: $${Number(order.subtotal).toFixed(2)}`,
+          Number(order.discountTotal) > 0 ? `Descuento: -$${Number(order.discountTotal).toFixed(2)}` : null,
+          Number(order.shippingCost) > 0 ? `Envío: $${Number(order.shippingCost).toFixed(2)}` : null,
+        ].filter(Boolean).join(" · "),
+        quantity: 1,
+        unit_price: totalAmount,
+        currency_id: 'MXN'
+      }];
     }
 
     if (!sellerToken) throw new Error("Pasarela no disponible para este canal");
