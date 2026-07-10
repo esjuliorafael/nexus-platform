@@ -4,12 +4,13 @@ import { storePrisma } from "@nexus/db/store";
 import { processVideoAsset } from "../modules/store/media-assets/media-asset.processor";
 import type { MediaProcessingJobData } from "../modules/store/media-assets/media-asset.types";
 import { storageService } from "../services/storage.service";
+import { queueName } from "../queues/queue-name";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
 const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
 
 export const mediaProcessingWorker = new Worker<MediaProcessingJobData>(
-  "media-processing",
+  queueName("media-processing"),
   async (job: Job<MediaProcessingJobData>) => {
     try {
       return await processVideoAsset(job.data.assetId);

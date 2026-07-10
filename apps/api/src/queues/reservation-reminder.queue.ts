@@ -4,6 +4,7 @@ import { storePrisma } from "@nexus/db/store";
 import { rafflePrisma } from "@nexus/db/raffle";
 import { whatsappQueue } from "./whatsapp.queue";
 import type { OrderKind, OrderItemPurpose } from "../services/evolution/channel.resolver";
+import { queueName } from "./queue-name";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
 const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
@@ -21,7 +22,7 @@ type ReservationReminderJobData =
     };
 
 export const reservationReminderQueue = new Queue<ReservationReminderJobData>(
-  "reservation-reminders",
+  queueName("reservation-reminders"),
   {
     connection,
     defaultJobOptions: {
@@ -34,7 +35,7 @@ export const reservationReminderQueue = new Queue<ReservationReminderJobData>(
 );
 
 export const reservationReminderWorker = new Worker<ReservationReminderJobData>(
-  "reservation-reminders",
+  queueName("reservation-reminders"),
   async (job: Job<ReservationReminderJobData>) => {
     const { data } = job;
 

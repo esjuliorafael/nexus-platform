@@ -7,12 +7,13 @@ import { getEvolutionConfigFromSettings } from "../services/evolution/evolution.
 import { sendAndLog } from "../services/evolution/evolution.service";
 import type { WhatsappJobData } from "../queues/whatsapp.queue";
 import type { OrderKind } from "../services/evolution/channel.resolver";
+import { queueName } from "../queues/queue-name";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
 const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
 
 export const whatsappWorker = new Worker<WhatsappJobData>(
-  "whatsapp-notifications",
+  queueName("whatsapp-notifications"),
   async (job: Job<WhatsappJobData>) => {
     const { data } = job;
 

@@ -1,14 +1,15 @@
 import { Queue, Worker, Job } from "bullmq";
 import IORedis from "ioredis";
 import { whatsappQueue } from "./whatsapp.queue";
+import { queueName } from "./queue-name";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
 const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
 
-export const ticketReleaseQueue = new Queue("ticket-release", { connection });
+export const ticketReleaseQueue = new Queue(queueName("ticket-release"), { connection });
 
 export const ticketReleaseWorker = new Worker(
-  "ticket-release",
+  queueName("ticket-release"),
   async (job: Job) => {
     const { ticketSaleIds } = job.data;
     const { rafflePrisma } = await import("@nexus/db/raffle");
