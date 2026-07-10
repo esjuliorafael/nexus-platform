@@ -68,6 +68,43 @@ interface BankInfo {
   card?: string | null;
 }
 
+interface PendingPaymentAttempt {
+  orderId: number;
+  customerName: string;
+  customerPhone: string;
+  total: number;
+  expiresAt: string;
+}
+
+const PENDING_MP_PAYMENT_KEY = "nexus_pending_mp_payment";
+
+function readPendingPaymentAttempt() {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = window.sessionStorage.getItem(PENDING_MP_PAYMENT_KEY);
+    if (!raw) return null;
+    const parsed = JSON.parse(raw) as PendingPaymentAttempt;
+    if (!parsed?.orderId || !parsed?.customerPhone || !parsed?.expiresAt) return null;
+    return parsed;
+  } catch {
+    return null;
+  }
+}
+
+function savePendingPaymentAttempt(attempt: PendingPaymentAttempt) {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem(PENDING_MP_PAYMENT_KEY, JSON.stringify(attempt));
+}
+
+function clearPendingPaymentAttempt() {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem(PENDING_MP_PAYMENT_KEY);
+}
+
+function isPendingPaymentAttemptExpired(attempt: PendingPaymentAttempt) {
+  return new Date(attempt.expiresAt).getTime() <= Date.now();
+}
+
 export default function CheckoutPage() {
   const { items, coupon, getTotalPrice, getDiscountTotal, clearCart, removeItem } = useCartStore();
   const { settings } = useSettings();
@@ -92,6 +129,7 @@ export default function CheckoutPage() {
   } | null>(null);
   const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>(0);
   const [showMobileSummary, setShowMobileSummary] = useState(false);
+  const [pendingPaymentAttempt, setPendingPaymentAttempt] = useState<PendingPaymentAttempt | null>(null);
   const checkoutFormRef = useRef<HTMLFormElement>(null);
 
   const [formData, setFormData] = useState({
@@ -124,14 +162,29 @@ export default function CheckoutPage() {
     const orderId = params.get("external_reference")?.replace("order_", "");
 
     if (status === "approved" || status === "success") {
+      clearPendingPaymentAttempt();
+      setPendingPaymentAttempt(null);
       setPaymentStatus("success");
       clearCart();
       if (orderId) setOrderComplete({ id: orderId, status: "PAID" });
     } else if (status === "pending" || status === "in_process") {
+      clearPendingPaymentAttempt();
+      setPendingPaymentAttempt(null);
       setPaymentStatus("pending");
       clearCart();
     } else if (status === "rejected" || status === "failure") {
+      clearPendingPaymentAttempt();
+      setPendingPaymentAttempt(null);
       setPaymentStatus("failure");
+    } else {
+      const storedAttempt = readPendingPaymentAttempt();
+      if (storedAttempt && !isPendingPaymentAttemptExpired(storedAttempt)) {
+        setPendingPaymentAttempt(storedAttempt);
+        setPaymentMethod("MERCADOPAGO");
+        setCheckoutStep(3);
+      } else if (storedAttempt) {
+        clearPendingPaymentAttempt();
+      }
     }
   }, [clearCart]);
 
@@ -155,6 +208,14 @@ export default function CheckoutPage() {
     return null;
   };
 
+  const freeBirdShipping = hasBirds && findSetting("shipping_free_threshold_birds") === "1";
+  const freeItemShipping = hasItems && findSetting("shipping_free_threshold_items") === "1";
+  const isShippingFullyCovered =
+    (hasBirds || hasItems) &&
+    (!hasBirds || freeBirdShipping) &&
+    (!hasItems || freeItemShipping);
+  const shouldUseParcelDeliveryChoice = !isShippingFullyCovered && (isArticlesOnly || (hasItems && freeBirdShipping));
+
   const shippingCalculation = useMemo(() => {
     const freeBirds = findSetting("shipping_free_threshold_birds") === "1";
     const freeItems = findSetting("shipping_free_threshold_items") === "1";
@@ -165,10 +226,10 @@ export default function CheckoutPage() {
     let total = 0;
     const details: ShippingDetail[] = [];
 
-    if (hasBirds && selectedZone) {
+    if (hasBirds) {
       if (freeBirds) {
-        details.push({ label: "Envío de aves", amount: 0, note: "Promoción envío gratis" });
-      } else {
+        details.push({ label: "Envío de aves", amount: 0, note: "Promoción de envío gratis" });
+      } else if (selectedZone) {
         const amount = selectedZone.zoneType === "EXTENDED" ? costExtended : costStandard;
         total += amount;
         details.push({
@@ -181,7 +242,7 @@ export default function CheckoutPage() {
 
     if (hasItems) {
       if (freeItems) {
-        details.push({ label: "Artículos", amount: 0, note: "Promoción envío gratis" });
+        details.push({ label: "Artículos", amount: 0, note: "Promoción de envío gratis" });
       } else {
         total += costBaseItems;
         details.push({ label: "Artículos a domicilio", amount: costBaseItems });
@@ -193,19 +254,34 @@ export default function CheckoutPage() {
 
   const mpCheckoutSetting = findSetting("mp_main_checkout_enabled");
   const isMPEnabled = Boolean(findSetting("mp_seller_access_token")) && mpCheckoutSetting !== "0";
+  const mpHoldMinutes = Math.max(5, Number(findSetting("mp_payment_hold_minutes") || 30));
   const discountTotal = getDiscountTotal();
   const orderTotal = Math.max(0, getTotalPrice() + shippingCalculation.total - discountTotal);
   const selectedZoneMethod = selectedZone?.zoneType === "EXTENDED" ? "AIRPORT" : "BUS_STATION";
-  const deliveryMethodMismatch = Boolean(hasBirds && selectedZone && formData.deliveryMethod && formData.deliveryMethod !== selectedZoneMethod);
+  const deliveryMethodMismatch = Boolean(!isShippingFullyCovered && hasBirds && selectedZone && formData.deliveryMethod && formData.deliveryMethod !== selectedZoneMethod);
   const shippingStatusNote = useMemo(() => {
+    if (isShippingFullyCovered) {
+      return selectedZone
+        ? `El envío es gratis. Coordinaremos contigo la mejor forma de entrega para ${selectedZone.name}, según tu ubicación y los productos de tu pedido.`
+        : "El envío es gratis. Coordinaremos contigo la mejor forma de entrega según tu ubicación y los productos de tu pedido.";
+    }
+
     if (isArticlesOnly) {
       return "Tus artículos se envían por paquetería a domicilio. Usaremos tu dirección para coordinar la entrega.";
     }
 
     if (!selectedZone) {
+      if (hasItems && freeBirdShipping && hasBirds) {
+        return "Tus artículos se envían a domicilio. El envío del ave está cubierto y se coordina contigo según tu ciudad y estado.";
+      }
+
       return hasItems
         ? "Tus artículos se envían a domicilio. La entrega del ave se define con tu ciudad y estado."
         : "La entrega del ave se define con tu ciudad y estado.";
+    }
+
+    if (freeBirdShipping && hasBirds && hasItems) {
+      return `El envío del ave está cubierto y lo coordinaremos contigo para ${selectedZone.name}. Los artículos se envían a tu dirección por paquetería.`;
     }
 
     const birdDelivery = selectedZone.zoneType === "EXTENDED" ? "aeropuerto" : "central de autobuses";
@@ -214,7 +290,7 @@ export default function CheckoutPage() {
     }
 
     return `Para ${selectedZone.name}, la entrega se coordina por ${birdDelivery}. Te contactaremos para afinar los detalles.`;
-  }, [hasItems, isArticlesOnly, selectedZone]);
+  }, [freeBirdShipping, hasBirds, hasItems, isArticlesOnly, isShippingFullyCovered, selectedZone]);
   const shippingStatusTone = deliveryMethodMismatch ? "warning" : "default";
 
   const refreshCartAvailability = async () => {
@@ -296,7 +372,7 @@ export default function CheckoutPage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!formData.deliveryMethod) {
+    if (!isShippingFullyCovered && !formData.deliveryMethod) {
       showToast("Selecciona cómo enviamos tu orden.", "info");
       return;
     }
@@ -335,6 +411,7 @@ export default function CheckoutPage() {
         shippingState: selectedZone.name,
         shippingAddress,
         shippingCost: shippingCalculation.total,
+        deliveryMethod: isShippingFullyCovered ? undefined : formData.deliveryMethod,
         couponCode: coupon?.code || "",
         deliveryType: "SHIPPING",
         paymentMethod,
@@ -344,11 +421,21 @@ export default function CheckoutPage() {
       if (paymentMethod === "MERCADOPAGO") {
         const preference = await paymentApi.getPreference(Number(createdOrder.id));
         if (preference.init_point) {
+          const attempt = {
+            orderId: Number(createdOrder.id),
+            customerName: formData.customerName.trim(),
+            customerPhone: formData.customerPhone.trim(),
+            total: orderTotal,
+            expiresAt: new Date(Date.now() + mpHoldMinutes * 60 * 1000).toISOString(),
+          };
+          savePendingPaymentAttempt(attempt);
+          setPendingPaymentAttempt(attempt);
           window.location.href = preference.init_point;
           return;
         }
       }
 
+      clearPendingPaymentAttempt();
       setOrderComplete(createdOrder);
       clearCart();
     } catch (error: unknown) {
@@ -378,6 +465,52 @@ export default function CheckoutPage() {
     }
   };
 
+  const handleContinuePendingPayment = async () => {
+    if (!pendingPaymentAttempt) return;
+
+    if (isPendingPaymentAttemptExpired(pendingPaymentAttempt)) {
+      clearPendingPaymentAttempt();
+      setPendingPaymentAttempt(null);
+      showToast("El intento de pago expiró. Puedes iniciar el checkout nuevamente.", "info");
+      return;
+    }
+
+    setLoading(true);
+    try {
+      const preference = await paymentApi.getPreference(pendingPaymentAttempt.orderId);
+      if (preference.init_point) {
+        window.location.href = preference.init_point;
+        return;
+      }
+      showToast("No se pudo abrir Mercado Pago. Intenta nuevamente.", "error");
+    } catch (error) {
+      console.error("Pending payment retry failed:", error);
+      clearPendingPaymentAttempt();
+      setPendingPaymentAttempt(null);
+      showToast("El intento de pago ya no está disponible. Puedes iniciar una nueva compra.", "info");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleCancelPendingPayment = async () => {
+    if (!pendingPaymentAttempt) return;
+
+    setLoading(true);
+    try {
+      await orderApi.cancelPaymentAttempt(pendingPaymentAttempt.orderId, pendingPaymentAttempt.customerPhone);
+      clearPendingPaymentAttempt();
+      setPendingPaymentAttempt(null);
+      showToast("Intento de pago cancelado. El producto volvió a estar disponible.", "success");
+      router.push("/store");
+    } catch (error) {
+      console.error("Pending payment cancellation failed:", error);
+      showToast("No se pudo cancelar el intento de pago. Intenta nuevamente.", "error");
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const handleConfirmRemove = () => {
     if (itemToDelete) {
       removeItem(itemToDelete.productId);
@@ -395,7 +528,7 @@ export default function CheckoutPage() {
 
   const canContinueFromStep = (step: CheckoutStep) => {
     if (step === 0) {
-      if (!formData.deliveryMethod) {
+      if (!isShippingFullyCovered && !formData.deliveryMethod) {
         showToast("Selecciona cómo enviamos tu orden.", "info");
         return false;
       }
@@ -481,6 +614,17 @@ export default function CheckoutPage() {
   }
 
   if (orderComplete) return <OrderComplete order={orderComplete} />;
+  if (pendingPaymentAttempt) {
+    return (
+      <PendingPaymentAttemptView
+        attempt={pendingPaymentAttempt}
+        loading={loading}
+        onContinue={handleContinuePendingPayment}
+        onCancel={handleCancelPendingPayment}
+        onBack={() => router.push("/store")}
+      />
+    );
+  }
   if (items.length === 0 && checkoutIssue) {
     return (
       <>
@@ -566,12 +710,14 @@ export default function CheckoutPage() {
                         Selecciona un método de entrega para continuar
                       </p>
                     </div>
-                    {isArticlesOnly ? (
+                    {isShippingFullyCovered ? (
+                      <CoveredShippingPanel hasBirds={hasBirds} hasItems={hasItems} />
+                    ) : shouldUseParcelDeliveryChoice ? (
                       <div className="grid grid-cols-1" style={{ gap: "var(--sf-space-md)" }}>
                         <ChoiceButton
                           icon={Truck}
                           label="Paquetería a domicilio"
-                          detail={getShippingSettingLabel("shipping_base_cost_items", settings)}
+                          detail={freeItemShipping ? "Gratis" : getShippingSettingLabel("shipping_base_cost_items", settings)}
                           active={formData.deliveryMethod === "PARCEL"}
                           onClick={() => handleDeliveryMethodSelect("PARCEL")}
                         />
@@ -581,24 +727,30 @@ export default function CheckoutPage() {
                         <ChoiceButton
                           icon={Bus}
                           label="Central de autobuses"
-                          detail={getShippingSettingLabel("shipping_cost_standard", settings)}
+                          detail={freeBirdShipping ? "Gratis" : getShippingSettingLabel("shipping_cost_standard", settings)}
                           active={formData.deliveryMethod === "BUS_STATION"}
                           onClick={() => handleDeliveryMethodSelect("BUS_STATION")}
                         />
                         <ChoiceButton
                           icon={Plane}
                           label="Aeropuerto"
-                          detail={getShippingSettingLabel("shipping_cost_extended", settings)}
+                          detail={freeBirdShipping ? "Gratis" : getShippingSettingLabel("shipping_cost_extended", settings)}
                           active={formData.deliveryMethod === "AIRPORT"}
                           onClick={() => handleDeliveryMethodSelect("AIRPORT")}
                         />
                       </div>
                     )}
-                    <InfoPanel>
-                      {isArticlesOnly
-                        ? "Los artículos se envían a tu dirección por paquetería."
-                        : "El método de entrega final depende de tu ciudad y estado. Si tu zona requiere una alternativa distinta, lo ajustamos y coordinamos contigo."}
-                    </InfoPanel>
+                    {!isShippingFullyCovered && (
+                      <InfoPanel>
+                        {shouldUseParcelDeliveryChoice
+                          ? hasBirds
+                            ? "Los artículos se envían a tu dirección por paquetería. El envío del ave está cubierto y lo coordinaremos contigo."
+                            : "Los artículos se envían a tu dirección por paquetería."
+                          : isArticlesOnly
+                          ? "Los artículos se envían a tu dirección por paquetería."
+                          : "El método de entrega final depende de tu ciudad y estado. Si tu zona requiere una alternativa distinta, lo ajustamos y coordinamos contigo."}
+                      </InfoPanel>
+                    )}
                   </CheckoutSection>
                 </div>
 
@@ -835,8 +987,8 @@ export default function CheckoutPage() {
       <StorefrontPurchaseBar
         total={orderTotal}
         loading={loading}
-        disabled={checkoutStep === 0 && !formData.deliveryMethod}
-        buttonLabel={checkoutStep === 0 ? "Selecciona método" : checkoutStep === 3 ? "Finalizar pedido" : "Continuar"}
+        disabled={checkoutStep === 0 && !isShippingFullyCovered && !formData.deliveryMethod}
+        buttonLabel={checkoutStep === 0 && !isShippingFullyCovered && !formData.deliveryMethod ? "Selecciona método" : checkoutStep === 3 ? "Finalizar pedido" : "Continuar"}
         buttonIcon={checkoutStep === 3 ? ShoppingBag : ArrowRight}
         onAction={handleCheckoutPrimaryAction}
       />
@@ -1023,6 +1175,39 @@ function ChoiceButton({
         </span>
       )}
     </button>
+  );
+}
+
+function CoveredShippingPanel({ hasBirds, hasItems }: { hasBirds: boolean; hasItems: boolean }) {
+  const detail = hasBirds && hasItems
+    ? "Aplica para aves y artículos de este pedido."
+    : hasBirds
+      ? "Aplica para las aves de este pedido."
+      : "Aplica para los artículos de este pedido.";
+
+  return (
+    <div
+      className="flex items-start border border-emerald-200 bg-emerald-50/80 text-emerald-950"
+      style={{ borderRadius: "var(--sf-radius-inner)", padding: "var(--sf-padding-inner)", gap: "var(--sf-space-md)" }}
+    >
+      <span
+        className="flex shrink-0 items-center justify-center bg-white text-emerald-600"
+        style={{
+          width: "var(--sf-h-button-card)",
+          height: "var(--sf-h-button-card)",
+          borderRadius: "var(--sf-radius-nested)",
+        }}
+      >
+        <Check style={{ width: "var(--sf-size-inner-icon-card)", height: "var(--sf-size-inner-icon-card)" }} />
+      </span>
+      <div className="flex flex-col" style={{ gap: "var(--sf-space-xs)" }}>
+        <p className="sf-text-label uppercase tracking-[0.2em] font-black text-emerald-600">Envío gratis</p>
+        <p className="sf-text-h2 text-emerald-950">Nosotros coordinamos la entrega</p>
+        <p className="sf-text-secondary font-semibold leading-relaxed text-emerald-900/80">
+          {detail} El rancho elegirá la forma más conveniente para hacerte llegar tu compra según tu ubicación.
+        </p>
+      </div>
+    </div>
   );
 }
 
@@ -1219,6 +1404,8 @@ function OrderSummary({
   total: number;
   onRemoveItem: (item: any) => void;
 }) {
+  const shippingIsFree = shippingDetails.length > 0 && shippingTotal === 0;
+
   return (
     <div
       className={`overflow-hidden bg-stone-900 text-white ${
@@ -1295,7 +1482,7 @@ function OrderSummary({
             )}
           </AnimatePresence>
 
-          <SummaryRow label="Envío total" value={shippingDetails.length > 0 ? `$${formatPrice(shippingTotal)}` : "Pendiente de estado"} />
+          <SummaryRow label="Envío total" value={shippingDetails.length > 0 ? (shippingTotal > 0 ? `$${formatPrice(shippingTotal)}` : "Gratis") : "Pendiente de estado"} />
 
           <div className="flex flex-col pt-[var(--sf-space-md)] mt-2">
             <div className="flex items-baseline justify-between border-t border-white/5 pt-4">
@@ -1311,7 +1498,9 @@ function OrderSummary({
           <div className="flex items-start" style={{ gap: "var(--sf-space-sm)" }}>
             <Info size={16} className="mt-1 shrink-0 text-brand-400" />
             <p className="sf-text-label leading-relaxed text-stone-400 uppercase tracking-widest text-[9px]">
-              {shippingDetails.length > 0
+              {shippingIsFree
+                ? "El envío está cubierto. Coordinaremos contigo la forma de entrega más conveniente."
+                : shippingDetails.length > 0
                 ? selectedZone
                   ? `Enviaremos y coordinaremos contigo los detalles para ${selectedZone.name}.`
                   : "Enviaremos los artículos a la dirección indicada."
@@ -1329,6 +1518,70 @@ function SummaryRow({ label, value }: { label: string; value: string }) {
     <div className="flex items-center justify-between sf-text-label text-stone-500 uppercase tracking-widest font-black text-[9px]">
       <span>{label}</span>
       <span className="tabular-nums text-stone-300">{value}</span>
+    </div>
+  );
+}
+
+function PendingPaymentAttemptView({
+  attempt,
+  loading,
+  onContinue,
+  onCancel,
+  onBack,
+}: {
+  attempt: PendingPaymentAttempt;
+  loading: boolean;
+  onContinue: () => void;
+  onCancel: () => void;
+  onBack: () => void;
+}) {
+  return (
+    <div className="min-h-screen px-[var(--sf-inset-page-mobile)] py-[var(--sf-space-xl)]">
+      <div className="mx-auto flex max-w-2xl flex-col" style={{ gap: "var(--sf-space-lg)" }}>
+        <button
+          type="button"
+          onClick={onBack}
+          className="flex w-fit items-center text-stone-500 transition-colors hover:text-stone-850"
+          style={{ gap: "var(--sf-space-sm)" }}
+        >
+          <ArrowLeft size={18} />
+          <span className="sf-text-button-card">Volver a tienda</span>
+        </button>
+
+        <StorefrontCard className="flex flex-col text-center" style={{ gap: "var(--sf-space-lg)" }}>
+          <div className="flex flex-col items-center" style={{ gap: "var(--sf-space-md)" }}>
+            <StorefrontIcon icon={CreditCard} context="section" variant="brand" />
+            <div className="flex flex-col" style={{ gap: "var(--sf-space-sm)" }}>
+              <p className="sf-text-label text-brand-500 uppercase tracking-[0.2em] font-black">Pago pendiente</p>
+              <h1 className="sf-text-display text-stone-850">Tu pedido está reservado</h1>
+              <p className="sf-text-body mx-auto max-w-xl text-stone-500 font-medium leading-relaxed">
+                La orden #{attempt.orderId} ya fue creada para {attempt.customerName || "tu compra"}. Puedes continuar el pago con Mercado Pago o cancelar este intento para liberar los productos.
+              </p>
+            </div>
+          </div>
+
+          <div
+            className="flex items-center justify-between border border-stone-200 bg-stone-50/80 text-left"
+            style={{ borderRadius: "var(--sf-radius-inner)", padding: "var(--sf-padding-inner)", gap: "var(--sf-space-md)" }}
+          >
+            <span className="sf-text-label text-stone-400 uppercase tracking-[0.2em] font-black">Total</span>
+            <span className="sf-text-h1 tabular-nums text-brand-500">${formatPrice(attempt.total)}</span>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--sf-space-md)" }}>
+            <Button type="button" context="section" variant="outline" onClick={onCancel} disabled={loading} className="w-full">
+              Cancelar intento
+            </Button>
+            <Button type="button" context="section" onClick={onContinue} disabled={loading} className="w-full">
+              {loading ? <Spinner className="text-white" /> : "Continuar pago"}
+            </Button>
+          </div>
+
+          <p className="sf-text-secondary text-stone-400 font-medium">
+            Si no haces nada, esta reserva temporal expirará automáticamente.
+          </p>
+        </StorefrontCard>
+      </div>
     </div>
   );
 }

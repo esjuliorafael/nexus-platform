@@ -38,6 +38,10 @@ export const updateOrderCustomerSchema = z.object({
   shippingState: z.string().trim().optional().nullable(),
 });
 
+export const cancelPaymentAttemptSchema = z.object({
+  customerPhone: z.string().trim().min(1),
+});
+
 export const markOrdersReadSchema = z.object({
   ids: z.array(z.number().int().positive()).min(1).max(200),
 });

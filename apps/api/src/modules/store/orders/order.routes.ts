@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { orderService } from "./order.service";
 import {
+  cancelPaymentAttemptSchema,
   createOrderSchema,
   markOrdersReadSchema,
   updateOrderCustomerSchema,
@@ -29,6 +30,30 @@ export async function orderRoutes(server: FastifyInstance) {
         return reply.status(400).send({ message: "Validation error", errors: err.errors });
       }
       return reply.status(400).send({ message: err.message });
+    }
+  });
+
+  server.post("/:id/payment-attempt/cancel", async (request, reply) => {
+    try {
+      const { id } = request.params as { id: string };
+      const orderId = parseInt(id, 10);
+      if (!Number.isInteger(orderId) || orderId < 1) {
+        return reply.status(400).send({ message: "Invalid order id" });
+      }
+
+      const body = cancelPaymentAttemptSchema.parse(request.body);
+      return await orderService.cancelPaymentAttemptForCustomer(orderId, body.customerPhone);
+    } catch (error: any) {
+      if (error?.issues) {
+        return reply.status(400).send({
+          message: "Validation error",
+          errors: error.issues,
+        });
+      }
+      if (error?.statusCode) {
+        return reply.status(error.statusCode).send({ message: error.message });
+      }
+      throw error;
     }
   });
 

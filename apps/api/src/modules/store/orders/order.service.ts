@@ -12,6 +12,8 @@ const createOrderError = (message: string, statusCode = 400) => {
   return error;
 };
 
+const normalizePhone = (phone: string | null | undefined) => String(phone || "").replace(/\D/g, "");
+
 const resolveOrderKindFromProducts = (
   products: Array<{ type: string; purpose: string | null }>,
 ): OrderKind => {
@@ -522,6 +524,31 @@ export const orderService = {
 
       return cancelledOrder;
     });
+  },
+
+  async cancelPaymentAttemptForCustomer(id: number, customerPhone: string) {
+    const order = await storePrisma.order.findUnique({
+      where: { id },
+      select: {
+        id: true,
+        customerPhone: true,
+        paymentMethod: true,
+        paymentStatus: true,
+        status: true,
+      },
+    });
+
+    if (!order) throw createOrderError("Orden no encontrada", 404);
+
+    if (normalizePhone(order.customerPhone) !== normalizePhone(customerPhone)) {
+      throw createOrderError("No se pudo validar el intento de pago", 403);
+    }
+
+    if (order.paymentMethod !== "MERCADOPAGO" || order.status !== "PENDING" || order.paymentStatus !== "PENDING") {
+      return order;
+    }
+
+    return this.cancelPaymentAttempt(id, "FAILED");
   },
 
   async restoreOrder(id: number) {
