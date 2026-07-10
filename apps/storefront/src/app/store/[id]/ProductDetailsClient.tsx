@@ -153,7 +153,7 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
       showToast('Este ejemplar ya está en tu carrito.', {
         type: 'info',
         title: 'Ya está en el carrito',
-        action: { label: 'Ver carrito', href: '/checkout' },
+        action: { label: 'Ver carrito', onClick: openCart },
         durationMs: 3000,
       });
       return;
@@ -165,7 +165,7 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
     showToast(`${product.name} se agregó correctamente.`, {
       type: 'success',
       title: 'Agregado al carrito',
-      action: { label: 'Ver carrito', href: '/checkout' },
+      action: { label: 'Ver carrito', onClick: openCart },
       durationMs: 3000,
     });
   };

@@ -13,6 +13,7 @@ import {
   CheckCircle,
   Copy,
   CreditCard,
+  Gift,
   Info,
   MapPin,
   Plane,
@@ -107,7 +108,7 @@ function isPendingPaymentAttemptExpired(attempt: PendingPaymentAttempt) {
 
 export default function CheckoutPage() {
   const { items, coupon, getTotalPrice, getDiscountTotal, clearCart, removeItem } = useCartStore();
-  const { settings } = useSettings();
+  const { settings, loading: settingsLoading } = useSettings();
   const { showToast } = useToastStore();
   const router = useRouter();
   const [loading, setLoading] = useState(false);
@@ -208,13 +209,18 @@ export default function CheckoutPage() {
     return null;
   };
 
-  const freeBirdShipping = hasBirds && findSetting("shipping_free_threshold_birds") === "1";
-  const freeItemShipping = hasItems && findSetting("shipping_free_threshold_items") === "1";
+  const settingsReady = !settingsLoading && Boolean(settings);
+  const freeBirdShipping = settingsReady && hasBirds && findSetting("shipping_free_threshold_birds") === "1";
+  const freeItemShipping = settingsReady && hasItems && findSetting("shipping_free_threshold_items") === "1";
   const isShippingFullyCovered =
     (hasBirds || hasItems) &&
     (!hasBirds || freeBirdShipping) &&
     (!hasItems || freeItemShipping);
-  const shouldUseParcelDeliveryChoice = !isShippingFullyCovered && (isArticlesOnly || (hasItems && freeBirdShipping));
+  const hasCoveredShippingPortion = freeBirdShipping || freeItemShipping;
+  const needsBirdDeliveryChoice = settingsReady && hasBirds && !freeBirdShipping;
+  const needsParcelDeliveryChoice = settingsReady && hasItems && !freeItemShipping;
+  const shouldUseParcelDeliveryChoice = !isShippingFullyCovered && needsParcelDeliveryChoice && !needsBirdDeliveryChoice;
+  const needsDeliveryChoice = settingsReady && !isShippingFullyCovered;
 
   const shippingCalculation = useMemo(() => {
     const freeBirds = findSetting("shipping_free_threshold_birds") === "1";
@@ -372,7 +378,11 @@ export default function CheckoutPage() {
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
-    if (!isShippingFullyCovered && !formData.deliveryMethod) {
+    if (!settingsReady) {
+      showToast("Estamos cargando las opciones de envío.", "info");
+      return;
+    }
+    if (needsDeliveryChoice && !formData.deliveryMethod) {
       showToast("Selecciona cómo enviamos tu orden.", "info");
       return;
     }
@@ -528,7 +538,11 @@ export default function CheckoutPage() {
 
   const canContinueFromStep = (step: CheckoutStep) => {
     if (step === 0) {
-      if (!isShippingFullyCovered && !formData.deliveryMethod) {
+      if (!settingsReady) {
+        showToast("Estamos cargando las opciones de envío.", "info");
+        return false;
+      }
+      if (needsDeliveryChoice && !formData.deliveryMethod) {
         showToast("Selecciona cómo enviamos tu orden.", "info");
         return false;
       }
@@ -710,37 +724,58 @@ export default function CheckoutPage() {
                         Selecciona un método de entrega para continuar
                       </p>
                     </div>
-                    {isShippingFullyCovered ? (
-                      <CoveredShippingPanel hasBirds={hasBirds} hasItems={hasItems} />
-                    ) : shouldUseParcelDeliveryChoice ? (
-                      <div className="grid grid-cols-1" style={{ gap: "var(--sf-space-md)" }}>
-                        <ChoiceButton
-                          icon={Truck}
-                          label="Paquetería a domicilio"
-                          detail={freeItemShipping ? "Gratis" : getShippingSettingLabel("shipping_base_cost_items", settings)}
-                          active={formData.deliveryMethod === "PARCEL"}
-                          onClick={() => handleDeliveryMethodSelect("PARCEL")}
-                        />
+                    {!settingsReady ? (
+                      <div
+                        className="flex items-center border border-stone-200 bg-stone-50/80 text-stone-500"
+                        style={{ borderRadius: "var(--sf-radius-inner)", padding: "var(--sf-padding-inner)", gap: "var(--sf-space-md)" }}
+                      >
+                        <Spinner className="h-5 w-5" />
+                        <p className="sf-text-secondary font-semibold">Cargando opciones de envío...</p>
                       </div>
                     ) : (
-                      <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--sf-space-md)" }}>
-                        <ChoiceButton
-                          icon={Bus}
-                          label="Central de autobuses"
-                          detail={freeBirdShipping ? "Gratis" : getShippingSettingLabel("shipping_cost_standard", settings)}
-                          active={formData.deliveryMethod === "BUS_STATION"}
-                          onClick={() => handleDeliveryMethodSelect("BUS_STATION")}
-                        />
-                        <ChoiceButton
-                          icon={Plane}
-                          label="Aeropuerto"
-                          detail={freeBirdShipping ? "Gratis" : getShippingSettingLabel("shipping_cost_extended", settings)}
-                          active={formData.deliveryMethod === "AIRPORT"}
-                          onClick={() => handleDeliveryMethodSelect("AIRPORT")}
-                        />
-                      </div>
+                      <>
+                        {hasCoveredShippingPortion && (
+                          <CoveredShippingPanel
+                            freeBirdShipping={freeBirdShipping}
+                            freeItemShipping={freeItemShipping}
+                            hasBirds={hasBirds}
+                            hasItems={hasItems}
+                          />
+                        )}
+
+                        {!isShippingFullyCovered && shouldUseParcelDeliveryChoice && (
+                          <div className="grid grid-cols-1" style={{ gap: "var(--sf-space-md)" }}>
+                            <ChoiceButton
+                              icon={Truck}
+                              label="Paquetería a domicilio"
+                              detail={getShippingSettingLabel("shipping_base_cost_items", settings)}
+                              active={formData.deliveryMethod === "PARCEL"}
+                              onClick={() => handleDeliveryMethodSelect("PARCEL")}
+                            />
+                          </div>
+                        )}
+
+                        {!isShippingFullyCovered && needsBirdDeliveryChoice && (
+                          <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--sf-space-md)" }}>
+                            <ChoiceButton
+                              icon={Bus}
+                              label="Central de autobuses"
+                              detail={getShippingSettingLabel("shipping_cost_standard", settings)}
+                              active={formData.deliveryMethod === "BUS_STATION"}
+                              onClick={() => handleDeliveryMethodSelect("BUS_STATION")}
+                            />
+                            <ChoiceButton
+                              icon={Plane}
+                              label="Aeropuerto"
+                              detail={getShippingSettingLabel("shipping_cost_extended", settings)}
+                              active={formData.deliveryMethod === "AIRPORT"}
+                              onClick={() => handleDeliveryMethodSelect("AIRPORT")}
+                            />
+                          </div>
+                        )}
+                      </>
                     )}
-                    {!isShippingFullyCovered && (
+                    {settingsReady && !isShippingFullyCovered && (
                       <InfoPanel>
                         {shouldUseParcelDeliveryChoice
                           ? hasBirds
@@ -987,8 +1022,8 @@ export default function CheckoutPage() {
       <StorefrontPurchaseBar
         total={orderTotal}
         loading={loading}
-        disabled={checkoutStep === 0 && !isShippingFullyCovered && !formData.deliveryMethod}
-        buttonLabel={checkoutStep === 0 && !isShippingFullyCovered && !formData.deliveryMethod ? "Selecciona método" : checkoutStep === 3 ? "Finalizar pedido" : "Continuar"}
+        disabled={checkoutStep === 0 && (!settingsReady || (needsDeliveryChoice && !formData.deliveryMethod))}
+        buttonLabel={checkoutStep === 0 && !settingsReady ? "Cargando" : checkoutStep === 0 && needsDeliveryChoice && !formData.deliveryMethod ? "Selecciona método" : checkoutStep === 3 ? "Finalizar pedido" : "Continuar"}
         buttonIcon={checkoutStep === 3 ? ShoppingBag : ArrowRight}
         onAction={handleCheckoutPrimaryAction}
       />
@@ -1178,35 +1213,58 @@ function ChoiceButton({
   );
 }
 
-function CoveredShippingPanel({ hasBirds, hasItems }: { hasBirds: boolean; hasItems: boolean }) {
-  const detail = hasBirds && hasItems
+function CoveredShippingPanel({
+  freeBirdShipping,
+  freeItemShipping,
+  hasBirds,
+  hasItems,
+}: {
+  freeBirdShipping: boolean;
+  freeItemShipping: boolean;
+  hasBirds: boolean;
+  hasItems: boolean;
+}) {
+  const coveredSegments = [
+    freeBirdShipping && hasBirds ? "aves" : null,
+    freeItemShipping && hasItems ? "artículos" : null,
+  ].filter(Boolean);
+  const pendingSegments = [
+    !freeBirdShipping && hasBirds ? "aves" : null,
+    !freeItemShipping && hasItems ? "artículos" : null,
+  ].filter(Boolean);
+  const coveredLabel = coveredSegments.length > 1
     ? "Aplica para aves y artículos de este pedido."
-    : hasBirds
+    : coveredSegments[0] === "aves"
       ? "Aplica para las aves de este pedido."
       : "Aplica para los artículos de este pedido.";
+  const deliveryText = pendingSegments.length
+    ? "La parte restante del pedido mostrará su método y costo correspondiente."
+    : "Rancho Las Trojes coordinará el método de entrega más conveniente según tu ubicación y los productos de tu pedido.";
 
   return (
     <div
-      className="flex items-start border border-emerald-200 bg-emerald-50/80 text-emerald-950"
+      className="flex flex-col border border-emerald-200 bg-emerald-50/80 text-emerald-950"
       style={{ borderRadius: "var(--sf-radius-inner)", padding: "var(--sf-padding-inner)", gap: "var(--sf-space-md)" }}
     >
-      <span
-        className="flex shrink-0 items-center justify-center bg-white text-emerald-600"
-        style={{
-          width: "var(--sf-h-button-card)",
-          height: "var(--sf-h-button-card)",
-          borderRadius: "var(--sf-radius-nested)",
-        }}
-      >
-        <Check style={{ width: "var(--sf-size-inner-icon-card)", height: "var(--sf-size-inner-icon-card)" }} />
-      </span>
-      <div className="flex flex-col" style={{ gap: "var(--sf-space-xs)" }}>
-        <p className="sf-text-label uppercase tracking-[0.2em] font-black text-emerald-600">Envío gratis</p>
-        <p className="sf-text-h2 text-emerald-950">Nosotros coordinamos la entrega</p>
-        <p className="sf-text-secondary font-semibold leading-relaxed text-emerald-900/80">
-          {detail} El rancho elegirá la forma más conveniente para hacerte llegar tu compra según tu ubicación.
-        </p>
+      <div className="flex items-center" style={{ gap: "var(--sf-space-md)" }}>
+        <span
+          className="flex shrink-0 items-center justify-center bg-white text-emerald-600 shadow-sm"
+          style={{
+            width: "var(--sf-h-button-card)",
+            height: "var(--sf-h-button-card)",
+            borderRadius: "var(--sf-radius-nested)",
+          }}
+        >
+          <Gift style={{ width: "var(--sf-size-inner-icon-card)", height: "var(--sf-size-inner-icon-card)" }} />
+        </span>
+        <div className="flex min-w-0 flex-col" style={{ gap: "var(--sf-space-xs)" }}>
+          <p className="sf-text-label uppercase tracking-[0.2em] font-black text-emerald-600">Envío gratis</p>
+          <p className="sf-text-h2 text-emerald-950">Nosotros coordinamos la entrega</p>
+        </div>
       </div>
+      <p className="sf-text-secondary font-semibold leading-relaxed text-emerald-900/80">
+        {coveredLabel} {deliveryText}
+      </p>
     </div>
   );
 }

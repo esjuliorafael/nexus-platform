@@ -7,6 +7,7 @@ import { Eye, ShoppingCart, Tag } from 'lucide-react';
 import { Product } from '../../types';
 import { formatPrice, getAssetUrl } from '../../utils/formatters';
 import { useCartStore } from '../../store/cart.store';
+import { useCartUiStore } from '../../store/cart-ui.store';
 import { useToastStore } from '../../store/toast.store';
 import { Badge } from '../ui/Badge';
 import { Button } from '../ui/Button';
@@ -15,6 +16,7 @@ import { StorefrontAutonomousCard } from '../ui/Card';
 export function ProductCard({ product }: { product: Product }) {
   const [addFeedbackActive, setAddFeedbackActive] = useState(false);
   const addItem = useCartStore((state) => state.addItem);
+  const openCart = useCartUiStore((state) => state.openCart);
   const showToast = useToastStore((state) => state.showToast);
 
   const isAvailable = product.saleStatus === 'AVAILABLE';
@@ -42,7 +44,7 @@ export function ProductCard({ product }: { product: Product }) {
       showToast('Este ejemplar ya está en tu carrito.', {
         type: 'info',
         title: 'Ya está en el carrito',
-        action: { label: 'Ver carrito', href: '/checkout' },
+        action: { label: 'Ver carrito', onClick: openCart },
         durationMs: 3000,
       });
       return;
@@ -53,7 +55,7 @@ export function ProductCard({ product }: { product: Product }) {
 
     showToast('Producto agregado al carrito.', {
       type: 'success',
-      action: { label: 'Ver carrito', href: '/checkout' },
+      action: { label: 'Ver carrito', onClick: openCart },
       durationMs: 2500,
     });
   };
