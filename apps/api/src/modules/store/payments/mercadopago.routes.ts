@@ -40,6 +40,7 @@ export async function mpRoutes(server: FastifyInstance) {
       channelId: z.string().nullable(),
       accessToken: z.string().min(1),
       refreshToken: z.string().min(1),
+      accessTokenExpiresAt: z.string().datetime(),
       sellerUserId: z.string().min(1),
     });
     try {

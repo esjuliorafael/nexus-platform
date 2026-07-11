@@ -177,6 +177,22 @@ async function bootstrap() {
     const overdueOrderSweepTimer = setInterval(sweepOverdueOrders, 5 * 60 * 1000);
     overdueOrderSweepTimer.unref?.();
 
+    const refreshMercadoPagoConnections = async () => {
+      try {
+        const { mpService } = await import("./modules/store/payments/mercadopago.service");
+        const result = await mpService.refreshExpiringConnections();
+        if (result.refreshed > 0 || result.failed > 0) {
+          server.log.info(`Mercado Pago token refresh: ${result.refreshed} refreshed, ${result.failed} failed.`);
+        }
+      } catch (error: any) {
+        server.log.error(`Mercado Pago token refresh sweep failed: ${error.message}`);
+      }
+    };
+
+    await refreshMercadoPagoConnections();
+    const mercadoPagoRefreshTimer = setInterval(refreshMercadoPagoConnections, 24 * 60 * 60 * 1000);
+    mercadoPagoRefreshTimer.unref?.();
+
     // Start Server
     const port = parseInt(process.env.PORT || "3001", 10);
     await server.listen({ port, host: "0.0.0.0" });

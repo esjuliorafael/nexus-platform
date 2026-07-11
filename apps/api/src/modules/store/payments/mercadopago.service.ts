@@ -9,6 +9,21 @@ import { getTenantId, signGatewayPayload } from "./mercadopago-gateway.security"
 
 const getRedirectUri = () => `${process.env.API_URL}/api/v1/mp/callback`;
 const getGatewayUrl = () => process.env.MP_GATEWAY_URL?.replace(/\/$/, "");
+const TOKEN_REFRESH_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
+
+type OAuthTokens = {
+  accessToken: string;
+  refreshToken: string;
+  accessTokenExpiresAt: string;
+};
+
+const isTokenExpiring = (value?: Date | string | null) => {
+  if (!value) return true;
+  const expiresAt = new Date(value).getTime();
+  return !Number.isFinite(expiresAt) || expiresAt <= Date.now() + TOKEN_REFRESH_WINDOW_MS;
+};
+
+const fallbackExpiration = () => new Date(Date.now() + 150 * 24 * 60 * 60 * 1000).toISOString();
 
 export const mpService = {
   async getAuthUrl(targetChannel?: string) {
@@ -52,13 +67,17 @@ export const mpService = {
       redirect_uri: getRedirectUri(),
     });
 
-    const { access_token, refresh_token, user_id } = response.data as any;
+    const { access_token, refresh_token, user_id, expires_in } = response.data as any;
+    const accessTokenExpiresAt = Number(expires_in) > 0
+      ? new Date(Date.now() + Number(expires_in) * 1000).toISOString()
+      : fallbackExpiration();
 
     if (state === 'main') {
       // Guardar tokens del vendedor GLOBAL
       await this.saveSetting("mp_seller_access_token", access_token);
       await this.saveSetting("mp_seller_refresh_token", refresh_token);
       await this.saveSetting("mp_seller_user_id", user_id.toString());
+      await this.saveSetting("mp_seller_access_token_expires_at", accessTokenExpiresAt);
     } else {
       // Guardar tokens en un CANAL espec\u00edfico
       await storePrisma.paymentChannel.update({
@@ -66,7 +85,8 @@ export const mpService = {
         data: {
           mpAccessToken: access_token,
           mpRefreshToken: refresh_token,
-          mpUserId: user_id.toString()
+          mpUserId: user_id.toString(),
+          mpAccessTokenExpiresAt: new Date(accessTokenExpiresAt),
         }
       });
     }
@@ -100,7 +120,7 @@ export const mpService = {
         where: { purpose: 'RAFFLES' }
       });
       
-      sellerToken = raffleChannel?.mpAccessToken || await this.getSetting("mp_seller_access_token") || "";
+      sellerToken = await this.getPaymentChannelToken(raffleChannel) || await this.getMainSellerToken() || "";
 
       items.push({
         id: raffle.id.toString(),
@@ -135,14 +155,14 @@ export const mpService = {
             const channel = await storePrisma.paymentChannel.findFirst({
               where: { purpose: firstPurpose as string }
             });
-            sellerToken = channel?.mpAccessToken || "";
+            sellerToken = await this.getPaymentChannelToken(channel) || "";
           }
         }
       }
 
       // Fallback a token principal
       if (!sellerToken) {
-        sellerToken = await this.getSetting("mp_seller_access_token") || "";
+          sellerToken = await this.getMainSellerToken() || "";
       }
 
       if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
@@ -230,20 +250,130 @@ export const mpService = {
     return preference.create({ body });
   },
 
+  async refreshOAuthToken(refreshToken: string): Promise<OAuthTokens> {
+    const gatewayUrl = getGatewayUrl();
+    const gatewaySecret = process.env.MP_GATEWAY_SHARED_SECRET;
+
+    if (gatewayUrl && gatewaySecret) {
+      const body = { refreshToken };
+      const proof = signGatewayPayload(body, gatewaySecret, 5 * 60 * 1000);
+      const response = await axios.post<OAuthTokens>(`${gatewayUrl}/api/v1/mp/internal/refresh`, body, {
+        timeout: 15_000,
+        headers: { "x-nexus-mp-gateway-proof": proof },
+      });
+      return response.data;
+    }
+
+    const clientId = await this.getSetting("mp_app_client_id");
+    const clientSecret = await this.getSetting("mp_app_client_secret");
+    if (!clientId || !clientSecret) throw new Error("Mercado Pago credentials are not configured");
+
+    const response = await axios.post("https://api.mercadopago.com/oauth/token", new URLSearchParams({
+      client_id: clientId,
+      client_secret: clientSecret,
+      grant_type: "refresh_token",
+      refresh_token: refreshToken,
+    }), {
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    });
+    const data = response.data as { access_token: string; refresh_token: string; expires_in?: number | string };
+    return {
+      accessToken: data.access_token,
+      refreshToken: data.refresh_token,
+      accessTokenExpiresAt: Number(data.expires_in) > 0
+        ? new Date(Date.now() + Number(data.expires_in) * 1000).toISOString()
+        : fallbackExpiration(),
+    };
+  },
+
+  async getMainSellerToken() {
+    const accessToken = await this.getSetting("mp_seller_access_token");
+    const refreshToken = await this.getSetting("mp_seller_refresh_token");
+    const expiresAt = await this.getSetting("mp_seller_access_token_expires_at");
+    if (!accessToken) return null;
+    if (!refreshToken || !isTokenExpiring(expiresAt)) return accessToken;
+
+    const refreshed = await this.refreshOAuthToken(refreshToken);
+    await Promise.all([
+      this.saveSetting("mp_seller_access_token", refreshed.accessToken),
+      this.saveSetting("mp_seller_refresh_token", refreshed.refreshToken),
+      this.saveSetting("mp_seller_access_token_expires_at", refreshed.accessTokenExpiresAt),
+    ]);
+    return refreshed.accessToken;
+  },
+
+  async getPaymentChannelToken(channel?: {
+    mpAccessToken?: string | null;
+    mpRefreshToken?: string | null;
+    mpAccessTokenExpiresAt?: Date | null;
+    id: number;
+  } | null) {
+    if (!channel?.mpAccessToken) return null;
+    if (!channel.mpRefreshToken || !isTokenExpiring(channel.mpAccessTokenExpiresAt)) {
+      return channel.mpAccessToken;
+    }
+
+    const refreshed = await this.refreshOAuthToken(channel.mpRefreshToken);
+    await storePrisma.paymentChannel.update({
+      where: { id: channel.id },
+      data: {
+        mpAccessToken: refreshed.accessToken,
+        mpRefreshToken: refreshed.refreshToken,
+        mpAccessTokenExpiresAt: new Date(refreshed.accessTokenExpiresAt),
+      },
+    });
+    return refreshed.accessToken;
+  },
+
+  async refreshExpiringConnections() {
+    const result = { refreshed: 0, failed: 0 };
+    const refreshMain = async () => {
+      const accessToken = await this.getSetting("mp_seller_access_token");
+      const refreshToken = await this.getSetting("mp_seller_refresh_token");
+      const expiresAt = await this.getSetting("mp_seller_access_token_expires_at");
+      if (!accessToken || !refreshToken || !isTokenExpiring(expiresAt)) return;
+      await this.getMainSellerToken();
+      result.refreshed += 1;
+    };
+
+    try {
+      await refreshMain();
+    } catch (error) {
+      result.failed += 1;
+      console.error("[MP] Could not refresh main seller token", error);
+    }
+
+    const channels = await storePrisma.paymentChannel.findMany({
+      where: { mpAccessToken: { not: null }, mpRefreshToken: { not: null } },
+      select: { id: true, mpAccessToken: true, mpRefreshToken: true, mpAccessTokenExpiresAt: true },
+    });
+    for (const channel of channels) {
+      if (!isTokenExpiring(channel.mpAccessTokenExpiresAt)) continue;
+      try {
+        await this.getPaymentChannelToken(channel);
+        result.refreshed += 1;
+      } catch (error) {
+        result.failed += 1;
+        console.error(`[MP] Could not refresh payment channel ${channel.id}`, error);
+      }
+    }
+    return result;
+  },
+
   async getSellerTokenByUserId(sellerUserId?: string | null) {
     if (sellerUserId) {
       const channel = await storePrisma.paymentChannel.findFirst({
         where: { mpUserId: sellerUserId },
       });
-      if (channel?.mpAccessToken) return channel.mpAccessToken;
+      if (channel) return this.getPaymentChannelToken(channel);
 
       const globalSellerId = await this.getSetting("mp_seller_user_id");
       if (globalSellerId === sellerUserId) {
-        return await this.getSetting("mp_seller_access_token");
+        return this.getMainSellerToken();
       }
     }
 
-    return await this.getSetting("mp_seller_access_token");
+    return this.getMainSellerToken();
   },
 
   async recordOrderPayment(orderId: number, payment: any, sellerUserId?: string | null) {
@@ -404,19 +534,7 @@ export const mpService = {
       let sellerToken = "";
       if (sellerId) {
         console.log(`[MP] Webhook for seller ${sellerId}`);
-        // Buscar en canales
-        const channel = await storePrisma.paymentChannel.findFirst({ where: { mpUserId: sellerId } });
-        if (channel) {
-          sellerToken = channel.mpAccessToken || "";
-          console.log(`[MP] Found channel for seller ${sellerId}: ${channel.name}`);
-        } else {
-          // Buscar en global
-          const globalId = await this.getSetting("mp_seller_user_id");
-          if (globalId === sellerId) {
-            sellerToken = await this.getSetting("mp_seller_access_token") || "";
-            console.log(`[MP] Webhook matches global seller account`);
-          }
-        }
+        sellerToken = await this.getSellerTokenByUserId(sellerId) || "";
       }
 
       if (!sellerToken) {
@@ -523,6 +641,7 @@ export const mpService = {
     channelId: string | null;
     accessToken: string;
     refreshToken: string;
+    accessTokenExpiresAt: string;
     sellerUserId: string;
   }) {
     if (data.channelId) {
@@ -531,6 +650,7 @@ export const mpService = {
         data: {
           mpAccessToken: data.accessToken,
           mpRefreshToken: data.refreshToken,
+          mpAccessTokenExpiresAt: new Date(data.accessTokenExpiresAt),
           mpUserId: data.sellerUserId,
         },
       });
@@ -540,6 +660,7 @@ export const mpService = {
     await Promise.all([
       this.saveSetting("mp_seller_access_token", data.accessToken),
       this.saveSetting("mp_seller_refresh_token", data.refreshToken),
+      this.saveSetting("mp_seller_access_token_expires_at", data.accessTokenExpiresAt),
       this.saveSetting("mp_seller_user_id", data.sellerUserId),
     ]);
   },

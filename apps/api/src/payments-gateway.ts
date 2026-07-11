@@ -17,6 +17,12 @@ type TenantConnection = {
   channelId?: string;
 };
 
+type OAuthTokens = {
+  accessToken: string;
+  refreshToken: string;
+  accessTokenExpiresAt: string;
+};
+
 const gatewayUrl = (process.env.MP_GATEWAY_URL || "").replace(/\/$/, "");
 const gatewaySecret = process.env.MP_GATEWAY_SHARED_SECRET || "";
 const clientId = process.env.MP_APP_CLIENT_ID || "";
@@ -37,6 +43,19 @@ async function relayToTenant(connection: TenantConnection, pathName: string, pay
     timeout: 15_000,
     headers: { "x-nexus-mp-gateway-proof": proof },
   });
+}
+
+function normalizeOAuthTokens(data: { access_token: string; refresh_token: string; expires_in?: number | string }): OAuthTokens {
+  const expiresInSeconds = Number(data.expires_in || 0);
+  const expiresAt = Number.isFinite(expiresInSeconds) && expiresInSeconds > 0
+    ? new Date(Date.now() + expiresInSeconds * 1000)
+    : new Date(Date.now() + 150 * 24 * 60 * 60 * 1000);
+
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    accessTokenExpiresAt: expiresAt.toISOString(),
+  };
 }
 
 function verifyMercadoPagoSignature(payload: any, headers: Record<string, unknown>) {
@@ -105,13 +124,15 @@ async function bootstrap() {
       const tokenResponse = await axios.post("https://api.mercadopago.com/oauth/token", form, {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
       });
-      const credentials = tokenResponse.data as { access_token: string; refresh_token: string; user_id: number | string };
-      const sellerId = String(credentials.user_id);
+      const oauthResponse = tokenResponse.data as { access_token: string; refresh_token: string; user_id: number | string; expires_in?: number | string };
+      const credentials = normalizeOAuthTokens(oauthResponse);
+      const sellerId = String(oauthResponse.user_id);
 
       await relayToTenant(connection, "/api/v1/mp/gateway/oauth-complete", {
         channelId: connection.channelId || null,
-        accessToken: credentials.access_token,
-        refreshToken: credentials.refresh_token,
+        accessToken: credentials.accessToken,
+        refreshToken: credentials.refreshToken,
+        accessTokenExpiresAt: credentials.accessTokenExpiresAt,
         sellerUserId: sellerId,
       });
       await redis.set(sellerKey(sellerId), JSON.stringify(connection));
@@ -167,6 +188,33 @@ async function bootstrap() {
     } catch (error: any) {
       if (error?.issues) return reply.status(400).send({ message: "Validation error", errors: error.issues });
       throw error;
+    }
+  });
+
+  server.post("/api/v1/mp/internal/refresh", async (request, reply) => {
+    const schema = z.object({ refreshToken: z.string().min(1) });
+    const proof = request.headers["x-nexus-mp-gateway-proof"];
+    const payload = typeof proof === "string" ? verifyGatewayPayload<z.infer<typeof schema>>(proof, gatewaySecret) : null;
+    try {
+      const body = schema.parse(request.body);
+      if (!payload || JSON.stringify(payload) !== JSON.stringify(body)) {
+        return reply.status(401).send({ message: "Unauthorized" });
+      }
+
+      const form = new URLSearchParams({
+        client_id: clientId,
+        client_secret: clientSecret,
+        grant_type: "refresh_token",
+        refresh_token: body.refreshToken,
+      });
+      const tokenResponse = await axios.post("https://api.mercadopago.com/oauth/token", form, {
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      });
+      return normalizeOAuthTokens(tokenResponse.data as { access_token: string; refresh_token: string; expires_in?: number | string });
+    } catch (error: any) {
+      if (error?.issues) return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      server.log.error(error, "Mercado Pago token refresh failed");
+      return reply.status(502).send({ message: "Could not refresh Mercado Pago credentials" });
     }
   });
 
