@@ -25,8 +25,6 @@ export const PlatformSettingsView = forwardRef<PlatformSettingsViewRef, Platform
       r2SecretKey: '',
       r2BucketName: '',
       r2PublicDomain: '',
-      mpClientId: '',
-      mpClientSecret: '',
       mpFee: '0'
     });
 
@@ -43,8 +41,6 @@ export const PlatformSettingsView = forwardRef<PlatformSettingsViewRef, Platform
             r2SecretKey: data.storage_r2_secret_key || '',
             r2BucketName: data.storage_r2_bucket_name || '',
             r2PublicDomain: data.storage_r2_public_domain || '',
-            mpClientId: data.mp_app_client_id || data.mp_client_id || '',
-            mpClientSecret: data.mp_app_client_secret || data.mp_client_secret || '',
             mpFee: data.mp_app_fee_percentage || data.mp_application_fee || '0'
           });
         } catch (error) {
@@ -66,8 +62,6 @@ export const PlatformSettingsView = forwardRef<PlatformSettingsViewRef, Platform
           storage_r2_secret_key: config.r2SecretKey,
           storage_r2_bucket_name: config.r2BucketName,
           storage_r2_public_domain: config.r2PublicDomain,
-          mp_app_client_id: config.mpClientId,
-          mp_app_client_secret: config.mpClientSecret,
           mp_app_fee_percentage: config.mpFee
         };
         await apiSystem.updateConfig(payload);
@@ -97,38 +91,13 @@ export const PlatformSettingsView = forwardRef<PlatformSettingsViewRef, Platform
         {/* MERCADO PAGO MARKETPLACE SECTION */}
         <NexusSection
           title="Mercado Pago Marketplace"
-          subtitle="Configuración de Aplicación y Comisiones"
+          subtitle="Comisiones de la plataforma"
           icon={CreditCard}
           iconVariant="blue"
           delay="200ms"
         >
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-12">
+          <div className="grid grid-cols-1 gap-y-12">
             <div className="animate-in fade-in zoom-in-95 duration-300 [animation-fill-mode:both]" style={{ animationDelay: '100ms' }}>
-              <NexusInput 
-                label="App Client ID"
-                value={config.mpClientId} 
-                onChange={(e) => setConfig({ ...config, mpClientId: e.target.value })}
-                placeholder="Ej. 1234567890" 
-                icon={ShieldCheck}
-                copyable
-                helperText="ID de la aplicación creada en Mercado Pago Developers."
-              />
-            </div>
-
-            <div className="animate-in fade-in zoom-in-95 duration-300 [animation-fill-mode:both]" style={{ animationDelay: '200ms' }}>
-              <NexusInput 
-                label="App Client Secret"
-                type="password" 
-                value={config.mpClientSecret} 
-                onChange={(e) => setConfig({ ...config, mpClientSecret: e.target.value })}
-                placeholder="Tu Client Secret" 
-                icon={Key}
-                copyable
-                helperText="Secreto de la aplicación para el flujo OAuth."
-              />
-            </div>
-
-            <div className="md:col-span-2 animate-in fade-in zoom-in-95 duration-300 [animation-fill-mode:both]" style={{ animationDelay: '300ms' }}>
               <NexusInput 
                 label="Comisión de Plataforma (%)"
                 type="number"
@@ -136,9 +105,12 @@ export const PlatformSettingsView = forwardRef<PlatformSettingsViewRef, Platform
                 onChange={(e) => setConfig({ ...config, mpFee: e.target.value })}
                 placeholder="Ej. 3.00" 
                 icon={Percent}
-                helperText="Porcentaje que recibirás por cada transacción (Application Fee)."
+                helperText="Porcentaje que Nexus retiene por cada transacción procesada."
               />
             </div>
+            <p className="text-secondary text-text-muted leading-relaxed">
+              Las credenciales de Nexus Platform y la vinculación OAuth se administran de forma central y segura. Cada canal conserva únicamente su propia cuenta vinculada de Mercado Pago.
+            </p>
           </div>
         </NexusSection>
 
