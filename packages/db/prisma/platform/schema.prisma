@@ -1,0 +1,29 @@
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../../../../node_modules/@prisma/client-platform"
+  binaryTargets = ["native", "debian-openssl-1.1.x", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("PLATFORM_DATABASE_URL")
+}
+
+model MercadoPagoConnection {
+  id              Int       @id @default(autoincrement())
+  tenantId        String    @map("tenant_id")
+  sellerUserId    String    @unique @map("seller_user_id")
+  channelId       String?   @map("channel_id")
+  tenantApiUrl    String    @map("tenant_api_url")
+  adminUrl        String    @map("admin_url")
+  status          String    @default("ACTIVE")
+  connectedAt     DateTime  @default(now()) @map("connected_at")
+  lastRefreshedAt DateTime? @map("last_refreshed_at")
+  lastWebhookAt   DateTime? @map("last_webhook_at")
+  lastWebhookType String?   @map("last_webhook_type")
+  disconnectedAt  DateTime? @map("disconnected_at")
+  updatedAt       DateTime  @updatedAt @map("updated_at")
+
+  @@index([tenantId, status])
+  @@map("mercadopago_connections")
+}

@@ -250,12 +250,12 @@ export const mpService = {
     return preference.create({ body });
   },
 
-  async refreshOAuthToken(refreshToken: string): Promise<OAuthTokens> {
+  async refreshOAuthToken(refreshToken: string, sellerUserId?: string | null): Promise<OAuthTokens> {
     const gatewayUrl = getGatewayUrl();
     const gatewaySecret = process.env.MP_GATEWAY_SHARED_SECRET;
 
     if (gatewayUrl && gatewaySecret) {
-      const body = { refreshToken };
+      const body = sellerUserId ? { refreshToken, sellerUserId } : { refreshToken };
       const proof = signGatewayPayload(body, gatewaySecret, 5 * 60 * 1000);
       const response = await axios.post<OAuthTokens>(`${gatewayUrl}/api/v1/mp/internal/refresh`, body, {
         timeout: 15_000,
@@ -289,11 +289,12 @@ export const mpService = {
   async getMainSellerToken() {
     const accessToken = await this.getSetting("mp_seller_access_token");
     const refreshToken = await this.getSetting("mp_seller_refresh_token");
+    const sellerUserId = await this.getSetting("mp_seller_user_id");
     const expiresAt = await this.getSetting("mp_seller_access_token_expires_at");
     if (!accessToken) return null;
     if (!refreshToken || !isTokenExpiring(expiresAt)) return accessToken;
 
-    const refreshed = await this.refreshOAuthToken(refreshToken);
+    const refreshed = await this.refreshOAuthToken(refreshToken, sellerUserId);
     await Promise.all([
       this.saveSetting("mp_seller_access_token", refreshed.accessToken),
       this.saveSetting("mp_seller_refresh_token", refreshed.refreshToken),
@@ -306,6 +307,7 @@ export const mpService = {
     mpAccessToken?: string | null;
     mpRefreshToken?: string | null;
     mpAccessTokenExpiresAt?: Date | null;
+    mpUserId?: string | null;
     id: number;
   } | null) {
     if (!channel?.mpAccessToken) return null;
@@ -313,7 +315,7 @@ export const mpService = {
       return channel.mpAccessToken;
     }
 
-    const refreshed = await this.refreshOAuthToken(channel.mpRefreshToken);
+    const refreshed = await this.refreshOAuthToken(channel.mpRefreshToken, channel.mpUserId);
     await storePrisma.paymentChannel.update({
       where: { id: channel.id },
       data: {
@@ -345,7 +347,7 @@ export const mpService = {
 
     const channels = await storePrisma.paymentChannel.findMany({
       where: { mpAccessToken: { not: null }, mpRefreshToken: { not: null } },
-      select: { id: true, mpAccessToken: true, mpRefreshToken: true, mpAccessTokenExpiresAt: true },
+      select: { id: true, mpAccessToken: true, mpRefreshToken: true, mpAccessTokenExpiresAt: true, mpUserId: true },
     });
     for (const channel of channels) {
       if (!isTokenExpiring(channel.mpAccessTokenExpiresAt)) continue;

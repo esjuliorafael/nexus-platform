@@ -11,18 +11,24 @@
     "./raffle": {
       "types": "./src/raffle.ts",
       "default": "./src/raffle.ts"
+    },
+    "./platform": {
+      "types": "./src/platform.ts",
+      "default": "./src/platform.ts"
     }
   },
   "typesVersions": {
     "*": {
       "store": ["./src/store.ts"],
-      "raffle": ["./src/raffle.ts"]
+      "raffle": ["./src/raffle.ts"],
+      "platform": ["./src/platform.ts"]
     }
   },
   "scripts": {
-    "generate": "pnpm generate:store && pnpm generate:raffle",
+    "generate": "pnpm generate:store && pnpm generate:raffle && pnpm generate:platform",
     "generate:store": "prisma generate --schema=prisma/store/schema.prisma",
-    "generate:raffle": "prisma generate --schema=prisma/raffle/schema.prisma"
+    "generate:raffle": "prisma generate --schema=prisma/raffle/schema.prisma",
+    "generate:platform": "prisma generate --schema=prisma/platform/schema.prisma"
   },
   "dependencies": {
     "@prisma/client": "^5.13.0",

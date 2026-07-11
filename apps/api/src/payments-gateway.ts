@@ -8,6 +8,7 @@ import fastify from "fastify";
 import crypto from "crypto";
 import Redis from "ioredis";
 import { z } from "zod";
+import { platformPrisma } from "@nexus/db/platform";
 import { signGatewayPayload, verifyGatewayPayload } from "./modules/store/payments/mercadopago-gateway.security";
 
 type TenantConnection = {
@@ -30,6 +31,18 @@ const clientSecret = process.env.MP_APP_CLIENT_SECRET || "";
 const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
 
 const sellerKey = (sellerId: string) => `nexus:mercadopago:seller:${sellerId}`;
+
+const toTenantConnection = (connection: {
+  tenantId: string;
+  tenantApiUrl: string;
+  adminUrl: string;
+  channelId: string | null;
+}): TenantConnection => ({
+  tenantId: connection.tenantId,
+  tenantApiUrl: connection.tenantApiUrl,
+  adminUrl: connection.adminUrl,
+  channelId: connection.channelId || undefined,
+});
 
 function redirectToAdmin(adminUrl: string, status: "success" | "cancelled" | "error") {
   const url = new URL(adminUrl);
@@ -135,6 +148,25 @@ async function bootstrap() {
         accessTokenExpiresAt: credentials.accessTokenExpiresAt,
         sellerUserId: sellerId,
       });
+      await platformPrisma.mercadoPagoConnection.upsert({
+        where: { sellerUserId: sellerId },
+        update: {
+          tenantId: connection.tenantId,
+          tenantApiUrl: connection.tenantApiUrl,
+          adminUrl: connection.adminUrl,
+          channelId: connection.channelId || null,
+          status: "ACTIVE",
+          connectedAt: new Date(),
+          disconnectedAt: null,
+        },
+        create: {
+          tenantId: connection.tenantId,
+          tenantApiUrl: connection.tenantApiUrl,
+          adminUrl: connection.adminUrl,
+          channelId: connection.channelId || null,
+          sellerUserId: sellerId,
+        },
+      });
       await redis.set(sellerKey(sellerId), JSON.stringify(connection));
       return reply.redirect(redirectToAdmin(connection.adminUrl, "success"));
     } catch (error) {
@@ -156,15 +188,24 @@ async function bootstrap() {
       return reply.status(200).send({ received: true });
     }
 
-    const rawConnection = await redis.get(sellerKey(sellerId));
-    if (!rawConnection) {
+    const storedConnection = await platformPrisma.mercadoPagoConnection.findFirst({
+      where: { sellerUserId: sellerId, status: "ACTIVE" },
+    });
+    if (!storedConnection) {
       server.log.warn({ sellerId }, "Mercado Pago webhook for an unknown seller");
       return reply.status(200).send({ received: true });
     }
 
     try {
-      const connection = JSON.parse(rawConnection) as TenantConnection;
+      const connection = toTenantConnection(storedConnection);
       await relayToTenant(connection, "/api/v1/mp/gateway/webhook", payload);
+      await platformPrisma.mercadoPagoConnection.update({
+        where: { id: storedConnection.id },
+        data: {
+          lastWebhookAt: new Date(),
+          lastWebhookType: String(payload?.action || payload?.type || "payment"),
+        },
+      });
     } catch (error) {
       server.log.error(error, "Could not relay Mercado Pago webhook to tenant");
     }
@@ -180,8 +221,14 @@ async function bootstrap() {
       if (!payload || JSON.stringify(payload) !== JSON.stringify(body)) {
         return reply.status(401).send({ message: "Unauthorized" });
       }
-      const current = await redis.get(sellerKey(body.sellerUserId));
-      if (current && (JSON.parse(current) as TenantConnection).tenantId === body.tenantId) {
+      const current = await platformPrisma.mercadoPagoConnection.findUnique({
+        where: { sellerUserId: body.sellerUserId },
+      });
+      if (current?.tenantId === body.tenantId) {
+        await platformPrisma.mercadoPagoConnection.update({
+          where: { id: current.id },
+          data: { status: "DISCONNECTED", disconnectedAt: new Date() },
+        });
         await redis.del(sellerKey(body.sellerUserId));
       }
       return { success: true };
@@ -192,7 +239,7 @@ async function bootstrap() {
   });
 
   server.post("/api/v1/mp/internal/refresh", async (request, reply) => {
-    const schema = z.object({ refreshToken: z.string().min(1) });
+    const schema = z.object({ refreshToken: z.string().min(1), sellerUserId: z.string().min(1).optional() });
     const proof = request.headers["x-nexus-mp-gateway-proof"];
     const payload = typeof proof === "string" ? verifyGatewayPayload<z.infer<typeof schema>>(proof, gatewaySecret) : null;
     try {
@@ -210,7 +257,14 @@ async function bootstrap() {
       const tokenResponse = await axios.post("https://api.mercadopago.com/oauth/token", form, {
         headers: { "Content-Type": "application/x-www-form-urlencoded" },
       });
-      return normalizeOAuthTokens(tokenResponse.data as { access_token: string; refresh_token: string; expires_in?: number | string });
+      const tokens = normalizeOAuthTokens(tokenResponse.data as { access_token: string; refresh_token: string; expires_in?: number | string });
+      if (body.sellerUserId) {
+        await platformPrisma.mercadoPagoConnection.updateMany({
+          where: { sellerUserId: body.sellerUserId, status: "ACTIVE" },
+          data: { lastRefreshedAt: new Date() },
+        });
+      }
+      return tokens;
     } catch (error: any) {
       if (error?.issues) return reply.status(400).send({ message: "Validation error", errors: error.issues });
       server.log.error(error, "Mercado Pago token refresh failed");

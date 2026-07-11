@@ -36,4 +36,4 @@ COPY --from=builder /app/node_modules ./node_modules
 EXPOSE 8080
 
 # Comando para correr migraciones y arrancar
-CMD ["sh", "-c", "if [ \"$NEXUS_SERVICE_MODE\" = \"payments-gateway\" ]; then node apps/api/dist/payments-gateway.js; else pnpm --dir packages/db exec prisma migrate deploy --schema=prisma/store/schema.prisma && if [ \"$RAFFLE_ENABLED\" = \"true\" ]; then DATABASE_URL=\"$RAFFLE_DATABASE_URL\" pnpm --dir packages/db exec prisma migrate deploy --schema=prisma/raffle/schema.prisma; else echo 'Raffle module disabled, skipping migrations'; fi && node apps/api/dist/server.js; fi"]
+CMD ["sh", "-c", "if [ \"$NEXUS_SERVICE_MODE\" = \"payments-gateway\" ]; then pnpm --dir packages/db exec prisma migrate deploy --schema=prisma/platform/schema.prisma && node apps/api/dist/payments-gateway.js; else pnpm --dir packages/db exec prisma migrate deploy --schema=prisma/store/schema.prisma && if [ \"$RAFFLE_ENABLED\" = \"true\" ]; then DATABASE_URL=\"$RAFFLE_DATABASE_URL\" pnpm --dir packages/db exec prisma migrate deploy --schema=prisma/raffle/schema.prisma; else echo 'Raffle module disabled, skipping migrations'; fi && node apps/api/dist/server.js; fi"]
