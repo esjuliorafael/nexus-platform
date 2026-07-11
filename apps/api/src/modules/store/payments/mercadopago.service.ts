@@ -172,6 +172,8 @@ export const mpService = {
 
     const storefrontUrl = process.env.STOREFRONT_HTTPS_URL || process.env.STOREFRONT_URL || 'http://localhost:3000';
     const apiUrl = process.env.API_URL || 'http://localhost:3001';
+    // The gateway owns notifications, while each tenant keeps its own checkout return URLs.
+    const tenantPublicApiUrl = (process.env.MP_TENANT_PUBLIC_API_URL || apiUrl).replace(/\/$/, "");
     const notificationUrl = getGatewayUrl()
       ? `${getGatewayUrl()}/api/v1/mp/webhook`
       : `${apiUrl}/api/v1/mp/webhook`;
@@ -202,9 +204,9 @@ export const mpService = {
       external_reference: externalReference,
       notification_url: notificationUrl,
       back_urls: {
-        success: `${apiUrl}/api/v1/mp/redirect?target=success&ref=${externalReference}`,
-        failure: `${apiUrl}/api/v1/mp/redirect?target=failure&ref=${externalReference}`,
-        pending: `${apiUrl}/api/v1/mp/redirect?target=pending&ref=${externalReference}`,
+        success: `${tenantPublicApiUrl}/api/v1/mp/redirect?target=success&ref=${externalReference}`,
+        failure: `${tenantPublicApiUrl}/api/v1/mp/redirect?target=failure&ref=${externalReference}`,
+        pending: `${tenantPublicApiUrl}/api/v1/mp/redirect?target=pending&ref=${externalReference}`,
       },
       payer,
       binary_mode: true, // Quality score: Approved or Rejected instantly

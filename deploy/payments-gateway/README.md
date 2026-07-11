@@ -20,6 +20,7 @@ Cada API tenant que use Mercado Pago debe configurar:
 - `MP_GATEWAY_SHARED_SECRET`: el mismo secreto del gateway.
 - `MP_TENANT_ID`: identificador estable, por ejemplo `trojes`.
 - `MP_TENANT_API_URL`: URL interna del contenedor API, por ejemplo `http://trojes-api:8080`.
+- `MP_TENANT_PUBLIC_API_URL`: API publica propia del tenant, usada para volver del checkout, por ejemplo `https://api.rancholastrojes.com.mx`.
 
 ## Rutas expuestas
 
