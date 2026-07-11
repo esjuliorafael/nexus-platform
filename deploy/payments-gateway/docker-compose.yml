@@ -15,4 +15,4 @@ services:
 networks:
   nexus-network:
     external: true
-    name: nexus-global-network
+    name: nexus-network
