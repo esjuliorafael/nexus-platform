@@ -1,8 +1,17 @@
 import { FastifyInstance } from "fastify";
 import { mpService } from "./mercadopago.service";
 import { z } from "zod";
+import { verifyGatewayPayload } from "./mercadopago-gateway.security";
 
 export async function mpRoutes(server: FastifyInstance) {
+  const verifyGatewayRequest = (request: any) => {
+    const secret = process.env.MP_GATEWAY_SHARED_SECRET;
+    const proof = request.headers["x-nexus-mp-gateway-proof"];
+    if (!secret || typeof proof !== "string") return null;
+    const payload = verifyGatewayPayload<any>(proof, secret);
+    return payload && JSON.stringify(payload) === JSON.stringify(request.body) ? payload : null;
+  };
+
   // Public: Get Auth URL for OAuth
   // Soporta query param ?channelId=...
   server.get("/auth-url", async (request, reply) => {
@@ -22,6 +31,37 @@ export async function mpRoutes(server: FastifyInstance) {
       return reply.status(500).send({
         message: error?.message || "No se pudo desvincular Mercado Pago",
       });
+    }
+  });
+
+  // Internal only: the multi-tenant gateway exchanges OAuth codes and delivers seller credentials.
+  server.post("/gateway/oauth-complete", async (request, reply) => {
+    const schema = z.object({
+      channelId: z.string().nullable(),
+      accessToken: z.string().min(1),
+      refreshToken: z.string().min(1),
+      sellerUserId: z.string().min(1),
+    });
+    try {
+      const data = schema.parse(request.body);
+      if (!verifyGatewayRequest(request)) return reply.status(401).send({ message: "Unauthorized" });
+      await mpService.saveGatewayConnection(data);
+      return { success: true };
+    } catch (error: any) {
+      if (error?.issues) return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      throw error;
+    }
+  });
+
+  // Internal only: Mercado Pago notifications were verified and routed by api.link-nex.us.
+  server.post("/gateway/webhook", async (request, reply) => {
+    if (!verifyGatewayRequest(request)) return reply.status(401).send({ message: "Unauthorized" });
+    try {
+      await mpService.handleWebhook(request.body, {});
+      return { received: true };
+    } catch (error) {
+      request.log.error(error, "Relayed Mercado Pago webhook failed");
+      return reply.status(200).send({ received: true });
     }
   });
 

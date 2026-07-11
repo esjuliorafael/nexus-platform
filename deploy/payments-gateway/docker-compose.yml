@@ -1,0 +1,18 @@
+version: '3.9'
+
+services:
+  nexus-payments-gateway:
+    image: esjuliorafael/nexus-api:latest
+    container_name: nexus-payments-gateway
+    restart: always
+    env_file: .env
+    environment:
+      - NEXUS_SERVICE_MODE=payments-gateway
+      - PORT=8080
+    networks:
+      - nexus-network
+
+networks:
+  nexus-network:
+    external: true
+    name: nexus-global-network

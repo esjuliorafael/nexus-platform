@@ -5,11 +5,31 @@ import axios from "axios";
 import crypto from "crypto";
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
 import type { OrderItemPurpose } from "../../../services/evolution/channel.resolver";
+import { getTenantId, signGatewayPayload } from "./mercadopago-gateway.security";
 
 const getRedirectUri = () => `${process.env.API_URL}/api/v1/mp/callback`;
+const getGatewayUrl = () => process.env.MP_GATEWAY_URL?.replace(/\/$/, "");
 
 export const mpService = {
   async getAuthUrl(targetChannel?: string) {
+    const gatewayUrl = getGatewayUrl();
+    const gatewaySecret = process.env.MP_GATEWAY_SHARED_SECRET;
+    if (gatewayUrl && gatewaySecret) {
+      const tenantApiUrl = (process.env.MP_TENANT_API_URL || "").replace(/\/$/, "");
+      const adminUrl = process.env.ADMIN_URL || "";
+      if (!tenantApiUrl || !adminUrl) {
+        throw new Error("Mercado Pago gateway tenant configuration is incomplete");
+      }
+
+      const state = signGatewayPayload({
+        tenantId: getTenantId(),
+        tenantApiUrl,
+        adminUrl,
+        channelId: targetChannel || undefined,
+      }, gatewaySecret);
+      return `${gatewayUrl}/api/v1/mp/oauth/start?state=${encodeURIComponent(state)}`;
+    }
+
     const clientId = await this.getSetting("mp_app_client_id");
     if (!clientId) throw new Error("Mercado Pago App Client ID not configured");
     
@@ -152,6 +172,9 @@ export const mpService = {
 
     const storefrontUrl = process.env.STOREFRONT_HTTPS_URL || process.env.STOREFRONT_URL || 'http://localhost:3000';
     const apiUrl = process.env.API_URL || 'http://localhost:3001';
+    const notificationUrl = getGatewayUrl()
+      ? `${getGatewayUrl()}/api/v1/mp/webhook`
+      : `${apiUrl}/api/v1/mp/webhook`;
 
     // Mercado Pago doesn't like auto_return with localhost in some cases
     const isLocal = storefrontUrl.includes('localhost');
@@ -177,7 +200,7 @@ export const mpService = {
         unit_price: Number(Number(item.unit_price).toFixed(2))
       })),
       external_reference: externalReference,
-      notification_url: `${apiUrl}/api/v1/mp/webhook`,
+      notification_url: notificationUrl,
       back_urls: {
         success: `${apiUrl}/api/v1/mp/redirect?target=success&ref=${externalReference}`,
         failure: `${apiUrl}/api/v1/mp/redirect?target=failure&ref=${externalReference}`,
@@ -464,6 +487,19 @@ export const mpService = {
   },
 
   async disconnectMainAccount() {
+    const sellerUserId = await this.getSetting("mp_seller_user_id");
+    const gatewayUrl = getGatewayUrl();
+    const gatewaySecret = process.env.MP_GATEWAY_SHARED_SECRET;
+
+    if (sellerUserId && gatewayUrl && gatewaySecret) {
+      const body = { tenantId: getTenantId(), sellerUserId };
+      const proof = signGatewayPayload(body, gatewaySecret, 5 * 60 * 1000);
+      await axios.post(`${gatewayUrl}/api/v1/mp/internal/disconnect`, body, {
+        timeout: 15_000,
+        headers: { "x-nexus-mp-gateway-proof": proof },
+      });
+    }
+
     const keys = [
       "mp_seller_access_token",
       "mp_seller_refresh_token",
@@ -479,5 +515,30 @@ export const mpService = {
     await this.saveSetting("mp_main_checkout_enabled", "0");
 
     return { success: true };
-  }
+  },
+
+  async saveGatewayConnection(data: {
+    channelId: string | null;
+    accessToken: string;
+    refreshToken: string;
+    sellerUserId: string;
+  }) {
+    if (data.channelId) {
+      await storePrisma.paymentChannel.update({
+        where: { id: Number(data.channelId) },
+        data: {
+          mpAccessToken: data.accessToken,
+          mpRefreshToken: data.refreshToken,
+          mpUserId: data.sellerUserId,
+        },
+      });
+      return;
+    }
+
+    await Promise.all([
+      this.saveSetting("mp_seller_access_token", data.accessToken),
+      this.saveSetting("mp_seller_refresh_token", data.refreshToken),
+      this.saveSetting("mp_seller_user_id", data.sellerUserId),
+    ]);
+  },
 };
