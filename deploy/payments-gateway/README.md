@@ -6,7 +6,6 @@ Servicio compartido que recibe el callback OAuth y los webhooks de Mercado Pago 
 
 - `NEXUS_SERVICE_MODE=payments-gateway`
 - `PORT=8080`
-- `REDIS_URL`: Redis global de Nexus.
 - `PLATFORM_DATABASE_URL`: base global de Nexus, usada para el registro persistente de conexiones.
 - `MP_GATEWAY_URL=https://api.link-nex.us`
 - `MP_GATEWAY_SHARED_SECRET`: secreto aleatorio compartido con cada API tenant.

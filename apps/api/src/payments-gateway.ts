@@ -6,7 +6,6 @@ import axios from "axios";
 import cors from "@fastify/cors";
 import fastify from "fastify";
 import crypto from "crypto";
-import Redis from "ioredis";
 import { z } from "zod";
 import { platformPrisma } from "@nexus/db/platform";
 import { signGatewayPayload, verifyGatewayPayload } from "./modules/store/payments/mercadopago-gateway.security";
@@ -28,10 +27,6 @@ const gatewayUrl = (process.env.MP_GATEWAY_URL || "").replace(/\/$/, "");
 const gatewaySecret = process.env.MP_GATEWAY_SHARED_SECRET || "";
 const clientId = process.env.MP_APP_CLIENT_ID || "";
 const clientSecret = process.env.MP_APP_CLIENT_SECRET || "";
-const redis = new Redis(process.env.REDIS_URL || "redis://localhost:6379");
-
-const sellerKey = (sellerId: string) => `nexus:mercadopago:seller:${sellerId}`;
-
 const toTenantConnection = (connection: {
   tenantId: string;
   tenantApiUrl: string;
@@ -167,7 +162,6 @@ async function bootstrap() {
           sellerUserId: sellerId,
         },
       });
-      await redis.set(sellerKey(sellerId), JSON.stringify(connection));
       return reply.redirect(redirectToAdmin(connection.adminUrl, "success"));
     } catch (error) {
       server.log.error(error, "Mercado Pago OAuth callback failed");
@@ -229,7 +223,6 @@ async function bootstrap() {
           where: { id: current.id },
           data: { status: "DISCONNECTED", disconnectedAt: new Date() },
         });
-        await redis.del(sellerKey(body.sellerUserId));
       }
       return { success: true };
     } catch (error: any) {
@@ -277,6 +270,5 @@ async function bootstrap() {
 
 bootstrap().catch(async (error) => {
   server.log.error(error);
-  await redis.quit();
   process.exit(1);
 });
