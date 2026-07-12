@@ -529,7 +529,9 @@ function App() {
   >("preview");
   const [hasTempLogo, setHasTempLogo] = useState(false);
   const [isFormValid, setIsFormValid] = useState(false);
-  const [raffleEnabled, setRaffleEnabled] = useState(false);
+  const [raffleEnabled, setRaffleEnabled] = useState(
+    () => localStorage.getItem("admin_raffle_enabled") === "1",
+  );
 
   const shippingRef = React.useRef<{
     handleSaveConfig: () => void;
@@ -669,7 +671,13 @@ function App() {
           setBillingServices(billingData.services);
           setBillingCharges(billingData.charges);
           setBillingPayments(billingData.payments);
-          setRaffleEnabled(configData["raffle_enabled"] === "1");
+          const nextRaffleEnabled = configData["raffle_enabled"] === "1";
+          localStorage.setItem("admin_raffle_enabled", nextRaffleEnabled ? "1" : "0");
+          setRaffleEnabled(nextRaffleEnabled);
+          if (!nextRaffleEnabled) {
+            setActiveTab((current) => (current === "Rifas" ? "Inicio" : current));
+            setRaffleViewMode("list");
+          }
         });
         syncUnreadOrders(ordersData, true);
       } catch (error: any) {
@@ -767,6 +775,8 @@ function App() {
   const isSystemMode = activeTab === "Sistema";
   const isProfileMode = activeTab === "Mi Perfil";
   const isRafflesMode = activeTab === "Rifas";
+  // The active raffle route reserves its navigation rail before remote config resolves.
+  const showRaffleNavigation = raffleEnabled || isRafflesMode;
 
   const orderToolbarSegments = React.useMemo<
     NexusViewToolbarSegment<OrderStatusFilter>[]
@@ -1132,9 +1142,12 @@ function App() {
                 galleryRef.current?.handleSave();
               if (isCreatingSlide || isEditingSlide)
                 homeSliderRef.current?.handleSave();
+              if (isCreatingRaffle || isEditingRaffle)
+                (document.getElementById("raffle-form") as HTMLFormElement | null)?.requestSubmit();
             }}
             variant="brand"
             icon={Save}
+            disabled={(isCreatingRaffle || isEditingRaffle) && !isFormValid}
           >
             Guardar Cambios
           </NexusSectionButton>
@@ -1434,7 +1447,7 @@ function App() {
     "Medios",
     "Tienda",
     "Órdenes",
-    ...(raffleEnabled ? ["Rifas" as const] : []),
+    ...(showRaffleNavigation ? ["Rifas" as const] : []),
     "Sistema",
   ];
 
@@ -1446,7 +1459,7 @@ function App() {
           activeTab={activeTab}
           setActiveTab={setActiveTab as any}
           onLogout={handleLogout}
-          raffleEnabled={raffleEnabled}
+          raffleEnabled={showRaffleNavigation}
           newOrdersCount={pendingOrderIds.size}
           onOpenProfile={() => {
             setActiveTab("Mi Perfil");
@@ -1539,7 +1552,7 @@ function App() {
                     systemViewMode === "channels" &&
                     channelsViewMode === "principal")
                 }
-                raffleEnabled={raffleEnabled}
+                raffleEnabled={showRaffleNavigation}
                 userRole={userRole}
               />
             </div>
@@ -1619,10 +1632,12 @@ function App() {
                 )
               ) : isRafflesMode ? (
                 <RaffleView
+                  searchQuery={searchQuery}
                   viewMode={raffleViewMode}
                   onSetViewMode={setRaffleViewMode}
                   showToast={showToast}
                   setConfirmDialog={setConfirmDialog}
+                  onValidationChange={setIsFormValid}
                 />
               ) : isSystemMode ? (
                 <div
@@ -1713,7 +1728,10 @@ function App() {
                     <RaffleSettingsView
                       ref={raffleSettingsRef}
                       showToast={showToast}
-                      onStatusChange={(enabled) => setRaffleEnabled(enabled)}
+                      onStatusChange={(enabled) => {
+                        localStorage.setItem("admin_raffle_enabled", enabled ? "1" : "0");
+                        setRaffleEnabled(enabled);
+                      }}
                     />
                   ) : systemViewMode === "intelligence" ? (
                     <RaffleIntelligenceView showToast={showToast} />

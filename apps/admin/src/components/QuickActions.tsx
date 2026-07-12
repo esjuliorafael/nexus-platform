@@ -147,6 +147,8 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
           paddingLeft: "max(var(--space-md), env(safe-area-inset-left))",
           paddingRight: "max(var(--space-md), env(safe-area-inset-right))",
           scrollPaddingInline: "var(--space-md)",
+          scrollSnapType: "x proximity",
+          overscrollBehaviorInline: "contain",
         }}
       >
         <div className="flex min-w-max" style={{ gap: "var(--space-base)" }}>
@@ -163,6 +165,8 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
                   gap: "var(--space-sm)",
                   padding: "var(--padding-card-micro)",
                   borderRadius: "var(--radius-outer)",
+                  scrollSnapAlign: "start",
+                  scrollSnapStop: "normal",
                   transitionTimingFunction: "var(--ease-emil)",
                 }}
                 title={action.label}

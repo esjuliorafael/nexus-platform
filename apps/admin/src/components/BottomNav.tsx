@@ -84,7 +84,15 @@ export const BottomNav: React.FC<BottomNavProps> = ({
   }, [activeTab, tabs.length]);
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-[60] px-4 pb-8 pt-2 md:hidden">
+    <nav
+      className="fixed bottom-0 left-0 right-0 z-[60] md:hidden"
+      style={{
+        paddingInlineStart: "max(var(--space-md), env(safe-area-inset-left))",
+        paddingInlineEnd: "max(var(--space-md), env(safe-area-inset-right))",
+        paddingTop: "var(--space-sm)",
+        paddingBottom: "calc(var(--space-md) + env(safe-area-inset-bottom))",
+      }}
+    >
       <div className="relative mx-auto max-w-md overflow-hidden rounded-[2.5rem] border border-border-main bg-bg-card/90 p-1.5 shadow-2xl backdrop-blur-2xl dark:shadow-none">
         <div className="relative flex w-full items-center justify-around">
           {tabs.map((tabId) => {

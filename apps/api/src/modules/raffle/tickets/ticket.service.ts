@@ -1,4 +1,6 @@
-import { PrismaClient, Raffle, RaffleDistribution } from "@prisma/client-raffle";
+import { Prisma, PrismaClient, Raffle, RaffleDistribution } from "@prisma/client-raffle";
+
+type RaffleDatabaseClient = PrismaClient | Prisma.TransactionClient;
 
 export const ticketService = {
   // Calculates universe metadata from raffle config
@@ -21,7 +23,7 @@ export const ticketService = {
   },
 
   // Generates and persists RaffleOpportunity rows
-  async generateOpportunities(prisma: PrismaClient, raffle: Raffle) {
+  async generateOpportunities(prisma: RaffleDatabaseClient, raffle: Raffle) {
     const { universo, startFromZero, digits } = this.computeUniverse(
       raffle.ticketQuantity,
       raffle.opportunities

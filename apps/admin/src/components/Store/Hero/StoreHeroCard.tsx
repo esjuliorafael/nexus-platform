@@ -1,5 +1,5 @@
 import React from "react";
-import { ListOrdered, Pencil, Tags, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ListOrdered, Pencil, Tags, Trash2 } from "lucide-react";
 import { ASSET_BASE_URL } from "../../../api";
 import type { StoreHero, StoreHeroScope } from "../../../types";
 import { NexusAutonomousBadge } from "../../ui/NexusBadge";
@@ -12,6 +12,10 @@ interface StoreHeroCardProps {
   onEdit: () => void;
   onDelete: () => void;
   onToggleActive: () => void;
+  onMoveUp: () => void;
+  onMoveDown: () => void;
+  canMoveUp: boolean;
+  canMoveDown: boolean;
   isToggling?: boolean;
 }
 
@@ -26,6 +30,10 @@ export const StoreHeroCard: React.FC<StoreHeroCardProps> = ({
   onEdit,
   onDelete,
   onToggleActive,
+  onMoveUp,
+  onMoveDown,
+  canMoveUp,
+  canMoveDown,
   isToggling,
 }) => {
   const getFullUrl = (path?: string | null) => {
@@ -39,7 +47,12 @@ export const StoreHeroCard: React.FC<StoreHeroCardProps> = ({
   const posterUrl = getFullUrl(hero.posterUrl);
 
   return (
-    <NexusAutonomousCard innerClassName="transition-all duration-500">
+    <NexusAutonomousCard
+      swipeable
+      onEdit={onEdit}
+      onDelete={onDelete}
+      innerClassName="transition-all duration-500"
+    >
       <div
         className="grid grid-cols-1 items-stretch lg:grid-cols-[var(--size-slide-thumb-width)_1fr_auto]"
         style={{ gap: "var(--space-md)" }}
@@ -104,19 +117,39 @@ export const StoreHeroCard: React.FC<StoreHeroCardProps> = ({
               density="compact"
               variant="secondary"
               isIconOnly
-              icon={Pencil}
-              onClick={onEdit}
-              aria-label="Editar hero"
+              icon={ArrowUp}
+              onClick={onMoveUp}
+              disabled={!canMoveUp}
+              aria-label="Subir hero"
             />
             <NexusAutonomousButton
               density="compact"
               variant="secondary"
               isIconOnly
-              icon={Trash2}
-              onClick={onDelete}
-              aria-label="Eliminar hero"
-              className="hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100"
+              icon={ArrowDown}
+              onClick={onMoveDown}
+              disabled={!canMoveDown}
+              aria-label="Bajar hero"
             />
+            <div className="hidden items-center sm:flex" style={{ gap: "var(--space-sm)" }}>
+              <NexusAutonomousButton
+                density="compact"
+                variant="secondary"
+                isIconOnly
+                icon={Pencil}
+                onClick={onEdit}
+                aria-label="Editar hero"
+              />
+              <NexusAutonomousButton
+                density="compact"
+                variant="secondary"
+                isIconOnly
+                icon={Trash2}
+                onClick={onDelete}
+                aria-label="Eliminar hero"
+                className="hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100"
+              />
+            </div>
           </div>
         </div>
       </div>

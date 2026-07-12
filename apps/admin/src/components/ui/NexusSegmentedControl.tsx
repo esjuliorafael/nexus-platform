@@ -11,6 +11,7 @@ interface NexusSegmentedControlProps<T extends string> {
   options: NexusSegmentedControlOption<T>[];
   onChange: (value: T) => void;
   ariaLabel: string;
+  context?: 'section' | 'card';
   className?: string;
 }
 
@@ -19,15 +20,20 @@ export function NexusSegmentedControl<T extends string>({
   options,
   onChange,
   ariaLabel,
+  context = 'card',
   className = '',
 }: NexusSegmentedControlProps<T>) {
+  const isSectionContext = context === 'section';
+
   return (
     <div
       className={`flex bg-stone-100 border border-stone-200 shadow-inner ${className}`}
       role="tablist"
       aria-label={ariaLabel}
       style={{
-        borderRadius: 'var(--radius-nested-simple)',
+        borderRadius: isSectionContext
+          ? 'var(--radius-inner-visual)'
+          : 'var(--radius-nested-simple)',
         padding: 'var(--space-xs)',
         gap: 'var(--space-xs)',
       }}
@@ -48,7 +54,9 @@ export function NexusSegmentedControl<T extends string>({
                 : 'text-stone-400 hover:text-stone-600'
             }`}
             style={{
-              borderRadius: 'var(--radius-nested-compact)',
+              borderRadius: isSectionContext
+                ? 'var(--radius-segmented-section-option)'
+                : 'var(--radius-segmented-card-option)',
               paddingBlock: 'var(--space-xs)',
               paddingInline: 'var(--space-base)',
             }}

@@ -404,15 +404,23 @@ export interface Raffle {
   useZero: boolean;
   digits: number;
   drawDate?: string;
-  image?: string;
-  status: "ACTIVE" | "FINISHED" | "CANCELLED";
-  createdAt: string;
+    image?: string;
+    gallery?: RaffleGalleryItem[];
+    status: "ACTIVE" | "FINISHED" | "CANCELLED";
+    published: boolean;
+    createdAt: string;
   ticketStats?: {
     total: number;
     paid: number;
     pending: number;
     available: number;
   };
+}
+
+export interface RaffleGalleryItem {
+  id?: number;
+  filePath: string;
+  fileType: "PHOTO" | "VIDEO";
 }
 
 export interface TicketSale {

@@ -101,9 +101,15 @@ export const Header: React.FC<HeaderProps> = ({
 
   return (
     <div
-      className={`sticky top-0 z-50 w-full px-4 transition-all duration-500 ${
-        isScrolled ? "pt-0" : "pt-4"
-      }`}
+      className="sticky top-0 z-50 w-full transition-all duration-500"
+      style={{
+        paddingInlineStart: "max(var(--space-md), env(safe-area-inset-left))",
+        paddingInlineEnd: "max(var(--space-md), env(safe-area-inset-right))",
+        paddingTop: isScrolled
+          ? "env(safe-area-inset-top)"
+          : "calc(var(--space-md) + env(safe-area-inset-top))",
+        transitionTimingFunction: "var(--ease-emil)",
+      }}
     >
       <header
         className="mx-auto w-full max-w-7xl rounded-full border border-border-main bg-bg-card/95 shadow-xl backdrop-blur-xl transition-all duration-500 dark:shadow-none"

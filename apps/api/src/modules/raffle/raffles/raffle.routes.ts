@@ -2,7 +2,13 @@ import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { raffleService } from "./raffle.service";
 import { ticketSaleService } from "../ticket-sales/ticket-sale.service";
-import { createRaffleSchema, updateRaffleSchema, updateRaffleStatusSchema } from "./raffle.schema";
+import {
+  createRaffleSchema,
+  isClosedRaffleUniverse,
+  updateRaffleSchema,
+  updateRafflePublicationSchema,
+  updateRaffleStatusSchema,
+} from "./raffle.schema";
 
 const reserveTicketsBodySchema = z.object({
   tickets: z.array(z.string().regex(/^\d+$/, "Ticket numbers must be numeric")).min(1, "At least one ticket is required"),
@@ -27,7 +33,7 @@ export async function raffleRoutes(server: FastifyInstance) {
 
   server.get("/:id", async (request, reply) => {
     const { id } = request.params as { id: string };
-    const raffle = await raffleService.getById(getPrisma(), parseInt(id));
+    const raffle = await raffleService.getPublicById(getPrisma(), parseInt(id));
     if (!raffle) return reply.status(404).send({ message: "Raffle not found" });
     return raffle;
   });
@@ -35,7 +41,7 @@ export async function raffleRoutes(server: FastifyInstance) {
   server.get("/:id/occupied-tickets", async (request, reply) => {
     const { id } = request.params as { id: string };
     const raffleId = parseInt(id);
-    const raffle = await raffleService.getById(getPrisma(), raffleId);
+    const raffle = await raffleService.getPublicById(getPrisma(), raffleId);
     if (!raffle) return reply.status(404).send({ message: "Raffle not found" });
 
     const occupied = await getPrisma().ticketSale.findMany({
@@ -89,6 +95,9 @@ export async function raffleRoutes(server: FastifyInstance) {
       if (error.message === "INVALID_TICKET_NUMBERS") {
         return reply.status(400).send({ message: "One or more ticket numbers are invalid for this raffle" });
       }
+      if (error.message === "RAFFLE_UNAVAILABLE") {
+        return reply.status(409).send({ message: "This raffle is not available" });
+      }
       throw error;
     }
   });
@@ -98,19 +107,44 @@ export async function raffleRoutes(server: FastifyInstance) {
     return raffleService.getAllAdmin(getPrisma());
   });
 
-  server.post("/", { preHandler: [server.authenticate] }, async (request) => {
-    const validated = createRaffleSchema.parse(request.body);
+  server.post("/", { preHandler: [server.authenticate] }, async (request, reply) => {
+    let validated;
+    try {
+      validated = createRaffleSchema.parse(request.body);
+    } catch (error: any) {
+      if (error?.issues) return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      throw error;
+    }
     return raffleService.create(getPrisma(), validated);
   });
 
   server.put("/:id", { preHandler: [server.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string };
     const raffleId = parseInt(id);
-    const validated = updateRaffleSchema.parse(request.body);
+    let validated;
+    try {
+      validated = updateRaffleSchema.parse(request.body);
+    } catch (error: any) {
+      if (error?.issues) return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      throw error;
+    }
+
+    const current = await getPrisma().raffle.findUnique({ where: { id: raffleId } });
+    if (!current) return reply.status(404).send({ message: "Raffle not found" });
+
+    const nextTicketQuantity = validated.ticketQuantity ?? current.ticketQuantity;
+    const nextOpportunities = validated.opportunities ?? current.opportunities;
+    if (!isClosedRaffleUniverse(nextTicketQuantity, nextOpportunities)) {
+      return reply.status(400).send({
+        message: "Las rifas simples requieren 100, 1000 o una potencia exacta de 10. Las rifas de oportunidades también admiten 99, 999 y potencias de 10 menos uno",
+        code: "INVALID_RAFFLE_UNIVERSE",
+      });
+    }
 
     const universeFieldsChanged =
-      validated.ticketQuantity !== undefined ||
-      validated.opportunities !== undefined;
+      nextTicketQuantity !== current.ticketQuantity ||
+      nextOpportunities !== current.opportunities ||
+      (validated.distribution !== undefined && validated.distribution !== current.distribution);
 
     if (universeFieldsChanged) {
       const activeSalesCount = await getPrisma().ticketSale.count({
@@ -130,9 +164,27 @@ export async function raffleRoutes(server: FastifyInstance) {
     return raffleService.update(getPrisma(), raffleId, validated);
   });
 
-  server.patch("/:id/status", { preHandler: [server.authenticate] }, async (request) => {
+  server.patch("/:id/status", { preHandler: [server.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const validated = updateRaffleStatusSchema.parse(request.body);
+    let validated;
+    try {
+      validated = updateRaffleStatusSchema.parse(request.body);
+    } catch (error: any) {
+      if (error?.issues) return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      throw error;
+    }
+    return raffleService.update(getPrisma(), parseInt(id), validated);
+  });
+
+  server.patch("/:id/publication", { preHandler: [server.authenticate] }, async (request, reply) => {
+    const { id } = request.params as { id: string };
+    let validated;
+    try {
+      validated = updateRafflePublicationSchema.parse(request.body);
+    } catch (error: any) {
+      if (error?.issues) return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      throw error;
+    }
     return raffleService.update(getPrisma(), parseInt(id), validated);
   });
 

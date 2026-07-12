@@ -69,6 +69,9 @@ export const HomeSlideCard: React.FC<HomeSlideCardProps> = ({
   return (
     <>
       <NexusAutonomousCard
+        swipeable
+        onEdit={onEdit}
+        onDelete={onDelete}
         isMuted={!slide.active}
         innerClassName={`hover:shadow-xl hover:shadow-stone-200/40 active:scale-[0.995] transition-all duration-700 ${
           slide.active ? "border-border-main" : "border-border-main/70"
@@ -225,10 +228,7 @@ export const HomeSlideCard: React.FC<HomeSlideCardProps> = ({
               </span>
             </div>
 
-            <div
-              className="flex shrink-0 items-center"
-              style={{ gap: "var(--space-sm)" }}
-            >
+            <div className="flex shrink-0 items-center" style={{ gap: "var(--space-sm)" }}>
               <NexusAutonomousButton
                 density="compact"
                 variant="secondary"
@@ -247,23 +247,25 @@ export const HomeSlideCard: React.FC<HomeSlideCardProps> = ({
                 disabled={!canMoveDown}
                 aria-label="Bajar slide"
               />
-              <NexusAutonomousButton
-                density="compact"
-                variant="secondary"
-                isIconOnly
-                icon={Edit2}
-                onClick={onEdit}
-                aria-label="Editar slide"
-              />
-              <NexusAutonomousButton
-                density="compact"
-                variant="secondary"
-                isIconOnly
-                icon={Trash2}
-                onClick={onDelete}
-                aria-label="Eliminar slide"
-                className="hover:border-rose-200 hover:bg-rose-50 hover:text-rose-500"
-              />
+              <div className="hidden items-center sm:flex" style={{ gap: "var(--space-sm)" }}>
+                <NexusAutonomousButton
+                  density="compact"
+                  variant="secondary"
+                  isIconOnly
+                  icon={Edit2}
+                  onClick={onEdit}
+                  aria-label="Editar slide"
+                />
+                <NexusAutonomousButton
+                  density="compact"
+                  variant="secondary"
+                  isIconOnly
+                  icon={Trash2}
+                  onClick={onDelete}
+                  aria-label="Eliminar slide"
+                  className="hover:border-rose-200 hover:bg-rose-50 hover:text-rose-500"
+                />
+              </div>
             </div>
           </div>
         </div>

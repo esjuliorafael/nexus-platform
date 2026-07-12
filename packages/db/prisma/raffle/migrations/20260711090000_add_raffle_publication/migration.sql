@@ -1,0 +1,2 @@
+ALTER TABLE "raffles"
+ADD COLUMN "published" BOOLEAN NOT NULL DEFAULT true;

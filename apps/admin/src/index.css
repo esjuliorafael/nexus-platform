@@ -44,6 +44,14 @@
     0.375rem,
     calc(var(--radius-nested-simple) - var(--space-xs))
   );
+  --radius-segmented-section-option: max(
+    0.375rem,
+    calc(var(--radius-inner-visual) - (var(--space-xs) * 0.75))
+  );
+  --radius-segmented-card-option: max(
+    0.375rem,
+    calc(var(--radius-nested-simple) - (var(--space-xs) * 0.75))
+  );
   --padding-inner: clamp(1rem, 3vw, 1.5rem);
 
   /* Autonomous Cards Geometry (Level 1 containers using padding-inner) */
@@ -81,6 +89,7 @@
   --size-button-autonomous: var(
     --h-button-section
   ); /* Inherits from section level weight */
+  --size-swipe-action-reveal: clamp(7.5rem, 32vw, 9rem);
 
   /* Icon Sizes - Linked to Component Scales */
   --size-icon-section: var(--h-button-section);
@@ -90,9 +99,9 @@
   ); /* Inherits from section level weight */
 
   /* Internal Icon Sizes - For Buttons and technical UI elements */
-  --size-inner-icon-section: 1.5rem; /* 24px */
-  --size-inner-icon-autonomous: 1.5rem; /* 24px */
-  --size-inner-icon-card: 1.25rem; /* 20px */
+  --size-inner-icon-section: 1.25rem; /* 20px */
+  --size-inner-icon-autonomous: 1.25rem; /* 20px */
+  --size-inner-icon-card: 1rem; /* 16px */
   --size-inner-icon-metadata: 1rem; /* 16px */
   --size-inner-icon-badge: var(--space-base); /* 12px */
 
@@ -555,6 +564,29 @@ body {
 
 .nexus-media-viewer-hero-media {
   object-position: var(--nexus-viewer-mobile-object-position, 50% 44%);
+}
+
+/* Swipe mechanics are shared; the reveal boundary follows the card ownership level. */
+.nexus-swipe-stage {
+  touch-action: pan-y;
+  overscroll-behavior-inline: contain;
+}
+
+@media (max-width: 639px) {
+  .nexus-swipe-stage--autonomous {
+    width: 100vw;
+    max-width: 100vw;
+    margin-inline: calc(50% - 50vw);
+    padding-inline: var(--space-md);
+    box-sizing: border-box;
+  }
+
+  .nexus-swipe-stage--nested {
+    width: 100%;
+    max-width: 100%;
+    margin-inline: 0;
+    padding-inline: 0;
+  }
 }
 
 @media (min-width: 768px) {

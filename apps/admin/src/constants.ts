@@ -9,13 +9,11 @@ export const MEXICO_STATES = [
 
 /**
  * Engineering Tokens: Icon Sizes (JS/Props)
- * Equivalencias con tokens CSS:
- * - 1.25rem = 20px (Section / Autonomous)
- * - 1rem = 16px (Card / Default)
+ * References the CSS source of truth from index.css.
  */
 export const iconSizes = {
-  section: "1.25rem",
-  autonomous: "1.25rem",
-  card: "1rem",
-  default: "1rem"
+  section: "var(--size-inner-icon-section)",
+  autonomous: "var(--size-inner-icon-autonomous)",
+  card: "var(--size-inner-icon-card)",
+  default: "var(--size-inner-icon-metadata)"
 } as const;

@@ -22,6 +22,12 @@ This document defines how Admin UI components should use the recursive geometry 
 `--radius-nested-compact`
 : Compact child radius inside a level 3 section control. Formula: `--radius-nested-simple - --space-xs`. Use it for selected options inside segmented controls that live inside `NexusSectionCard` or `NexusControlRow`.
 
+`--radius-segmented-section-option`
+: Level 3 option inside a `NexusSegmentedControl` that is a direct child of `NexusSection`. Formula: `--radius-inner-visual - (--space-xs * 0.75)`. It derives from the control's actual compact inset, not from `--padding-inner`.
+
+`--radius-segmented-card-option`
+: Level 4 option inside a `NexusSegmentedControl` that lives in a level 2 card such as `NexusControlRow`. Formula: `--radius-nested-simple - (--space-xs * 0.75)`.
+
 `--radius-card-inner`
 : Level 2 radius inside an autonomous card. Formula: `--radius-outer - (--padding-inner * 0.75)`.
 
@@ -81,9 +87,25 @@ Use this when content lives inside `NexusSection`.
 
 Example: `BillingView` uses `NexusSection` as the root surface, then `NexusSectionCard` for service rows and `NexusSectionButton` for the primary section action.
 
+Elevation follows ownership rather than interactivity. `NexusSectionCard` is a nested level 2 surface and must remain `shadow-none`, whether static or swipeable. Its border and background provide sufficient separation inside the elevated section shell.
+
+### Swipe Ownership
+
+Swipeable cards share one axis-locked touch engine, but their reveal stage must follow the geometry branch that owns the card.
+
+- `NexusAutonomousCard` uses a viewport reveal stage on mobile. Its resting surface and default revealed actions align to the App shell inset, `--space-md`; `--padding-outer` must never be used as page padding.
+- `NexusSectionCard` uses a container reveal stage. It must remain inside the content box of `NexusSection` and preserve the section's `--padding-outer`.
+- Revealed actions inherit the level of the swipe stage, not the displaced card surface. Autonomous stages use the default `NexusAutonomousButton`; stages owned directly by `NexusSection` use `NexusSectionButton`. Both swipe actions share `--h-button-section`, section-level typography, and a 20px icon token. Their ownership branch changes the radius, not their functional weight. `NexusCardButton` remains reserved for actions rendered inside `NexusSectionCard`.
+- A nested reveal preserves the section's `--padding-outer` at the shell boundary and uses exactly `--space-base` between the revealed `NexusSectionButton` and the displaced card. The reveal distance is measured independently per side from the rendered button width plus that gap; it must not rely on a fixed centering allowance.
+- An autonomous reveal positions the default action at `--space-md` from the viewport edge and also uses `--space-base` between the action and displaced card. The viewport inset positions the rail but is not added to the card translation distance.
+- When a card is swipeable, Edit and Delete are hidden below `sm`. Other operational actions may remain visible in the card layout.
+- Never apply viewport width or negative viewport margins to a nested section card.
+
 ### Autonomous Branch
 
 Use this when a card or media container lives as its own level 1 surface, not inside the visual hierarchy of a `NexusSection`.
+
+Level 1 autonomous cards use the same elevation contract as `NexusSection`: `shadow-sm` at rest and the shared restrained hover elevation on pointer devices. Swipeability must not change that contract.
 
 | Surface                               | Component                                                              | Radius                 |
 | ------------------------------------- | ---------------------------------------------------------------------- | ---------------------- |
@@ -161,6 +183,8 @@ All viewer controls use `NexusAutonomousButton` with the same size, radius, bord
 | Global confirm dialogs      | Use `NexusConfirmModal`.                                                                                             |
 | Global fallback cards       | Use `NexusAutonomousCard` instead of hand-rolled page-level cards.                                                   |
 | Global toast                | Treat the toast as a temporary autonomous surface and use autonomous child radius/buttons for its internal controls. |
+
+On mobile, the App chrome shares one viewport inset. `Header`, the main content rail, autonomous swipe stages, and `BottomNav` align horizontally with `--space-md`. Header and BottomNav must combine that inset with `env(safe-area-inset-*)`: the uncollapsed Header adds the top safe area, the collapsed Header retains only the safe area, and BottomNav adds the bottom safe area. Local `px-*`, `pt-*`, or `pb-*` utilities must not replace this shell geometry.
 
 Avoid adding external margins inside reusable components to solve page composition. The parent shell or owning view should create the gap between sibling regions.
 

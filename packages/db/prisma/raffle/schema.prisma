@@ -35,6 +35,7 @@ model Raffle {
   drawDate        DateTime?           @map("draw_date")
   image           String?             @map("image")
   status          RaffleStatus        @default(ACTIVE) @map("status")
+  published       Boolean             @default(true) @map("published")
   createdAt       DateTime            @default(now()) @map("created_at")
   gallery         RaffleGallery[]
   extraOpportunities RaffleOpportunity[]

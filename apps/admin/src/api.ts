@@ -748,10 +748,13 @@ export const apiRaffles = {
       ...item,
       id: item.id.toString(),
       ticketPrice: parseFloat(item.ticketPrice),
+      published: item.published !== false,
     }));
   },
   create: async (data: any) => api.post("/raffles", data),
   update: async (id: string, data: any) => api.put(`/raffles/${id}`, data),
+  updatePublication: async (id: string, published: boolean) =>
+    api.patch(`/raffles/${id}/publication`, { published }),
   remove: async (id: string) => api.delete(`/raffles/${id}`),
   getTickets: async (raffleId: string): Promise<TicketSale[]> => {
     const res = await api.get(`/raffles/${raffleId}/tickets`);

@@ -1,151 +1,231 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { 
-  Ticket, Layers, Save, X, Calendar, 
-  Hash, Image as ImageIcon, Layout,
-  Loader2, DollarSign, Info, AlertTriangle,
-  Trash2, Check
-} from 'lucide-react';
-import { Raffle } from '../../types';
-import { apiRaffles, apiUpload } from '../../api';
-import { NexusInput, NexusTextarea, NexusSelect } from '../ui/NexusInputs';
-import { NexusSectionButton } from '../ui/NexusButton';
-import { NexusSection } from '../ui/NexusSection';
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import {
+  Calendar,
+  Check,
+  DollarSign,
+  Film,
+  Hash,
+  Image as ImageIcon,
+  Layers,
+  Loader2,
+  PlusCircle,
+  Ticket,
+  Trash2,
+  Upload,
+  X,
+} from "lucide-react";
+import { apiRaffles, apiUpload } from "../../api";
+import { Raffle, RaffleGalleryItem } from "../../types";
+import { NexusInput, NexusSelect, NexusTextarea } from "../ui/NexusInputs";
+import { NexusAutonomousButton } from "../ui/NexusButton";
+import { NexusInlineNotice } from "../ui/NexusInlineNotice";
+import { NexusSegmentedControl } from "../ui/NexusSegmentedControl";
+import { NexusSection } from "../ui/NexusSection";
+import { InteractionStage } from "../ui/InteractionStage";
+import { UploadPreviewOverlay } from "../ui/UploadPreviewOverlay";
 
 interface RaffleFormProps {
   initialData?: Raffle;
   onCancel: () => void;
   onSave: () => void;
   onValidationChange?: (isValid: boolean) => void;
-  showToast: (message: string, type?: 'success' | 'error') => void;
+  showToast: (message: string, type?: "success" | "error") => void;
 }
 
-export const RaffleForm: React.FC<RaffleFormProps> = ({ 
-  initialData, 
-  onCancel, 
-  onSave, 
-  onValidationChange,
-  showToast
-}) => {
-  const [currentStep, setCurrentStep] = useState(1);
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isProcessing, setIsProcessing] = useState(false);
+type RaffleType = "SIMPLE" | "OPPORTUNITIES";
+type GalleryItem = Pick<RaffleGalleryItem, "filePath" | "fileType">;
 
-  const hasActiveSales = !!initialData && 
-    ((initialData.ticketStats?.paid ?? 0) > 0 || 
-     (initialData.ticketStats?.pending ?? 0) > 0);
-  
-  // Section 1: Type
-  const [raffleType, setRaffleType] = useState<'SIMPLE' | 'OPPORTUNITIES'>(
-    initialData && initialData.opportunities > 1 ? 'OPPORTUNITIES' : 'SIMPLE'
+const MAX_GALLERY_ITEMS = 6;
+
+export const RaffleForm: React.FC<RaffleFormProps> = ({
+  initialData,
+  onSave,
+  onValidationChange,
+  showToast,
+}) => {
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [raffleType, setRaffleType] = useState<RaffleType>(
+    initialData && initialData.opportunities > 1 ? "OPPORTUNITIES" : "SIMPLE",
+  );
+  const [ticketQuantity, setTicketQuantity] = useState(initialData?.ticketQuantity?.toString() ?? "");
+  const [opportunities, setOpportunities] = useState(initialData?.opportunities?.toString() ?? "1");
+  const [distribution, setDistribution] = useState<"LINEAR" | "RANDOM">(
+    initialData?.distribution ?? "LINEAR",
+  );
+  const [ticketPrice, setTicketPrice] = useState(initialData?.ticketPrice?.toString() ?? "");
+  const [title, setTitle] = useState(initialData?.title ?? "");
+  const [description, setDescription] = useState(initialData?.description ?? "");
+  const [drawDate, setDrawDate] = useState(
+    initialData?.drawDate ? new Date(initialData.drawDate).toISOString().split("T")[0] : "",
+  );
+  const [status, setStatus] = useState<Raffle["status"]>(initialData?.status ?? "ACTIVE");
+  const [imageUrl, setImageUrl] = useState(initialData?.image ?? "");
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [gallery, setGallery] = useState<GalleryItem[]>(initialData?.gallery ?? []);
+
+  const coverInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
+  const hasActiveSales = Boolean(
+    initialData && ((initialData.ticketStats?.paid ?? 0) > 0 || (initialData.ticketStats?.pending ?? 0) > 0),
   );
 
-  // Section 2: Universe
-  const [ticketQuantity, setTicketQuantity] = useState(initialData?.ticketQuantity?.toString() || '');
-  const [opportunities, setOpportunities] = useState(initialData?.opportunities?.toString() || '1');
-  const [distribution, setDistribution] = useState<'LINEAR' | 'RANDOM'>(initialData?.distribution || 'LINEAR');
-
-  // Section 3: Details
-  const [title, setTitle] = useState(initialData?.title || '');
-  const [description, setDescription] = useState(initialData?.description || '');
-  const [ticketPrice, setTicketPrice] = useState(initialData?.ticketPrice?.toString() || '');
-  const [drawDate, setDrawDate] = useState(initialData?.drawDate ? new Date(initialData.drawDate).toISOString().split('T')[0] : '');
-  const [imageUrl, setImageUrl] = useState(initialData?.image || '');
-  const [imageFile, setImageFile] = useState<File | null>(null);
-  const [status, setStatus] = useState<Raffle['status']>(initialData?.status || 'ACTIVE');
-
-  const fileInputRef = React.useRef<HTMLInputElement>(null);
-
-  // Universe Calculation Logic
   const universePreview = useMemo(() => {
-    const qty = parseInt(ticketQuantity) || 0;
-    const opps = raffleType === 'SIMPLE' ? 1 : (parseInt(opportunities) || 0);
-    const universo = qty * opps;
-    
-    if (universo <= 0) return null;
+    const quantity = Number.parseInt(ticketQuantity, 10) || 0;
+    const chances = raffleType === "SIMPLE" ? 1 : Number.parseInt(opportunities, 10) || 0;
+    const total = quantity * chances;
 
-    const isPowerOf10 = (() => {
-      let n = universo;
-      if (n < 10) return false;
-      while (n % 10 === 0) n /= 10;
-      return n === 1;
-    })();
+    if (total <= 0) return null;
 
-    const startFromZero = isPowerOf10;
-    const digits = startFromZero ? Math.round(Math.log10(universo)) : String(universo).length;
-    
-    const pad = (n: number) => String(n).padStart(digits, '0');
-    const rangeStart = pad(startFromZero ? 0 : 1);
-    const rangeEnd = pad(startFromZero ? universo - 1 : universo);
+    const isPowerOfTen = total >= 10 && /^10*$/.test(String(total));
+    const isPowerOfTenMinusOne = total >= 99 && /^10*$/.test(String(total + 1));
+    const isValid = raffleType === "SIMPLE"
+      ? total >= 100 && isPowerOfTen
+      : isPowerOfTen || isPowerOfTenMinusOne;
+    const digits = isPowerOfTen ? Math.log10(total) : String(total).length;
+    const pad = (value: number) => String(value).padStart(digits, "0");
+    const start = isPowerOfTen ? 0 : 1;
 
-    // Assignment Example
-    let example = "";
-    if (opps > 1 && qty > 0) {
-        const ticketStart = 1; // tickets always start at 1 in OPPORTUNITIES
-        const mainNum = pad(ticketStart);
-        const extras: string[] = [];
-        for (let k = 1; k < Math.min(opps, 4); k++) {
-            extras.push(pad((ticketStart + k * qty) % universo));
-        }
-        example = `Boleto ${mainNum} → ${extras.join(', ')}${opps > 4 ? '...' : ''}`;
+    return {
+      total,
+      digits,
+      start: pad(start),
+      end: pad(isPowerOfTen ? total - 1 : total),
+      startsAtZero: isPowerOfTen,
+      isValid,
+    };
+  }, [opportunities, raffleType, ticketQuantity]);
+
+  const isUniverseValid = Boolean(
+    universePreview?.isValid &&
+      (raffleType === "SIMPLE" || (Number.parseInt(opportunities, 10) || 0) >= 2),
+  );
+
+  const universeGuidance = useMemo(() => {
+    if (!universePreview || universePreview.isValid) return null;
+
+    const quantity = Number.parseInt(ticketQuantity, 10) || 0;
+    const chances = raffleType === "SIMPLE" ? 1 : Number.parseInt(opportunities, 10) || 0;
+    if (quantity <= 0 || chances <= 0) return null;
+
+    const validUniverses = [99, 100, 999, 1000, 9999, 10000, 99999, 100000];
+    const formatNumber = (value: number) => value.toLocaleString("es-MX");
+    const currentDigits = String(universePreview.total).length;
+    const nextNaturalLimit = 10 ** currentDigits - 1;
+    const previousNaturalLimit = 10 ** (currentDigits - 1) - 1;
+    const gapMessage = universePreview.total < 99
+      ? `Un universo de ${formatNumber(universePreview.total)} no completa el primer rango válido: 01–99.`
+      : currentDigits >= 3 && universePreview.total > previousNaturalLimit
+        ? `El universo rebasa el rango 00–${formatNumber(previousNaturalLimit)} y deja sin asignar los números ${formatNumber(universePreview.total + 1)}–${formatNumber(nextNaturalLimit)}.`
+      : universePreview.total < nextNaturalLimit
+        ? `Quedarían sin asignar los números ${formatNumber(universePreview.total + 1)}–${formatNumber(nextNaturalLimit)}.`
+        : `El universo no forma un rango completo de ${currentDigits} cifras.`;
+
+    if (raffleType === "SIMPLE") {
+      const closest = validUniverses
+        .filter((universe) => /^10*$/.test(String(universe)))
+        .slice()
+        .sort((left, right) => Math.abs(left - quantity) - Math.abs(right - quantity))
+        .slice(0, 2)
+        .map(formatNumber)
+        .join(" o ");
+      const zeroMessage = universePreview.total === 99
+        ? "El 00 quedaría fuera, aunque pertenece naturalmente al rango 00–99."
+        : "Una rifa simple debe incluir todos los números del rango, incluido el cero.";
+      return `${zeroMessage} Usa ${closest} boletos para formar un universo cerrado.`;
     }
 
-    return { universo, startFromZero, digits, rangeStart, rangeEnd, example };
-  }, [ticketQuantity, opportunities, raffleType]);
+    const sameTicketOption = validUniverses
+      .map((universe) => ({ universe, opportunities: universe / quantity }))
+      .filter((option) => Number.isInteger(option.opportunities) && option.opportunities >= 2)
+      .sort((left, right) => Math.abs(left.opportunities - chances) - Math.abs(right.opportunities - chances))[0];
+    const sameOpportunityOption = validUniverses
+      .map((universe) => ({ universe, tickets: universe / chances }))
+      .filter((option) => Number.isInteger(option.tickets) && option.tickets > 0)
+      .sort((left, right) => Math.abs(left.tickets - quantity) - Math.abs(right.tickets - quantity))[0];
 
-  // Validation by step
-  const isStep1Valid = true; // Always valid since it has default
-  const isStep2Valid = useMemo(() => {
-    const qty = parseInt(ticketQuantity) || 0;
-    const opps = raffleType === 'SIMPLE' ? 1 : (parseInt(opportunities) || 0);
-    const universe = qty * opps;
-    return qty > 0 && (raffleType === 'SIMPLE' || (opps >= 2 && universe > qty)) && universe <= 100000;
-  }, [ticketQuantity, opportunities, raffleType]);
+    const suggestions = [
+      sameTicketOption && `conserva ${formatNumber(quantity)} boletos y usa ${formatNumber(sameTicketOption.opportunities)} oportunidades (${formatNumber(sameTicketOption.universe)})`,
+      sameOpportunityOption && `conserva ${formatNumber(chances)} oportunidades y usa ${formatNumber(sameOpportunityOption.tickets)} boletos (${formatNumber(sameOpportunityOption.universe)})`,
+    ].filter(Boolean);
 
-  const isStep3Valid = useMemo(() => {
-    return title.trim() !== '' && parseFloat(ticketPrice) > 0;
-  }, [title, ticketPrice]);
+    return suggestions.length
+      ? `${gapMessage} Puedes ${suggestions.join("; o ")}.`
+      : `${gapMessage} Ajusta boletos u oportunidades hasta llegar a 99, 100, 999, 1000 o un nivel equivalente.`;
+  }, [opportunities, raffleType, ticketQuantity, universePreview]);
 
-  const isFormValid = isStep1Valid && isStep2Valid && isStep3Valid;
+  const isFormValid = Boolean(title.trim()) && Number.parseFloat(ticketPrice) > 0 && isUniverseValid;
 
   useEffect(() => {
     onValidationChange?.(isFormValid);
   }, [isFormValid, onValidationChange]);
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      setIsProcessing(true);
-      setImageFile(file);
-      const url = URL.createObjectURL(file);
-      setImageUrl(url);
-      setIsProcessing(false);
+  const handleCoverChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+
+    setCoverFile(file);
+    setImageUrl(URL.createObjectURL(file));
+  };
+
+  const handleGalleryChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files: File[] = event.target.files ? Array.from(event.target.files) : [];
+    const availableSlots = MAX_GALLERY_ITEMS - gallery.length;
+    const selectedFiles = files.slice(0, availableSlots);
+    event.target.value = "";
+
+    if (!selectedFiles.length) {
+      if (files.length) showToast(`La galería admite hasta ${MAX_GALLERY_ITEMS} medios.`, "error");
+      return;
+    }
+
+    setIsUploading(true);
+    try {
+      const uploaded = await Promise.all(
+        selectedFiles.map(async (file) => {
+          const response = await apiUpload.upload(file);
+          return {
+            filePath: response.url,
+            fileType: file.type.startsWith("video/") ? "VIDEO" : "PHOTO",
+          } satisfies GalleryItem;
+        }),
+      );
+      setGallery((current) => [...current, ...uploaded]);
+    } catch (error) {
+      console.error(error);
+      showToast("No se pudo subir un medio de la galería.", "error");
+    } finally {
+      setIsUploading(false);
     }
   };
 
-  const handleSubmit = async (e?: React.FormEvent) => {
-    e?.preventDefault();
+  const removeGalleryItem = (index: number) => {
+    setGallery((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  };
+
+  const handleSubmit = async (event?: React.FormEvent) => {
+    event?.preventDefault();
     if (!isFormValid || isSubmitting) return;
 
     setIsSubmitting(true);
     try {
       let finalImageUrl = imageUrl;
-
-      // Fase 1: Subir a R2 si hay archivo nuevo
-      if (imageFile) {
-        const uploadRes = await apiUpload.upload(imageFile);
-        finalImageUrl = uploadRes.url;
+      if (coverFile) {
+        const response = await apiUpload.upload(coverFile);
+        finalImageUrl = response.url;
       }
 
-      const payload: any = {
-        title,
-        description,
-        ticketPrice: parseFloat(ticketPrice),
-        ticketQuantity: parseInt(ticketQuantity),
-        opportunities: raffleType === 'SIMPLE' ? 1 : parseInt(opportunities),
+      const payload = {
+        title: title.trim(),
+        description: description.trim() || null,
+        ticketPrice: Number.parseFloat(ticketPrice),
+        ticketQuantity: Number.parseInt(ticketQuantity, 10),
+        opportunities: raffleType === "SIMPLE" ? 1 : Number.parseInt(opportunities, 10),
         distribution,
         drawDate: drawDate ? new Date(drawDate).toISOString() : null,
-        image: finalImageUrl,
-        status
+        image: finalImageUrl || null,
+        gallery,
+        status,
       };
 
       if (initialData?.id) {
@@ -156,345 +236,333 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
       onSave();
     } catch (error) {
       console.error(error);
-      showToast('Error al procesar archivos o guardar la rifa. Verifica Cloudflare R2.', 'error');
+      showToast("No se pudo guardar la rifa. Inténtalo de nuevo.", "error");
     } finally {
       setIsSubmitting(false);
     }
   };
 
   return (
-    <form id="raffle-form" onSubmit={handleSubmit} className="pb-32 relative">
-      <div className="relative min-h-[400px]">
-        {/* STEP 1: RAFFLE TYPE */}
-        {currentStep === 1 && (
+    <form id="raffle-form" onSubmit={handleSubmit} className="pb-32">
+      <div className="grid grid-cols-1 lg:grid-cols-12" style={{ gap: "var(--space-lg)" }}>
+        <div className="lg:col-span-7 flex flex-col" style={{ gap: "var(--space-lg)" }}>
+          <div className="w-full">
+            {!imageUrl ? (
+              <InteractionStage
+                level={1}
+                size="normal"
+                className="aspect-video w-full shadow-sm"
+                icon={Upload}
+                title="Portada de la Rifa"
+                description="Imagen principal que verán los participantes."
+                onClick={() => coverInputRef.current?.click()}
+              />
+            ) : (
+              <div
+                className="group relative aspect-video w-full overflow-hidden shadow-xl shadow-stone-200/40 cursor-pointer transition-all duration-500 active:scale-[0.995]"
+                style={{ borderRadius: "var(--radius-outer)" }}
+                onClick={() => coverInputRef.current?.click()}
+              >
+                <img src={imageUrl} className="h-full w-full object-cover" alt="Portada de la rifa" />
+                <UploadPreviewOverlay label="Cambiar Portada" />
+                <div
+                  className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between"
+                  style={{ padding: "var(--padding-inner)" }}
+                >
+                  <div className="pointer-events-auto">
+                    <NexusAutonomousButton
+                      type="button"
+                      variant="ghost"
+                      icon={ImageIcon}
+                      className="pointer-events-none border border-white/10 bg-black/40 text-white shadow-none backdrop-blur-md"
+                    >
+                      Foto
+                    </NexusAutonomousButton>
+                  </div>
+                  <div className="pointer-events-auto">
+                    <NexusAutonomousButton
+                      type="button"
+                      variant="ghost"
+                      isIconOnly
+                      icon={X}
+                      aria-label="Eliminar portada"
+                      className="border border-white/10 bg-black/40 text-white shadow-none backdrop-blur-md hover:bg-rose-500"
+                      onClick={(event) => {
+                        event.stopPropagation();
+                        setImageUrl("");
+                        setCoverFile(null);
+                        if (coverInputRef.current) coverInputRef.current.value = "";
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+            <input ref={coverInputRef} className="hidden" type="file" accept="image/*" onChange={handleCoverChange} />
+          </div>
+
           <NexusSection
-            title="Estructura de la Rifa"
-            subtitle="Define cómo se distribuirán las oportunidades entre los boletos."
-            icon={Layout}
+            title="Galería Adicional"
+            subtitle={`Medios secundarios de la rifa. Máximo ${MAX_GALLERY_ITEMS}.`}
+            icon={Layers}
             iconVariant="brand"
           >
-            <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 'var(--space-md)' }}>
-               <button
-                 type="button"
-                 onClick={() => { setRaffleType('SIMPLE'); setOpportunities('1'); }}
-                 className={`group relative border text-left transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] flex flex-col ${raffleType === 'SIMPLE' ? 'bg-bg-card border-brand-500 shadow-lg shadow-brand-500/10' : 'bg-bg-muted border-border-main hover:border-border-main hover:bg-bg-card'}`}
-                 style={{ padding: 'var(--padding-inner)', borderRadius: 'var(--radius-inner-visual)', gap: 'var(--space-md)' }}
-               >
-                 <div className={`w-14 h-14 flex items-center justify-center transition-all duration-300 ${raffleType === 'SIMPLE' ? 'bg-brand-500 text-white rotate-0' : 'bg-stone-200 text-stone-400 group-hover:bg-stone-300 -rotate-3'}`} style={{ borderRadius: 'var(--radius-nested-simple)' }}>
-                    <Ticket size={28} />
-                 </div>
-                 <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                    <h4 className={`text-h2 ${raffleType === 'SIMPLE' ? 'text-text-main' : 'text-stone-400'}`}>Simple</h4>
-                    <p className="text-secondary text-text-muted">Un número por boleto</p>
-                 </div>
-                 <p className="text-secondary text-text-muted leading-relaxed max-w-[90%]">
-                   Ideal para rifas rápidas y directas donde cada folio comprado representa una sola oportunidad.
-                 </p>
-                 <div className={`mt-auto flex items-center text-label ${raffleType === 'SIMPLE' ? 'text-brand-600' : 'text-stone-300'}`} style={{ gap: 'var(--space-sm)', paddingTop: 'var(--space-base)' }}>
-                    <div className={`w-1.5 h-1.5 rounded-full ${raffleType === 'SIMPLE' ? 'bg-brand-500 animate-pulse' : 'bg-stone-200'}`} />
-                    oportunidades = 1
-                 </div>
-               </button>
-
-               <button
-                 type="button"
-                 onClick={() => setRaffleType('OPPORTUNITIES')}
-                 className={`group relative border text-left transition-all duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] active:scale-[0.98] flex flex-col ${raffleType === 'OPPORTUNITIES' ? 'bg-bg-card border-brand-500 shadow-lg shadow-brand-500/10' : 'bg-bg-muted border-border-main hover:border-border-main hover:bg-bg-card'}`}
-                 style={{ padding: 'var(--padding-inner)', borderRadius: 'var(--radius-inner-visual)', gap: 'var(--space-md)' }}
-               >
-                 <div className={`w-14 h-14 flex items-center justify-center transition-all duration-300 ${raffleType === 'OPPORTUNITIES' ? 'bg-brand-500 text-white rotate-0' : 'bg-stone-200 text-stone-400 group-hover:bg-stone-300 rotate-3'}`} style={{ borderRadius: 'var(--radius-nested-simple)' }}>
-                    <Layers size={28} />
-                 </div>
-                 <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                    <h4 className={`text-h2 ${raffleType === 'OPPORTUNITIES' ? 'text-text-main' : 'text-stone-400'}`}>Oportunidades</h4>
-                    <p className="text-secondary text-text-muted">Múltiples números por boleto</p>
-                 </div>
-                 <p className="text-secondary text-text-muted leading-relaxed max-w-[90%]">
-                   Asigna varios números a un mismo comprador. Mayor emoción y probabilidad de ganar.
-                 </p>
-                 <div className={`mt-auto flex items-center text-label ${raffleType === 'OPPORTUNITIES' ? 'text-brand-600' : 'text-stone-300'}`} style={{ gap: 'var(--space-sm)', paddingTop: 'var(--space-base)' }}>
-                    <div className={`w-1.5 h-1.5 rounded-full ${raffleType === 'OPPORTUNITIES' ? 'bg-brand-500 animate-pulse' : 'bg-stone-200'}`} />
-                    oportunidades {'>'} 1
-                 </div>
-               </button>
-            </div>
-            <div className="flex justify-end" style={{ marginTop: 'var(--space-lg)' }}>
-               <NexusSectionButton
-                 type="button"
-                 onClick={() => setCurrentStep(2)}
-                 className="px-12"
-               >
-                 Configurar Universo
-               </NexusSectionButton>
+            <input
+              ref={galleryInputRef}
+              className="hidden"
+              type="file"
+              accept="image/*,video/*"
+              multiple
+              onChange={handleGalleryChange}
+            />
+            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6" style={{ gap: "var(--space-md)" }}>
+              {gallery.map((item, index) => (
+                <div
+                  key={`${item.filePath}-${index}`}
+                  className="group relative aspect-square overflow-hidden border border-border-main bg-bg-muted"
+                  style={{ borderRadius: "var(--radius-inner-visual)" }}
+                >
+                  {item.fileType === "VIDEO" ? (
+                    <video src={`${item.filePath}#t=0.5`} className="h-full w-full object-cover" preload="metadata" muted playsInline />
+                  ) : (
+                    <img src={item.filePath} className="h-full w-full object-cover" alt={`Medio ${index + 1}`} />
+                  )}
+                  {item.fileType === "VIDEO" && (
+                    <div className="absolute inset-0 flex items-center justify-center bg-black/20 text-white">
+                      <Film size={18} />
+                    </div>
+                  )}
+                  <button
+                    type="button"
+                    aria-label={`Eliminar medio ${index + 1}`}
+                    onClick={() => removeGalleryItem(index)}
+                    className="absolute opacity-0 group-hover:opacity-100 transition-opacity bg-rose-500 text-white"
+                    style={{
+                      top: "var(--space-xs)",
+                      right: "var(--space-xs)",
+                      padding: "var(--space-sm)",
+                      borderRadius: "var(--radius-nested-simple)",
+                    }}
+                  >
+                    <Trash2 size={14} />
+                  </button>
+                </div>
+              ))}
+              {gallery.length < MAX_GALLERY_ITEMS && (
+                <button
+                  type="button"
+                  onClick={() => galleryInputRef.current?.click()}
+                  disabled={isUploading}
+                  className="aspect-square flex flex-col items-center justify-center border-2 border-dashed border-border-main/60 bg-bg-muted/20 text-text-muted transition-colors hover:border-brand-300 hover:bg-brand-50/20"
+                  style={{ gap: "var(--space-xs)", borderRadius: "var(--radius-inner-visual)" }}
+                >
+                  {isUploading ? <Loader2 className="animate-spin" size={20} /> : <PlusCircle size={20} />}
+                  <span className="text-label uppercase tracking-[0.15em]">Añadir</span>
+                </button>
+              )}
             </div>
           </NexusSection>
-        )}
 
-        {/* STEP 2: UNIVERSE CONFIGURATION */}
-        {currentStep === 2 && (
-          <section className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]">
-            <div className="flex flex-col gap-2 mb-4">
-              <h3 className="text-2xl font-black tracking-tighter text-text-main">Configuración del Universo</h3>
-              <p className="text-sm font-medium text-stone-400">Establece la cantidad total de números y cómo se generarán.</p>
-            </div>
-            
-            <div className="bg-bg-card rounded-[2.5rem] p-6 md:p-10 border border-border-main/60 shadow-sm dark:shadow-none space-y-10">
-               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-10">
-                  <NexusInput 
-                    label="Número de Boletos (Folios)"
+          <NexusSection
+            title="Configuración del Universo"
+            subtitle="Define los folios, oportunidades y costo de participación."
+            icon={Hash}
+            iconVariant="brand"
+          >
+            <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+              <div className="grid grid-cols-1" style={{ gap: "var(--space-md)" }}>
+                <NexusInput
+                  label="Número de Boletos (Folios) *"
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  required
+                  disabled={hasActiveSales}
+                  value={ticketQuantity}
+                  onChange={(event) => setTicketQuantity(event.target.value)}
+                  placeholder="Ej. 100"
+                />
+              </div>
+
+              {raffleType === "OPPORTUNITIES" && (
+                <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-md)" }}>
+                  <NexusInput
+                    label="Oportunidades por Boleto *"
                     type="number"
                     inputMode="numeric"
+                    min="2"
                     required
-                    disabled={!!initialData && hasActiveSales}
-                    value={ticketQuantity}
-                    onChange={(e) => setTicketQuantity(e.target.value)}
-                    placeholder="Ej: 100"
-                    helperText="Cantidad de personas diferentes que pueden comprar."
+                    disabled={hasActiveSales}
+                    value={opportunities}
+                    onChange={(event) => setOpportunities(event.target.value)}
+                    placeholder="Mínimo 2"
                   />
-
-                  {raffleType === 'OPPORTUNITIES' && (
-                    <>
-                      <NexusInput 
-                        label="Oportunidades por boleto"
-                        type="number"
-                        inputMode="numeric"
-                        required
-                        min="2"
-                        disabled={!!initialData && hasActiveSales}
-                        value={opportunities}
-                        onChange={(e) => setOpportunities(e.target.value)}
-                        placeholder="Mínimo 2"
-                        helperText="Números asignados a cada comprador."
-                      />
-
-                      <div className="space-y-3">
-                        <label className="text-[10px] font-black uppercase text-stone-400 tracking-[0.15em] ml-1">Distribución</label>
-                        <div className="flex bg-stone-100/80 p-1 rounded-2xl h-14">
-                           <button
-                             type="button"
-                             onClick={() => setDistribution('LINEAR')}
-                             className={`flex-1 rounded-xl font-bold text-[10px] uppercase tracking-[0.15em] transition-all duration-200 active:scale-[0.96] ${distribution === 'LINEAR' ? 'bg-bg-card text-brand-600 shadow-sm dark:shadow-none border border-border-main/20' : 'text-stone-400 hover:text-text-muted'}`}
-                           >
-                             Lineal
-                           </button>
-                           <button
-                             type="button"
-                             onClick={() => setDistribution('RANDOM')}
-                             className={`flex-1 rounded-xl font-bold text-[10px] uppercase tracking-[0.15em] transition-all duration-200 active:scale-[0.96] ${distribution === 'RANDOM' ? 'bg-bg-card text-brand-600 shadow-sm dark:shadow-none border border-border-main/20' : 'text-stone-400 hover:text-text-muted'}`}
-                           >
-                             Aleatoria
-                           </button>
-                        </div>
-                      </div>
-                    </>
-                  )}
-               </div>
-
-               {/* UNIVERSE PREVIEW */}
-               {universePreview && (
-                  <div className="p-10 bg-[#0C0C0C] rounded-[2.5rem] text-white space-y-8 relative overflow-hidden border border-white/5">
-                    <div className="absolute top-0 right-0 w-80 h-80 bg-brand-500/10 rounded-full -mr-32 -mt-32 blur-[100px] pointer-events-none" />
-                    
-                    <div className="flex items-center justify-between relative z-10">
-                      <h4 className="text-[10px] font-black uppercase tracking-[0.25em] text-text-muted flex items-center gap-3">
-                        <div className="w-6 h-[1px] bg-stone-800" />
-                        <Hash size={12} className="text-brand-400" /> Vista Previa del Sistema
-                      </h4>
-                      <div className="flex gap-2">
-                        {universePreview.universo > 10000 && (
-                          <span className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-amber-500/5 text-amber-500 text-[9px] font-black uppercase border border-amber-500/10 tracking-wider">
-                            <AlertTriangle size={10} /> Universo Grande
-                          </span>
-                        )}
-                      </div>
-                    </div>
-
-                    <div className="grid grid-cols-2 lg:grid-cols-4 gap-10 relative z-10">
-                       <div className="space-y-2">
-                          <p className="text-[9px] font-black text-stone-600 uppercase tracking-[0.2em]">Universo Total</p>
-                          <p className="text-4xl font-black tabular-nums tracking-tighter">{universePreview.universo.toLocaleString()}</p>
-                       </div>
-                       <div className="space-y-2 border-l border-white/5 pl-8">
-                          <p className="text-[9px] font-black text-stone-600 uppercase tracking-[0.2em]">Rango</p>
-                          <p className="text-2xl font-black tabular-nums text-stone-200">{universePreview.rangeStart} – {universePreview.rangeEnd}</p>
-                       </div>
-                       <div className="space-y-2 border-l border-white/5 pl-8">
-                          <p className="text-[9px] font-black text-stone-600 uppercase tracking-[0.2em]">Cifras</p>
-                          <p className="text-2xl font-black text-stone-200">{universePreview.digits}</p>
-                       </div>
-                       <div className="space-y-2 border-l border-white/5 pl-8">
-                          <p className="text-[9px] font-black text-stone-600 uppercase tracking-[0.2em]">Inicia en Cero</p>
-                          <p className="text-2xl font-black uppercase text-brand-400">{universePreview.startFromZero ? 'SÍ' : 'NO'}</p>
-                       </div>
-                    </div>
-
-                    {universePreview.example && (
-                      <div className="pt-8 border-t border-white/5 space-y-3 relative z-10">
-                         <p className="text-[9px] font-black text-stone-600 uppercase tracking-[0.2em]">Ejemplo de Asignación</p>
-                         <div className="bg-bg-card/[0.03] border border-white/5 p-5 rounded-2xl font-mono text-[11px] text-brand-400 tracking-tight leading-relaxed">
-                            <span className="text-text-muted mr-2 opacity-50">$</span> {universePreview.example}
-                         </div>
-                      </div>
-                    )}
+                  <div className="flex flex-col" style={{ gap: "var(--space-xs)" }}>
+                    <span className="text-label uppercase tracking-[0.15em] text-text-muted">Distribución</span>
+                    <NexusSegmentedControl
+                      context="section"
+                      value={distribution}
+                      ariaLabel="Distribución de oportunidades"
+                      onChange={setDistribution}
+                      className="grid h-[var(--h-input)] grid-cols-2"
+                      options={[
+                        { value: "LINEAR", label: "Lineal", activeClassName: "bg-bg-card text-brand-600 border border-border-main shadow-sm" },
+                        { value: "RANDOM", label: "Aleatoria", activeClassName: "bg-bg-card text-brand-600 border border-border-main shadow-sm" },
+                      ]}
+                    />
                   </div>
-               )}
+                </div>
+              )}
+
+              <NexusInlineNotice
+                variant={universePreview?.isValid ? "success" : universePreview ? "warning" : "neutral"}
+                icon={universePreview?.isValid ? Check : universePreview ? undefined : Hash}
+                title={
+                  universePreview?.isValid
+                    ? "Universo cerrado"
+                    : universePreview
+                      ? "Universo no válido"
+                      : "Configuración del Universo"
+                }
+                style={{
+                  minHeight: "calc(var(--h-input) + var(--space-xl))",
+                }}
+              >
+                {universePreview?.isValid
+                  ? `El rango ${universePreview.start}–${universePreview.end} queda completamente asignado.`
+                  : universeGuidance ?? "Ingresa el número de boletos y oportunidades para validar el universo."}
+              </NexusInlineNotice>
+
             </div>
-            <div className="flex justify-between pt-4">
-               <NexusSectionButton
-                 type="button"
-                 variant="secondary"
-                 onClick={() => setCurrentStep(1)}
-                 className="px-10"
-               >
-                 Atrás
-               </NexusSectionButton>
-               <NexusSectionButton
-                 type="button"
-                 disabled={!isStep2Valid}
-                 onClick={() => setCurrentStep(3)}
-                 className="px-10"
-               >
-                 Siguiente Paso
-               </NexusSectionButton>
+          </NexusSection>
+        </div>
+
+        <div className="lg:col-span-5 flex flex-col" style={{ gap: "var(--space-lg)" }}>
+          <NexusSection
+            title="Detalles de la Rifa"
+            subtitle="Información que se mostrará a los participantes."
+            icon={Ticket}
+            iconVariant="brand"
+          >
+            <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+              <div className="grid grid-cols-2" style={{ gap: "var(--space-md)" }}>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRaffleType("SIMPLE");
+                    setOpportunities("1");
+                  }}
+                  className={`flex items-center justify-center border-2 text-label uppercase tracking-[0.15em] transition-colors ${
+                    raffleType === "SIMPLE"
+                      ? "border-brand-500 bg-brand-50/30 text-brand-600 shadow-sm shadow-brand-500/10"
+                      : "border-border-main bg-bg-card text-text-muted hover:border-brand-300 hover:bg-bg-muted"
+                  }`}
+                  style={{ gap: "var(--space-xs)", height: "var(--h-input)", borderRadius: "var(--radius-inner-visual)" }}
+                >
+                  <Ticket size={14} strokeWidth={2.5} /> Simple
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setRaffleType("OPPORTUNITIES")}
+                  className={`flex items-center justify-center border-2 text-label uppercase tracking-[0.15em] transition-colors ${
+                    raffleType === "OPPORTUNITIES"
+                      ? "border-brand-500 bg-brand-50/30 text-brand-600 shadow-sm shadow-brand-500/10"
+                      : "border-border-main bg-bg-card text-text-muted hover:border-brand-300 hover:bg-bg-muted"
+                  }`}
+                  style={{ gap: "var(--space-xs)", height: "var(--h-input)", borderRadius: "var(--radius-inner-visual)" }}
+                >
+                  <Layers size={14} strokeWidth={2.5} /> Oportunidades
+                </button>
+              </div>
+
+              <NexusInput
+                label="Título de la Rifa *"
+                required
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                placeholder="Ej. Gran Rifa Semental Hatch"
+              />
+              <NexusInput
+                label="Precio por Boleto *"
+                type="number"
+                inputMode="decimal"
+                min="0.01"
+                step="0.01"
+                required
+                icon={DollarSign}
+                value={ticketPrice}
+                onChange={(event) => setTicketPrice(event.target.value)}
+                placeholder="0.00"
+              />
+              <NexusTextarea
+                label="Descripción"
+                rows={6}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Describe el premio, las bases del sorteo y cualquier información importante."
+              />
+              <NexusInput
+                label="Fecha de la Rifa"
+                icon={Calendar}
+                type="date"
+                value={drawDate}
+                onChange={(event) => setDrawDate(event.target.value)}
+              />
+              <NexusSelect label="Estado Actual" value={status} onChange={(event) => setStatus(event.target.value as Raffle["status"])}>
+                <option value="ACTIVE">Activa</option>
+                <option value="FINISHED">Finalizada</option>
+                <option value="CANCELLED">Cancelada</option>
+              </NexusSelect>
+
+              {hasActiveSales && (
+                <div
+                  className="flex items-center border border-amber-200 bg-amber-50 text-amber-800"
+                  style={{ gap: "var(--space-sm)", padding: "var(--space-md)", borderRadius: "var(--radius-inner-visual)" }}
+                >
+                  <Check size={16} />
+                  <span className="text-secondary">El universo queda bloqueado mientras existan boletos activos.</span>
+                </div>
+              )}
             </div>
-          </section>
-        )}
+          </NexusSection>
 
-        {/* STEP 3: RAFFLE DETAILS */}
-        {currentStep === 3 && (
-          <section className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500 ease-[cubic-bezier(0.23,1,0.32,1)]">
-            <div className="flex flex-col gap-2 mb-4">
-              <h3 className="text-2xl font-black tracking-tighter text-text-main">Escaparate de la Rifa</h3>
-              <p className="text-sm font-medium text-stone-400">Personaliza cómo verán los compradores tu rifa.</p>
-            </div>
-
-            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-               <div className="lg:col-span-2 space-y-8">
-                  <div className="bg-bg-card rounded-[2.5rem] p-6 md:p-10 border border-border-main/60 shadow-sm dark:shadow-none space-y-10">
-                     <div className="space-y-8">
-                        <NexusInput 
-                          label="Título Público"
-                          icon={Layout}
-                          required
-                          value={title}
-                          onChange={(e) => setTitle(e.target.value)}
-                          placeholder="Ej: Gran Rifa Semental Hatch"
-                        />
-
-                        <NexusTextarea 
-                          label="Descripción y Premios"
-                          rows={6}
-                          value={description}
-                          onChange={(e) => setDescription(e.target.value)}
-                          placeholder="Describe el ejemplar, las bases del sorteo y los premios adicionales..."
-                        />
-
-                        <NexusInput 
-                          label="Precio por Boleto"
-                          icon={DollarSign}
-                          type="number"
-                          inputMode="decimal"
-                          required
-                          value={ticketPrice}
-                          onChange={(e) => setTicketPrice(e.target.value)}
-                          placeholder="0.00"
-                          className="text-xl font-black"
-                        />
-                     </div>
+          {universePreview && (
+            <NexusSection
+              title="Resumen del Universo"
+              subtitle="Referencia automática de los folios que se generarán."
+              icon={Hash}
+              iconVariant="muted"
+            >
+              <div className="grid grid-cols-2" style={{ gap: "var(--space-md)" }}>
+                {[
+                  ["Universo", universePreview.total.toLocaleString()],
+                  ["Rango", `${universePreview.start} - ${universePreview.end}`],
+                  ["Cifras", universePreview.digits.toString()],
+                  ["Inicio", universePreview.startsAtZero ? "Cero" : "Uno"],
+                ].map(([label, value]) => (
+                  <div
+                    key={label}
+                    className="flex flex-col border border-border-main bg-bg-muted"
+                    style={{ gap: "var(--space-xs)", padding: "var(--padding-inner)", borderRadius: "var(--radius-inner-visual)" }}
+                  >
+                    <span className="text-label uppercase tracking-[0.15em] text-text-muted">{label}</span>
+                    <span className="text-h2 tabular-nums text-text-main">{value}</span>
                   </div>
-               </div>
-
-               <div className="space-y-8">
-                  <div className="bg-bg-card rounded-[2.5rem] p-6 md:p-10 border border-border-main/60 shadow-sm dark:shadow-none space-y-8">
-                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 flex items-center gap-2 px-1">
-                        <Calendar size={12} className="text-brand-500/50" /> Programación
-                     </h4>
-                     
-                     <NexusInput 
-                       label="Fecha del Sorteo"
-                       icon={Calendar}
-                       type="date"
-                       value={drawDate}
-                       onChange={(e) => setDrawDate(e.target.value)}
-                     />
-
-                     <NexusSelect 
-                       label="Estatus Actual"
-                       icon={Layers}
-                       value={status}
-                       onChange={(e) => setStatus(e.target.value as any)}
-                     >
-                        <option value="ACTIVE">Activa</option>
-                        <option value="FINISHED">Finalizada</option>
-                        <option value="CANCELLED">Cancelada</option>
-                     </NexusSelect>
-                  </div>
-
-                  <div className="bg-bg-card rounded-[2.5rem] p-6 md:p-10 border border-border-main/60 shadow-sm dark:shadow-none space-y-8">
-                     <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-stone-400 flex items-center gap-2">
-                        <ImageIcon size={12} className="text-brand-500/50" /> Portada
-                     </h4>
-                     <div className="space-y-4">
-                        <div 
-                          onClick={() => !isProcessing && fileInputRef.current?.click()}
-                          className="aspect-square rounded-[2rem] bg-bg-muted border-2 border-dashed border-border-main/60 overflow-hidden flex items-center justify-center group relative cursor-pointer hover:bg-bg-card hover:border-brand-500/40 transition-all duration-300 active:scale-[0.98]"
-                        >
-                           {imageUrl ? (
-                             <>
-                               <img src={imageUrl} className="w-full h-full object-cover" alt="Portada" />
-                               <div className="absolute inset-0 bg-stone-900/40 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex flex-col items-center justify-center text-white backdrop-blur-[2px]">
-                                  <ImageIcon size={24} className="mb-2" />
-                                  <span className="text-[10px] font-black uppercase tracking-widest">Cambiar</span>
-                               </div>
-                             </>
-                           ) : (
-                             <div className="flex flex-col items-center gap-3 text-stone-400 group-hover:text-brand-500 transition-colors">
-                                <ImageIcon size={32} />
-                                <span className="text-[10px] font-black uppercase tracking-widest">Subir Imagen</span>
-                             </div>
-                           )}
-                        </div>
-                        <input 
-                          type="file"
-                          ref={fileInputRef}
-                          className="hidden"
-                          accept="image/*"
-                          onChange={handleFileChange}
-                        />
-                     </div>
-                  </div>
-               </div>
-            </div>
-            <div className="flex justify-between pt-4">
-               <NexusSectionButton
-                 type="button"
-                 variant="secondary"
-                 onClick={() => setCurrentStep(2)}
-                 className="px-10"
-               >
-                 Atrás
-               </NexusSectionButton>
-               <NexusSectionButton
-                 type="submit"
-                 isLoading={isSubmitting}
-                 disabled={!isStep3Valid}
-                 className="px-10"
-               >
-                 {initialData ? 'Actualizar Rifa' : 'Publicar Rifa'}
-               </NexusSectionButton>
-            </div>
-          </section>
-        )}
+                ))}
+              </div>
+            </NexusSection>
+          )}
+        </div>
       </div>
 
       {isSubmitting && (
-        <div
-          className="fixed inset-0 z-[300] flex items-center justify-center animate-in fade-in duration-300"
-          style={{ backgroundColor: 'var(--modal-backdrop)' }}
-        >
-          <div className="bg-bg-card p-8 rounded-[2.5rem] shadow-2xl flex flex-col items-center gap-4 border border-border-main animate-in zoom-in-95 duration-300">
-            <Loader2 className="w-10 h-10 text-brand-500 animate-spin" />
-            <span className="font-black text-text-main uppercase tracking-[0.2em] text-[10px]">Guardando Rifa...</span>
+        <div className="fixed inset-0 z-[300] flex items-center justify-center" style={{ backgroundColor: "var(--modal-backdrop)" }}>
+          <div
+            className="flex flex-col items-center border border-border-main bg-bg-card shadow-2xl"
+            style={{ gap: "var(--space-md)", padding: "var(--padding-outer)", borderRadius: "var(--radius-outer)" }}
+          >
+            <Loader2 className="animate-spin text-brand-500" size={32} />
+            <span className="text-label uppercase tracking-[0.15em] text-text-main">Guardando Rifa</span>
           </div>
         </div>
       )}

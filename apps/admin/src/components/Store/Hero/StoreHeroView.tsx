@@ -36,6 +36,7 @@ export const StoreHeroView: React.FC<StoreHeroViewProps> = ({
   const [togglingHeroIds, setTogglingHeroIds] = useState<Set<string>>(
     () => new Set(),
   );
+  const [isReordering, setIsReordering] = useState(false);
 
   const orderedHeroes = useMemo(() => {
     return [...heroes].sort((a, b) => {
@@ -127,6 +128,52 @@ export const StoreHeroView: React.FC<StoreHeroViewProps> = ({
     }
   };
 
+  const handleMoveHero = async (hero: StoreHero, direction: -1 | 1) => {
+    if (isReordering) return;
+
+    const scopeHeroes = orderedHeroes.filter((item) => item.scope === hero.scope);
+    const currentIndex = scopeHeroes.findIndex((item) => item.id === hero.id);
+    const nextIndex = currentIndex + direction;
+    if (currentIndex < 0 || nextIndex < 0 || nextIndex >= scopeHeroes.length) return;
+
+    const reorderedScopeHeroes = [...scopeHeroes];
+    const [movedHero] = reorderedScopeHeroes.splice(currentIndex, 1);
+    reorderedScopeHeroes.splice(nextIndex, 0, movedHero);
+
+    const previousScopeById = new Map(scopeHeroes.map((item) => [item.id, item]));
+    const optimisticById = new Map(
+      reorderedScopeHeroes.map((item, index) => [item.id, { ...item, sortOrder: index + 1 }]),
+    );
+
+    setIsReordering(true);
+    setHeroes((current) =>
+      current.map((item) => optimisticById.get(item.id) ?? item),
+    );
+
+    try {
+      const updatedScopeHeroes = await apiStoreHeroes.reorder(
+        hero.scope,
+        reorderedScopeHeroes.map((item) => item.id),
+      );
+      const updatedById = new Map(updatedScopeHeroes.map((item) => [item.id, item]));
+      setHeroes((current) =>
+        current.map((item) => updatedById.get(item.id) ?? item),
+      );
+      showToast("Orden actualizado correctamente");
+    } catch (error: any) {
+      console.error("Error reordenando heroes de tienda:", error);
+      setHeroes((current) =>
+        current.map((item) => previousScopeById.get(item.id) ?? item),
+      );
+      showToast(
+        error?.response?.data?.message || "No se pudo actualizar el orden",
+        "error",
+      );
+    } finally {
+      setIsReordering(false);
+    }
+  };
+
   if (isLoading) return <NexusSpinner label="Cargando heroes de tienda..." />;
 
   return (
@@ -148,16 +195,25 @@ export const StoreHeroView: React.FC<StoreHeroViewProps> = ({
         />
       ) : (
         <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
-          {paginatedHeroes.map((hero) => (
-            <StoreHeroCard
-              key={hero.id}
-              hero={hero}
-              onEdit={() => onEdit(hero)}
-              onDelete={() => handleDelete(hero)}
-              onToggleActive={() => handleToggleActive(hero)}
-              isToggling={togglingHeroIds.has(hero.id)}
-            />
-          ))}
+          {paginatedHeroes.map((hero) => {
+            const scopeHeroes = orderedHeroes.filter((item) => item.scope === hero.scope);
+            const scopeIndex = scopeHeroes.findIndex((item) => item.id === hero.id);
+
+            return (
+              <StoreHeroCard
+                key={hero.id}
+                hero={hero}
+                onEdit={() => onEdit(hero)}
+                onDelete={() => handleDelete(hero)}
+                onToggleActive={() => handleToggleActive(hero)}
+                onMoveUp={() => void handleMoveHero(hero, -1)}
+                onMoveDown={() => void handleMoveHero(hero, 1)}
+                canMoveUp={!isReordering && scopeIndex > 0}
+                canMoveDown={!isReordering && scopeIndex < scopeHeroes.length - 1}
+                isToggling={togglingHeroIds.has(hero.id)}
+              />
+            );
+          })}
 
           <NexusPaginator
             currentPage={currentPage}

@@ -1,7 +1,7 @@
 import React from 'react';
 import { LucideIcon, Edit2, Trash2 } from 'lucide-react';
 import { NexusCardIcon, NexusCardThumbnailIcon } from './NexusIcon';
-import { NexusButton, NexusCardButton } from './NexusButton';
+import { NexusAutonomousButton, NexusButton, NexusCardButton, NexusSectionButton } from './NexusButton';
 
 interface NexusCardBaseProps {
   children: React.ReactNode;
@@ -24,39 +24,101 @@ const NexusCardBase: React.FC<NexusCardBaseProps> = ({
 }) => {
   const [translateX, setTranslateX] = React.useState(0);
   const [isSwiping, setIsSwiping] = React.useState(false);
-  const [activeSide, setActiveSide] = React.useState<'none' | 'left' | 'right'>('none');
-  const touchStart = React.useRef(0);
-  const touchX = React.useRef(0);
+  const touchStartX = React.useRef(0);
+  const touchStartY = React.useRef(0);
+  const dragStartTranslate = React.useRef(0);
+  const dragTranslate = React.useRef(0);
+  const gestureAxis = React.useRef<'pending' | 'horizontal' | 'vertical'>('pending');
+  const swipeLeftActionRef = React.useRef<HTMLDivElement>(null);
+  const swipeRightActionRef = React.useRef<HTMLDivElement>(null);
+
+  const getSwipeActionWidth = (side: 'left' | 'right') =>
+    (side === 'left' ? swipeLeftActionRef : swipeRightActionRef).current?.getBoundingClientRect().width || 120;
 
   const resetSwipe = () => {
+    dragTranslate.current = 0;
     setTranslateX(0);
-    setActiveSide('none');
   };
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!swipeable) return;
-    touchStart.current = e.touches[0].clientX;
-    touchX.current = touchStart.current;
-    setIsSwiping(true);
+    touchStartX.current = e.touches[0].clientX;
+    touchStartY.current = e.touches[0].clientY;
+    dragStartTranslate.current = translateX;
+    dragTranslate.current = translateX;
+    gestureAxis.current = 'pending';
   };
 
   const handleTouchMove = (e: React.TouchEvent) => {
-    if (!isSwiping || !swipeable) return;
-    const diff = e.touches[0].clientX - touchStart.current;
-    let finalTranslate = diff;
-    if (activeSide === 'left') finalTranslate = 100 + diff;
-    if (activeSide === 'right') finalTranslate = -100 + diff;
-    setTranslateX(finalTranslate);
-    touchX.current = e.touches[0].clientX;
+    if (!swipeable || gestureAxis.current === 'vertical') return;
+
+    const diffX = e.touches[0].clientX - touchStartX.current;
+    const diffY = e.touches[0].clientY - touchStartY.current;
+
+    if (gestureAxis.current === 'pending') {
+      const horizontalDistance = Math.abs(diffX);
+      const verticalDistance = Math.abs(diffY);
+      if (Math.max(horizontalDistance, verticalDistance) < 8) return;
+
+      if (verticalDistance > horizontalDistance * 1.15) {
+        gestureAxis.current = 'vertical';
+        return;
+      }
+
+      if (horizontalDistance <= verticalDistance * 1.15) return;
+
+      gestureAxis.current = 'horizontal';
+      setIsSwiping(true);
+    }
+
+    if (e.cancelable) e.preventDefault();
+
+    const leftActionWidth = getSwipeActionWidth('left');
+    const rightActionWidth = getSwipeActionWidth('right');
+    const canRevealLeft = Boolean(customSwipeLeft || onEdit);
+    const canRevealRight = Boolean(customSwipeRight || onDelete);
+    const minTranslate = canRevealRight ? -rightActionWidth : 0;
+    const maxTranslate = canRevealLeft ? leftActionWidth : 0;
+    const nextTranslate = Math.max(
+      minTranslate,
+      Math.min(maxTranslate, dragStartTranslate.current + diffX)
+    );
+
+    dragTranslate.current = nextTranslate;
+    setTranslateX(nextTranslate);
   };
 
   const handleTouchEnd = () => {
     if (!swipeable) return;
+
+    if (gestureAxis.current !== 'horizontal') {
+      gestureAxis.current = 'pending';
+      setIsSwiping(false);
+      return;
+    }
+
     setIsSwiping(false);
-    const diff = touchX.current - touchStart.current;
-    if (diff > 80 && activeSide !== 'right') { setTranslateX(100); setActiveSide('left'); }
-    else if (diff < -80 && activeSide !== 'left') { setTranslateX(-100); setActiveSide('right'); }
-    else { setTranslateX(0); setActiveSide('none'); }
+    const finalTranslate = dragTranslate.current;
+
+    if (finalTranslate > getSwipeActionWidth('left') * 0.55) {
+      const leftActionWidth = getSwipeActionWidth('left');
+      dragTranslate.current = leftActionWidth;
+      setTranslateX(leftActionWidth);
+    } else if (finalTranslate < -getSwipeActionWidth('right') * 0.55) {
+      const rightActionWidth = getSwipeActionWidth('right');
+      dragTranslate.current = -rightActionWidth;
+      setTranslateX(-rightActionWidth);
+    } else {
+      resetSwipe();
+    }
+
+    gestureAxis.current = 'pending';
+  };
+
+  const handleTouchCancel = () => {
+    gestureAxis.current = 'pending';
+    setIsSwiping(false);
+    resetSwipe();
   };
 
   const radiusToken = level === 1 ? 'var(--radius-outer)' : 'var(--radius-inner-visual)';
@@ -67,37 +129,95 @@ const NexusCardBase: React.FC<NexusCardBaseProps> = ({
       : density === 'rail'
         ? 'var(--padding-card-rail)'
         : 'var(--padding-inner)';
+  const SwipeActionButton = level === 1 ? NexusAutonomousButton : NexusSectionButton;
+  const elevationClass = level === 1
+    ? 'shadow-sm hover:shadow-xl hover:shadow-stone-200/30 dark:hover:shadow-none'
+    : 'shadow-none';
 
   return (
     <div className={`animate-in fade-in zoom-in-95 duration-300 [animation-fill-mode:both] ${className}`} style={{ animationDelay: delay, ...style }}>
-      <div className="relative overflow-hidden group/card h-full flex flex-col" style={{ borderRadius: radiusToken }}>
+      <div
+        className={`relative group/card h-full flex flex-col overflow-hidden ${
+          swipeable
+            ? `nexus-swipe-stage nexus-swipe-stage--${level === 1 ? 'autonomous' : 'nested'}`
+            : ''
+        }`}
+        style={!swipeable || level === 2 ? { borderRadius: radiusToken } : undefined}
+      >
         {swipeable && (
-          <div className="absolute inset-0 flex sm:hidden">
-            {customSwipeLeft ? (
-              <div className="absolute inset-y-0 left-0 w-[100px] h-full overflow-hidden" onClick={resetSwipe}>
-                {customSwipeLeft}
-              </div>
-            ) : (
-              onEdit && <NexusCardButton onClick={() => { onEdit?.(); resetSwipe(); }} variant="brand" isIconOnly icon={Edit2} className="absolute inset-y-0 left-0 w-[100px] h-full rounded-none" />
-            )}
+          <div className="absolute inset-0 sm:hidden">
+            <div
+              ref={swipeLeftActionRef}
+              className="absolute inset-y-0 left-0 flex items-center justify-center transition-opacity duration-200"
+              style={{
+                left: level === 1 && !customSwipeLeft ? 'var(--space-md)' : 0,
+                width: !customSwipeLeft ? 'max-content' : 'var(--size-swipe-action-reveal)',
+                paddingInlineEnd: !customSwipeLeft ? 'var(--space-base)' : undefined,
+                opacity: translateX > 0 ? 1 : 0,
+                pointerEvents: translateX > 0 ? 'auto' : 'none',
+              }}
+              onClick={customSwipeLeft ? resetSwipe : undefined}
+            >
+              {customSwipeLeft ? (
+                translateX > 0 ? customSwipeLeft : null
+              ) : (
+                onEdit ? (
+                  <SwipeActionButton
+                    variant="secondary"
+                    icon={Edit2}
+                    onClick={() => { onEdit(); resetSwipe(); }}
+                    tabIndex={translateX > 0 ? 0 : -1}
+                    aria-hidden={translateX <= 0}
+                  >
+                    Editar
+                  </SwipeActionButton>
+                ) : null
+              )}
+            </div>
 
-            {customSwipeRight ? (
-              <div className="absolute inset-y-0 right-0 w-[100px] h-full overflow-hidden" onClick={resetSwipe}>
-                {customSwipeRight}
-              </div>
-            ) : (
-              onDelete && <NexusCardButton onClick={() => { onDelete?.(); resetSwipe(); }} variant="danger" isIconOnly icon={Trash2} className="absolute inset-y-0 right-0 w-[100px] h-full rounded-none" />
-            )}
+            <div
+              ref={swipeRightActionRef}
+              className="absolute inset-y-0 right-0 flex items-center justify-center transition-opacity duration-200"
+              style={{
+                right: level === 1 && !customSwipeRight ? 'var(--space-md)' : 0,
+                width: !customSwipeRight ? 'max-content' : 'var(--size-swipe-action-reveal)',
+                paddingInlineStart: !customSwipeRight ? 'var(--space-base)' : undefined,
+                opacity: translateX < 0 ? 1 : 0,
+                pointerEvents: translateX < 0 ? 'auto' : 'none',
+              }}
+              onClick={customSwipeRight ? resetSwipe : undefined}
+            >
+              {customSwipeRight ? (
+                translateX < 0 ? customSwipeRight : null
+              ) : (
+                onDelete ? (
+                  <SwipeActionButton
+                    variant="secondary"
+                    icon={Trash2}
+                    onClick={() => { onDelete(); resetSwipe(); }}
+                    className="border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700"
+                    tabIndex={translateX < 0 ? 0 : -1}
+                    aria-hidden={translateX >= 0}
+                  >
+                    Eliminar
+                  </SwipeActionButton>
+                ) : null
+              )}
+            </div>
           </div>
         )}
-        <div onTouchStart={handleTouchStart} onTouchMove={handleTouchMove} onTouchEnd={handleTouchEnd}
+        <div
+          onTouchStart={handleTouchStart}
+          onTouchMove={handleTouchMove}
+          onTouchEnd={handleTouchEnd}
+          onTouchCancel={handleTouchCancel}
           style={{
             transform: swipeable ? `translateX(${translateX}px)` : 'none',
             transition: isSwiping ? 'none' : 'transform 0.4s var(--ease-emil)',
             borderRadius: radiusToken,
             padding: paddingToken
           }}
-          className={`relative z-10 bg-bg-card border border-border-main transition-all duration-700 hover:shadow-xl hover:shadow-stone-200/30 overflow-hidden flex-1 flex flex-col shadow-sm ${innerClassName}`}
+          className={`relative z-10 bg-bg-card border border-border-main transition-all duration-700 overflow-hidden flex-1 flex flex-col ${elevationClass} ${innerClassName}`}
         >
           <div className="absolute inset-0 pointer-events-none opacity-[0.015]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)', backgroundSize: '20px 20px' }} />
           <div className={`relative z-10 flex-1 flex flex-col transition-opacity duration-500 ${isMuted ? 'opacity-60 grayscale-[0.5]' : 'opacity-100'}`}>
@@ -246,7 +366,7 @@ export const NexusSectionCard: React.FC<LegacyCardProps> = ({
               {actions}
               {(onEdit || onDelete) && (
                 <div
-                  className={`${showActionsAlways ? 'flex' : 'hidden sm:flex'} transition-all duration-500 ${
+                  className={`${swipeable ? 'hidden sm:flex' : showActionsAlways ? 'flex' : 'hidden sm:flex'} transition-all duration-500 ${
                     showActionsAlways
                       ? 'opacity-100 translate-x-0'
                       : 'opacity-0 translate-x-2 group-hover/card:opacity-100 group-hover/card:translate-x-0'
