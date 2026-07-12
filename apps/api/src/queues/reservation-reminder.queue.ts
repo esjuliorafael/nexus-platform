@@ -34,6 +34,9 @@ export const reservationReminderQueue = new Queue<ReservationReminderJobData>(
   },
 );
 
+export const getOrderReminderJobId = (orderId: number, expiresAt: Date) =>
+  `order-reminder-${orderId}-${expiresAt.getTime()}`;
+
 export const reservationReminderWorker = new Worker<ReservationReminderJobData>(
   queueName("reservation-reminders"),
   async (job: Job<ReservationReminderJobData>) => {
@@ -108,6 +111,91 @@ export const getReminderDelayMs = (
   if (reminderHoursBefore >= releaseHours) return null;
 
   return Math.round((releaseHours - reminderHoursBefore) * 3600 * 1000);
+};
+
+export const reconcilePendingOrderReminders = async (limit = 200) => {
+  const settings = await storePrisma.setting.findMany({
+    where: {
+      key: {
+        in: ["inventory_reminder_active", "inventory_reminder_hours_before"],
+      },
+    },
+    select: { key: true, value: true },
+  });
+  const settingsMap = new Map(settings.map((setting) => [setting.key, setting.value || ""]));
+  const reminderActive = ["1", "true"].includes(
+    (settingsMap.get("inventory_reminder_active") || "").toLowerCase(),
+  );
+  const reminderHoursBefore = Number(
+    settingsMap.get("inventory_reminder_hours_before") || 4,
+  );
+
+  if (!reminderActive || !Number.isFinite(reminderHoursBefore) || reminderHoursBefore <= 0) {
+    return { scanned: 0, scheduled: 0 };
+  }
+
+  const now = new Date();
+  const orders = await storePrisma.order.findMany({
+    where: {
+      status: "PENDING",
+      paymentMethod: "TRANSFER",
+      expiresAt: { gt: now },
+    },
+    select: { id: true, expiresAt: true },
+    orderBy: { expiresAt: "asc" },
+    take: limit,
+  });
+
+  if (orders.length === 0) return { scanned: 0, scheduled: 0 };
+
+  const attemptedLogs = await storePrisma.whatsappMessageLog.findMany({
+    where: {
+      orderId: { in: orders.map((order) => order.id.toString()) },
+      templateUsed: "order_reminder",
+    },
+    select: { orderId: true },
+  });
+  const attemptedOrderIds = new Set(attemptedLogs.map((log) => log.orderId));
+  const queuedJobs = await reservationReminderQueue.getJobs(
+    ["delayed", "waiting", "active"],
+    0,
+    Math.max(limit * 2, 400),
+  );
+  const queuedOrderExpirations = new Set(
+    queuedJobs.flatMap((job) => {
+      if (job.data.kind !== "order") return [];
+      return [`${job.data.orderId}:${job.data.expectedExpiresAt}`];
+    }),
+  );
+  let scheduled = 0;
+
+  for (const order of orders) {
+    if (!order.expiresAt || attemptedOrderIds.has(order.id.toString())) continue;
+
+    const expectedExpiresAt = order.expiresAt.toISOString();
+    if (queuedOrderExpirations.has(`${order.id}:${expectedExpiresAt}`)) continue;
+
+    const jobId = getOrderReminderJobId(order.id, order.expiresAt);
+    if (await reservationReminderQueue.getJob(jobId)) continue;
+
+    const reminderAt = new Date(
+      order.expiresAt.getTime() - reminderHoursBefore * 3600 * 1000,
+    );
+    const delay = Math.max(0, reminderAt.getTime() - Date.now());
+
+    await reservationReminderQueue.add(
+      "order-reminder",
+      {
+        kind: "order",
+        orderId: order.id,
+        expectedExpiresAt,
+      },
+      { delay, jobId },
+    );
+    scheduled += 1;
+  }
+
+  return { scanned: orders.length, scheduled };
 };
 
 function formatTimeRemaining(expiresAt: Date): string {

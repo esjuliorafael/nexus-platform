@@ -1,7 +1,11 @@
 import { storePrisma } from "@nexus/db/store";
 import { OrderStatus } from "@prisma/client-store";
 import { orderReleaseQueue } from "../../../queues/order-release.queue";
-import { getReminderDelayMs, reservationReminderQueue } from "../../../queues/reservation-reminder.queue";
+import {
+  getOrderReminderJobId,
+  getReminderDelayMs,
+  reservationReminderQueue,
+} from "../../../queues/reservation-reminder.queue";
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
 import type { OrderKind, OrderItemPurpose } from "../../../services/evolution/channel.resolver";
 import { validateCouponForItems } from "../coupons/coupon.service";
@@ -294,7 +298,7 @@ export const orderService = {
         await reservationReminderQueue.add(
           "order-reminder",
           { kind: "order", orderId: order.id, expectedExpiresAt: expiresAt.toISOString() },
-          { delay: reminderDelay },
+          { delay: reminderDelay, jobId: getOrderReminderJobId(order.id, expiresAt) },
         );
       }
     }
@@ -667,7 +671,10 @@ export const orderService = {
             orderId: restoredOrder.id,
             expectedExpiresAt: expiresAt.toISOString(),
           },
-          { delay: reminderDelay },
+          {
+            delay: reminderDelay,
+            jobId: getOrderReminderJobId(restoredOrder.id, expiresAt),
+          },
         );
       }
     }

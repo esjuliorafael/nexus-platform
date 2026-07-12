@@ -19,7 +19,10 @@ import { rafflePlugin } from "./modules/raffle/raffle.plugin";
 // Queues & Workers
 import { orderReleaseWorker } from "./queues/order-release.queue";
 import { ticketReleaseWorker } from "./queues/ticket-release.queue";
-import { reservationReminderWorker } from "./queues/reservation-reminder.queue";
+import {
+  reconcilePendingOrderReminders,
+  reservationReminderWorker,
+} from "./queues/reservation-reminder.queue";
 import { whatsappWorker } from "./workers/whatsapp.worker";
 import { mediaProcessingWorker } from "./workers/media-processing.worker";
 import { expireOverduePendingOrders } from "./services/order-expiration.service";
@@ -176,6 +179,26 @@ async function bootstrap() {
     await sweepOverdueOrders();
     const overdueOrderSweepTimer = setInterval(sweepOverdueOrders, 5 * 60 * 1000);
     overdueOrderSweepTimer.unref?.();
+
+    const reconcileOrderReminders = async () => {
+      try {
+        const result = await reconcilePendingOrderReminders();
+        if (result.scheduled > 0) {
+          server.log.info(
+            `Scheduled ${result.scheduled} missing order reminders (${result.scanned} scanned).`,
+          );
+        }
+      } catch (error: any) {
+        server.log.error(`Order reminder reconciliation failed: ${error.message}`);
+      }
+    };
+
+    await reconcileOrderReminders();
+    const orderReminderReconciliationTimer = setInterval(
+      reconcileOrderReminders,
+      5 * 60 * 1000,
+    );
+    orderReminderReconciliationTimer.unref?.();
 
     const refreshMercadoPagoConnections = async () => {
       try {
