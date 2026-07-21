@@ -210,7 +210,7 @@ export const HomeSlideCard: React.FC<HomeSlideCardProps> = ({
           </div>
 
           <div
-            className="flex items-center justify-between border-t border-border-main pt-[var(--space-md)] lg:justify-end lg:border-l lg:border-t-0 lg:pl-[var(--space-md)] lg:pt-0"
+            className="nexus-card-divider-desktop flex items-center justify-between border-t border-border-main pt-[var(--space-md)] lg:justify-end lg:border-t-0 lg:pl-[var(--space-md)] lg:pt-0"
             style={{ gap: "var(--space-md)" }}
           >
             <div
@@ -288,7 +288,7 @@ export const HomeSlideCard: React.FC<HomeSlideCardProps> = ({
           title: slide.title,
           description: slide.description || undefined,
           primaryText: slide.primaryText || "Ver Catalogo",
-          secondaryText: slide.secondaryText || "Explorar Rancho",
+          secondaryText: slide.secondaryText?.trim() || undefined,
           desktopObjectPosition: slide.desktopObjectPosition || "50% 50%",
           mobileObjectPosition: slide.mobileObjectPosition || "50% 44%",
         }}

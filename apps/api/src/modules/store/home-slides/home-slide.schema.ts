@@ -6,7 +6,10 @@ const emptyToUndefined = (value: unknown) => {
   return trimmed.length > 0 ? trimmed : undefined;
 };
 
-const optionalString = z.preprocess(emptyToUndefined, z.string().optional());
+const optionalString = z.preprocess(
+  emptyToUndefined,
+  z.string().nullable().optional(),
+);
 
 const objectPositionSchema = z
   .string()

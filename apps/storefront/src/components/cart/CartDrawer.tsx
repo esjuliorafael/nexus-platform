@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useLayoutEffect, useState } from 'react';
 import { Minus, Plus, ShoppingBag, Trash2, X } from 'lucide-react';
 import { usePathname, useRouter } from 'next/navigation';
 import { useCartStore } from '../../store/cart.store';
@@ -8,6 +8,16 @@ import { Button } from '../ui/Button';
 import { StorefrontIcon } from '../ui/Icon';
 import { StorefrontPurchaseBar } from '../ui/PurchaseBar';
 import { CouponRedemption } from './CouponRedemption';
+import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
+import { useCheckoutTransitionStore } from '../../store/checkout-transition.store';
+import { useCheckoutTransitionGuard } from '../../hooks/useCheckoutTransitionGuard';
+import { StorefrontDrawerDialog } from '../ui/DrawerDialog';
+import { StorefrontDrawerHeader } from '../ui/DrawerHeader';
+import {
+  StorefrontTemporarySurfaceChrome,
+  StorefrontTemporarySurfaceHeaderItem,
+  StorefrontTemporarySurfaceItem,
+} from '../ui/TemporarySurfaceMotion';
 
 export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
   const { items, removeItem, updateQuantity, getDiscountTotal, getCartTotalAfterDiscount } = useCartStore();
@@ -15,19 +25,39 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
   const router = useRouter();
   const pathname = usePathname();
   const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [shouldLockPage, setShouldLockPage] = useState(isOpen);
+  const [restoreScrollOnUnlock, setRestoreScrollOnUnlock] = useState(true);
+  const readyPath = useCheckoutTransitionStore((state) => state.readyPath);
+  const beginCheckoutTransition = useCheckoutTransitionStore((state) => state.begin);
+  const finishCheckoutTransition = useCheckoutTransitionStore((state) => state.finish);
+
+  useBodyScrollLock(shouldLockPage, { restoreScroll: restoreScrollOnUnlock });
 
   useEffect(() => {
-    if (!isCheckingOut || pathname !== '/checkout') return;
+    if (isOpen) {
+      setRestoreScrollOnUnlock(true);
+      setShouldLockPage(true);
+    }
+  }, [isOpen]);
 
-    const frame = window.requestAnimationFrame(() => {
-      window.requestAnimationFrame(() => {
-        onClose();
-        setIsCheckingOut(false);
-      });
-    });
+  const handleClose = () => {
+    if (!isCheckingOut) onClose();
+  };
+
+  useCheckoutTransitionGuard({
+    active: isCheckingOut,
+    targetPath: '/checkout',
+    onRecover: () => setIsCheckingOut(false),
+    onUnexpectedRoute: onClose,
+  });
+
+  useLayoutEffect(() => {
+    if (!isCheckingOut || pathname !== '/checkout' || readyPath !== '/checkout') return;
+
+    const frame = window.requestAnimationFrame(onClose);
 
     return () => window.cancelAnimationFrame(frame);
-  }, [isCheckingOut, onClose, pathname]);
+  }, [isCheckingOut, onClose, pathname, readyPath]);
 
   const handleRemove = (productId: number, name: string) => {
     removeItem(productId);
@@ -39,48 +69,45 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
       const returnPath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
       window.sessionStorage.setItem('nexus_checkout_return_path', returnPath);
     }
+    const sourcePath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
+    beginCheckoutTransition('/checkout', sourcePath);
+    setRestoreScrollOnUnlock(false);
     setIsCheckingOut(true);
-    router.push('/checkout');
+    router.push('/checkout', { scroll: false });
   };
 
-  if (!isOpen) return null;
-
   return (
-    <div className="fixed inset-0 z-50 flex justify-end">
-      <div
-        className="absolute inset-0 backdrop-blur-sm"
-        style={{ background: 'var(--sf-modal-backdrop)' }}
-        onClick={onClose}
-      />
+    <StorefrontDrawerDialog
+      open={isOpen}
+      label="Mi carrito"
+      onRequestClose={handleClose}
+      closeDisabled={isCheckingOut}
+      restoreFocus={!isCheckingOut}
+      returnFocusSelector='[aria-label="Abrir carrito"], [aria-label="Carrito"]'
+      busy={isCheckingOut}
+      onExitComplete={() => {
+        setShouldLockPage(false);
+        if (isCheckingOut) {
+          setIsCheckingOut(false);
+          finishCheckoutTransition();
+        }
+      }}
+    >
+        <div className="shrink-0">
+          <CartDrawerMobileTopBar itemCount={items.length} onClose={handleClose} />
 
-      <aside
-        className="relative flex h-full w-full flex-col bg-white shadow-2xl animate-in slide-in-from-right duration-300 sm:max-w-md sm:rounded-l-[var(--sf-radius-outer)]"
-      >
-        <CartDrawerMobileTopBar itemCount={items.length} onClose={onClose} />
-
-        <div
-          className="hidden items-center justify-between border-b border-stone-100 sm:flex"
-          style={{ padding: 'var(--sf-padding-inner)', gap: 'var(--sf-space-md)' }}
-        >
-          <div className="flex items-center min-w-0" style={{ gap: 'var(--sf-space-md)' }}>
-            <StorefrontIcon icon={ShoppingBag} context="autonomous" variant="brand" />
-            <div className="min-w-0">
-              <h2 className="sf-text-h2 text-stone-850">Mi carrito</h2>
-              <p className="sf-text-label text-stone-400">{items.length} producto(s)</p>
-            </div>
-          </div>
-          <Button
-            variant="ghost"
-            size="icon"
-            context="card"
-            icon={X}
-            isIconOnly
-            onClick={onClose}
-            aria-label="Cerrar carrito"
+          <StorefrontDrawerHeader
+            icon={ShoppingBag}
+            title="Mi carrito"
+            subtitle={`${items.length} producto${items.length === 1 ? '' : 's'}`}
+            closeLabel="Cerrar carrito"
+            onClose={handleClose}
+            className="hidden sm:flex"
           />
         </div>
 
-        <div
+        <StorefrontTemporarySurfaceItem
+          phase="content"
           className="flex-1 overflow-y-auto px-[var(--sf-inset-page-mobile)] pb-[var(--sf-space-md)] pt-[calc(var(--sf-inset-mobile-chrome-block)+var(--sf-h-mobile-nav)+var(--sf-space-mobile-chrome-after))] sm:p-[var(--sf-padding-inner)]"
         >
           {items.length === 0 ? (
@@ -99,7 +126,8 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
                   key={item.productId}
                   className="group"
                   style={{
-                    paddingBlock: 'var(--sf-space-md)',
+                    paddingTop: index === 0 ? 0 : 'var(--sf-space-md)',
+                    paddingBottom: index === items.length - 1 ? 0 : 'var(--sf-space-md)',
                     borderBottom: index === items.length - 1 ? '0' : '1px solid rgba(231, 229, 228, 0.8)',
                   }}
                 >
@@ -162,10 +190,11 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
               ))}
             </div>
           )}
-        </div>
+        </StorefrontTemporarySurfaceItem>
 
         {items.length > 0 && (
-          <div
+          <StorefrontTemporarySurfaceItem
+            phase="footer"
             className="shrink-0 border-t border-stone-100 bg-white/95 sm:hidden"
             style={{
               paddingInline: 'var(--sf-inset-page-mobile)',
@@ -174,11 +203,12 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
             }}
           >
             <CouponRedemption />
-          </div>
+          </StorefrontTemporarySurfaceItem>
         )}
 
         {items.length > 0 && (
-          <div
+          <StorefrontTemporarySurfaceItem
+            phase="footer"
             className="hidden border-t border-stone-100 bg-stone-50/70 sm:block"
             style={{
               padding: 'var(--sf-padding-inner)',
@@ -206,20 +236,20 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
                 Finalizar pedido
               </Button>
             </div>
-          </div>
+          </StorefrontTemporarySurfaceItem>
         )}
 
         {items.length > 0 && (
           <StorefrontPurchaseBar
             total={getCartTotalAfterDiscount()}
-            buttonLabel="Continuar"
+            buttonLabel="Finalizar pedido"
             buttonIcon={ShoppingBag}
             loading={isCheckingOut}
             onAction={handleCheckout}
+            entrance="temporary"
           />
         )}
-      </aside>
-    </div>
+    </StorefrontDrawerDialog>
   );
 }
 
@@ -231,7 +261,8 @@ function CartDrawerMobileTopBar({
   onClose: () => void;
 }) {
   return (
-    <div
+    <StorefrontTemporarySurfaceChrome
+      edge="top"
       className="absolute z-20 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center sm:hidden"
       style={{
         top: 'var(--sf-inset-mobile-chrome-block)',
@@ -248,7 +279,8 @@ function CartDrawerMobileTopBar({
         }}
       />
 
-      <div
+      <StorefrontTemporarySurfaceHeaderItem
+        part="identity"
         className="pointer-events-none flex min-w-0 items-center justify-center overflow-hidden border border-stone-200/90 bg-white shadow-[0_18px_48px_rgba(87,68,55,0.14)]"
         style={{
           height: 'var(--sf-h-mobile-nav)',
@@ -260,9 +292,10 @@ function CartDrawerMobileTopBar({
           <p className="truncate sf-text-secondary font-medium text-stone-700">Mi carrito</p>
           <p className="sf-text-caption text-stone-400">{itemCount} producto{itemCount === 1 ? '' : 's'}</p>
         </div>
-      </div>
+      </StorefrontTemporarySurfaceHeaderItem>
 
-      <div
+      <StorefrontTemporarySurfaceHeaderItem
+        part="close"
         className="flex shrink-0 items-center justify-center border border-stone-200/90 bg-white shadow-[0_18px_48px_rgba(87,68,55,0.14)]"
         style={{
           height: 'var(--sf-h-mobile-nav)',
@@ -287,7 +320,7 @@ function CartDrawerMobileTopBar({
             strokeWidth={2.35}
           />
         </button>
-      </div>
-    </div>
+      </StorefrontTemporarySurfaceHeaderItem>
+    </StorefrontTemporarySurfaceChrome>
   );
 }

@@ -15,7 +15,7 @@ import {
 import { apiChannels } from '../../../api';
 import { ChannelsOverview } from '../../../types';
 import { NexusHero } from '../../ui/NexusHero';
-import { NexusSectionButton, NexusCardButton } from '../../ui/NexusButton';
+import { NexusSectionButton } from '../../ui/NexusButton';
 import { NexusSection } from '../../ui/NexusSection';
 import { NexusAutonomousCard, NexusSectionCard } from '../../ui/NexusCard';
 import { NexusHeader } from '../../ui/NexusHeader';
@@ -65,6 +65,7 @@ export const ChannelsHub: React.FC<ChannelsHubProps> = ({
   onEditChannel,
   onCreateChannel,
   showToast,
+  setConfirmDialog,
 }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [overview, setOverview] = useState<ChannelsOverview | null>(null);
@@ -84,6 +85,27 @@ export const ChannelsHub: React.FC<ChannelsHubProps> = ({
   useEffect(() => {
     loadData();
   }, []);
+
+  const handleDeleteChannel = (purpose: string, name: string) => {
+    setConfirmDialog({
+      isOpen: true,
+      title: '¿Eliminar canal especializado?',
+      message: `Se eliminarán la configuración bancaria, Mercado Pago, WhatsApp y las plantillas de ${name}. Los flujos volverán a usar el Canal Principal.`,
+      confirmLabel: 'Sí, eliminar',
+      variant: 'danger',
+      onConfirm: async () => {
+        try {
+          await apiChannels.deleteSpecialized(purpose);
+          await loadData();
+          showToast('Canal especializado eliminado correctamente');
+        } catch (error) {
+          showToast('No se pudo eliminar el canal especializado', 'error');
+        } finally {
+          setConfirmDialog({ isOpen: false });
+        }
+      },
+    });
+  };
 
   if (isLoading) {
     return (
@@ -220,12 +242,10 @@ export const ChannelsHub: React.FC<ChannelsHubProps> = ({
                       <StatusPill ready={channel.templates.ready} label="Tpl" />
                     </div>
                   }
-                  actions={
-                    <NexusCardButton onClick={() => onEditChannel(channel.id)} icon={ArrowRight} variant="secondary">
-                      Administrar
-                    </NexusCardButton>
-                  }
                   onEdit={() => onEditChannel(channel.id)}
+                  onDelete={() => handleDeleteChannel(channel.purpose, channel.name)}
+                  showActionsAlways
+                  swipeable
                 />
               );
             })}

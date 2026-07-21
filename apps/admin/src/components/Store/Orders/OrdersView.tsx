@@ -24,6 +24,8 @@ export type OrderStatusFilter =
   | "pending"
   | "paid"
   | "cancelled"
+  | "payment_review"
+  | "not_completed"
   | "all";
 
 const normalizeSearch = (value: string) =>

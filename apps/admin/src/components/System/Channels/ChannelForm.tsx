@@ -1,20 +1,24 @@
 import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
 import { 
   Building2, CreditCard, MessageCircle, Info, Zap, 
-  Smartphone, QrCode, RefreshCw, LogOut, CheckCircle2,
-  ShieldCheck, Layout, Save, X, AlertCircle, ChevronRight,
+  Smartphone, QrCode, RefreshCw, LogOut, CheckCircle2, KeyRound,
+  ShieldCheck, Layout, X, ChevronRight,
   Hash, User, Timer, LayoutGrid
 } from 'lucide-react';
-import { apiPayments, apiWhatsApp, apiSystem } from '../../../api';
+import { apiChannels, apiWhatsApp, apiSystem } from '../../../api';
 import { SalesChannel, WhatsAppChannel } from '../../../types';
 import { NexusInput, NexusSelect } from '../../ui/NexusInputs';
 import { NexusAutonomousButton, NexusButton } from '../../ui/NexusButton';
 import { NexusSection } from '../../ui/NexusSection';
 import { NexusHero } from '../../ui/NexusHero';
-import { NexusModal } from '../../ui/NexusModal';
+import {
+  WhatsAppPairingData,
+  WhatsAppPairingMethod,
+  WhatsAppPairingModal,
+} from './WhatsAppPairingModal';
 
 export interface ChannelFormRef {
-  handleSubmit: () => void;
+  handleSave: () => void;
 }
 
 interface ChannelFormProps {
@@ -27,10 +31,10 @@ interface ChannelFormProps {
 
 type TabType = 'identity' | 'payments' | 'whatsapp';
 
-const PURPOSE_INSTANCES: Record<string, string> = {
-  'COMBAT': 'nexus_combate',
-  'BREEDING': 'nexus_cria',
-  'RAFFLES': 'nexus_rifas'
+const PURPOSE_INSTANCE_SUFFIXES: Record<string, string> = {
+  COMBAT: 'combat',
+  BREEDING: 'breeding',
+  RAFFLES: 'raffles'
 };
 
 export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({ 
@@ -50,8 +54,7 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
 
   // WhatsApp Connection State
   const [instanceStatus, setInstanceStatus] = useState<'open' | 'close' | 'connecting' | 'loading'>('close');
-  const [isQRModalOpen, setIsQRModalOpen] = useState(false);
-  const [qrData, setQRData] = useState<{ base64?: string, instanceName?: string, timeLeft?: number } | null>(null);
+  const [pairingData, setPairingData] = useState<WhatsAppPairingData | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
 
   const RAFFLE_ENABLED = import.meta.env.VITE_RAFFLE_ENABLED === 'true';
@@ -61,6 +64,13 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
   const isStep3Valid = useMemo(() => whatsappData.phone.trim() !== '', [whatsappData]);
 
   const isFormValid = isStep1Valid && isStep2Valid && isStep3Valid;
+
+  const resolveInstanceName = async () => {
+    const globalConfig = await apiSystem.getConfig();
+    const prefix = globalConfig.whatsapp_evolution_instance || 'nexus';
+    const suffix = PURPOSE_INSTANCE_SUFFIXES[generalData.purpose.toUpperCase()];
+    return suffix ? `${prefix}_${suffix}` : '';
+  };
 
   useEffect(() => {
     onValidationChange?.(isFormValid);
@@ -79,8 +89,8 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
     }
   };
 
-  const handleConnectWhatsApp = async () => {
-    const instanceName = PURPOSE_INSTANCES[generalData.purpose.toUpperCase()];
+  const handleConnectWhatsApp = async (method: WhatsAppPairingMethod) => {
+    const instanceName = await resolveInstanceName();
     if (!instanceName) {
       showToast('Define el propósito primero', 'error');
       return;
@@ -88,21 +98,30 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
 
     setConfirmDialog({
       isOpen: true,
-      title: 'Verificar Línea',
+      title: 'Verificar línea',
       message: `¿Deseas vincular ${whatsappData.phone || 'este canal'} con Evolution API?`,
-      confirmLabel: 'Generar QR',
+      confirmLabel: method === 'qr' ? 'Generar QR' : 'Generar código',
       variant: 'brand',
       onConfirm: async () => {
         setConfirmDialog({ isOpen: false });
         setIsConnecting(true);
         try {
-          const res = await apiWhatsApp.getQR(instanceName);
-          if (res.data.base64) {
-            setQRData({ base64: res.data.base64, instanceName, timeLeft: 40 });
-            setIsQRModalOpen(true);
-          }
-        } catch (error) {
-          showToast('Error al generar QR', 'error');
+          const res = await apiWhatsApp.connect(instanceName, method, whatsappData.phone);
+          const value = method === 'qr' ? res.data?.base64 : res.data?.pairingCode;
+          if (!value) throw new Error('Evolution API no devolvió un código');
+          setPairingData({
+            method,
+            base64: res.data?.base64,
+            pairingCode: res.data?.pairingCode,
+            instanceName,
+            timeLeft: 40,
+          });
+        } catch (error: any) {
+          showToast(
+            error?.response?.data?.error ||
+              (method === 'qr' ? 'Error al generar QR' : 'Error al generar el código'),
+            'error',
+          );
         } finally {
           setIsConnecting(false);
         }
@@ -113,21 +132,20 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
   useEffect(() => {
     let timer: any;
     let poll: any;
-    if (isQRModalOpen && qrData?.instanceName) {
+    if (pairingData?.instanceName) {
       timer = setInterval(() => {
-        setQRData(prev => prev ? { ...prev, timeLeft: Math.max(0, (prev.timeLeft || 0) - 1) } : null);
+        setPairingData(prev => prev ? { ...prev, timeLeft: Math.max(0, prev.timeLeft - 1) } : null);
       }, 1000);
       poll = setInterval(async () => {
-        const state = await checkInstanceStatus(qrData.instanceName!);
+        const state = await checkInstanceStatus(pairingData.instanceName);
         if (state === 'open') {
           showToast('¡WhatsApp Vinculado!', 'success');
-          setIsQRModalOpen(false);
-          setQRData(null);
+          setPairingData(null);
         }
       }, 3000);
     }
     return () => { clearInterval(timer); clearInterval(poll); };
-  }, [isQRModalOpen, qrData?.instanceName]);
+  }, [pairingData?.instanceName]);
 
   const handleConnectMP = async () => {
     showToast('Guarda primero el canal y despues vincula Mercado Pago desde su editor.', 'error');
@@ -137,30 +155,34 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
     if (!isFormValid || isSubmitting) return;
     setIsSubmitting(true);
     try {
-      // Get global config to retrieve the tenant prefix
-      const globalConfig = await apiSystem.getConfig();
-      const prefix = globalConfig.whatsapp_evolution_instance || 'nexus';
-      const purposeSuffix = generalData.purpose.toLowerCase();
-      const instanceName = `${prefix}_${purposeSuffix === 'raffles' ? 'raffles' : purposeSuffix === 'breeding' ? 'breeding' : 'combat'}`;
+      const instanceName = await resolveInstanceName();
       
       const payload = { ...generalData, ...paymentData, accountNumber: paymentData.account, phone: whatsappData.phone, active: whatsappData.active, instanceName };
       
-      await Promise.all([
-        apiPayments.create(payload),
-        apiWhatsApp.create(payload)
-      ]);
+      await apiChannels.createSpecialized(payload);
 
       showToast('Canal configurado con éxito', 'success');
       onSave();
-    } catch (error) {
-      showToast('Error al crear canal. Verifica duplicados.', 'error');
+    } catch (error: any) {
+      if (error?.response?.status === 409) {
+        showToast(
+          error.response.data?.message || 'El canal especializado ya existe.',
+          'error',
+        );
+        onSave();
+        return;
+      }
+      showToast(
+        error?.response?.data?.message || 'No se pudo crear el canal.',
+        'error',
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
   useImperativeHandle(ref, () => ({
-    handleSubmit
+    handleSave: handleSubmit
   }));
 
   const steps = [
@@ -309,23 +331,31 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
 
                     <div className="space-y-6">
                       <p className="text-label text-text-muted ml-1 uppercase tracking-widest">Hardware de Conexión</p>
-                      <div className="flex items-center gap-4 h-16">
+                      <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 'var(--space-sm)' }}>
                         <NexusButton 
                           isLoading={isConnecting}
-                          onClick={handleConnectWhatsApp}
-                          className="flex-1 bg-emerald-600 shadow-2xl shadow-emerald-900/20 hover:bg-emerald-700 text-white rounded-[1.2rem] h-full" 
+                          onClick={() => handleConnectWhatsApp('qr')}
+                          className="bg-emerald-600 text-white hover:bg-emerald-700"
                           icon={QrCode}
                         >
                           Generar Código QR
                         </NexusButton>
+                        <NexusButton
+                          isLoading={isConnecting}
+                          onClick={() => handleConnectWhatsApp('pairing_code')}
+                          className="bg-emerald-600 text-white hover:bg-emerald-700"
+                          icon={KeyRound}
+                        >
+                          Usar código
+                        </NexusButton>
                         <NexusButton 
                           variant="secondary" 
                           size="icon" 
-                          className="w-16 h-16 rounded-[1.2rem] bg-bg-muted border-border-main" 
+                          className="bg-bg-muted border-border-main"
                           icon={RefreshCw} 
-                          onClick={() => {
-                            const name = PURPOSE_INSTANCES[generalData.purpose.toUpperCase()];
-                            if (name) checkInstanceStatus(name);
+                          onClick={async () => {
+                            const name = await resolveInstanceName();
+                            if (name) await checkInstanceStatus(name);
                           }}
                         />
                       </div>
@@ -352,93 +382,18 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
               </div>
             </NexusSection>
 
-            <div className="flex justify-between items-center pt-12 px-2">
+            <div className="flex justify-start items-center pt-12 px-2">
               <NexusButton variant="secondary" onClick={() => setCurrentStep(2)} className="px-10 h-16 rounded-[1.5rem]">Atrás</NexusButton>
-              <div className="flex flex-col items-end gap-2">
-                 <p className="text-[9px] font-black text-text-muted uppercase tracking-[0.2em] mr-1">Finalizar configuración</p>
-                 <NexusButton onClick={handleSubmit} isLoading={isSubmitting} disabled={!isFormValid} size="lg" className="px-20 h-16 rounded-[1.5rem] shadow-2xl shadow-brand-900/20" icon={Save}>
-                   Sincronizar Canal
-                 </NexusButton>
-              </div>
             </div>
           </div>
         )}
       </div>
 
-      <NexusModal
-        isOpen={isQRModalOpen && !!qrData}
-        title="Emparejamiento"
-        subtitle="Escanea este codigo desde la app de WhatsApp para activar la automatizacion."
-        eyebrow="Vinculacion por QR"
-        icon={QrCode}
-        onClose={() => setIsQRModalOpen(false)}
-        size="compact"
-        zIndex={300}
-      >
-        {qrData && (
-          <div className="flex flex-col items-center text-center" style={{ gap: 'var(--space-lg)' }}>
-            <div
-              className="inline-block border-8 border-bg-muted bg-white shadow-inner transition-transform duration-700 hover:scale-[1.02]"
-              style={{
-                padding: 'var(--padding-inner)',
-                borderRadius: 'var(--radius-card-inner)'
-              }}
-            >
-              {qrData.timeLeft === 0 ? (
-                <div className="flex h-[240px] w-[240px] flex-col items-center justify-center" style={{ gap: 'var(--space-md)' }}>
-                  <AlertCircle size={56} className="text-amber-500" />
-                  <NexusAutonomousButton onClick={handleConnectWhatsApp} density="compact" variant="brand">
-                    Regenerar
-                  </NexusAutonomousButton>
-                </div>
-              ) : (
-                <div className="relative">
-                  <img
-                    src={qrData.base64}
-                    alt="QR"
-                    className="h-[240px] w-[240px]"
-                    style={{ borderRadius: 'var(--radius-card-nested)' }}
-                  />
-                  <div
-                    className="absolute flex items-center justify-center bg-stone-950 text-h2 font-black tabular-nums text-white shadow-2xl"
-                    style={{
-                      top: 'calc(var(--space-md) * -1)',
-                      right: 'calc(var(--space-md) * -1)',
-                      width: 'var(--size-icon-autonomous)',
-                      height: 'var(--size-icon-autonomous)',
-                      border: '6px solid var(--bg-card)',
-                      borderRadius: 'var(--radius-card-inner)'
-                    }}
-                  >
-                    {qrData.timeLeft}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div
-              className="inline-flex items-center justify-center bg-emerald-50/50 text-emerald-500"
-              style={{
-                gap: 'var(--space-sm)',
-                paddingBlock: 'var(--space-sm)',
-                paddingInline: 'var(--space-md)',
-                borderRadius: 'var(--radius-card-inner)'
-              }}
-            >
-              <div className="h-2.5 w-2.5 animate-pulse rounded-full bg-current shadow-[0_0_10px_currentColor]" />
-              <p className="text-label font-black">Esperando dispositivo...</p>
-            </div>
-
-            <NexusAutonomousButton
-              onClick={() => setIsQRModalOpen(false)}
-              variant="secondary"
-              className="w-full"
-            >
-              Cerrar
-            </NexusAutonomousButton>
-          </div>
-        )}
-      </NexusModal>
+      <WhatsAppPairingModal
+        data={pairingData}
+        onClose={() => setPairingData(null)}
+        onRegenerate={handleConnectWhatsApp}
+      />
     </div>
   );
 });

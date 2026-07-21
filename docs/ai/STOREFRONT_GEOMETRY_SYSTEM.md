@@ -44,7 +44,16 @@ The Storefront is public, commercial, and editorial. It can feel warmer and more
 : Generous padding for large owning surfaces.
 
 `--sf-inset-page-mobile`
-: Horizontal page/content inset on mobile. Use for page wrappers and public layout sections instead of raw `px-6`.
+: Horizontal page/content inset for mobile viewports. Mobile-only full-bleed rails, drawers, and bottom sheets may consume it directly.
+
+`--sf-inset-page-desktop`
+: Horizontal page/content inset for desktop viewports.
+
+`--sf-inset-page`
+: Responsive page inset consumed by page wrappers and public layout sections. It resolves to the mobile or desktop inset at the Storefront breakpoint; structural components must prefer it over either device-specific token.
+
+`--sf-max-width-content`
+: Maximum width of the primary Storefront content rail. It is `80rem`; use it instead of Tailwind's `max-w-7xl` so the width remains owned by the Storefront Geometry System.
 
 ### Level 2 Tokens
 
@@ -98,6 +107,8 @@ The Storefront is public, commercial, and editorial. It can feel warmer and more
 
 `--sf-space-xl`, `--sf-space-2xl`, `--sf-space-3xl`
 : Large section rhythm. Use for page bands and editorial separation, not for small component internals.
+
+Motion uses a separate temporal scale. See `STOREFRONT_MOTION_SYSTEM.md`; do not infer milliseconds directly from spacing values.
 
 ### Heights And Sizes
 
@@ -283,7 +294,7 @@ Use `StorefrontConfirmModal` for destructive or blocking decisions. Do not build
 Rules:
 
 1. Close, previous, and next controls belong to viewport chrome, not to the content rail.
-2. The content rail uses `max-w-7xl`.
+2. The content rail uses `--sf-max-width-content`.
 3. The media stage must avoid page scroll by using token-derived `max-height`.
 4. Metadata lives inside the media stage with a gradient for legibility.
 5. Mobile swipe navigation is valid when `canNavigate` is enabled.
@@ -296,9 +307,10 @@ Rules:
 | --- | --- | --- |
 | Navigation shell | `BottomNav` internal `nav` | Content-sized white surface for primary links, neutral border, `--sf-h-mobile-nav`, `--sf-radius-outer`, `--sf-space-sm` padding |
 | Cart shell | `BottomNav` cart surface | Separate content-sized white surface, `--sf-space-sm` away from the navigation shell |
-| Inactive action | Link or cart button | Icon only, `--sf-size-mobile-nav-item` width and height |
+| Inactive navigation action | Link | Icon-only visual treatment, `--sf-width-mobile-nav-icon-action` width, `--sf-size-mobile-nav-item` height |
+| Cart action | Button | Separate rail, `--sf-size-mobile-nav-item` width and height |
 | Active action | Link or cart button | Soft brand fill, horizontal icon plus label, `--sf-space-sm` gap, content-sized width |
-| Action radius | Direct internal item | `--sf-radius-mobile-nav-item` |
+| Active and cart action radius | Direct internal item | `--sf-radius-mobile-nav-item` |
 | Action icon | Direct internal icon | `--sf-size-mobile-nav-icon` |
 | Label | Active item label | `sf-text-caption`, single line, truncate if needed |
 
@@ -312,9 +324,13 @@ Rules:
 6. The outer wrapper should use content width with a viewport max. Do not force the rail to `w-full` or `w-[92%]`.
 7. The nav shell is a level 1 autonomous rail, so it uses `--sf-radius-outer`.
 8. Direct nav actions are level 2 children of the autonomous rail, so they use `--sf-radius-mobile-nav-item`, not `--sf-radius-card-nested`.
-9. The active action should remain content-sized. Do not use `flex-1` because it creates excessive horizontal padding around the icon and label.
-10. Keep the shell sober: white fill, gray border, and restrained elevation. Do not use experimental material effects by default.
-11. Fixed mobile chrome must use `--sf-inset-mobile-chrome` for horizontal viewport bounds and `--sf-inset-mobile-chrome-block` for vertical viewport bounds.
+9. Inactive navigation links use `--sf-width-mobile-nav-icon-action` and
+   `--sf-gap-mobile-nav-actions`. Their visible treatment is icon-only; the
+   persistent rail supplies the surrounding surface. The active destination
+   expands into the labeled contextual capsule.
+10. The active action should remain content-sized. Do not use `flex-1` because it creates excessive horizontal padding around the icon and label.
+11. Keep the shell sober: white fill, gray border, and restrained elevation. Do not use experimental material effects by default.
+12. Fixed mobile chrome must use `--sf-inset-mobile-chrome` for horizontal viewport bounds and `--sf-inset-mobile-chrome-block` for vertical viewport bounds.
 12. If the mobile page inset changes, update `--sf-inset-page-mobile`; mobile chrome follows through `--sf-inset-mobile-chrome`.
 13. Mobile chrome icons must use `--sf-size-mobile-nav-icon`, not local numeric Lucide sizes.
 
@@ -497,10 +513,12 @@ Use for paginated public lists.
 
 Rules:
 
-1. Container gap uses `--sf-space-sm`.
-2. Page buttons use `Button context="card"`.
-3. Previous and next buttons use icon-only card buttons.
-4. It returns `null` when `totalPages <= 1`; consumers should not add empty wrappers.
+1. It lives independently and must not be wrapped in an autonomous card or a shared visual rail.
+2. Its `nav` is only a semantic and spacing structure; it has no background, border, shadow, padding, or radius.
+3. Page, previous, and next buttons are autonomous level 1 controls and use `--sf-radius-control-surface`.
+4. The separation between controls uses `--sf-space-sm`; page-number groups may use `--sf-space-xs` internally.
+5. The component does not own exterior spacing. Its consumer defines the separation from adjacent content.
+6. It returns `null` when `totalPages <= 1`; consumers should not add empty wrappers.
 
 ### EmptyState
 
@@ -589,7 +607,9 @@ Use `StorefrontPaginator` instead of local pagination controls.
 
 ## Motion And Interaction
 
-Use `--sf-ease` for standard transitions and `--sf-ease-reveal` for modal or viewer reveal motion.
+The complete temporal scale, choreography rules, and implementation guidance live in `STOREFRONT_MOTION_SYSTEM.md`.
+
+Use `--sf-ease` for standard transitions and `--sf-ease-reveal` for modal or viewer reveal motion. Select durations from the semantic motion tokens instead of introducing raw local values.
 
 Allowed:
 

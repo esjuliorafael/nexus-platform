@@ -8,6 +8,7 @@ import { useSettings } from "../../hooks/useSettings";
 import { useFavicon } from "../../hooks/useFavicon";
 import { useCartStore } from "../../store/cart.store";
 import { Button } from "../ui/Button";
+import { StorefrontBrandLogo } from "../ui/BrandLogo";
 
 interface HeaderProps {
   showRaffles?: boolean;
@@ -71,29 +72,32 @@ export function Header({ showRaffles = false, onOpenCart }: HeaderProps) {
 
   return (
     <>
+      {pathname === "/" && (
+        <header
+          className="pointer-events-none fixed left-0 right-0 top-0 z-50 md:hidden"
+          style={{
+            paddingTop:
+              "calc(var(--sf-inset-mobile-chrome-block) + env(safe-area-inset-top, 0px))",
+            paddingInline: "var(--sf-inset-mobile-chrome)",
+          }}
+        >
+          <StorefrontBrandLogo
+            src={branding.logo_url}
+            alt={brandName}
+            size="mobile"
+            className="pointer-events-auto transition-transform duration-300 active:scale-95"
+          />
+        </header>
+      )}
+
       <header className="pointer-events-none fixed left-0 right-0 top-0 z-50 hidden md:block">
         <div className="mx-auto flex max-w-[1440px] items-start justify-between px-[var(--sf-padding-outer)] pt-[var(--sf-space-md)]">
-          <Link
-            href="/"
-            className="pointer-events-auto group flex min-h-[4.25rem] min-w-[4.25rem] items-center justify-center transition-transform duration-300 hover:scale-[1.03] active:scale-95"
-            aria-label={`Ir al inicio de ${brandName}`}
-            style={{ transitionTimingFunction: "var(--sf-ease)" }}
-          >
-            {branding.logo_url ? (
-              <img
-                src={branding.logo_url}
-                alt={brandName}
-                className="max-h-16 w-auto max-w-[11rem] shrink-0 object-contain drop-shadow-[0_12px_26px_rgba(12,10,9,0.35)]"
-              />
-            ) : (
-              <div
-                className="flex h-14 w-14 shrink-0 items-center justify-center bg-brand-500 text-xl font-black text-white shadow-xl shadow-stone-950/25"
-                style={{ borderRadius: "var(--sf-radius-card-inner)" }}
-              >
-                {brandName.charAt(0)}
-              </div>
-            )}
-          </Link>
+          <StorefrontBrandLogo
+            src={branding.logo_url}
+            alt={brandName}
+            size="desktop"
+            className="pointer-events-auto group flex min-h-[4.25rem] min-w-[4.25rem] transition-transform duration-300 hover:scale-[1.03] active:scale-95"
+          />
 
           <Button
             type="button"
@@ -103,7 +107,7 @@ export function Header({ showRaffles = false, onOpenCart }: HeaderProps) {
             context="autonomous"
             size="icon"
             icon={ShoppingBag}
-            className="pointer-events-auto relative border-white/[0.18] bg-stone-950/[0.45] text-white shadow-[0_18px_45px_rgba(12,10,9,0.28)] backdrop-blur-xl hover:-translate-y-0.5 hover:border-white/25 hover:bg-stone-950/[0.65] hover:text-white"
+            className="pointer-events-auto relative ml-auto border-white/[0.18] bg-stone-950/[0.45] text-white shadow-[0_18px_45px_rgba(12,10,9,0.28)] backdrop-blur-xl hover:-translate-y-0.5 hover:border-white/25 hover:bg-stone-950/[0.65] hover:text-white"
             floatingContent={mounted && totalItems > 0 ? (
               <span className="absolute -right-1 -top-1 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-stone-950 bg-brand-500 px-1.5 text-[10px] font-black leading-none text-white shadow-lg shadow-stone-950/20">
                 {totalItems}

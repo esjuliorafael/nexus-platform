@@ -150,9 +150,9 @@ const NexusCardBase: React.FC<NexusCardBaseProps> = ({
               ref={swipeLeftActionRef}
               className="absolute inset-y-0 left-0 flex items-center justify-center transition-opacity duration-200"
               style={{
-                left: level === 1 && !customSwipeLeft ? 'var(--space-md)' : 0,
-                width: !customSwipeLeft ? 'max-content' : 'var(--size-swipe-action-reveal)',
-                paddingInlineEnd: !customSwipeLeft ? 'var(--space-base)' : undefined,
+                left: level === 1 ? 'var(--space-md)' : 0,
+                width: 'max-content',
+                paddingInlineEnd: 'var(--space-base)',
                 opacity: translateX > 0 ? 1 : 0,
                 pointerEvents: translateX > 0 ? 'auto' : 'none',
               }}
@@ -179,9 +179,9 @@ const NexusCardBase: React.FC<NexusCardBaseProps> = ({
               ref={swipeRightActionRef}
               className="absolute inset-y-0 right-0 flex items-center justify-center transition-opacity duration-200"
               style={{
-                right: level === 1 && !customSwipeRight ? 'var(--space-md)' : 0,
-                width: !customSwipeRight ? 'max-content' : 'var(--size-swipe-action-reveal)',
-                paddingInlineStart: !customSwipeRight ? 'var(--space-base)' : undefined,
+                right: level === 1 ? 'var(--space-md)' : 0,
+                width: 'max-content',
+                paddingInlineStart: 'var(--space-base)',
                 opacity: translateX < 0 ? 1 : 0,
                 pointerEvents: translateX < 0 ? 'auto' : 'none',
               }}

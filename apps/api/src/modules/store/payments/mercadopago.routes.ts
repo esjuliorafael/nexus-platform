@@ -4,6 +4,12 @@ import { z } from "zod";
 import { verifyGatewayPayload } from "./mercadopago-gateway.security";
 
 export async function mpRoutes(server: FastifyInstance) {
+  server.get("/checkout-config", async () => mpService.getPublicCheckoutConfig());
+
+  server.get("/raffle-checkout", async () => ({
+    available: await mpService.isRaffleCheckoutAvailable(),
+  }));
+
   const verifyGatewayRequest = (request: any) => {
     const secret = process.env.MP_GATEWAY_SHARED_SECRET;
     const proof = request.headers["x-nexus-mp-gateway-proof"];
@@ -94,7 +100,9 @@ export async function mpRoutes(server: FastifyInstance) {
     
     // Construir URL de retorno con los mismos params que envi\u00f3 MP
     const params = new URLSearchParams(request.query as any);
-    return reply.redirect(`${storefrontUrl}/checkout?${params.toString()}`);
+    const raffleMatch = /^raffle_(\d+)_/.exec(ref || "");
+    const destination = raffleMatch ? `/raffles/${raffleMatch[1]}` : "/checkout";
+    return reply.redirect(`${storefrontUrl}${destination}?${params.toString()}`);
   });
 
   // Public: Webhook for IPN
@@ -112,15 +120,23 @@ export async function mpRoutes(server: FastifyInstance) {
   server.post("/preference", async (request, reply) => {
     console.log('[MP] Preference request body:', JSON.stringify(request.body, null, 2));
     const schema = z.object({
-      orderId: z.number(),
-      isRaffle: z.boolean().optional()
+      orderId: z.number().optional(),
+      isRaffle: z.boolean().optional(),
+      raffleReservationId: z.string().uuid().optional(),
+    }).superRefine((value, context) => {
+      if (value.isRaffle && !value.raffleReservationId) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "raffleReservationId is required" });
+      }
+      if (!value.isRaffle && !value.orderId) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "orderId is required" });
+      }
     });
     let parsed: z.infer<typeof schema> | null = null;
 
     try {
       parsed = schema.parse(request.body);
-      const { orderId, isRaffle } = parsed;
-      const preference = await mpService.createPreference(orderId, isRaffle);
+      const { orderId, isRaffle, raffleReservationId } = parsed;
+      const preference = await mpService.createPreference(orderId ?? null, isRaffle, raffleReservationId);
       console.log('[MP] Preference created successfully:', preference.id);
       return preference;
     } catch (error: any) {
@@ -130,6 +146,83 @@ export async function mpRoutes(server: FastifyInstance) {
         await orderService.cancelPaymentAttempt(parsed.orderId, "FAILED");
       }
       return reply.status(500).send({ message: error.message });
+    }
+  });
+
+  server.post("/card-payment", {
+    config: {
+      rateLimit: {
+        max: 8,
+        timeWindow: "1 minute",
+      },
+    },
+  }, async (request, reply) => {
+    const schema = z.object({
+      paymentAttemptId: z.string().uuid(),
+      storePaymentHoldId: z.string().uuid().optional(),
+      rafflePaymentHoldId: z.string().uuid().optional(),
+      customerPhone: z.string().min(10).max(24),
+      token: z.string().min(1),
+      issuerId: z.string().optional(),
+      paymentMethodId: z.string().min(1),
+      installments: z.number().int().positive().max(24),
+      payer: z.object({
+        email: z.string().email(),
+        identification: z.object({
+          type: z.string().min(1),
+          number: z.string().min(1),
+        }).optional(),
+      }),
+    }).superRefine((value, context) => {
+      if (Boolean(value.storePaymentHoldId) === Boolean(value.rafflePaymentHoldId)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Provide exactly one payment reference",
+        });
+      }
+    });
+
+    try {
+      const body = schema.parse(request.body);
+      return await mpService.createCardPayment(body);
+    } catch (error: any) {
+      if (error?.issues) {
+        return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      }
+      return reply.status(error?.statusCode || 500).send({
+        message: error?.message || "No se pudo procesar el pago con tarjeta.",
+        statusDetail: error?.statusDetail || null,
+        retryable: Boolean(error?.retryable),
+        uncertain: Boolean(error?.uncertain),
+        attemptId: error?.attemptId || null,
+      });
+    }
+  });
+
+  server.get("/card-payment/status", async (request, reply) => {
+    const schema = z.object({
+      storePaymentHoldId: z.string().uuid().optional(),
+      rafflePaymentHoldId: z.string().uuid().optional(),
+      customerPhone: z.string().min(10).max(24),
+    }).superRefine((value, context) => {
+      if (Boolean(value.storePaymentHoldId) === Boolean(value.rafflePaymentHoldId)) {
+        context.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "Provide exactly one payment reference",
+        });
+      }
+    });
+
+    try {
+      const query = schema.parse(request.query);
+      return await mpService.getCardPaymentStatus(query);
+    } catch (error: any) {
+      if (error?.issues) {
+        return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      }
+      return reply.status(error?.statusCode || 500).send({
+        message: error?.message || "No se pudo consultar el pago.",
+      });
     }
   });
 }

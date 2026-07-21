@@ -145,10 +145,14 @@ export const HomeSlideForm = forwardRef<
       initialData?.primaryHref || "/store",
     );
     const [secondaryText, setSecondaryText] = useState(
-      initialData?.secondaryText || "Explorar Rancho",
+      initialData
+        ? (initialData.secondaryText ?? "")
+        : "Explorar Rancho",
     );
     const [secondaryHref, setSecondaryHref] = useState(
-      initialData?.secondaryHref || "/gallery",
+      initialData
+        ? (initialData.secondaryHref ?? "")
+        : "/gallery",
     );
     const [sortOrder, setSortOrder] = useState(
       String(initialData?.sortOrder ?? getNextSortOrder(existingSlides)),
@@ -235,6 +239,15 @@ export const HomeSlideForm = forwardRef<
 
     const handleSubmit = async () => {
       if (!isFormValid || isSubmitting) return;
+      const normalizedSecondaryText = secondaryText.trim();
+      const normalizedSecondaryHref = secondaryHref.trim();
+      if (Boolean(normalizedSecondaryText) !== Boolean(normalizedSecondaryHref)) {
+        showToast(
+          "Completa el botón y la URL secundarios, o deja ambos campos vacíos.",
+          "error",
+        );
+        return;
+      }
       if (!isSortOrderValid) {
         showToast("El orden debe comenzar en 1.", "error");
         return;
@@ -275,8 +288,8 @@ export const HomeSlideForm = forwardRef<
           mobileObjectPosition,
           primaryText: primaryText.trim() || undefined,
           primaryHref: primaryHref.trim() || undefined,
-          secondaryText: secondaryText.trim() || undefined,
-          secondaryHref: secondaryHref.trim() || undefined,
+          secondaryText: normalizedSecondaryText || null,
+          secondaryHref: normalizedSecondaryHref || null,
           sortOrder: parsedSortOrder,
           active,
           startsAt: toIsoDateValue(startsAt),
@@ -570,7 +583,7 @@ export const HomeSlideForm = forwardRef<
                 style={{ gap: "var(--space-md)" }}
               >
                 <NexusInput
-                  label="Boton Primario"
+                  label="Botón Primario"
                   value={primaryText}
                   onChange={(e) => setPrimaryText(e.target.value)}
                 />
@@ -580,12 +593,12 @@ export const HomeSlideForm = forwardRef<
                   onChange={(e) => setPrimaryHref(e.target.value)}
                 />
                 <NexusInput
-                  label="Boton Secundario"
+                  label="Botón Secundario (Opcional)"
                   value={secondaryText}
                   onChange={(e) => setSecondaryText(e.target.value)}
                 />
                 <NexusInput
-                  label="URL Secundaria"
+                  label="URL Secundaria (Opcional)"
                   value={secondaryHref}
                   onChange={(e) => setSecondaryHref(e.target.value)}
                 />

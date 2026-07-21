@@ -13,6 +13,7 @@ import {
   Truck,
 } from 'lucide-react';
 import { useSettings } from '../../hooks/useSettings';
+import { useBrandImageReady } from '../ui/BrandLogo';
 import { StorefrontIcon } from '../ui/Icon';
 
 export function Footer() {
@@ -22,6 +23,7 @@ export function Footer() {
 
   const brandName = branding.brand_name || 'Nexus Store';
   const showRaffles = isModuleEnabled('raffle_enabled');
+  const isBrandLogoReady = useBrandImageReady(branding.logo_url);
 
   const trustItems = [
     {
@@ -58,8 +60,8 @@ export function Footer() {
   ];
 
   return (
-    <footer className="border-t border-stone-800 bg-stone-950 px-[var(--sf-inset-page-mobile)] pb-32 pt-[var(--sf-space-xl)] text-stone-400 md:px-[var(--sf-padding-outer)] md:pb-20">
-      <div className="mx-auto max-w-7xl space-y-[var(--sf-space-xl)]">
+    <footer className="border-t border-stone-800 bg-stone-950 px-[var(--sf-inset-page)] pb-32 pt-[var(--sf-space-xl)] text-stone-400 md:pb-20">
+      <div className="mx-auto max-w-[var(--sf-max-width-content)] space-y-[var(--sf-space-xl)]">
         <div className="grid grid-cols-1 gap-[var(--sf-space-md)] border-b border-stone-800 pb-[var(--sf-space-lg)] md:grid-cols-3">
           {trustItems.map((item) => (
             <div
@@ -79,15 +81,12 @@ export function Footer() {
         <div className="grid grid-cols-1 gap-[var(--sf-space-lg)] lg:grid-cols-5">
           <div className="space-y-[var(--sf-space-md)] lg:col-span-2">
             <Link href="/" className="group flex min-w-0 items-center gap-3 text-white">
-              {branding.logo_url ? (
-                <img src={branding.logo_url} alt={brandName} className="h-9 w-auto brightness-0 invert" />
-              ) : (
-                <div
-                  className="flex h-10 w-10 items-center justify-center bg-brand-500 text-xl font-black text-white shadow-lg shadow-brand-500/25 transition-transform duration-300 group-hover:scale-105"
-                  style={{ borderRadius: 'var(--sf-radius-nested)', transitionTimingFunction: 'var(--sf-ease)' }}
-                >
-                  M
-                </div>
+              {branding.logo_url && isBrandLogoReady && (
+                <img
+                  src={branding.logo_url}
+                  alt={brandName}
+                  className="sf-brand-logo-reveal h-9 w-auto brightness-0 invert"
+                />
               )}
               <span className="truncate text-xl font-black uppercase leading-none transition-colors group-hover:text-brand-400">
                 {brandName}

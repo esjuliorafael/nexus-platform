@@ -24,6 +24,32 @@ async function getProduct(id: string) {
   }
 }
 
+async function fetchProductReservationHours(): Promise<number | null> {
+  const apiUrl = process.env.INTERNAL_API_URL ||
+                 process.env.NEXT_PUBLIC_API_URL ||
+                 process.env.VITE_API_URL ||
+                 'http://localhost:3001/api/v1';
+
+  try {
+    const response = await fetch(`${apiUrl}/store/settings`, { cache: 'no-store' });
+    if (!response.ok) return null;
+
+    const settings = await response.json() as Record<string, Record<string, string | null>>;
+    const values = Object.values(settings).reduce<Record<string, string | null>>(
+      (all, group) => ({ ...all, ...group }),
+      {},
+    );
+
+    if (values.inventory_release_active !== '1') return null;
+
+    const hours = Number(values.inventory_release_hours || 24);
+    return Number.isFinite(hours) && hours > 0 ? hours : 24;
+  } catch (error) {
+    console.error('Error fetching product reservation settings in SSR:', error);
+    return null;
+  }
+}
+
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const clientName = await getClientNameForMetadata();
   const product = await getProduct(params.id);
@@ -62,11 +88,14 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 }
 
 export default async function ProductDetailPage({ params }: PageProps) {
-  const product = await getProduct(params.id);
+  const [product, productReservationHours] = await Promise.all([
+    getProduct(params.id),
+    fetchProductReservationHours(),
+  ]);
 
   if (!product) {
     return (
-      <div className="mx-auto flex min-h-[70vh] max-w-2xl flex-col items-center justify-center px-[var(--sf-inset-page-mobile)] text-center md:px-[var(--sf-padding-outer)]">
+      <div className="mx-auto flex min-h-[70vh] max-w-2xl flex-col items-center justify-center px-[var(--sf-inset-page)] text-center">
         <div
           className="mx-auto flex max-w-lg flex-col items-center justify-center border border-stone-200/60 bg-white text-center shadow-xl shadow-stone-100/50"
           style={{
@@ -101,5 +130,10 @@ export default async function ProductDetailPage({ params }: PageProps) {
     );
   }
 
-  return <ProductDetailsClient product={product} />;
+  return (
+    <ProductDetailsClient
+      product={product}
+      reservationHours={productReservationHours}
+    />
+  );
 }

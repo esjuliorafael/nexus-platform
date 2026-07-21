@@ -1,4 +1,18 @@
 import { FastifyInstance } from "fastify";
+import { z } from "zod";
+
+const specializedChannelSchema = z.object({
+  name: z.string().trim().min(1),
+  purpose: z.enum(["COMBAT", "BREEDING", "RAFFLES"]),
+  bank: z.string().trim().optional().default(""),
+  beneficiary: z.string().trim().optional().default(""),
+  accountNumber: z.string().trim().optional(),
+  clabe: z.string().trim().optional(),
+  card: z.string().trim().optional(),
+  phone: z.string().trim().min(1),
+  active: z.boolean().optional().default(true),
+  instanceName: z.string().trim().min(1),
+});
 
 const PURPOSE_LABELS: Record<string, string> = {
   COMBAT: "Canal de Combate",
@@ -70,6 +84,64 @@ const buildSpecializedChannel = (purpose: string, payment: any, whatsapp: any) =
 };
 
 export async function channelsOverviewRoutes(server: FastifyInstance) {
+  server.post("/", { preHandler: [server.authenticate] }, async (request, reply) => {
+    try {
+      const data = specializedChannelSchema.parse(request.body);
+      const existing = await server.storePrisma.$transaction([
+        server.storePrisma.paymentChannel.count({ where: { purpose: data.purpose } }),
+        server.storePrisma.whatsappChannel.count({ where: { purpose: data.purpose } }),
+      ]);
+
+      if (existing.some((count) => count > 0)) {
+        return reply.status(409).send({
+          message: "Ya existe un canal especializado para este propósito",
+        });
+      }
+
+      const hasBankDetails = Boolean(data.bank && data.beneficiary);
+      const result = await server.storePrisma.$transaction(async (tx) => {
+        const payment = hasBankDetails
+          ? await tx.paymentChannel.create({
+              data: {
+                name: data.name,
+                purpose: data.purpose,
+                bank: data.bank,
+                beneficiary: data.beneficiary,
+                accountNumber: data.accountNumber || null,
+                clabe: data.clabe || null,
+                card: data.card || null,
+              },
+            })
+          : null;
+
+        const whatsapp = await tx.whatsappChannel.create({
+          data: {
+            name: data.name,
+            purpose: data.purpose,
+            phone: data.phone,
+            active: data.active,
+            instanceName: data.instanceName,
+            template: "",
+            updated_at: new Date(),
+          },
+          include: { templates: true },
+        });
+
+        return { payment, whatsapp };
+      });
+
+      return reply.status(201).send(result);
+    } catch (error: any) {
+      if (error?.issues) {
+        return reply.status(400).send({
+          message: "Validation error",
+          errors: error.issues,
+        });
+      }
+      throw error;
+    }
+  });
+
   server.get("/overview", { preHandler: [server.authenticate] }, async (request, reply) => {
     try {
       const [settings, paymentChannels, whatsappChannels] = await Promise.all([
@@ -97,6 +169,7 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
                 "whatsapp_global_raffle_rel",
                 "whatsapp_global_raffle_pay",
                 "whatsapp_global_raffle_reminder",
+                "whatsapp_global_raffle_opening",
               ],
             },
           },
@@ -139,7 +212,8 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
             getSetting(settings, "whatsapp_global_raffle_res") ||
             getSetting(settings, "whatsapp_global_raffle_rel") ||
             getSetting(settings, "whatsapp_global_raffle_pay") ||
-            getSetting(settings, "whatsapp_global_raffle_reminder")
+            getSetting(settings, "whatsapp_global_raffle_reminder") ||
+            getSetting(settings, "whatsapp_global_raffle_opening")
           ),
           storeCount: [
             getSetting(settings, "whatsapp_global_store_res"),
@@ -153,6 +227,7 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
             getSetting(settings, "whatsapp_global_raffle_rel"),
             getSetting(settings, "whatsapp_global_raffle_pay"),
             getSetting(settings, "whatsapp_global_raffle_reminder"),
+            getSetting(settings, "whatsapp_global_raffle_opening"),
           ].filter(Boolean).length,
         },
       };
@@ -217,5 +292,28 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
       }
       throw error;
     }
+  });
+
+  server.delete("/:purpose", { preHandler: [server.authenticate] }, async (request, reply) => {
+    const purpose = String(
+      (request.params as { purpose?: string }).purpose || "",
+    ).toUpperCase();
+
+    if (!["COMBAT", "BREEDING", "RAFFLES"].includes(purpose)) {
+      return reply.status(400).send({ message: "Propósito de canal no válido" });
+    }
+
+    const [paymentChannels, whatsappChannels] = await server.storePrisma.$transaction([
+      server.storePrisma.paymentChannel.deleteMany({ where: { purpose } }),
+      server.storePrisma.whatsappChannel.deleteMany({ where: { purpose } }),
+    ]);
+
+    return {
+      success: true,
+      deleted: {
+        paymentChannels: paymentChannels.count,
+        whatsappChannels: whatsappChannels.count,
+      },
+    };
   });
 }

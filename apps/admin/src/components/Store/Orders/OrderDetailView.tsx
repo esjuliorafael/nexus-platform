@@ -10,6 +10,7 @@ import { NexusSection } from '../../ui/NexusSection';
 import { NexusModal, NexusModalActions } from '../../ui/NexusModal';
 import { NexusConfirmModal } from '../../ui/NexusConfirmModal';
 import { NexusInput, NexusSelect } from '../../ui/NexusInputs';
+import { NexusBadge } from '../../ui/NexusBadge';
 import { ASSET_BASE_URL, apiOrders } from '../../../api';
 import { MEXICO_STATES } from '../../../constants';
 
@@ -245,6 +246,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
   const itemsList = currentOrder?.items || [];
   const hasBirds = itemsList.some(item => item?.type?.toUpperCase() === 'BIRD');
   const hasItems = itemsList.some(item => item?.type?.toUpperCase() === 'ITEM');
+  const isPaymentHold = currentOrder.recordType === 'PAYMENT_HOLD';
   const isMercadoPagoOrder = currentOrder.paymentMethod === 'MERCADOPAGO';
   const canRefundMercadoPago =
     isMercadoPagoOrder &&
@@ -254,7 +256,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
     Number(currentOrder.mpRefundedAmount || 0) <= 0;
 
   const loadWhatsappLogs = async () => {
-    if (!currentOrder?.id) return;
+    if (!currentOrder?.id || isPaymentHold) return;
     setIsLoadingWhatsappLogs(true);
     try {
       const logs = await apiOrders.getWhatsAppLogs(String(currentOrder.id));
@@ -267,12 +269,16 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
   };
 
   React.useEffect(() => {
+    if (isPaymentHold) {
+      setWhatsappLogs([]);
+      return;
+    }
     loadWhatsappLogs();
     const timer = window.setTimeout(() => {
       loadWhatsappLogs();
     }, 1500);
     return () => window.clearTimeout(timer);
-  }, [currentOrder?.id, currentOrder?.status]);
+  }, [currentOrder?.id, currentOrder?.status, isPaymentHold]);
 
   const handleResendWhatsApp = async () => {
     if (!currentOrder?.id) return;
@@ -361,8 +367,8 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
 
           {/* General Info Section */}
           <NexusSection
-            title={`Orden #${currentOrder.id}`}
-            subtitle="Detalle de Orden de Venta"
+            title={isPaymentHold ? 'Intento de compra' : `Orden #${currentOrder.id}`}
+            subtitle={isPaymentHold ? 'Trazabilidad del pago con tarjeta' : 'Detalle de Orden de Venta'}
             icon={Layers}
             iconVariant="brand"
           >
@@ -436,7 +442,9 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                 borderRadius: 'var(--radius-inner-visual)'
               }}
             >
-              <span className="text-label text-text-muted uppercase tracking-[0.15em]">Total de la Orden</span>
+              <span className="text-label text-text-muted uppercase tracking-[0.15em]">
+                {isPaymentHold ? 'Total del intento' : 'Total de la Orden'}
+              </span>
               <span className="text-h1 text-text-main">${(currentOrder.total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
             </div>
           </NexusSection>
@@ -522,12 +530,14 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
             iconVariant="brand"
             actionPlacement="below"
             action={
-              <NexusSectionButton
-                onClick={handleOpenCustomerModal}
-                icon={Edit2}
-              >
-                Editar Cliente
-              </NexusSectionButton>
+              !isPaymentHold ? (
+                <NexusSectionButton
+                  onClick={handleOpenCustomerModal}
+                  icon={Edit2}
+                >
+                  Editar Cliente
+                </NexusSectionButton>
+              ) : undefined
             }
           >
             <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
@@ -661,8 +671,20 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
             >
               <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 'var(--space-md)' }}>
                 <DetailField label="Estado" value={getPaymentStatusLabel(currentOrder.paymentStatus)} />
-                <DetailField label="Monto pagado" value={formatCurrency(currentOrder.mpPaidAmount || currentOrder.total)} />
+                <DetailField
+                  label={isPaymentHold ? 'Resultado' : 'Monto pagado'}
+                  value={isPaymentHold ? 'Sin cobro confirmado' : formatCurrency(currentOrder.mpPaidAmount || currentOrder.total)}
+                />
                 <DetailField label="ID de pago" value={currentOrder.mpPaymentId || 'No disponible'} wide />
+                {currentOrder.mpPaymentStatusDetail && (
+                  <DetailField label="Detalle de Mercado Pago" value={currentOrder.mpPaymentStatusDetail} wide />
+                )}
+                {isPaymentHold && (
+                  <>
+                    <DetailField label="Estado de retención" value={currentOrder.holdStatus || 'No disponible'} />
+                    <DetailField label="Vencimiento" value={currentOrder.expiresAt ? formatDateTime(currentOrder.expiresAt) : 'No disponible'} />
+                  </>
+                )}
                 <DetailField
                   label="Método"
                   value={[
@@ -679,10 +701,66 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                   </>
                 )}
               </div>
+
+              {isPaymentHold && currentOrder.paymentAttempts?.length ? (
+                <div
+                  className="flex flex-col border-t border-border-main pt-[var(--space-lg)]"
+                  style={{ gap: 'var(--space-md)', marginTop: 'var(--space-lg)' }}
+                >
+                  <div>
+                    <h3 className="text-h2 font-bold text-text-main">Historial de intentos</h3>
+                    <p className="text-secondary text-text-muted" style={{ marginTop: 'var(--space-xs)' }}>
+                      Cada envío de tarjeta se conserva por separado para mantener la trazabilidad.
+                    </p>
+                  </div>
+                  {currentOrder.paymentAttempts.map((attempt, index) => {
+                    const attemptStatus = attempt.status.toUpperCase();
+                    const attemptVariant = attemptStatus === 'APPROVED'
+                      ? 'success'
+                      : ['PROCESSING', 'UNKNOWN'].includes(attemptStatus)
+                        ? 'warning'
+                        : 'danger';
+                    const attemptLabel = attemptStatus === 'APPROVED'
+                      ? 'Aprobado'
+                      : attemptStatus === 'PROCESSING'
+                        ? 'En revisión'
+                        : attemptStatus === 'UNKNOWN'
+                          ? 'Por conciliar'
+                          : 'Rechazado';
+
+                    return (
+                      <div
+                        key={attempt.id}
+                        className="border border-border-main bg-bg-muted/50 p-[var(--padding-card-nested)]"
+                        style={{ borderRadius: 'var(--radius-card-nested)' }}
+                      >
+                        <div className="flex flex-wrap items-center justify-between" style={{ gap: 'var(--space-sm)' }}>
+                          <div className="flex items-center" style={{ gap: 'var(--space-sm)' }}>
+                            <span className="text-label uppercase tracking-[0.15em] text-text-muted">
+                              Intento {currentOrder.paymentAttempts!.length - index}
+                            </span>
+                            <NexusBadge variant={attemptVariant}>{attemptLabel}</NexusBadge>
+                          </div>
+                          <span className="text-label text-text-muted">{formatDateTime(attempt.createdAt)}</span>
+                        </div>
+                        <div
+                          className="grid grid-cols-1 sm:grid-cols-2"
+                          style={{ gap: 'var(--space-md)', marginTop: 'var(--space-md)' }}
+                        >
+                          <DetailField label="Mensaje" value={attempt.customerMessage || 'Sin mensaje'} wide />
+                          <DetailField label="Detalle" value={attempt.statusDetail || 'No disponible'} />
+                          <DetailField label="ID de pago" value={attempt.mpPaymentId || 'No disponible'} />
+                          <DetailField label="Reintento" value={attempt.retryable ? 'Permitido' : 'No disponible'} />
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : null}
             </NexusSection>
           )}
 
-          <NexusSection
+          {!isPaymentHold && <NexusSection
             title="WhatsApp"
             subtitle="Historial de notificaciones"
             icon={MessageCircle}
@@ -780,7 +858,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                 );
               })}
             </div>
-          </NexusSection>
+          </NexusSection>}
 
           <NexusModal
             isOpen={Boolean(selectedWhatsappLog)}

@@ -48,6 +48,10 @@ yarn-error.log*
 pnpm-debug.log*
 .local-dev/
 .tmp/
+.pnpm-store/
+**/playwright-report/
+**/test-results/
+**/blob-report/
 
 # Temporary Utility Scripts (Root)
 check_*.ts

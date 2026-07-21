@@ -22,6 +22,7 @@ interface PageHeaderProps {
   profileViewMode: string;
   shippingSubView: string;
   channelsViewMode: string;
+  selectedOrderRecordType?: "ORDER" | "PAYMENT_HOLD";
   actionAddon?: React.ReactNode;
 }
 
@@ -46,6 +47,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   profileViewMode,
   shippingSubView,
   channelsViewMode,
+  selectedOrderRecordType = "ORDER",
   actionAddon,
 }) => {
   const isMediaMode = activeTab === "Medios";
@@ -80,6 +82,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       return <>Nuevo <span className="text-text-muted">Hero</span></>;
     if (isEditingStoreHero)
       return <>Editar <span className="text-text-muted">Hero</span></>;
+    if (isRafflesMode && raffleViewMode === "coupon_create")
+      return <>Nuevo <span className="text-text-muted">Cupón</span></>;
+    if (isRafflesMode && raffleViewMode === "coupon_edit")
+      return <>Editar <span className="text-text-muted">Cupón</span></>;
     if (isCreatingRaffle)
       return <>Nueva <span className="text-text-muted">Rifa</span></>;
     if (isEditingRaffle)
@@ -99,7 +105,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 
     if (isOrdersMode) {
       if (storeViewMode === "order-detail")
-        return <>Detalle de <span className="text-text-muted">Orden</span></>;
+        return <>Detalle de <span className="text-text-muted">{selectedOrderRecordType === "PAYMENT_HOLD" ? "Intento" : "Orden"}</span></>;
       return <>Gestión de <span className="text-text-muted">Órdenes</span></>;
     }
 
@@ -107,7 +113,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       if (storeViewMode === "orders")
         return <>Gestión de <span className="text-text-muted">Órdenes</span></>;
       if (storeViewMode === "order-detail")
-        return <>Detalle de <span className="text-text-muted">Orden</span></>;
+        return <>Detalle de <span className="text-text-muted">{selectedOrderRecordType === "PAYMENT_HOLD" ? "Intento" : "Orden"}</span></>;
       if (storeViewMode === "coupon_list")
         return <>Cupones de <span className="text-text-muted">Tienda</span></>;
       if (storeViewMode === "hero_list")
@@ -116,6 +122,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     }
 
     if (isRafflesMode) {
+      if (raffleViewMode === "coupon_list")
+        return <>Cupones de <span className="text-text-muted">Rifas</span></>;
+      if (raffleViewMode === "participations")
+        return <>Participaciones de <span className="text-text-muted">Rifas</span></>;
+      if (raffleViewMode === "participation-detail")
+        return <>Detalle de <span className="text-text-muted">Participación</span></>;
       if (raffleViewMode === "detail")
         return <>Detalle de <span className="text-text-muted">Rifa</span></>;
       return <>Gestión de <span className="text-text-muted">Rifas</span></>;
@@ -180,6 +192,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       return "Define el c\u00f3digo, descuento, alcance y vigencia del cup\u00f3n.";
     if (isCreatingRaffle || isEditingRaffle)
       return "Configura los parámetros de la rifa, premios y dinámica de boletos.";
+    if (isRafflesMode && (raffleViewMode === "coupon_create" || raffleViewMode === "coupon_edit"))
+      return "Define el código, descuento, alcance y vigencia del cupón para rifas.";
     if (isCreatingMedia || isEditingMedia)
       return "Completa los detalles para gestionar el contenido visual del catálogo del rancho.";
     if (isCreatingSlide || isEditingSlide)
@@ -206,8 +220,15 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         return "Administra los héroes editoriales por tipo de producto.";
       return "Controla tu inventario de aves y artículos desde un solo lugar.";
     }
-    if (isRafflesMode)
+    if (isRafflesMode) {
+      if (raffleViewMode === "coupon_list")
+        return "Administra promociones y códigos de descuento para las participaciones.";
+      if (raffleViewMode === "participations")
+        return "Consulta los apartados, pagos y participantes de cada rifa.";
+      if (raffleViewMode === "participation-detail")
+        return "Revisa los boletos, el pago, el participante y las notificaciones asociadas.";
       return "Administra los sorteos activos, boletos vendidos y ganadores.";
+    }
     if (isSystemMode) {
       if (systemViewMode === "shipping") {
         if (shippingSubView === "zones")

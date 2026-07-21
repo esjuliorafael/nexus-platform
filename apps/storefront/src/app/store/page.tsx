@@ -1,10 +1,10 @@
 "use client";
 
-import { CSSProperties, ReactNode, Suspense, useEffect, useMemo, useRef, useState } from 'react';
+import { CSSProperties, Suspense, useEffect, useMemo, useRef, useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter, useSearchParams } from 'next/navigation';
 import { motion } from 'framer-motion';
-import { Package, Search, SlidersHorizontal, Sparkles, X } from 'lucide-react';
+import { Package, Search, Sparkles } from 'lucide-react';
 import { storeHeroApi } from '../../api/storeHeroes';
 import { useProducts } from '../../hooks/useProducts';
 import { Product, StoreHero, StoreHeroScope } from '../../types';
@@ -12,12 +12,15 @@ import { formatPrice, getAssetUrl } from '../../utils/formatters';
 import { ProductGrid } from '../../components/product/ProductGrid';
 import { Spinner } from '../../components/ui/Spinner';
 import { Button } from '../../components/ui/Button';
-import { BottomSheet } from '../../components/ui/BottomSheet';
 import { EmptyState } from '../../components/ui/EmptyState';
-import { SegmentedControl, type SegmentedControlOption } from '../../components/ui/SegmentedControl';
 import { StorefrontAutonomousCard } from '../../components/ui/Card';
 import { StorefrontPaginator } from '../../components/ui/Paginator';
 import { StorefrontPillFilter } from '../../components/ui/PillFilter';
+import { StorefrontCatalogToolbar } from '../../components/ui/CatalogToolbar';
+import {
+  CatalogFilterPanel,
+  type CatalogFilters,
+} from '../../components/product/CatalogFilterPanel';
 
 const MOBILE_PRODUCTS_PER_PAGE = 8;
 const DESKTOP_PRODUCTS_PER_PAGE = 12;
@@ -33,12 +36,11 @@ const purposeOptions = [
   { value: 'COMBAT', label: 'Combate' },
 ];
 
-const statusOptions = [
-  { value: 'ALL', label: 'Todos' },
-  { value: 'AVAILABLE', label: 'Disponibles' },
-  { value: 'RESERVED', label: 'Reservados' },
-  { value: 'SOLD', label: 'Vendidos' },
-];
+const DEFAULT_CATALOG_FILTERS: CatalogFilters = {
+  type: 'ALL',
+  purpose: 'ALL',
+  status: 'ALL',
+};
 
 function StorePageContent() {
   const searchParams = useSearchParams();
@@ -50,6 +52,7 @@ function StorePageContent() {
   const [heroes, setHeroes] = useState<StoreHero[]>([]);
   const [isHeroLoading, setIsHeroLoading] = useState(false);
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
+  const [draftFilters, setDraftFilters] = useState<CatalogFilters>(DEFAULT_CATALOG_FILTERS);
   const [page, setPage] = useState(1);
   const productsPerPage = useResponsiveProductsPerPage();
   const catalogRef = useRef<HTMLDivElement>(null);
@@ -157,6 +160,28 @@ function StorePageContent() {
     setIsFilterSheetOpen(false);
   };
 
+  const openFilters = () => {
+    setDraftFilters({
+      type: typeFilter,
+      purpose: purposeFilter,
+      status: statusFilter,
+    });
+    setIsFilterSheetOpen(true);
+  };
+
+  const applyFilters = () => {
+    setQueryParams({
+      type: draftFilters.type,
+      purpose: draftFilters.purpose,
+      status: draftFilters.status,
+    });
+    setIsFilterSheetOpen(false);
+  };
+
+  const resetDraftFilters = () => {
+    setDraftFilters(DEFAULT_CATALOG_FILTERS);
+  };
+
   const handlePurposeChange = (value: string) => {
     setQueryParams({ purpose: purposeFilter === value ? 'ALL' : value });
   };
@@ -168,33 +193,28 @@ function StorePageContent() {
     });
   };
 
-  const hasActiveFilters =
-    typeFilter !== 'ALL' || statusFilter !== 'ALL' || purposeFilter !== 'ALL' || isSearchMode;
+  const hasCatalogFilters =
+    typeFilter !== 'ALL' || statusFilter !== 'ALL' || purposeFilter !== 'ALL';
+  const hasActiveFilters = hasCatalogFilters || isSearchMode;
   const currentHero = typeProducts.length > 0 ? heroes[0] : null;
 
   return (
     <div
-      className="mx-auto max-w-7xl px-[var(--sf-inset-page-mobile)]"
+      className="mx-auto max-w-[var(--sf-max-width-content)] px-[var(--sf-inset-page)]"
       style={{
         paddingTop: 'var(--sf-store-content-padding-top)',
         paddingBottom: 'var(--sf-mobile-chrome-content-padding-bottom)',
       }}
     >
       <div className="flex flex-col" style={{ gap: 'var(--sf-space-lg)' }}>
-        <StoreMobileTopBar
+        <StorefrontCatalogToolbar
           searchTerm={searchTerm}
+          searchLabel="Buscar productos"
+          searchPlaceholder="Buscar producto..."
+          filterLabel="Filtrar catálogo"
           onSearchChange={setSearchText}
-          hasActiveFilters={hasActiveFilters}
-          onOpenFilters={() => setIsFilterSheetOpen(true)}
-        />
-
-        <StoreDesktopToolbar
-          searchTerm={searchTerm}
-          statusFilter={statusFilter}
-          hasActiveFilters={hasActiveFilters}
-          onSearchChange={setSearchText}
-          onStatusChange={(value) => setQueryParams({ status: value })}
-          onClearFilters={clearFilters}
+          hasActiveFilters={hasCatalogFilters}
+          onOpenFilters={openFilters}
         />
 
         <StorefrontPillFilter
@@ -253,66 +273,25 @@ function StorePageContent() {
               <div ref={catalogRef} className="flex flex-col scroll-mt-[var(--sf-mobile-chrome-content-padding-top)] md:scroll-mt-[var(--sf-space-xl)]">
                 {isSearchMode && <SearchResultsHeader count={filteredProducts.length} />}
                 <ProductGrid products={paginatedProducts} />
-                <StorefrontPaginator page={page} totalPages={totalPages} onPageChange={handlePageChange} />
+                <StorefrontPaginator
+                  page={page}
+                  totalPages={totalPages}
+                  onPageChange={handlePageChange}
+                  className="pt-[var(--sf-space-lg)]"
+                />
               </div>
             )}
           </motion.div>
         )}
 
-        <BottomSheet
+        <CatalogFilterPanel
           isOpen={isFilterSheetOpen}
           onClose={() => setIsFilterSheetOpen(false)}
-          title="Filtrar catálogo"
-        >
-          <div className="flex flex-col font-medium" style={{ gap: 'var(--sf-space-lg)' }}>
-            <MobileFilterGroup
-              label="Tipo de producto"
-              value={typeFilter}
-              options={typeOptions}
-              columns="grid-cols-3"
-              onChange={(value) => setQueryParams({ type: value })}
-            />
-
-            {showPurposeFilters && (
-              <MobileFilterGroup
-                label="Propósito"
-                value={purposeFilter}
-                options={[{ value: 'ALL', label: 'Todos' }, ...purposeOptions]}
-                columns="grid-cols-3"
-                onChange={(value) => setQueryParams({ purpose: value })}
-              />
-            )}
-
-            <MobileFilterGroup
-              label="Disponibilidad"
-              value={statusFilter}
-              options={[
-                { value: 'ALL', label: 'Todos los estados' },
-                { value: 'AVAILABLE', label: 'Disponibles' },
-                { value: 'RESERVED', label: 'Reservados' },
-                { value: 'SOLD', label: 'Vendidos' },
-              ]}
-              columns="grid-cols-2"
-              onChange={(value) => setQueryParams({ status: value })}
-            />
-
-            <div className="flex border-t border-stone-100 pt-[var(--sf-space-md)]" style={{ gap: 'var(--sf-space-sm)' }}>
-              {hasActiveFilters && (
-                <Button variant="outline" context="section" className="flex-1" onClick={clearFilters}>
-                  Limpiar todo
-                </Button>
-              )}
-              <Button
-                variant="secondary"
-                context="section"
-                className="flex-1"
-                onClick={() => setIsFilterSheetOpen(false)}
-              >
-                Aplicar filtros
-              </Button>
-            </div>
-          </div>
-        </BottomSheet>
+          filters={draftFilters}
+          onChange={setDraftFilters}
+          onReset={resetDraftFilters}
+          onApply={applyFilters}
+        />
       </div>
     </div>
   );
@@ -499,246 +478,12 @@ function FeaturedProductCard({ product }: { product: Product }) {
   );
 }
 
-function StoreMobileTopBar({
-  searchTerm,
-  onSearchChange,
-  hasActiveFilters,
-  onOpenFilters,
-}: {
-  searchTerm: string;
-  onSearchChange: (value: string) => void;
-  hasActiveFilters: boolean;
-  onOpenFilters: () => void;
-}) {
-  const mobileActionStyle = {
-    width: 'var(--sf-size-mobile-chrome-action)',
-    height: 'var(--sf-size-mobile-chrome-action)',
-    borderRadius: 'var(--sf-radius-mobile-chrome-action)',
-    '--sf-button-icon-size': 'var(--sf-size-mobile-chrome-icon)',
-  } as CSSProperties;
-
-  return (
-    <div
-      className="fixed z-40 grid grid-cols-[minmax(0,1fr)_auto] items-center md:hidden"
-      style={{
-        top: 'var(--sf-inset-mobile-chrome-block)',
-        left: 'var(--sf-inset-mobile-chrome)',
-        right: 'var(--sf-inset-mobile-chrome)',
-        gap: 'var(--sf-space-md)',
-      }}
-    >
-      <StoreMobileSearchRail value={searchTerm} onChange={onSearchChange} />
-
-      <StoreMobileActionRail>
-        <Button
-          size="icon"
-          variant={hasActiveFilters ? 'brand' : 'ghost'}
-          icon={SlidersHorizontal}
-          isIconOnly
-          onClick={onOpenFilters}
-          aria-label="Abrir filtros"
-          style={mobileActionStyle}
-        />
-        {hasActiveFilters && (
-          <span
-            className="absolute rounded-full bg-brand-500 ring-2 ring-white"
-            style={{
-              top: 'var(--sf-space-sm)',
-              right: 'var(--sf-space-sm)',
-              width: 'var(--sf-size-inner-icon-badge)',
-              height: 'var(--sf-size-inner-icon-badge)',
-            }}
-          />
-        )}
-      </StoreMobileActionRail>
-    </div>
-  );
-}
-
-function StoreMobileSearchRail({
-  value,
-  onChange,
-  placeholder = 'Buscar...',
-}: {
-  value: string;
-  onChange: (value: string) => void;
-  placeholder?: string;
-}) {
-  return (
-    <label
-      className="flex min-w-0 items-center border border-stone-200/90 bg-white shadow-[0_18px_48px_rgba(87,68,55,0.14)]"
-      style={{
-        height: 'var(--sf-h-mobile-nav)',
-        borderRadius: 'var(--sf-radius-outer)',
-        padding: 'var(--sf-space-sm)',
-        gap: 'var(--sf-space-sm)',
-      }}
-    >
-      <span
-        className="flex shrink-0 items-center justify-center bg-stone-50 text-stone-500"
-        style={{
-          width: 'var(--sf-size-mobile-nav-item)',
-          height: 'var(--sf-size-mobile-nav-item)',
-          borderRadius: 'var(--sf-radius-mobile-nav-item)',
-        }}
-      >
-        <Search
-          aria-hidden="true"
-          style={{
-            width: 'var(--sf-size-mobile-nav-icon)',
-            height: 'var(--sf-size-mobile-nav-icon)',
-          }}
-          strokeWidth={2.5}
-        />
-      </span>
-      <input
-        type="search"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder={placeholder}
-        aria-label="Buscar productos"
-        className="min-w-0 flex-1 bg-transparent text-stone-850 outline-none placeholder:text-stone-400 sf-text-body"
-      />
-    </label>
-  );
-}
-
-function StoreMobileActionRail({ children }: { children: ReactNode }) {
-  return (
-    <div
-      className="relative flex shrink-0 items-center justify-center border border-stone-200/90 bg-white shadow-[0_18px_48px_rgba(87,68,55,0.14)]"
-      style={{
-        height: 'var(--sf-h-mobile-nav)',
-        borderRadius: 'var(--sf-radius-outer)',
-        padding: 'var(--sf-space-sm)',
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function StoreDesktopToolbar({
-  searchTerm,
-  statusFilter,
-  hasActiveFilters,
-  onSearchChange,
-  onStatusChange,
-  onClearFilters,
-}: {
-  searchTerm: string;
-  statusFilter: string;
-  hasActiveFilters: boolean;
-  onSearchChange: (value: string) => void;
-  onStatusChange: (value: string) => void;
-  onClearFilters: () => void;
-}) {
-  return (
-    <div
-      className="hidden flex-wrap items-center border border-stone-200 bg-white shadow-[0_1rem_2rem_rgba(31,24,17,0.05)] xl:flex-nowrap md:flex"
-      style={{
-        borderRadius: 'var(--sf-radius-outer)',
-        padding: 'var(--sf-space-sm)',
-        gap: 'var(--sf-space-md)',
-      }}
-    >
-      <StoreDesktopSearchField value={searchTerm} onChange={onSearchChange} />
-
-      <div className="flex shrink-0 flex-wrap items-center" style={{ gap: 'var(--sf-space-sm)' }}>
-        <SegmentedFilter value={statusFilter} options={statusOptions} onChange={onStatusChange} />
-      </div>
-
-      {hasActiveFilters && (
-        <Button
-          variant="ghost"
-          size="sm"
-          icon={X}
-          onClick={onClearFilters}
-          className="text-stone-400 hover:bg-transparent hover:text-brand-500"
-        >
-          Limpiar filtros
-        </Button>
-      )}
-    </div>
-  );
-}
-
-function StoreDesktopSearchField({
-  value,
-  onChange,
-}: {
-  value: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <label
-      className="flex min-w-[18rem] flex-1 items-center bg-stone-50 text-stone-500"
-      style={{
-        height: 'var(--sf-h-input)',
-        borderRadius: 'var(--sf-radius-inner)',
-        paddingInline: 'var(--sf-space-md)',
-        gap: 'var(--sf-space-sm)',
-      }}
-    >
-      <Search
-        aria-hidden="true"
-        style={{
-          width: 'var(--sf-size-inner-icon-section)',
-          height: 'var(--sf-size-inner-icon-section)',
-        }}
-        strokeWidth={2.35}
-      />
-      <input
-        type="search"
-        value={value}
-        onChange={(event) => onChange(event.target.value)}
-        placeholder="Buscar producto..."
-        aria-label="Buscar productos"
-        className="min-w-0 flex-1 bg-transparent text-stone-850 outline-none placeholder:text-stone-400 sf-text-body"
-      />
-    </label>
-  );
-}
-
-function SegmentedFilter({
-  value,
-  options,
-  onChange,
-}: {
-  value: string;
-  options: SegmentedControlOption[];
-  onChange: (value: string) => void;
-}) {
-  return <SegmentedControl value={value} options={options} onChange={onChange} />;
-}
-
-function MobileFilterGroup({
-  label,
-  value,
-  options,
-  columns,
-  onChange,
-}: {
-  label: string;
-  value: string;
-  options: SegmentedControlOption[];
-  columns: string;
-  onChange: (value: string) => void;
-}) {
-  return (
-    <div className="flex flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
-      <span className="sf-text-label text-stone-400">{label}</span>
-      <SegmentedControl value={value} options={options} columns={columns} onChange={onChange} />
-    </div>
-  );
-}
-
 export default function StorePage() {
   return (
     <Suspense
       fallback={
         <div
-          className="mx-auto max-w-7xl animate-pulse px-[var(--sf-inset-page-mobile)]"
+          className="mx-auto max-w-[var(--sf-max-width-content)] animate-pulse px-[var(--sf-inset-page)]"
           style={{ paddingBlock: 'var(--sf-space-xl)' }}
         >
           <div className="flex h-96 items-center justify-center">

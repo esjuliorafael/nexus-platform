@@ -12,14 +12,24 @@
   --sf-bg-app: #faf8f6;
   --sf-bg-card: #fffdfb;
   --sf-bg-muted: #f3eee9;
+  --sf-bg-field: #ffffff;
   --sf-text-main: #0c0a09;
   --sf-text-muted: #78716c;
+  --sf-text-field-label: #a8a29e;
   --sf-border-main: #e7e1dc;
+  --sf-border-strong: #d6cec7;
+  --sf-border-field: #e7e5e4;
+  --sf-brand-main: #b08968;
+  --sf-brand-strong: #9d7a5c;
+  --sf-brand-soft: #f2e8e5;
   
   /* Level 1: Main Containers */
   --sf-radius-outer: clamp(2rem, 6vw, 3rem);
   --sf-padding-outer: clamp(1.5rem, 5vw, 2.5rem);
   --sf-inset-page-mobile: 1.5rem;
+  --sf-inset-page-desktop: 2.5rem;
+  --sf-inset-page: var(--sf-inset-page-mobile);
+  --sf-max-width-content: 80rem;
 
   /* Level 2: Primary Children */
   --sf-radius-inner: calc(var(--sf-radius-outer) - (var(--sf-padding-outer) * 0.75));
@@ -36,12 +46,16 @@
   --sf-radius-card-nested-compact: max(0.5rem, calc(var(--sf-radius-card-inner) - var(--sf-space-base)));
   --sf-radius-media-tile: var(--sf-radius-outer);
 
+  /* Autonomous Control Surfaces */
+  --sf-radius-control-surface: var(--sf-radius-outer);
+
   /* Space Tokens - Relational Hierarchy (Base 4) */
   --sf-space-xs: 0.25rem;  /* 4px */
   --sf-space-sm: 0.5rem;   /* 8px */
   --sf-space-base: 0.75rem; /* 12px */
   --sf-space-md: clamp(1rem, 2vw, 1.5rem);  /* 16px-24px: Module (Icon -> Text) */
   --sf-space-lg: clamp(1.5rem, 4vw, 2.5rem); /* 24px-40px: Boundary (Group -> Group) */
+  --sf-space-field-group: calc(var(--sf-space-base) + var(--sf-space-sm));
   --sf-space-xl: calc(var(--sf-space-lg) * 2);
   --sf-space-2xl: calc(var(--sf-space-lg) * 3);
   --sf-space-3xl: calc(var(--sf-space-lg) * 4);
@@ -50,7 +64,10 @@
   --sf-width-modal-compact: 28rem;
   --sf-width-modal-standard: 32rem;
   --sf-width-modal-wide: 42rem;
+  --sf-width-drawer-standard: 32rem;
   --sf-modal-backdrop: rgb(12 10 9 / 0.68);
+  --sf-drawer-backdrop: rgb(28 25 23 / 0.45);
+  --sf-bottom-sheet-backdrop: rgb(28 25 23 / 0.6);
 
   /* Fluid UI Components Heights */
   --sf-h-input: clamp(3rem, 4vw, 3.5rem);           /* 48px -> 56px */
@@ -62,6 +79,8 @@
   --sf-h-mobile-nav: clamp(3.75rem, 14vw, 4.25rem); /* 60px -> 68px */
   --sf-size-mobile-nav-item: calc(var(--sf-h-mobile-nav) - (var(--sf-space-sm) * 2));
   --sf-size-mobile-nav-icon: 1.25rem;
+  --sf-width-mobile-nav-icon-action: calc(var(--sf-size-mobile-nav-icon) + var(--sf-space-xs));
+  --sf-gap-mobile-nav-actions: var(--sf-space-base);
   --sf-radius-mobile-nav-item: calc(var(--sf-radius-outer) - (var(--sf-space-sm) * 0.75));
   --sf-padding-mobile-nav-active-inline: 1rem;
   --sf-inset-mobile-chrome: var(--sf-inset-page-mobile);
@@ -69,6 +88,11 @@
   --sf-h-mobile-chrome-rail: var(--sf-h-mobile-nav);
   --sf-size-mobile-chrome-action: var(--sf-size-mobile-nav-item);
   --sf-size-mobile-chrome-icon: var(--sf-size-mobile-nav-icon);
+  --sf-h-brand-logo-mobile: 3rem;
+  --sf-h-brand-logo-desktop: 4rem;
+  --sf-w-brand-logo-mobile-max: 8rem;
+  --sf-w-brand-logo-desktop-max: 11rem;
+  --sf-padding-brand-surface: var(--sf-space-sm);
   --sf-radius-mobile-chrome-rail: var(--sf-radius-outer);
   --sf-radius-mobile-chrome-action: var(--sf-radius-mobile-nav-item);
   --sf-space-mobile-chrome-after: var(--sf-inset-mobile-chrome-block);
@@ -118,10 +142,23 @@
 
   --sf-ease: cubic-bezier(0.23, 1, 0.32, 1);
   --sf-ease-reveal: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Motion System - 40ms half pulse / 80ms full pulse */
+  --sf-motion-pulse-half: 40ms;
+  --sf-motion-pulse: 80ms;
+  --sf-motion-duration-instant: 120ms;
+  --sf-motion-duration-fast: 160ms;
+  --sf-motion-duration-standard: 240ms;
+  --sf-motion-duration-deliberate: 400ms;
+  --sf-motion-duration-editorial: 720ms;
+  --sf-motion-duration-ambient: 1120ms;
+  --sf-motion-stagger-compact: var(--sf-motion-pulse-half);
+  --sf-motion-stagger-standard: var(--sf-motion-pulse);
 }
 
 @media (min-width: 768px) {
   :root {
+    --sf-inset-page: var(--sf-inset-page-desktop);
     --sf-mobile-chrome-content-padding-bottom: var(--sf-space-xl);
     --sf-store-content-padding-top: var(--sf-space-xl);
   }
@@ -149,6 +186,102 @@
 @layer components {
   .text-balance {
     text-wrap: balance;
+  }
+
+  @keyframes sf-brand-logo-reveal {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  .sf-brand-logo-reveal {
+    animation: sf-brand-logo-reveal var(--sf-motion-duration-standard) var(--sf-ease-reveal) both;
+  }
+
+  @keyframes sf-checkout-step-reveal {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  .sf-checkout-step-progress {
+    animation: sf-checkout-step-reveal var(--sf-motion-duration-standard) var(--sf-ease-reveal) both;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sf-brand-logo-reveal,
+    .sf-checkout-step-progress {
+      animation: none;
+    }
+  }
+
+  .sf-mercado-pago-brick {
+    font-family: var(--font-satoshi);
+  }
+
+  .sf-mercado-pago-brick h1 {
+    font-size: var(--sf-text-h2) !important;
+    font-weight: 600 !important;
+    line-height: 1.3 !important;
+    letter-spacing: -0.01em !important;
+    margin-bottom: 0 !important;
+  }
+
+  .sf-mercado-pago-brick div:has(> h1) {
+    margin-bottom: var(--sf-space-md) !important;
+  }
+
+  .sf-mercado-pago-brick h2 {
+    font-size: var(--sf-text-h2) !important;
+    font-weight: 600 !important;
+    line-height: 1.3 !important;
+    letter-spacing: -0.01em !important;
+    margin-top: var(--sf-space-lg) !important;
+    margin-bottom: var(--sf-space-md) !important;
+  }
+
+  .sf-mercado-pago-brick label {
+    font-size: var(--sf-text-label) !important;
+    font-weight: 700 !important;
+    line-height: 1.4 !important;
+    letter-spacing: 0.08em !important;
+    text-transform: uppercase !important;
+    color: var(--sf-text-field-label) !important;
+  }
+
+  .sf-mercado-pago-brick input,
+  .sf-mercado-pago-brick select {
+    box-sizing: border-box !important;
+    height: var(--sf-h-input) !important;
+  }
+
+  .sf-mercado-pago-brick button[type="submit"] {
+    width: 100% !important;
+    min-height: var(--sf-h-button-section) !important;
+    border-radius: var(--sf-radius-inner) !important;
+    font-size: var(--sf-text-button-section) !important;
+    font-weight: 600 !important;
+    line-height: 1 !important;
+    letter-spacing: -0.01em !important;
+    margin-top: var(--sf-space-md) !important;
+  }
+
+  .sf-mercado-pago-brick div:has(> button[type="submit"]) {
+    width: 100% !important;
+    max-width: none !important;
+    flex: 1 1 100% !important;
+  }
+
+  .sf-mercado-pago-brick--external-action div:has(> button[type="submit"]) {
+    display: none !important;
   }
 
   .sf-hero-media-stage::after {

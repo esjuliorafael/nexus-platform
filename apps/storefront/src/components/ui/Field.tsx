@@ -11,7 +11,7 @@ interface FieldProps extends InputHTMLAttributes<HTMLInputElement> {
 export function StorefrontField({ label, icon: Icon, error, className, style, ...props }: FieldProps) {
   return (
     <label className="group flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
-      {label && <span className="sf-text-label text-stone-400 group-focus-within:text-brand-500">{label}</span>}
+      {label && <span className="sf-text-label text-[var(--sf-text-field-label)] group-focus-within:text-brand-500">{label}</span>}
       <div className="relative flex items-center h-[var(--sf-h-input)]">
         {Icon && (
           <Icon
@@ -22,7 +22,7 @@ export function StorefrontField({ label, icon: Icon, error, className, style, ..
         )}
         <input
           className={cn(
-            'h-full w-full border border-stone-200 bg-white font-semibold text-stone-800 transition-all duration-300 placeholder:text-stone-400 focus:border-brand-500/50 focus:outline-none focus:ring-4 focus:ring-brand-500/10',
+            'h-full w-full border border-[var(--sf-border-field)] bg-[var(--sf-bg-field)] text-[length:var(--sf-text-body)] font-semibold text-[var(--sf-text-main)] transition-all duration-300 placeholder:text-[var(--sf-text-field-label)] focus:border-brand-500/50 focus:outline-none focus:ring-4 focus:ring-brand-500/10',
             Icon ? 'pl-14 pr-5' : 'px-5',
             className
           )}
@@ -47,10 +47,10 @@ interface TextareaProps extends TextareaHTMLAttributes<HTMLTextAreaElement> {
 export function StorefrontTextarea({ label, error, className, style, ...props }: TextareaProps) {
   return (
     <label className="group flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
-      {label && <span className="sf-text-label text-stone-400 group-focus-within:text-brand-500">{label}</span>}
+      {label && <span className="sf-text-label text-[var(--sf-text-field-label)] group-focus-within:text-brand-500">{label}</span>}
       <textarea
         className={cn(
-          'min-h-32 w-full resize-none border border-stone-200 bg-white p-5 font-semibold text-stone-800 transition-all duration-300 placeholder:text-stone-400 focus:border-brand-500/50 focus:outline-none focus:ring-4 focus:ring-brand-500/10',
+          'min-h-32 w-full resize-none border border-[var(--sf-border-field)] bg-[var(--sf-bg-field)] p-5 text-[length:var(--sf-text-body)] font-semibold text-[var(--sf-text-main)] transition-all duration-300 placeholder:text-[var(--sf-text-field-label)] focus:border-brand-500/50 focus:outline-none focus:ring-4 focus:ring-brand-500/10',
           className
         )}
         style={{
@@ -74,7 +74,7 @@ interface SelectProps extends SelectHTMLAttributes<HTMLSelectElement> {
 export function StorefrontSelect({ label, icon: Icon, error, className, style, children, ...props }: SelectProps) {
   return (
     <label className="group flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
-      {label && <span className="sf-text-label text-stone-400 group-focus-within:text-brand-500">{label}</span>}
+      {label && <span className="sf-text-label text-[var(--sf-text-field-label)] group-focus-within:text-brand-500">{label}</span>}
       <div className="relative flex items-center h-[var(--sf-h-input)]">
         {Icon && (
           <Icon
@@ -85,7 +85,7 @@ export function StorefrontSelect({ label, icon: Icon, error, className, style, c
         )}
         <select
           className={cn(
-            'h-full w-full appearance-none border border-stone-200 bg-white font-semibold text-stone-800 transition-all duration-300 focus:border-brand-500/50 focus:outline-none focus:ring-4 focus:ring-brand-500/10',
+            'h-full w-full appearance-none border border-[var(--sf-border-field)] bg-[var(--sf-bg-field)] text-[length:var(--sf-text-body)] font-semibold text-[var(--sf-text-main)] transition-all duration-300 focus:border-brand-500/50 focus:outline-none focus:ring-4 focus:ring-brand-500/10',
             Icon ? 'pl-14 pr-10' : 'px-5 pr-10',
             className
           )}

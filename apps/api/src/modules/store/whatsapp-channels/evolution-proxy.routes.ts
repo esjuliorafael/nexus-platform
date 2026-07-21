@@ -1,6 +1,27 @@
 import { FastifyInstance } from "fastify";
+import { z } from "zod";
 import { evolutionClient } from "../../../services/evolution/evolution.client";
 import { getEvolutionConfigFromSettings } from "../../../services/evolution/evolution.config";
+
+const connectSchema = z.discriminatedUnion("method", [
+  z.object({ method: z.literal("qr") }),
+  z.object({
+    method: z.literal("pairing_code"),
+    phone: z.string().trim().min(10, "El numero de WhatsApp es obligatorio"),
+  }),
+]);
+
+function normalizePairingPhone(value: string) {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 10) return `52${digits}`;
+  if (/^521\d{10}$/.test(digits)) return `52${digits.slice(3)}`;
+  return digits;
+}
+
+function isMissingInstanceError(error: unknown) {
+  const message = error instanceof Error ? error.message : String(error);
+  return message.includes("404") || message.includes("does not exist");
+}
 
 export async function evolutionProxyRoutes(server: FastifyInstance) {
   function getWebhookUrl(request: any) {
@@ -33,14 +54,9 @@ export async function evolutionProxyRoutes(server: FastifyInstance) {
       const state = await evolutionClient.getConnectionState({ ...config, instanceName });
       return state;
     } catch (error: any) {
-      // 2. If it fails with 404 (instance not found), try to create it
-      if (error.message.includes("404")) {
-        try {
-          await evolutionClient.createInstance({ ...config, instanceName });
-          return { instance: { instanceName, state: "close" } };
-        } catch (createError: any) {
-          return reply.status(500).send({ error: `Failed to create instance: ${createError.message}` });
-        }
+      // Status checks must not create instances or start a connection flow.
+      if (isMissingInstanceError(error)) {
+        return { instance: { instanceName, state: "close" } };
       }
       return reply.status(500).send({ error: error.message });
     }
@@ -50,20 +66,52 @@ export async function evolutionProxyRoutes(server: FastifyInstance) {
   server.post("/connect/:instanceName", { preHandler: [server.authenticate] }, async (request, reply) => {
     const { instanceName } = request.params as { instanceName: string };
     const config = await getEvolutionConfigFromSettings();
+    let body: z.infer<typeof connectSchema>;
+
+    try {
+      body = connectSchema.parse(request.body ?? { method: "qr" });
+    } catch (error: any) {
+      if (error?.issues) {
+        return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      }
+      throw error;
+    }
     
     if (!config.baseUrl || !config.apiKey) {
       return reply.status(400).send({ error: "Evolution API not configured" });
     }
 
+    const number = body.method === "pairing_code"
+      ? normalizePairingPhone(body.phone)
+      : undefined;
+
     try {
-      const qr = await evolutionClient.getQR({ ...config, instanceName });
-      return qr;
+      const connection = await evolutionClient.getConnectionCode({ ...config, instanceName }, number);
+      if (body.method === "pairing_code" && !connection.pairingCode) {
+        return reply.status(409).send({
+          error: "La instancia ya esta generando un QR. Espera a que expire antes de solicitar un codigo.",
+        });
+      }
+      if (body.method === "qr" && !connection.base64) {
+        return reply.status(502).send({ error: "Evolution API no genero el codigo QR" });
+      }
+      return { ...connection, method: body.method };
     } catch (error: any) {
-      if (error.message?.includes("404")) {
+      if (isMissingInstanceError(error)) {
         try {
-          await evolutionClient.createInstance({ ...config, instanceName });
-          const qr = await evolutionClient.getQR({ ...config, instanceName });
-          return qr;
+          const created = await evolutionClient.createInstance({ ...config, instanceName }, number);
+          const connection = created.qrcode?.base64 || created.qrcode?.pairingCode
+            ? created.qrcode
+            : await evolutionClient.getConnectionCode({ ...config, instanceName }, number);
+
+          if (body.method === "pairing_code" && !connection?.pairingCode) {
+            return reply.status(502).send({ error: "Evolution API no genero el codigo de emparejamiento" });
+          }
+          if (body.method === "qr" && !connection?.base64) {
+            return reply.status(502).send({ error: "Evolution API no genero el codigo QR" });
+          }
+
+          return { ...connection, method: body.method };
         } catch (createError: any) {
           return reply.status(500).send({ error: `Failed to create instance: ${createError.message}` });
         }

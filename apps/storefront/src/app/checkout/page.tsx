@@ -1,23 +1,24 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { AnimatePresence, motion } from "framer-motion";
+import { AnimatePresence, motion, useReducedMotion } from "framer-motion";
 import {
   AlertCircle,
   ArrowLeft,
   ArrowRight,
   Bus,
   Check,
-  CheckCircle,
-  Copy,
+  CheckCircle2,
+  Clock3,
   CreditCard,
   Gift,
-  Info,
   MapPin,
+  MessageCircle,
   Plane,
   ShoppingBag,
+  ShieldCheck,
   Trash2,
   Truck,
   User,
@@ -25,28 +26,52 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { orderApi, StoreOrderResponse } from "../../api/orders";
-import { paymentApi, PublicPaymentChannel } from "../../api/payments";
+import {
+  MercadoPagoCardFormData,
+  MercadoPagoCheckoutConfig,
+  paymentApi,
+  PublicPaymentOptions,
+} from "../../api/payments";
 import { productApi } from "../../api/products";
 import { settingsApi } from "../../api/settings";
 import { useSettings } from "../../hooks/useSettings";
 import { useCartStore } from "../../store/cart.store";
 import { useToastStore } from "../../store/toast.store";
 import { Button } from "../../components/ui/Button";
-import { StorefrontCard, StorefrontSectionCard } from "../../components/ui/Card";
+import { StorefrontAutonomousCard, StorefrontCard, StorefrontSectionCard } from "../../components/ui/Card";
 import { StorefrontField, StorefrontSelect } from "../../components/ui/Field";
 import { StorefrontIcon } from "../../components/ui/Icon";
 import { Spinner } from "../../components/ui/Spinner";
 import { StorefrontConfirmModal } from "../../components/ui/ConfirmModal";
 import { BottomSheet } from "../../components/ui/BottomSheet";
 import { StorefrontPurchaseBar } from "../../components/ui/PurchaseBar";
+import { StorefrontCheckoutTopBar } from "../../components/ui/CheckoutTopBar";
+import { StorefrontCheckoutSection } from "../../components/ui/CheckoutSection";
+import { StorefrontNote } from "../../components/ui/Note";
 import { CouponRedemption } from "../../components/cart/CouponRedemption";
 import { formatPrice, getAssetUrl } from "../../utils/formatters";
+import { useCheckoutTransitionReady } from "../../hooks/useCheckoutTransitionReady";
+import { PaymentMethodCard } from "../../components/checkout/PaymentMethodCard";
+import { BankInfoCard } from "../../components/checkout/BankInfoCard";
+import { MercadoPagoCardPayment } from "../../components/checkout/MercadoPagoCardPayment";
+import {
+  StorefrontCheckoutMotion,
+  useStorefrontCheckoutMotionReady,
+} from "../../components/ui/CheckoutMotion";
+import {
+  STOREFRONT_CHECKOUT_SEQUENCE_MS,
+  STOREFRONT_EASING,
+  STOREFRONT_MOTION_MS,
+  toMotionSeconds,
+} from "../../lib/motion";
+import { useFeedbackSound } from "../../hooks/useFeedbackSound";
 
 type DeliveryType = "SHIPPING" | "PICKUP";
 type DeliveryMethod = "BUS_STATION" | "AIRPORT" | "PARCEL";
 type PaymentMethod = "TRANSFER" | "MERCADOPAGO";
 type PaymentStatus = "success" | "pending" | "failure" | null;
 type CheckoutStep = 0 | 1 | 2 | 3;
+type CompletionState = "reserved" | "approved" | "pending" | null;
 
 interface ShippingZone {
   id: number;
@@ -60,21 +85,22 @@ interface ShippingDetail {
   note?: string;
 }
 
-interface BankInfo {
-  label: string;
-  bank: string;
-  beneficiary: string;
-  account?: string | null;
-  clabe?: string | null;
-  card?: string | null;
-}
-
 interface PendingPaymentAttempt {
-  orderId: number;
+  paymentHoldId: string;
   customerName: string;
   customerPhone: string;
   total: number;
   expiresAt: string;
+}
+
+interface CheckoutSummarySnapshot {
+  items: ReturnType<typeof useCartStore.getState>["items"];
+  subtotal: number;
+  discountTotal: number;
+  shippingTotal: number;
+  shippingDetails: ShippingDetail[];
+  selectedZone: ShippingZone | null;
+  total: number;
 }
 
 const PENDING_MP_PAYMENT_KEY = "nexus_pending_mp_payment";
@@ -85,7 +111,7 @@ function readPendingPaymentAttempt() {
     const raw = window.sessionStorage.getItem(PENDING_MP_PAYMENT_KEY);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as PendingPaymentAttempt;
-    if (!parsed?.orderId || !parsed?.customerPhone || !parsed?.expiresAt) return null;
+    if (!parsed?.paymentHoldId || !parsed?.customerPhone || !parsed?.expiresAt) return null;
     return parsed;
   } catch {
     return null;
@@ -113,12 +139,17 @@ export default function CheckoutPage() {
   const router = useRouter();
   const [loading, setLoading] = useState(false);
   const [orderComplete, setOrderComplete] = useState<StoreOrderResponse | null>(null);
+  const [completionState, setCompletionState] = useState<CompletionState>(null);
+  const [completionSnapshot, setCompletionSnapshot] = useState<CheckoutSummarySnapshot | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("TRANSFER");
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(null);
   const [mounted, setMounted] = useState(false);
+  useCheckoutTransitionReady("/checkout", mounted);
+  const checkoutMotionReady = useStorefrontCheckoutMotionReady("/checkout");
   const [zones, setZones] = useState<ShippingZone[]>([]);
   const [selectedZone, setSelectedZone] = useState<ShippingZone | null>(null);
-  const [paymentChannels, setPaymentChannels] = useState<PublicPaymentChannel[]>([]);
+  const [paymentOptions, setPaymentOptions] = useState<PublicPaymentOptions | null>(null);
+  const [mpCheckoutConfig, setMpCheckoutConfig] = useState<MercadoPagoCheckoutConfig | null>(null);
   const [cartProducts, setCartProducts] = useState<any[]>([]);
   const [someoneElseReceives, setSomeoneElseReceives] = useState(false);
   const [itemToDelete, setItemToDelete] = useState<any | null>(null);
@@ -132,6 +163,33 @@ export default function CheckoutPage() {
   const [showMobileSummary, setShowMobileSummary] = useState(false);
   const [pendingPaymentAttempt, setPendingPaymentAttempt] = useState<PendingPaymentAttempt | null>(null);
   const checkoutFormRef = useRef<HTMLFormElement>(null);
+  const confirmationFeedbackPlayedRef = useRef(false);
+  const errorFeedbackPlayedRef = useRef(false);
+  const {
+    play: playConfirmationSound,
+    prepare: prepareConfirmationSound,
+  } = useFeedbackSound("confirmation");
+  const {
+    play: playErrorSound,
+    prepare: prepareErrorSound,
+  } = useFeedbackSound("error");
+
+  const playConfirmationFeedback = useCallback(() => {
+    if (confirmationFeedbackPlayedRef.current) return;
+    confirmationFeedbackPlayedRef.current = true;
+    playConfirmationSound();
+  }, [playConfirmationSound]);
+
+  const playErrorFeedback = useCallback(() => {
+    if (errorFeedbackPlayedRef.current) return;
+    errorFeedbackPlayedRef.current = true;
+    playErrorSound();
+  }, [playErrorSound]);
+
+  const prepareCheckoutFeedback = useCallback(async () => {
+    errorFeedbackPlayedRef.current = false;
+    await Promise.all([prepareConfirmationSound(), prepareErrorSound()]);
+  }, [prepareConfirmationSound, prepareErrorSound]);
 
   const [formData, setFormData] = useState({
     customerName: "",
@@ -154,10 +212,6 @@ export default function CheckoutPage() {
       .then((data) => setZones(data as ShippingZone[]))
       .catch((err) => console.error("Error loading shipping zones:", err));
 
-    paymentApi.getChannels()
-      .then(setPaymentChannels)
-      .catch((err) => console.error("Error loading payment channels:", err));
-
     const params = new URLSearchParams(window.location.search);
     const status = params.get("status");
     const orderId = params.get("external_reference")?.replace("order_", "");
@@ -166,13 +220,14 @@ export default function CheckoutPage() {
       clearPendingPaymentAttempt();
       setPendingPaymentAttempt(null);
       setPaymentStatus("success");
-      clearCart();
+      setCompletionState("approved");
       if (orderId) setOrderComplete({ id: orderId, status: "PAID" });
     } else if (status === "pending" || status === "in_process") {
       clearPendingPaymentAttempt();
       setPendingPaymentAttempt(null);
       setPaymentStatus("pending");
-      clearCart();
+      setCompletionState("pending");
+      if (orderId) setOrderComplete({ id: orderId, status: "PENDING" });
     } else if (status === "rejected" || status === "failure") {
       clearPendingPaymentAttempt();
       setPendingPaymentAttempt(null);
@@ -200,6 +255,75 @@ export default function CheckoutPage() {
   const hasItems = items.some((item) => item.type?.toLowerCase() === "item");
   const requiresFullAddress = hasItems;
   const isArticlesOnly = hasItems && !hasBirds;
+  const paymentPurpose = useMemo<PublicPaymentOptions['requestedPurpose']>(() => {
+    const birdPurposes = cartProducts
+      .filter((product) => product.type === 'BIRD' && product.purpose)
+      .map((product) => String(product.purpose).toUpperCase());
+    const uniqueBirdPurposes = Array.from(new Set(birdPurposes));
+
+    return hasBirds && !hasItems && uniqueBirdPurposes.length === 1
+      ? uniqueBirdPurposes[0] as 'COMBAT' | 'BREEDING'
+      : 'MAIN';
+  }, [cartProducts, hasBirds, hasItems]);
+
+  useEffect(() => {
+    let active = true;
+    paymentApi.getOptions(paymentPurpose)
+      .then((options) => {
+        if (active) setPaymentOptions(options);
+      })
+      .catch((error) => console.error('Error loading payment options:', error));
+
+    return () => {
+      active = false;
+    };
+  }, [paymentPurpose]);
+
+  useEffect(() => {
+    paymentApi.getCheckoutConfig()
+      .then(setMpCheckoutConfig)
+      .catch((error) => {
+        console.error("Error loading Mercado Pago checkout config:", error);
+        setMpCheckoutConfig({ mode: "redirect", publicKey: null });
+      });
+  }, []);
+
+  useEffect(() => {
+    if (mpCheckoutConfig?.mode !== "embedded" || !pendingPaymentAttempt) return;
+    let active = true;
+    const checkStatus = () => paymentApi.getCardPaymentStatus({
+      storePaymentHoldId: pendingPaymentAttempt.paymentHoldId,
+      customerPhone: pendingPaymentAttempt.customerPhone,
+    }).then((result) => {
+      if (!active) return;
+      if (result.status === "approved") {
+        clearPendingPaymentAttempt();
+        setPendingPaymentAttempt(null);
+        setPaymentStatus("success");
+        setOrderComplete({ id: result.referenceId, status: "PAID" });
+        setCompletionState("approved");
+        playConfirmationFeedback();
+      } else if (result.status === "rejected") {
+        setPaymentStatus("failure");
+        setOrderComplete(null);
+        playErrorFeedback();
+        showToast(result.message || "El banco no aprobó el pago. Puedes intentarlo nuevamente.", "info");
+      } else if (result.status === "unavailable") {
+        clearPendingPaymentAttempt();
+        setPendingPaymentAttempt(null);
+        setOrderComplete(null);
+        showToast("El intento de pago ya no está disponible.", "info");
+      }
+    }).catch(() => {
+      // A transient status lookup must not discard an active payment attempt.
+    });
+    void checkStatus();
+    const interval = paymentStatus === "pending" ? window.setInterval(checkStatus, 2_000) : null;
+    return () => {
+      active = false;
+      if (interval) window.clearInterval(interval);
+    };
+  }, [mpCheckoutConfig?.mode, paymentStatus, pendingPaymentAttempt, playConfirmationFeedback, playErrorFeedback, showToast]);
 
   const findSetting = (key: string) => {
     if (!settings) return null;
@@ -258,11 +382,39 @@ export default function CheckoutPage() {
     return { total, details };
   }, [hasBirds, hasItems, selectedZone, settings]);
 
-  const mpCheckoutSetting = findSetting("mp_main_checkout_enabled");
-  const isMPEnabled = Boolean(findSetting("mp_seller_access_token")) && mpCheckoutSetting !== "0";
-  const mpHoldMinutes = Math.max(5, Number(findSetting("mp_payment_hold_minutes") || 30));
+  const isMPEnabled = Boolean(paymentOptions?.mercadoPago.available);
+  const isEmbeddedMP = isMPEnabled && mpCheckoutConfig?.mode === "embedded" && Boolean(mpCheckoutConfig.publicKey);
   const discountTotal = getDiscountTotal();
   const orderTotal = Math.max(0, getTotalPrice() + shippingCalculation.total - discountTotal);
+  const buildSummarySnapshot = useCallback((): CheckoutSummarySnapshot => ({
+    items: [...items],
+    subtotal: getTotalPrice(),
+    discountTotal,
+    shippingTotal: shippingCalculation.total,
+    shippingDetails: [...shippingCalculation.details],
+    selectedZone,
+    total: orderTotal,
+  }), [discountTotal, getTotalPrice, items, orderTotal, selectedZone, shippingCalculation.details, shippingCalculation.total]);
+
+  const finishCheckout = useCallback((state: Exclude<CompletionState, null>, order: StoreOrderResponse) => {
+    setCompletionSnapshot(buildSummarySnapshot());
+    setOrderComplete({
+      ...order,
+      customerName: order.customerName || formData.customerName.trim(),
+      total: order.total ?? orderTotal,
+    });
+    setCompletionState(state);
+    if (state !== "pending") playConfirmationFeedback();
+    clearCart();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }, [buildSummarySnapshot, clearCart, formData.customerName, orderTotal, playConfirmationFeedback]);
+
+  useEffect(() => {
+    if (!completionState || completionSnapshot || items.length === 0) return;
+    setCompletionSnapshot(buildSummarySnapshot());
+    clearCart();
+    if (completionState !== "pending") playConfirmationFeedback();
+  }, [buildSummarySnapshot, clearCart, completionSnapshot, completionState, items.length, playConfirmationFeedback]);
   const selectedZoneMethod = selectedZone?.zoneType === "EXTENDED" ? "AIRPORT" : "BUS_STATION";
   const deliveryMethodMismatch = Boolean(!isShippingFullyCovered && hasBirds && selectedZone && formData.deliveryMethod && formData.deliveryMethod !== selectedZoneMethod);
   const shippingStatusNote = useMemo(() => {
@@ -342,38 +494,40 @@ export default function CheckoutPage() {
     return unavailableIds.length;
   };
 
-  const bankInfo = useMemo<BankInfo>(() => {
-    const birdPurposes = cartProducts
-      .filter((product) => product.type === "BIRD" && product.purpose)
-      .map((product) => String(product.purpose).toUpperCase());
-    const uniqueBirdPurposes = Array.from(new Set(birdPurposes));
-    const specializedPurpose = hasBirds && !hasItems && uniqueBirdPurposes.length === 1 ? uniqueBirdPurposes[0] : null;
-    const specializedPayment = specializedPurpose
-      ? paymentChannels.find((channel) => channel.purpose?.toUpperCase() === specializedPurpose)
-      : null;
+  const bankInfo = paymentOptions?.bank ?? null;
 
-    if (specializedPayment) {
-      return {
-        label: specializedPurpose === "COMBAT" ? "Canal de Combate" : "Canal de Cría",
-        bank: specializedPayment.bank,
-        beneficiary: specializedPayment.beneficiary,
-        account: specializedPayment.accountNumber,
-        clabe: specializedPayment.clabe,
-        card: specializedPayment.card,
-      };
-    }
+  const getCheckoutPayload = () => {
+    const shippingAddress = requiresFullAddress
+      ? [
+          formData.shippingStreet,
+          formData.shippingNeighborhood ? `Col. ${formData.shippingNeighborhood}` : "",
+          formData.shippingPostalCode ? `CP ${formData.shippingPostalCode}` : "",
+          formData.shippingCity,
+          selectedZone?.name,
+        ].filter(Boolean).join(", ")
+      : [formData.shippingCity, selectedZone?.name].filter(Boolean).join(", ");
 
     return {
-      label: hasItems && hasBirds ? "Canal Principal, orden mixta" : "Canal Principal",
-      bank: String(findSetting("bank_main_name") || ""),
-      beneficiary: String(findSetting("bank_main_beneficiary") || ""),
-      account: findSetting("bank_main_account"),
-      clabe: findSetting("bank_main_clabe"),
-      card: findSetting("bank_main_card"),
+      ...formData,
+      receiverName: someoneElseReceives ? formData.receiverName : "",
+      shippingState: selectedZone?.name || "",
+      shippingAddress,
+      shippingCost: shippingCalculation.total,
+      deliveryMethod: isShippingFullyCovered ? undefined : formData.deliveryMethod,
+      couponCode: coupon?.code || "",
+      deliveryType: "SHIPPING",
+      paymentMethod,
+      items: items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
     };
-  }, [cartProducts, hasBirds, hasItems, paymentChannels, settings]);
-
-  const bankInfoText = formatBankInfo(bankInfo);
+  };
+  const createCheckoutOrder = () => {
+    const attempt = pendingPaymentAttempt || readPendingPaymentAttempt();
+    if (attempt && !isPendingPaymentAttemptExpired(attempt)) {
+      return orderApi.convertPaymentHoldToTransfer(attempt.paymentHoldId, attempt.customerPhone);
+    }
+    return orderApi.create(getCheckoutPayload());
+  };
+  const createStorePaymentHold = () => orderApi.createPaymentHold({ ...getCheckoutPayload(), paymentMethod: "MERCADOPAGO" });
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -403,54 +557,22 @@ export default function CheckoutPage() {
       return;
     }
 
-    const shippingAddress = requiresFullAddress
-      ? [
-          formData.shippingStreet,
-          formData.shippingNeighborhood ? `Col. ${formData.shippingNeighborhood}` : "",
-          formData.shippingPostalCode ? `CP ${formData.shippingPostalCode}` : "",
-          formData.shippingCity,
-          selectedZone.name,
-        ].filter(Boolean).join(", ")
-      : [formData.shippingCity, selectedZone.name].filter(Boolean).join(", ");
-
+    await prepareCheckoutFeedback();
     setLoading(true);
     try {
-      const createdOrder = await orderApi.create({
-        ...formData,
-        receiverName: someoneElseReceives ? formData.receiverName : "",
-        shippingState: selectedZone.name,
-        shippingAddress,
-        shippingCost: shippingCalculation.total,
-        deliveryMethod: isShippingFullyCovered ? undefined : formData.deliveryMethod,
-        couponCode: coupon?.code || "",
-        deliveryType: "SHIPPING",
-        paymentMethod,
-        items: items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
-      });
-
       if (paymentMethod === "MERCADOPAGO") {
-        const preference = await paymentApi.getPreference(Number(createdOrder.id));
-        if (preference.init_point) {
-          const attempt = {
-            orderId: Number(createdOrder.id),
-            customerName: formData.customerName.trim(),
-            customerPhone: formData.customerPhone.trim(),
-            total: orderTotal,
-            expiresAt: new Date(Date.now() + mpHoldMinutes * 60 * 1000).toISOString(),
-          };
-          savePendingPaymentAttempt(attempt);
-          setPendingPaymentAttempt(attempt);
-          window.location.href = preference.init_point;
-          return;
-        }
+        showToast("Completa los datos de tu tarjeta en el formulario de Mercado Pago.", "info");
+        return;
       }
-
+      const createdOrder = await createCheckoutOrder();
       clearPendingPaymentAttempt();
-      setOrderComplete(createdOrder);
-      clearCart();
+      setPendingPaymentAttempt(null);
+      finishCheckout(createdOrder.status === "PAID" ? "approved" : "reserved", createdOrder);
     } catch (error: unknown) {
+      playErrorFeedback();
       console.error("Order failed details:", error);
       const errorMessage = getErrorMessage(error);
+      const errorCode = (error as any)?.response?.data?.code;
 
       if (isAvailabilityError(errorMessage)) {
         await refreshCartAvailability();
@@ -460,6 +582,13 @@ export default function CheckoutPage() {
             ? "Uno de los productos de tu carrito acaba de ser reservado por otro cliente. No se realizó ningún cobro. Actualiza tu carrito para continuar."
             : "Uno de los productos de tu carrito acaba de ser reservado por otro cliente. Actualiza tu carrito para continuar.",
           confirmLabel: "Actualizar carrito",
+          cancelLabel: "Volver a tienda",
+        });
+      } else if (errorCode === "PAYMENT_REQUIRES_RESOLUTION") {
+        setCheckoutIssue({
+          title: "Pago en verificación",
+          message: errorMessage || "Mercado Pago todavía está verificando el intento.",
+          confirmLabel: "Entendido",
           cancelLabel: "Volver a tienda",
         });
       } else {
@@ -485,40 +614,17 @@ export default function CheckoutPage() {
       return;
     }
 
-    setLoading(true);
-    try {
-      const preference = await paymentApi.getPreference(pendingPaymentAttempt.orderId);
-      if (preference.init_point) {
-        window.location.href = preference.init_point;
-        return;
-      }
-      showToast("No se pudo abrir Mercado Pago. Intenta nuevamente.", "error");
-    } catch (error) {
-      console.error("Pending payment retry failed:", error);
-      clearPendingPaymentAttempt();
-      setPendingPaymentAttempt(null);
-      showToast("El intento de pago ya no está disponible. Puedes iniciar una nueva compra.", "info");
-    } finally {
-      setLoading(false);
-    }
+    setPaymentMethod("MERCADOPAGO");
+    setCheckoutStep(3);
   };
 
   const handleCancelPendingPayment = async () => {
     if (!pendingPaymentAttempt) return;
 
-    setLoading(true);
-    try {
-      await orderApi.cancelPaymentAttempt(pendingPaymentAttempt.orderId, pendingPaymentAttempt.customerPhone);
-      clearPendingPaymentAttempt();
-      setPendingPaymentAttempt(null);
-      showToast("Intento de pago cancelado. El producto volvió a estar disponible.", "success");
-      router.push("/store");
-    } catch (error) {
-      console.error("Pending payment cancellation failed:", error);
-      showToast("No se pudo cancelar el intento de pago. Intenta nuevamente.", "error");
-    } finally {
-      setLoading(false);
-    }
+    clearPendingPaymentAttempt();
+    setPendingPaymentAttempt(null);
+    showToast("El intento se cerró. La retención se liberará automáticamente.", "info");
+    router.push("/store");
   };
 
   const handleConfirmRemove = () => {
@@ -591,12 +697,7 @@ export default function CheckoutPage() {
     setCheckoutStep((current) => current === 0 ? 1 : current);
   };
 
-  const handleCheckoutBack = () => {
-    if (checkoutStep > 0) {
-      handlePreviousStep();
-      return;
-    }
-
+  const handleCheckoutExit = () => {
     const returnPath = typeof window !== "undefined"
       ? window.sessionStorage.getItem("nexus_checkout_return_path")
       : null;
@@ -610,6 +711,19 @@ export default function CheckoutPage() {
     router.push("/store");
   };
 
+  const handleCheckoutBack = () => {
+    if (completionState) {
+      router.push("/store");
+      return;
+    }
+    if (checkoutStep > 0) {
+      handlePreviousStep();
+      return;
+    }
+
+    handleCheckoutExit();
+  };
+
   const handleCheckoutPrimaryAction = () => {
     if (checkoutStep < 3) {
       handleNextStep();
@@ -617,6 +731,58 @@ export default function CheckoutPage() {
     }
 
     checkoutFormRef.current?.requestSubmit();
+  };
+
+  const handleEmbeddedCardPayment = async (cardFormData: MercadoPagoCardFormData) => {
+    if (!canContinueFromStep(0) || !canContinueFromStep(1) || !canContinueFromStep(2)) {
+      throw new Error("Completa la información del pedido antes de pagar.");
+    }
+
+    await prepareCheckoutFeedback();
+    setLoading(true);
+    try {
+      let attempt = pendingPaymentAttempt;
+      if (!attempt || isPendingPaymentAttemptExpired(attempt)) {
+        const createdHold = await createStorePaymentHold();
+        attempt = {
+          paymentHoldId: createdHold.paymentHoldId,
+          customerName: formData.customerName.trim(),
+          customerPhone: formData.customerPhone.trim(),
+          total: orderTotal,
+          expiresAt: createdHold.expiresAt,
+        };
+        savePendingPaymentAttempt(attempt);
+        setPendingPaymentAttempt(attempt);
+      }
+
+      return await paymentApi.processOrderCardPayment(attempt.paymentHoldId, formData.customerPhone, cardFormData);
+    } catch (error: any) {
+      const message = getErrorMessage(error);
+      if (isAvailabilityError(message)) {
+        await refreshCartAvailability();
+        setCheckoutIssue({
+          title: "Producto no disponible",
+          message: "Uno de los productos acaba de ser reservado por otro cliente. No se realizó ningún cobro.",
+          confirmLabel: "Actualizar carrito",
+          cancelLabel: "Volver a tienda",
+        });
+      }
+      throw error;
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleEmbeddedPaymentApproved = (result: { referenceId: number | string }) => {
+    clearPendingPaymentAttempt();
+    setPendingPaymentAttempt(null);
+    setPaymentStatus("success");
+    finishCheckout("approved", { id: result.referenceId, status: "PAID" });
+  };
+
+  const handleEmbeddedPaymentPending = (result: { referenceId: number | string }) => {
+    setPaymentStatus("pending");
+    finishCheckout("pending", { id: result.referenceId, status: "PENDING" });
   };
 
   if (!mounted) {
@@ -627,8 +793,7 @@ export default function CheckoutPage() {
     );
   }
 
-  if (orderComplete) return <OrderComplete order={orderComplete} />;
-  if (pendingPaymentAttempt) {
+  if (pendingPaymentAttempt && mpCheckoutConfig?.mode !== "embedded") {
     return (
       <PendingPaymentAttemptView
         attempt={pendingPaymentAttempt}
@@ -639,7 +804,7 @@ export default function CheckoutPage() {
       />
     );
   }
-  if (items.length === 0 && checkoutIssue) {
+  if (!completionState && items.length === 0 && checkoutIssue) {
     return (
       <>
         <EmptyCart />
@@ -661,18 +826,36 @@ export default function CheckoutPage() {
       </>
     );
   }
-  if (items.length === 0) return <EmptyCart />;
+  if (!completionState && items.length === 0) return <EmptyCart />;
+
+  const completionPresentation = completionState
+    ? getStoreCheckoutCompletionPresentation(completionState)
+    : null;
+  const summarySnapshot = completionSnapshot ?? buildSummarySnapshot();
 
   return (
     <div
-      className="mx-auto max-w-7xl px-[var(--sf-inset-page-mobile)] pt-[calc(var(--sf-inset-mobile-chrome-block)+var(--sf-h-mobile-nav)+var(--sf-space-mobile-chrome-after))] pb-[var(--sf-mobile-chrome-content-padding-bottom)] lg:py-[var(--sf-space-xl)]"
+      className="mx-auto max-w-[var(--sf-max-width-content)] px-[var(--sf-inset-page)] pt-[calc(var(--sf-inset-mobile-chrome-block)+var(--sf-h-mobile-nav)+var(--sf-space-mobile-chrome-after))] pb-[var(--sf-mobile-chrome-content-padding-bottom)] lg:py-[var(--sf-space-xl)]"
     >
-      <CheckoutTopBar
-        title={checkoutSteps[checkoutStep].label}
+      <StorefrontCheckoutTopBar
+        title={completionPresentation?.title ?? checkoutSteps[checkoutStep].label}
         summaryOpen={showMobileSummary}
         onBack={handleCheckoutBack}
         onToggleSummary={() => setShowMobileSummary((current) => !current)}
+        entranceReady={checkoutMotionReady}
       />
+
+      <StorefrontCheckoutMotion phase="chrome" ready={checkoutMotionReady}>
+        <button
+          type="button"
+          onClick={completionState ? () => router.push("/store") : handleCheckoutExit}
+          className="mb-[var(--sf-space-lg)] hidden items-center sf-text-secondary text-stone-500 transition-colors hover:text-stone-950 lg:flex"
+          style={{ gap: "var(--sf-space-sm)" }}
+        >
+          <ArrowLeft style={{ width: "var(--sf-size-inner-icon-card)", height: "var(--sf-size-inner-icon-card)" }} />
+          {completionState ? "Volver a la tienda" : "Volver"}
+        </button>
+      </StorefrontCheckoutMotion>
 
       <div className="flex flex-col" style={{ gap: "var(--sf-space-lg)" }}>
         {paymentStatus === "failure" && (
@@ -685,18 +868,45 @@ export default function CheckoutPage() {
           </div>
         )}
 
-        <div className="hidden items-center lg:flex" style={{ gap: "var(--sf-space-md)" }}>
-          <StorefrontIcon icon={ShoppingBag} context="section" variant="brand" />
-          <div>
-            <p className="sf-text-label text-brand-500 uppercase tracking-[0.2em] font-black">Checkout</p>
-            <h1 className="sf-text-display text-stone-850 uppercase leading-none">Finalizar pedido</h1>
-          </div>
-        </div>
+        <div
+          className="grid grid-cols-1 items-start lg:grid-cols-[minmax(0,1fr)_minmax(22rem,26rem)]"
+          style={{ gap: "var(--sf-space-xl)" }}
+        >
+          <div className="flex min-w-0 flex-col" style={{ gap: "var(--sf-space-lg)" }}>
+            <AnimatePresence mode="wait" initial={false}>
+            {completionState && orderComplete ? (
+              <StoreCheckoutCompletion
+                key={`store-checkout-completion-${completionState}`}
+                state={completionState}
+                order={orderComplete}
+                customerName={formData.customerName}
+                itemCount={summarySnapshot.items.reduce((count, item) => count + item.quantity, 0)}
+                paymentExpiresAt={orderComplete.paymentExpiresAt ?? orderComplete.expiresAt ?? null}
+                onBackToStore={() => router.push("/store")}
+                onGoHome={() => router.push("/")}
+              />
+            ) : (
+            <motion.div
+              key="store-checkout-form"
+              className="flex min-w-0 flex-col"
+              style={{ gap: "var(--sf-space-lg)" }}
+              initial={false}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -8 }}
+              transition={{
+                duration: toMotionSeconds(STOREFRONT_MOTION_MS.duration.standard),
+                ease: STOREFRONT_EASING.reveal,
+              }}
+            >
+            <StorefrontCheckoutMotion phase="intro" ready={checkoutMotionReady}>
+              <section className="hidden flex-col lg:flex" style={{ gap: "var(--sf-space-xs)" }}>
+                <h1 className="sf-text-display text-stone-950">Completa tu pedido</h1>
+                <p className="sf-text-body text-stone-500">
+                  Confirma la entrega, tus datos y el método de pago para finalizar tu compra.
+                </p>
+              </section>
 
-        <div className="grid grid-cols-1 items-start lg:grid-cols-12" style={{ gap: "var(--sf-space-lg)" }}>
-          <form ref={checkoutFormRef} id="checkout-form" onSubmit={handleSubmit} className="lg:col-span-7">
-            <div className="flex flex-col" style={{ gap: "var(--sf-space-lg)" }}>
-              <div className="flex flex-col lg:hidden" style={{ gap: "var(--sf-space-sm)" }}>
+              <div key={`checkout-progress-${checkoutStep}`} className="sf-checkout-step-progress flex flex-col lg:hidden" style={{ gap: "var(--sf-space-sm)" }}>
                 <div className="flex items-center justify-between" style={{ gap: "var(--sf-space-md)" }}>
                   <span className="sf-text-label text-brand-500 uppercase tracking-[0.2em] font-black">
                     Paso {checkoutStep + 1} de {checkoutSteps.length}
@@ -714,16 +924,27 @@ export default function CheckoutPage() {
                   />
                 </div>
               </div>
+            </StorefrontCheckoutMotion>
 
+            <form
+              ref={checkoutFormRef}
+              id="checkout-form"
+              onSubmit={handleSubmit}
+              className="flex flex-col"
+              style={{ gap: "var(--sf-space-lg)" }}
+            >
               <div className="flex flex-col" style={{ gap: "var(--sf-space-lg)" }}>
-                <div className={checkoutStep === 0 ? "block" : "hidden lg:block"}>
-                  <CheckoutSection title="Método de entrega" icon={Truck}>
-                    <div className="flex flex-col" style={{ gap: "var(--sf-space-xs)" }}>
-                      <p className="sf-text-secondary text-stone-500 font-medium">Elige cómo recibir tu pedido.</p>
-                      <p className="sf-text-label uppercase tracking-[0.2em] font-black text-stone-400">
-                        Selecciona un método de entrega para continuar
-                      </p>
-                    </div>
+                <div className={checkoutStep === 0 ? "sf-checkout-step-store-active block" : "hidden lg:block"}>
+                  <StorefrontCheckoutSection
+                    title="Método de entrega"
+                    icon={Truck}
+                    motionKey={`store-checkout-${checkoutStep}-delivery`}
+                    motionReady={checkoutMotionReady}
+                    motionDelayMs={STOREFRONT_CHECKOUT_SEQUENCE_MS.stepHeaderDelayMs}
+                  >
+                    <p className="sf-text-secondary text-stone-500">
+                      Elige cómo recibir tu pedido. Selecciona un método de entrega para continuar.
+                    </p>
                     {!settingsReady ? (
                       <div
                         className="flex items-center border border-stone-200 bg-stone-50/80 text-stone-500"
@@ -776,7 +997,7 @@ export default function CheckoutPage() {
                       </>
                     )}
                     {settingsReady && !isShippingFullyCovered && (
-                      <InfoPanel>
+                      <StorefrontNote>
                         {shouldUseParcelDeliveryChoice
                           ? hasBirds
                             ? "Los artículos se envían a tu dirección por paquetería. El envío del ave está cubierto y lo coordinaremos contigo."
@@ -784,19 +1005,25 @@ export default function CheckoutPage() {
                           : isArticlesOnly
                           ? "Los artículos se envían a tu dirección por paquetería."
                           : "El método de entrega final depende de tu ciudad y estado. Si tu zona requiere una alternativa distinta, lo ajustamos y coordinamos contigo."}
-                      </InfoPanel>
+                      </StorefrontNote>
                     )}
-                  </CheckoutSection>
+                  </StorefrontCheckoutSection>
                 </div>
 
-                <div className={checkoutStep === 1 ? "block" : "hidden lg:block"}>
-                  <CheckoutSection title="Información del cliente" icon={User}>
-                    <div className="flex flex-col" style={{ gap: "var(--sf-space-xs)" }}>
-                      <p className="sf-text-secondary text-stone-500 font-medium">Indícanos quién recibe el pedido.</p>
-                      <p className="sf-text-label uppercase tracking-[0.2em] font-black text-stone-400">
-                        Usaremos estos datos para coordinar tu compra
-                      </p>
-                    </div>
+                <div className={checkoutStep === 1 ? "sf-checkout-step-store-active block" : "hidden lg:block"}>
+                  <StorefrontCheckoutSection
+                    title="Información del cliente"
+                    icon={User}
+                    motionKey={`store-checkout-${checkoutStep}-customer`}
+                    motionReady={checkoutMotionReady}
+                    motionDelayMs={
+                      STOREFRONT_CHECKOUT_SEQUENCE_MS.stepHeaderDelayMs
+                      + (checkoutStep === 1 ? 0 : STOREFRONT_CHECKOUT_SEQUENCE_MS.stepItemStaggerMs)
+                    }
+                  >
+                    <p className="sf-text-secondary text-stone-500">
+                      Indícanos quién recibe el pedido. Usaremos estos datos para coordinar tu compra.
+                    </p>
                     <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "var(--sf-space-md)" }}>
                       <StorefrontField
                         required
@@ -807,7 +1034,6 @@ export default function CheckoutPage() {
                       />
                       <StorefrontField
                         required
-                        className="md:col-span-2"
                         label="Teléfono (WhatsApp)"
                         type="tel"
                         placeholder="10 dígitos"
@@ -851,32 +1077,46 @@ export default function CheckoutPage() {
                         </span>
                       </label>
                       {someoneElseReceives && (
-                        <StorefrontField
-                          required
-                          className="md:col-span-2"
-                          label="Nombre completo de quien recibe"
-                          placeholder="Nombre de la persona que recibe"
-                          value={formData.receiverName}
-                          onChange={(event) => setFormData({ ...formData, receiverName: event.target.value })}
-                        />
+                        <div className="md:col-span-2">
+                          <StorefrontField
+                            required
+                            label="Nombre completo de quien recibe"
+                            placeholder="Nombre de la persona que recibe"
+                            value={formData.receiverName}
+                            onChange={(event) => setFormData({ ...formData, receiverName: event.target.value })}
+                          />
+                        </div>
                       )}
                     </div>
-                  </CheckoutSection>
+                  </StorefrontCheckoutSection>
                 </div>
 
-                <div className={checkoutStep === 2 ? "block" : "hidden lg:block"}>
-                  <CheckoutSection title={requiresFullAddress ? "Dirección y ubicación" : "Ubicación de entrega"} icon={MapPin}>
+                <div className={checkoutStep === 2 ? "sf-checkout-step-store-active block" : "hidden lg:block"}>
+                  <StorefrontCheckoutSection
+                    title={requiresFullAddress ? "Dirección y ubicación" : "Ubicación de entrega"}
+                    icon={MapPin}
+                    motionKey={`store-checkout-${checkoutStep}-location`}
+                    motionReady={checkoutMotionReady}
+                    motionDelayMs={
+                      STOREFRONT_CHECKOUT_SEQUENCE_MS.stepHeaderDelayMs
+                      + (checkoutStep === 2 ? 0 : STOREFRONT_CHECKOUT_SEQUENCE_MS.stepItemStaggerMs * 2)
+                    }
+                  >
+                    <p className="sf-text-secondary text-stone-500">
+                      Indica dónde coordinaremos la entrega de los productos de tu pedido.
+                    </p>
                     <div className="flex flex-col" style={{ gap: "var(--sf-space-md)" }}>
                       {requiresFullAddress && (
                         <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "var(--sf-space-md)" }}>
-                          <StorefrontField
-                            required
-                            className="md:col-span-2"
-                            label="Calle y número interior o exterior"
-                            placeholder="Ej. Av. Hidalgo 123"
-                            value={formData.shippingStreet}
-                            onChange={(event) => setFormData({ ...formData, shippingStreet: event.target.value })}
-                          />
+                          <div className="md:col-span-2">
+                            <StorefrontField
+                              required
+                              label="Calle y número interior o exterior"
+                              placeholder="Ej. Av. Hidalgo 123"
+                              value={formData.shippingStreet}
+                              onChange={(event) => setFormData({ ...formData, shippingStreet: event.target.value })}
+                            />
+                          </div>
                           <StorefrontField
                             required
                             label="Colonia"
@@ -910,15 +1150,27 @@ export default function CheckoutPage() {
                           zones={zones}
                         />
                       </div>
-                      <InfoPanel tone={shippingStatusTone}>{shippingStatusNote}</InfoPanel>
+                      <StorefrontNote tone={shippingStatusTone}>{shippingStatusNote}</StorefrontNote>
                     </div>
-                  </CheckoutSection>
+                  </StorefrontCheckoutSection>
                 </div>
 
-                <div className={checkoutStep === 3 ? "block" : "hidden lg:block"}>
-                  <CheckoutSection title="Método de pago" icon={CreditCard}>
+                <div className={checkoutStep === 3 ? "sf-checkout-step-store-active block" : "hidden lg:block"}>
+                  <StorefrontCheckoutSection
+                    title="Método de pago"
+                    icon={CreditCard}
+                    motionKey={`store-checkout-${checkoutStep}-payment`}
+                    motionReady={checkoutMotionReady}
+                    motionDelayMs={
+                      STOREFRONT_CHECKOUT_SEQUENCE_MS.stepHeaderDelayMs
+                      + (checkoutStep === 3 ? 0 : STOREFRONT_CHECKOUT_SEQUENCE_MS.stepItemStaggerMs * 3)
+                    }
+                  >
+                    <p className="sf-text-secondary text-stone-500">
+                      Elige cómo deseas completar tu pedido. Te mostraremos el siguiente paso según el método seleccionado.
+                    </p>
                     <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "var(--sf-space-md)" }}>
-                      <PaymentButton
+                      <PaymentMethodCard
                         icon={Wallet}
                         title="Depósito / Transferencia"
                         subtitle="Pago manual verificado"
@@ -926,7 +1178,7 @@ export default function CheckoutPage() {
                         onClick={() => setPaymentMethod("TRANSFER")}
                       />
                       {isMPEnabled && (
-                        <PaymentButton
+                        <PaymentMethodCard
                           icon={CreditCard}
                           title="Tarjeta de crédito o débito"
                           subtitle="Pago seguro con Mercado Pago"
@@ -938,39 +1190,70 @@ export default function CheckoutPage() {
                     {paymentMethod === "TRANSFER" && (
                       <BankInfoCard
                         bankInfo={bankInfo}
-                        bankInfoText={bankInfoText}
                         onCopy={(value) => {
-                          navigator.clipboard.writeText(value);
+                          void navigator.clipboard.writeText(value);
                           showToast("Dato bancario copiado.", "success");
                         }}
                       />
                     )}
-                  </CheckoutSection>
+                    {paymentMethod === "MERCADOPAGO" && isEmbeddedMP && mpCheckoutConfig?.publicKey && (
+                      <MercadoPagoCardPayment
+                        publicKey={mpCheckoutConfig.publicKey}
+                        amount={orderTotal}
+                        submitLabel="Pagar pedido"
+                        onSubmit={handleEmbeddedCardPayment}
+                        onApproved={handleEmbeddedPaymentApproved}
+                        onPending={handleEmbeddedPaymentPending}
+                        onCheckStatus={() => {
+                          const attempt = pendingPaymentAttempt || readPendingPaymentAttempt();
+                          if (!attempt) throw new Error("No hay un pago activo para verificar.");
+                          return paymentApi.getCardPaymentStatus({
+                            storePaymentHoldId: attempt.paymentHoldId,
+                            customerPhone: attempt.customerPhone,
+                          });
+                        }}
+                        onFailure={playErrorFeedback}
+                      />
+                    )}
+                  </StorefrontCheckoutSection>
                 </div>
               </div>
 
-              <Button
-                context="section"
-                className={`w-full h-20 text-xl font-black uppercase tracking-[0.2em] shadow-2xl shadow-brand-500/20 ${checkoutStep === 3 ? "hidden lg:inline-flex" : "hidden"}`}
-                disabled={loading}
-              >
-                {loading ? <Spinner className="text-white" /> : "Confirmar y pagar"}
-              </Button>
-            </div>
-          </form>
+              {!isEmbeddedMP && (
+                <Button
+                  context="section"
+                  className={`w-full h-20 text-xl font-black uppercase tracking-[0.2em] shadow-2xl shadow-brand-500/20 ${checkoutStep === 3 ? "hidden lg:inline-flex" : "hidden"}`}
+                  disabled={loading}
+                >
+                  {loading ? <Spinner className="text-white" /> : "Confirmar y pagar"}
+                </Button>
+              )}
+            </form>
+            </motion.div>
+            )}
+            </AnimatePresence>
+          </div>
 
-          <aside className="hidden lg:col-span-5 lg:block">
+          <StorefrontCheckoutMotion phase="summary" ready={checkoutMotionReady} className="hidden lg:block">
+          <aside>
             <OrderSummary
-              items={items}
-              subtotal={getTotalPrice()}
-              discountTotal={discountTotal}
-              shippingTotal={shippingCalculation.total}
-              shippingDetails={shippingCalculation.details}
-              selectedZone={selectedZone}
-              total={orderTotal}
-              onRemoveItem={(item) => setItemToDelete(item)}
+              items={summarySnapshot.items}
+              subtotal={summarySnapshot.subtotal}
+              discountTotal={summarySnapshot.discountTotal}
+              shippingTotal={summarySnapshot.shippingTotal}
+              shippingDetails={summarySnapshot.shippingDetails}
+              selectedZone={summarySnapshot.selectedZone}
+              total={summarySnapshot.total}
+              onRemoveItem={completionState ? undefined : (item) => setItemToDelete(item)}
+              completionStatus={completionPresentation
+                ? {
+                    label: completionPresentation.summaryStatus,
+                    tone: completionState === "pending" ? "pending" : "success",
+                  }
+                : undefined}
             />
           </aside>
+          </StorefrontCheckoutMotion>
         </div>
       </div>
 
@@ -1008,25 +1291,37 @@ export default function CheckoutPage() {
       >
         <OrderSummary
           variant="sheet"
-          items={items}
-          subtotal={getTotalPrice()}
-          discountTotal={discountTotal}
-          shippingTotal={shippingCalculation.total}
-          shippingDetails={shippingCalculation.details}
-          selectedZone={selectedZone}
-          total={orderTotal}
-          onRemoveItem={(item) => setItemToDelete(item)}
+          items={summarySnapshot.items}
+          subtotal={summarySnapshot.subtotal}
+          discountTotal={summarySnapshot.discountTotal}
+          shippingTotal={summarySnapshot.shippingTotal}
+          shippingDetails={summarySnapshot.shippingDetails}
+          selectedZone={summarySnapshot.selectedZone}
+          total={summarySnapshot.total}
+          onRemoveItem={completionState ? undefined : (item) => setItemToDelete(item)}
+          completionStatus={completionPresentation
+            ? {
+                label: completionPresentation.summaryStatus,
+                tone: completionState === "pending" ? "pending" : "success",
+              }
+            : undefined}
         />
       </BottomSheet>
 
+      {(completionState || !(checkoutStep === 3 && paymentMethod === "MERCADOPAGO" && isEmbeddedMP)) && (
       <StorefrontPurchaseBar
-        total={orderTotal}
+        total={summarySnapshot.total}
+        totalLabel={completionPresentation ? "Estado" : "Total"}
+        totalValue={completionPresentation?.mobileStatus}
         loading={loading}
-        disabled={checkoutStep === 0 && (!settingsReady || (needsDeliveryChoice && !formData.deliveryMethod))}
-        buttonLabel={checkoutStep === 0 && !settingsReady ? "Cargando" : checkoutStep === 0 && needsDeliveryChoice && !formData.deliveryMethod ? "Selecciona método" : checkoutStep === 3 ? "Finalizar pedido" : "Continuar"}
-        buttonIcon={checkoutStep === 3 ? ShoppingBag : ArrowRight}
-        onAction={handleCheckoutPrimaryAction}
+        disabled={!completionState && checkoutStep === 0 && (!settingsReady || (needsDeliveryChoice && !formData.deliveryMethod))}
+        buttonLabel={completionState ? "Volver a la tienda" : checkoutStep === 0 && !settingsReady ? "Cargando" : checkoutStep === 0 && needsDeliveryChoice && !formData.deliveryMethod ? "Selecciona método" : checkoutStep === 3 ? "Finalizar pedido" : "Continuar"}
+        buttonIcon={completionState ? ArrowLeft : checkoutStep === 3 ? ShoppingBag : ArrowRight}
+        onAction={completionState ? () => router.push("/store") : handleCheckoutPrimaryAction}
+        entrance="checkout"
+        entranceReady={checkoutMotionReady}
       />
+      )}
     </div>
   );
 }
@@ -1059,116 +1354,6 @@ function isAvailabilityError(message: string | null) {
     normalized.includes("no esta disponible") ||
     normalized.includes("reservado") ||
     normalized.includes("vendido")
-  );
-}
-
-function CheckoutTopBar({
-  title,
-  summaryOpen,
-  onBack,
-  onToggleSummary,
-}: {
-  title: string;
-  summaryOpen: boolean;
-  onBack: () => void;
-  onToggleSummary: () => void;
-}) {
-  return (
-    <div
-      className="fixed z-40 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center md:hidden"
-      style={{
-        top: "var(--sf-inset-mobile-chrome-block)",
-        left: "var(--sf-inset-mobile-chrome)",
-        right: "var(--sf-inset-mobile-chrome)",
-        gap: "var(--sf-space-md)",
-      }}
-    >
-      <CheckoutTopRail>
-        <button
-          type="button"
-          onClick={onBack}
-          className="group flex shrink-0 items-center justify-center border border-transparent text-stone-500 transition-all duration-300 hover:bg-stone-100 hover:text-stone-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/25"
-          style={{
-            width: "var(--sf-size-mobile-nav-item)",
-            height: "var(--sf-size-mobile-nav-item)",
-            borderRadius: "var(--sf-radius-mobile-nav-item)",
-            transitionTimingFunction: "var(--sf-ease)",
-          }}
-          aria-label="Volver"
-        >
-          <ArrowLeft
-            style={{ width: "var(--sf-size-mobile-nav-icon)", height: "var(--sf-size-mobile-nav-icon)" }}
-            strokeWidth={2.35}
-          />
-        </button>
-      </CheckoutTopRail>
-
-      <div
-        className="pointer-events-none flex min-w-0 items-center justify-center overflow-hidden border border-stone-200/90 bg-white shadow-[0_18px_48px_rgba(87,68,55,0.14)]"
-        style={{
-          height: "var(--sf-h-mobile-nav)",
-          borderRadius: "var(--sf-radius-outer)",
-          paddingInline: "var(--sf-space-md)",
-        }}
-      >
-        <p className="min-w-0 truncate text-center sf-text-secondary font-medium text-stone-600">
-          {title}
-        </p>
-      </div>
-
-      <CheckoutTopRail>
-        <button
-          type="button"
-          onClick={onToggleSummary}
-          className={`group relative flex shrink-0 items-center justify-center border transition-all duration-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/25 ${
-            summaryOpen
-              ? "border-brand-100 bg-brand-50 text-brand-800 shadow-sm"
-              : "border-transparent text-stone-500 hover:bg-stone-100 hover:text-stone-950"
-          }`}
-          style={{
-            minWidth: "var(--sf-size-mobile-nav-item)",
-            height: "var(--sf-size-mobile-nav-item)",
-            borderRadius: "var(--sf-radius-mobile-nav-item)",
-            paddingInline: "var(--sf-space-sm)",
-            transitionTimingFunction: "var(--sf-ease)",
-          }}
-          aria-label="Ver resumen del pedido"
-          aria-expanded={summaryOpen}
-        >
-          <ShoppingBag
-            style={{ width: "var(--sf-size-mobile-nav-icon)", height: "var(--sf-size-mobile-nav-icon)" }}
-            strokeWidth={2.25}
-          />
-        </button>
-      </CheckoutTopRail>
-    </div>
-  );
-}
-
-function CheckoutTopRail({ children }: { children: React.ReactNode }) {
-  return (
-    <div
-      className="flex shrink-0 items-center justify-center border border-stone-200/90 bg-white shadow-[0_18px_48px_rgba(87,68,55,0.14)]"
-      style={{
-        height: "var(--sf-h-mobile-nav)",
-        borderRadius: "var(--sf-radius-outer)",
-        padding: "var(--sf-space-sm)",
-      }}
-    >
-      {children}
-    </div>
-  );
-}
-
-function CheckoutSection({ title, icon, children }: { title: string; icon: LucideIcon; children: React.ReactNode }) {
-  return (
-    <section className="flex flex-col" style={{ gap: "var(--sf-space-md)" }}>
-      <div className="flex items-center" style={{ gap: "var(--sf-space-md)" }}>
-        <StorefrontIcon icon={icon} context="section" variant="brand" />
-        <h3 className="sf-text-h1 tracking-tight leading-none text-stone-850">{title}</h3>
-      </div>
-      {children}
-    </section>
   );
 }
 
@@ -1281,72 +1466,6 @@ function getShippingSettingLabel(key: string, settings: Record<string, Record<st
   return "Costo pendiente";
 }
 
-function PaymentButton({
-  icon: Icon,
-  title,
-  subtitle,
-  active,
-  onClick,
-}: {
-  icon: LucideIcon;
-  title: string;
-  subtitle: string;
-  active: boolean;
-  onClick: () => void;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={`flex items-center border-2 text-left transition-all duration-500 active:scale-95 ${
-        active ? "border-stone-800 bg-stone-900 text-white shadow-2xl shadow-stone-900/20" : "border-stone-100 bg-stone-50/70 text-stone-500 hover:border-stone-200"
-      }`}
-      style={{
-        borderRadius: "var(--sf-radius-inner)",
-        padding: "var(--sf-padding-inner)",
-        gap: "var(--sf-space-md)",
-        transitionTimingFunction: "var(--sf-ease)",
-      }}
-    >
-      <div
-        className={`flex h-12 w-12 shrink-0 items-center justify-center transition-all duration-500 ${active ? "bg-white/10 text-white" : "bg-stone-200/60 text-stone-400"}`}
-        style={{ borderRadius: "var(--sf-radius-nested)" }}
-      >
-        <Icon size={24} />
-      </div>
-      <div className="flex flex-col">
-        <p className={`sf-text-label uppercase tracking-widest font-black transition-colors duration-500 ${active ? "text-white" : "text-stone-800"}`}>{title}</p>
-        <p className={`sf-text-secondary opacity-70 font-medium transition-colors duration-500 ${active ? "text-stone-300" : "text-stone-500"}`}>{subtitle}</p>
-      </div>
-    </button>
-  );
-}
-
-function InfoPanel({ children, tone = "default" }: { children: React.ReactNode; tone?: "default" | "warning" }) {
-  return (
-    <div
-      className={`flex items-start border ${
-        tone === "warning" ? "border-amber-200 bg-amber-50 text-amber-900" : "border-stone-200 bg-stone-50/80 text-stone-600"
-      }`}
-      style={{ borderRadius: "var(--sf-radius-inner)", padding: "var(--sf-padding-inner)", gap: "var(--sf-space-md)" }}
-    >
-      <span
-        className={`flex shrink-0 items-center justify-center ${
-          tone === "warning" ? "bg-amber-100 text-amber-700" : "bg-white text-brand-500"
-        }`}
-        style={{
-          width: "var(--sf-h-button-card)",
-          height: "var(--sf-h-button-card)",
-          borderRadius: "var(--sf-radius-nested)",
-        }}
-      >
-        <Info style={{ width: "var(--sf-size-inner-icon-card)", height: "var(--sf-size-inner-icon-card)" }} />
-      </span>
-      <p className="sf-text-secondary font-semibold leading-relaxed">{children}</p>
-    </div>
-  );
-}
-
 function ZoneSelect({
   selectedZone,
   setSelectedZone,
@@ -1379,68 +1498,6 @@ function ZoneSelect({
   );
 }
 
-function BankInfoCard({ bankInfo, bankInfoText, onCopy }: { bankInfo: BankInfo; bankInfoText: string; onCopy: (value: string) => void }) {
-  const rows = [
-    { label: "Banco", value: bankInfo.bank },
-    { label: "Beneficiario", value: bankInfo.beneficiary },
-    { label: "No. Cuenta", value: bankInfo.account },
-    { label: "CLABE", value: bankInfo.clabe },
-    { label: "No. Tarjeta", value: bankInfo.card },
-  ].filter((row) => row.value && String(row.value).trim());
-
-  if (rows.length === 0) {
-    return (
-      <InfoPanel tone="warning">
-        La información bancaria aún no está configurada. Te contactaremos por WhatsApp para completar el pago.
-      </InfoPanel>
-    );
-  }
-
-  return (
-    <StorefrontSectionCard className="flex flex-col" style={{ gap: "var(--sf-space-md)" }}>
-      <div className="flex items-start justify-between" style={{ gap: "var(--sf-space-md)" }}>
-        <div>
-          <p className="sf-text-label text-brand-500 uppercase tracking-[0.2em] font-black">{bankInfo.label}</p>
-          <h4 className="sf-text-h2 text-stone-850">Información bancaria</h4>
-        </div>
-        <button
-          type="button"
-          onClick={() => onCopy(bankInfoText)}
-          className="flex h-11 w-11 shrink-0 items-center justify-center border border-stone-200 bg-white text-stone-500 transition-all hover:text-brand-500 active:scale-95"
-          style={{ borderRadius: "var(--sf-radius-nested)" }}
-                aria-label="Copiar información bancaria"
-        >
-          <Copy size={18} />
-        </button>
-      </div>
-      <div className="flex flex-col" style={{ gap: "var(--sf-space-sm)" }}>
-        {rows.map((row) => (
-          <div key={row.label} className="flex items-center justify-between border-b border-stone-100 pb-3 last:border-0 last:pb-0" style={{ gap: "var(--sf-space-md)" }}>
-            <span className="sf-text-label text-stone-400 uppercase tracking-widest font-black">{row.label}</span>
-            <button
-              type="button"
-              onClick={() => onCopy(String(row.value))}
-              className="max-w-[60%] truncate text-right sf-text-secondary font-black text-stone-800 transition-colors hover:text-brand-500"
-            >
-              {row.value}
-            </button>
-          </div>
-        ))}
-      </div>
-    </StorefrontSectionCard>
-  );
-}
-
-function formatBankInfo(bankInfo: BankInfo) {
-  return [
-    bankInfo.bank ? `Banco: ${bankInfo.bank}` : "",
-    bankInfo.beneficiary ? `Beneficiario: ${bankInfo.beneficiary}` : "",
-    bankInfo.account ? `No. Cuenta: ${bankInfo.account}` : "",
-    bankInfo.clabe ? `CLABE: ${bankInfo.clabe}` : "",
-    bankInfo.card ? `Tarjeta: ${bankInfo.card}` : "",
-  ].filter(Boolean).join("\n");
-}
-
 function OrderSummary({
   variant = "sidebar",
   items,
@@ -1451,6 +1508,7 @@ function OrderSummary({
   selectedZone,
   total,
   onRemoveItem,
+  completionStatus,
 }: {
   variant?: "sidebar" | "sheet";
   items: ReturnType<typeof useCartStore.getState>["items"];
@@ -1460,19 +1518,23 @@ function OrderSummary({
   shippingDetails: ShippingDetail[];
   selectedZone: ShippingZone | null;
   total: number;
-  onRemoveItem: (item: any) => void;
+  onRemoveItem?: (item: any) => void;
+  completionStatus?: {
+    label: string;
+    tone: "success" | "pending";
+  };
 }) {
   const shippingIsFree = shippingDetails.length > 0 && shippingTotal === 0;
+  const SummarySurface = variant === "sidebar" ? StorefrontAutonomousCard : StorefrontSectionCard;
 
   return (
-    <div
-      className={`overflow-hidden bg-stone-900 text-white ${
-        variant === "sidebar" ? "sticky top-32 shadow-2xl shadow-stone-900/40" : "shadow-none"
+    <SummarySurface
+      density="compact"
+      className={`overflow-hidden border-stone-800/40 bg-stone-900 text-white ${
+        variant === "sidebar"
+          ? "sticky top-[var(--sf-space-lg)] shadow-2xl shadow-stone-900/40"
+          : "shadow-none"
       }`}
-      style={{
-        borderRadius: variant === "sidebar" ? "var(--sf-radius-outer)" : "var(--sf-radius-inner)",
-        padding: variant === "sidebar" ? "var(--sf-padding-outer)" : "var(--sf-padding-inner)",
-      }}
     >
       <div className="relative z-10 flex flex-col" style={{ gap: "var(--sf-space-lg)" }}>
         <div className="flex items-center" style={{ gap: "var(--sf-space-md)" }}>
@@ -1482,6 +1544,21 @@ function OrderSummary({
             <h3 className="sf-text-h1 uppercase tracking-tight leading-none">Resumen</h3>
           </div>
         </div>
+
+        {completionStatus && (
+          <motion.div
+            key={`store-summary-${completionStatus.label}`}
+            initial={{ opacity: 0, y: 8 }}
+            animate={{ opacity: 1, y: 0 }}
+            className={`flex items-center border-y border-white/10 py-[var(--sf-space-md)] ${
+              completionStatus.tone === "success" ? "text-emerald-300" : "text-amber-300"
+            }`}
+            style={{ gap: "var(--sf-space-sm)" }}
+          >
+            {completionStatus.tone === "success" ? <CheckCircle2 size={18} /> : <Clock3 size={18} />}
+            <span className="sf-text-secondary font-bold">{completionStatus.label}</span>
+          </motion.div>
+        )}
 
         <div
           className={`${variant === "sidebar" ? "max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar-dark" : ""} flex flex-col`}
@@ -1506,18 +1583,20 @@ function OrderSummary({
               </div>
               <div className="flex items-center gap-4">
                 <span className="sf-text-h2 tabular-nums text-brand-400 font-black text-lg">${formatPrice(item.price * item.quantity)}</span>
-                <button
-                  onClick={() => onRemoveItem(item)}
-                  className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 text-white/20 hover:bg-rose-500/20 hover:text-rose-500 transition-all active:scale-90"
-                >
-                  <Trash2 size={16} />
-                </button>
+                {onRemoveItem && (
+                  <button
+                    onClick={() => onRemoveItem(item)}
+                    className="w-10 h-10 flex items-center justify-center rounded-xl bg-white/5 text-white/20 hover:bg-rose-500/20 hover:text-rose-500 transition-all active:scale-90"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
               </div>
             </div>
           ))}
         </div>
 
-        <CouponRedemption tone="dark" />
+        {!completionStatus && <CouponRedemption tone="dark" />}
 
         <div className="flex flex-col border-t border-white/10 pt-[var(--sf-space-lg)]" style={{ gap: "var(--sf-space-md)" }}>
           <SummaryRow label="Subtotal" value={`$${formatPrice(subtotal)}`} />
@@ -1552,22 +1631,17 @@ function OrderSummary({
           </div>
         </div>
 
-        <div className="border border-white/5 bg-white/5 shadow-inner" style={{ borderRadius: "var(--sf-radius-inner)", padding: "var(--sf-padding-inner)" }}>
-          <div className="flex items-start" style={{ gap: "var(--sf-space-sm)" }}>
-            <Info size={16} className="mt-1 shrink-0 text-brand-400" />
-            <p className="sf-text-label leading-relaxed text-stone-400 uppercase tracking-widest text-[9px]">
-              {shippingIsFree
-                ? "El envío está cubierto. Coordinaremos contigo la forma de entrega más conveniente."
-                : shippingDetails.length > 0
-                ? selectedZone
-                  ? `Enviaremos y coordinaremos contigo los detalles para ${selectedZone.name}.`
-                  : "Enviaremos los artículos a la dirección indicada."
-                : "Al confirmar, aceptas nuestras políticas de venta y tiempos de entrega."}
-            </p>
-          </div>
-        </div>
+        <StorefrontNote tone="inverse">
+          {shippingIsFree
+            ? "El envío está cubierto. Coordinaremos contigo la forma de entrega más conveniente."
+            : shippingDetails.length > 0
+            ? selectedZone
+              ? `Enviaremos y coordinaremos contigo los detalles para ${selectedZone.name}.`
+              : "Enviaremos los artículos a la dirección indicada."
+            : "Al confirmar, aceptas nuestras políticas de venta y tiempos de entrega."}
+        </StorefrontNote>
       </div>
-    </div>
+    </SummarySurface>
   );
 }
 
@@ -1594,7 +1668,7 @@ function PendingPaymentAttemptView({
   onBack: () => void;
 }) {
   return (
-    <div className="min-h-screen px-[var(--sf-inset-page-mobile)] py-[var(--sf-space-xl)]">
+    <div className="min-h-screen px-[var(--sf-inset-page)] py-[var(--sf-space-xl)]">
       <div className="mx-auto flex max-w-2xl flex-col" style={{ gap: "var(--sf-space-lg)" }}>
         <button
           type="button"
@@ -1613,7 +1687,7 @@ function PendingPaymentAttemptView({
               <p className="sf-text-label text-brand-500 uppercase tracking-[0.2em] font-black">Pago pendiente</p>
               <h1 className="sf-text-display text-stone-850">Tu pedido está reservado</h1>
               <p className="sf-text-body mx-auto max-w-xl text-stone-500 font-medium leading-relaxed">
-                La orden #{attempt.orderId} ya fue creada para {attempt.customerName || "tu compra"}. Puedes continuar el pago con Mercado Pago o cancelar este intento para liberar los productos.
+                Conservamos temporalmente los productos para {attempt.customerName || "tu compra"}. Puedes continuar el pago sin crear una orden duplicada.
               </p>
             </div>
           </div>
@@ -1644,48 +1718,227 @@ function PendingPaymentAttemptView({
   );
 }
 
-function OrderComplete({ order }: { order: StoreOrderResponse }) {
+const storeCompletionMotionItem = {
+  hidden: { opacity: 0, y: 10 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: toMotionSeconds(STOREFRONT_MOTION_MS.duration.deliberate),
+      ease: STOREFRONT_EASING.reveal,
+    },
+  },
+} as const;
+
+function StoreCheckoutCompletion({
+  state,
+  order,
+  customerName,
+  itemCount,
+  paymentExpiresAt,
+  onBackToStore,
+  onGoHome,
+}: {
+  state: Exclude<CompletionState, null>;
+  order: StoreOrderResponse;
+  customerName: string;
+  itemCount: number;
+  paymentExpiresAt: string | null;
+  onBackToStore: () => void;
+  onGoHome: () => void;
+}) {
+  const reduceMotion = useReducedMotion();
+  const presentation = getStoreCheckoutCompletionPresentation(state);
+  const firstName = customerName.trim().split(/\s+/)[0] || "Cliente";
+  const deadline = formatOrderDeadline(paymentExpiresAt);
+  const productLabel = `${itemCount} producto${itemCount === 1 ? "" : "s"}`;
+
+  const steps = state === "reserved"
+    ? [
+        {
+          icon: MessageCircle,
+          title: "Revisa tu WhatsApp",
+          description: "Te enviamos las instrucciones y los datos bancarios para completar el pago.",
+        },
+        {
+          icon: Clock3,
+          title: "Confirma dentro del plazo",
+          description: deadline
+            ? `Realiza tu depósito o transferencia antes de ${deadline}.`
+            : "Realiza tu depósito o transferencia dentro del plazo informado por WhatsApp.",
+        },
+        {
+          icon: ShieldCheck,
+          title: "Envía tu comprobante",
+          description: `Conservaremos ${productLabel} mientras nuestro equipo valida tu pago.`,
+        },
+      ]
+    : state === "approved"
+      ? [
+          {
+            icon: ShieldCheck,
+            title: "Pago aprobado",
+            description: "Mercado Pago confirmó la operación correctamente.",
+          },
+          {
+            icon: ShoppingBag,
+            title: "Pedido confirmado",
+            description: `${productLabel} ${itemCount === 1 ? "quedó confirmado" : "quedaron confirmados"} en la orden #${order.id}.`,
+          },
+          {
+            icon: MessageCircle,
+            title: "Prepararemos tu entrega",
+            description: "Te contactaremos por WhatsApp para continuar con la entrega de tu pedido.",
+          },
+        ]
+      : [
+          {
+            icon: Clock3,
+            title: "Validación en proceso",
+            description: "Mercado Pago está revisando la operación. No necesitas intentar pagar nuevamente.",
+          },
+          {
+            icon: ShieldCheck,
+            title: "Pedido protegido",
+            description: `Conservaremos ${productLabel} mientras recibimos la confirmación final.`,
+          },
+          {
+            icon: MessageCircle,
+            title: "Te mantendremos informado",
+            description: "Recibirás por WhatsApp la actualización de tu pedido.",
+          },
+        ];
+
   return (
-    <div className="mx-auto max-w-2xl px-[var(--sf-inset-page-mobile)] text-center" style={{ paddingBlock: "var(--sf-space-xl)" }}>
-      <div className="flex flex-col items-center" style={{ gap: "var(--sf-space-lg)" }}>
-        <StorefrontIcon icon={CheckCircle} context="section" variant="success" />
-        <div className="flex flex-col" style={{ gap: "var(--sf-space-sm)" }}>
-          <h1 className="sf-text-display text-stone-850 uppercase">Pedido recibido</h1>
-          <p className="sf-text-body text-stone-500 font-medium text-lg">
-            Gracias por tu compra, {order.customerName || "Cliente"}. Tu número de pedido es <strong className="text-stone-850">#{order.id}</strong>.
-          </p>
+    <motion.section
+      className="flex min-w-0 flex-col"
+      style={{ gap: "var(--sf-space-xl)" }}
+      initial={reduceMotion ? false : "hidden"}
+      animate="visible"
+      exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -8 }}
+      variants={{
+        hidden: {},
+        visible: {
+          transition: {
+            delayChildren: reduceMotion ? 0 : toMotionSeconds(STOREFRONT_MOTION_MS.pulse.half),
+            staggerChildren: reduceMotion ? 0 : toMotionSeconds(STOREFRONT_MOTION_MS.stagger.standard),
+          },
+        },
+      }}
+      transition={{
+        duration: toMotionSeconds(
+          reduceMotion
+            ? STOREFRONT_MOTION_MS.duration.instant
+            : STOREFRONT_MOTION_MS.duration.deliberate,
+        ),
+        ease: STOREFRONT_EASING.reveal,
+      }}
+      aria-live="polite"
+    >
+      <motion.div className="flex items-start" style={{ gap: "var(--sf-space-md)" }} variants={storeCompletionMotionItem}>
+        <StorefrontIcon
+          icon={presentation.icon}
+          context="autonomous"
+          variant={state === "pending" ? "warning" : "success"}
+        />
+        <div className="flex min-w-0 flex-col" style={{ gap: "var(--sf-space-sm)" }}>
+          <span className={`sf-text-label font-black uppercase tracking-[0.2em] ${
+            state === "pending" ? "text-amber-600" : "text-emerald-600"
+          }`}>
+            {presentation.title}
+          </span>
+          <h1 className="sf-text-display text-stone-950">{presentation.greeting(firstName)}</h1>
+          <p className="sf-text-body max-w-2xl text-stone-500">{presentation.description(order.id)}</p>
         </div>
-        <StorefrontCard className="w-full text-left bg-stone-50/50 border-dashed border-stone-200">
-          <div className="flex flex-col" style={{ gap: "var(--sf-space-md)" }}>
-            <div className="flex justify-between border-b border-stone-100 pb-[var(--sf-space-md)] sf-text-label text-stone-400 uppercase tracking-widest font-black text-[10px]">
-              <span>Resumen</span>
-              <span>Monto total</span>
-            </div>
-            <div className="flex items-end justify-between" style={{ gap: "var(--sf-space-md)" }}>
-              <div>
-                <p className="sf-text-display text-stone-850 tracking-tighter leading-none text-5xl font-black">${formatPrice(Number(order.total || 0))}</p>
-                <p className="sf-text-secondary text-stone-400 uppercase tracking-widest font-bold mt-2 text-xs">Método: envío coordinado</p>
+      </motion.div>
+
+      <motion.div
+        className="flex flex-col border-y border-stone-200 py-[var(--sf-space-lg)]"
+        style={{ gap: "var(--sf-space-lg)" }}
+        variants={storeCompletionMotionItem}
+      >
+        <h2 className="sf-text-h2 text-stone-950">Qué sigue</h2>
+        <div className="flex flex-col" style={{ gap: "var(--sf-space-lg)" }}>
+          {steps.map((step) => (
+            <div key={step.title} className="flex items-center" style={{ gap: "var(--sf-space-md)" }}>
+              <StorefrontIcon icon={step.icon} context="card" variant={state === "pending" ? "warning" : "muted"} />
+              <div className="flex min-w-0 flex-col" style={{ gap: "var(--sf-space-xs)" }}>
+                <h3 className="sf-text-secondary font-bold text-stone-950">{step.title}</h3>
+                <p className="sf-text-secondary text-stone-500">{step.description}</p>
               </div>
-              <Button variant="outline" context="card" onClick={() => window.print()}>Imprimir ticket</Button>
             </div>
-          </div>
-        </StorefrontCard>
-        <div className="bg-emerald-50 p-6 rounded-[var(--sf-radius-inner)] border border-emerald-100 w-full shadow-sm">
-          <p className="sf-text-label text-emerald-800 leading-relaxed font-black text-[10px]">
-            Recibirás un mensaje de WhatsApp con los detalles de tu compra e instrucciones de pago.
-          </p>
+          ))}
         </div>
-        <Button asChild context="section" className="h-16 px-12 shadow-xl shadow-brand-500/20">
-          <Link href="/store">Seguir comprando <ArrowRight className="ml-2" /></Link>
+      </motion.div>
+
+      <motion.div
+        className="hidden grid-cols-1 sm:grid-cols-2 md:grid"
+        style={{ gap: "var(--sf-space-md)" }}
+        variants={storeCompletionMotionItem}
+      >
+        <Button type="button" context="section" onClick={onBackToStore} icon={ArrowLeft}>
+          Volver a la tienda
         </Button>
-      </div>
-    </div>
+        <Button type="button" context="section" variant="outline" onClick={onGoHome}>
+          Ir al inicio
+        </Button>
+      </motion.div>
+    </motion.section>
   );
+}
+
+function getStoreCheckoutCompletionPresentation(state: Exclude<CompletionState, null>) {
+  if (state === "approved") {
+    return {
+      icon: CheckCircle2,
+      title: "Pago confirmado",
+      greeting: (firstName: string) => `Tu pedido está confirmado, ${firstName}`,
+      description: (orderId: number | string) => `El pago fue aprobado y la orden #${orderId} quedó confirmada correctamente.`,
+      summaryStatus: "Pago confirmado",
+      mobileStatus: "Pagado",
+    };
+  }
+
+  if (state === "pending") {
+    return {
+      icon: Clock3,
+      title: "Pago en revisión",
+      greeting: (firstName: string) => `Estamos validando tu pago, ${firstName}`,
+      description: (orderId: number | string) => `La operación de la orden #${orderId} todavía está siendo procesada. Tu pedido permanecerá protegido.`,
+      summaryStatus: "Pago en revisión",
+      mobileStatus: "En revisión",
+    };
+  }
+
+  return {
+    icon: CheckCircle2,
+    title: "Apartado confirmado",
+    greeting: (firstName: string) => `Gracias, ${firstName}`,
+    description: (orderId: number | string) => `La orden #${orderId} quedó apartada correctamente. Completa el pago dentro del plazo para confirmar tu pedido.`,
+    summaryStatus: "Apartado confirmado",
+    mobileStatus: "Confirmado",
+  };
+}
+
+function formatOrderDeadline(value: string | null) {
+  if (!value) return null;
+  const deadline = new Date(value);
+  if (Number.isNaN(deadline.getTime())) return null;
+
+  const formatted = new Intl.DateTimeFormat("es-MX", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    hour: "numeric",
+    minute: "2-digit",
+  }).format(deadline);
+
+  return formatted.charAt(0).toUpperCase() + formatted.slice(1);
 }
 
 function EmptyCart() {
   return (
-    <div className="mx-auto max-w-2xl px-[var(--sf-inset-page-mobile)] text-center" style={{ paddingBlock: "var(--sf-space-xl)" }}>
+    <div className="mx-auto max-w-2xl px-[var(--sf-inset-page)] text-center" style={{ paddingBlock: "var(--sf-space-xl)" }}>
       <div className="flex flex-col items-center" style={{ gap: "var(--sf-space-md)" }}>
         <StorefrontIcon icon={ShoppingBag} context="section" variant="muted" />
         <h2 className="sf-text-display text-stone-850 uppercase leading-none">Tu carrito está vacío</h2>

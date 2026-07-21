@@ -70,19 +70,14 @@ export const ticketService = {
     return { digits, startFromZero, universo };
   },
 
-  // Returns all valid numbers for a raffle (for reservation validation)
-  async getAllNumbers(prisma: PrismaClient, raffleId: number) {
+  // Only main ticket folios can be reserved. Extra opportunities are assigned to
+  // their main folio and must never be offered or sold independently.
+  async getPrimaryTicketNumbers(prisma: RaffleDatabaseClient, raffleId: number) {
     const opps = await prisma.raffleOpportunity.findMany({
       where: { raffleId },
+      orderBy: { mainTicketNumber: "asc" },
+      select: { mainTicketNumber: true },
     });
-    const all = new Set<string>();
-    opps.forEach(o => {
-      all.add(o.mainTicketNumber);
-      const extras = o.extraOpportunities as string[];
-      if (Array.isArray(extras)) {
-        extras.forEach(n => all.add(n));
-      }
-    });
-    return all;
+    return new Set(opps.map((opportunity) => opportunity.mainTicketNumber));
   },
 };

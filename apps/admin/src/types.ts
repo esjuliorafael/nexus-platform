@@ -8,8 +8,22 @@ export interface OrderItem {
   quantity: number;
 }
 
+export interface OrderPaymentAttempt {
+  id: string;
+  status: string;
+  statusDetail?: string | null;
+  mpPaymentId?: string | null;
+  retryable: boolean;
+  uncertain: boolean;
+  customerMessage?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Order {
   id: string;
+  recordType?: "ORDER" | "PAYMENT_HOLD";
+  paymentHoldId?: string | null;
   customer: string;
   customerPhone?: string;
   receiverName?: string | null;
@@ -22,7 +36,16 @@ export interface Order {
   shippingCity?: string | null;
   items: OrderItem[];
   total: number;
-  status: "paid" | "pending" | "cancelled" | "shipped" | "delivered";
+  status:
+    | "paid"
+    | "pending"
+    | "cancelled"
+    | "shipped"
+    | "delivered"
+    | "payment_review"
+    | "not_completed";
+  holdStatus?: string | null;
+  expiresAt?: string | null;
   paymentMethod?: "TRANSFER" | "MERCADOPAGO" | string;
   paymentStatus?: "PENDING" | "APPROVED" | "FAILED" | "EXPIRED" | "CANCELLED" | "REFUNDED" | string;
   paymentExpiresAt?: string | null;
@@ -39,6 +62,7 @@ export interface Order {
   date: string;
   isRead: boolean;
   readAt?: string;
+  paymentAttempts?: OrderPaymentAttempt[];
 }
 
 export interface WhatsAppMessageLog {
@@ -341,7 +365,7 @@ export interface SalesChannel extends BankDetails {
   purpose: string;
 }
 
-export type TemplateType = "RESERVATION" | "RELEASE" | "PAYMENT_CONFIRMED" | "RESTORED" | "REMINDER";
+export type TemplateType = "RESERVATION" | "RELEASE" | "PAYMENT_CONFIRMED" | "RESTORED" | "REMINDER" | "OPENING";
 
 export interface WhatsAppTemplate {
   id: string;
@@ -404,10 +428,22 @@ export interface Raffle {
   useZero: boolean;
   digits: number;
   drawDate?: string;
+    prizeShippingPolicy?: "INCLUDED" | "WINNER_PAYS" | null;
     image?: string;
+    imageType?: "PHOTO" | "VIDEO";
+    imagePoster?: string | null;
     gallery?: RaffleGalleryItem[];
     status: "ACTIVE" | "FINISHED" | "CANCELLED";
     published: boolean;
+    featured: boolean;
+    featuredOrder?: number | null;
+    winningNumber?: string | null;
+    resultPublishedAt?: string | null;
+    participationStartsAt?: string | null;
+    participationEndsAt?: string | null;
+    participationState?: "OPEN" | "UPCOMING" | "EARLY_ACCESS" | "CLOSED" | "UNAVAILABLE";
+    earlyAccessEnabled: boolean;
+    earlyAccessConfigured?: boolean;
     createdAt: string;
   ticketStats?: {
     total: number;
@@ -421,18 +457,73 @@ export interface RaffleGalleryItem {
   id?: number;
   filePath: string;
   fileType: "PHOTO" | "VIDEO";
+  posterPath?: string | null;
 }
 
-export interface TicketSale {
+export type RaffleParticipationStatus =
+  | "PENDING"
+  | "PAID"
+  | "CANCELLED"
+  | "MIXED"
+  | "PAYMENT_REVIEW"
+  | "NOT_COMPLETED";
+
+export interface RafflePaymentAttempt {
   id: string;
-  raffleId: string;
-  ticketNumber: string;
+  status: string;
+  statusDetail?: string | null;
+  mpPaymentId?: string | null;
+  retryable: boolean;
+  uncertain: boolean;
+  customerMessage?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RaffleParticipationTicket {
+  id: number;
+  number: string;
+  opportunities: string[];
+}
+
+export interface RaffleParticipation {
+  id: string;
+  recordType?: "PARTICIPATION" | "PAYMENT_HOLD";
+  reservationId?: string | null;
+  paymentHoldId?: string | null;
+  raffleId: number;
+  raffleTitle: string;
+  raffleImage?: string | null;
+  raffleOpportunities: number;
   customerName: string;
   customerPhone: string;
-  customerState?: string;
-  status: "PENDING" | "PAID" | "CANCELLED";
-  paymentMethod?: string;
+  customerState?: string | null;
+  ticketNumbers: string[];
+  ticketCount: number;
+  ticketPrice: number;
+  subtotal: number;
+  discountTotal: number;
+  total: number;
+  couponCode?: string | null;
+  paymentMethod: "TRANSFER" | "MERCADOPAGO" | string;
+  mpPaymentId?: string | null;
+  mpSellerUserId?: string | null;
+  mpPaymentStatus?: string | null;
+  mpPaymentStatusDetail?: string | null;
+  mpPaymentMethodId?: string | null;
+  mpPaymentTypeId?: string | null;
+  mpPaidAmount?: number | null;
+  mpRefundId?: string | null;
+  mpRefundedAmount?: number | null;
+  mpRefundedAt?: string | null;
+  holdStatus?: string | null;
+  expiresAt?: string | null;
+  status: RaffleParticipationStatus;
   createdAt: string;
+  ticketSaleIds: number[];
+  tickets?: RaffleParticipationTicket[];
+  paymentAttempts?: RafflePaymentAttempt[];
+  whatsappLogs?: WhatsAppMessageLog[];
 }
 
 export type RaffleParticipantSegment =

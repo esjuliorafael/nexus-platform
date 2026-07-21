@@ -2,12 +2,14 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   ArrowLeft,
   Banknote,
+  BellRing,
   Building2,
   CheckCircle2,
   CreditCard,
   Edit2,
   FileText,
   Hash,
+  KeyRound,
   Link as LinkIcon,
   LogOut,
   MessageCircle,
@@ -32,6 +34,12 @@ import { NexusInput, NexusSelect, NexusTextarea } from "../../ui/NexusInputs";
 import { NexusSection } from "../../ui/NexusSection";
 import { NexusSectionCard } from "../../ui/NexusCard";
 import { NexusModal } from "../../ui/NexusModal";
+import { NexusSwitch } from "../../ui/NexusSwitch";
+import {
+  WhatsAppPairingData,
+  WhatsAppPairingMethod,
+  WhatsAppPairingModal,
+} from "./WhatsAppPairingModal";
 
 interface ChannelEditorProps {
   id: string;
@@ -124,11 +132,11 @@ const TEMPLATE_GROUPS = [
       },
       {
         type: "RELEASE",
-        label: "Liberacion de orden",
+        label: "Liberación de orden",
         globalKey: "whatsapp_global_store_rel",
-        variables: ["{{customer_name}}", "{{order_id}}", "{{time_store}}"],
+        variables: ["{{customer_name}}", "{{order_id}}", "{{item_list}}"],
         sample:
-          "Hola {{customer_name}}, tu orden #{{order_id}} fue liberada porque se supero el tiempo limite de pago de {{time_store}}.",
+          "¡Hola, {{customer_name}}! La orden #{{order_id}} fue liberada porque concluyó el tiempo disponible para confirmar el pago.\n\nProductos:\n{{item_list}}",
       },
     ],
   },
@@ -137,6 +145,18 @@ const TEMPLATE_GROUPS = [
     label: "Rifas",
     description: "Mensajes para boletos apartados, pagados o liberados.",
     templates: [
+      {
+        type: "OPENING",
+        label: "Aviso de apertura",
+        globalKey: "whatsapp_global_raffle_opening",
+        variables: [
+          "{{raffle_name}}",
+          "{{opening_date}}",
+          "{{raffle_url}}",
+        ],
+        sample:
+          "¡Ya comenzó! 🎟️\n\nLa rifa “{{raffle_name}}” abrió su participación el {{opening_date}}.\n\nSelecciona tus boletos aquí:\n{{raffle_url}}\n\n¡Mucha suerte! 🍀",
+      },
       {
         type: "RESERVATION",
         label: "Apartado de boletos",
@@ -150,7 +170,7 @@ const TEMPLATE_GROUPS = [
           "{{time_raffle}}",
         ],
         sample:
-          'Hola {{customer_name}}, tus boletos {{ticket_list}} para la rifa "{{raffle_name}}" fueron apartados.\nTotal: ${{amount}}\n\n{{bank_info}}\n\nTienes {{time_raffle}} para realizar tu pago.',
+          'Hola {{customer_name}}, tus boletos para la rifa "{{raffle_name}}" fueron apartados.\n\nBoletos participantes:\n{{ticket_list}}\n\nTotal: ${{amount}}\n\n{{bank_info}}\n\nTienes {{time_raffle}} para realizar tu pago.',
       },
       {
         type: "PAYMENT_CONFIRMED",
@@ -163,7 +183,7 @@ const TEMPLATE_GROUPS = [
           "{{amount}}",
         ],
         sample:
-          'Hola {{customer_name}}, recibimos tu pago por los boletos {{ticket_list}} de la rifa "{{raffle_name}}". Ya estas participando. Mucha suerte.',
+          'Hola {{customer_name}}, recibimos tu pago para la rifa "{{raffle_name}}".\n\nBoletos participantes:\n{{ticket_list}}\n\nYa estás participando. Mucha suerte.',
       },
       {
         type: "REMINDER",
@@ -178,20 +198,19 @@ const TEMPLATE_GROUPS = [
           "{{time_remaining}}",
         ],
         sample:
-          'Hola {{customer_name}}, te recordamos que tus boletos {{ticket_list}} para la rifa "{{raffle_name}}" siguen pendientes de pago.\nTotal: ${{amount}}\n\n{{bank_info}}\n\nTus boletos se liberaran en {{time_remaining}}.',
+          'Hola {{customer_name}}, te recordamos que tus boletos para la rifa "{{raffle_name}}" siguen pendientes de pago.\n\nBoletos participantes:\n{{ticket_list}}\n\nTotal: ${{amount}}\n\n{{bank_info}}\n\nTus boletos se liberarán en {{time_remaining}}.',
       },
       {
         type: "RELEASE",
-        label: "Liberacion de boletos",
+        label: "Liberación de boletos",
         globalKey: "whatsapp_global_raffle_rel",
         variables: [
           "{{customer_name}}",
           "{{ticket_list}}",
           "{{raffle_name}}",
-          "{{time_raffle}}",
         ],
         sample:
-          'Hola {{customer_name}}, tus boletos {{ticket_list}} para la rifa "{{raffle_name}}" fueron liberados porque paso el limite de pago de {{time_raffle}}.',
+          'Hola {{customer_name}}, tus boletos para la rifa "{{raffle_name}}" fueron liberados porque concluyó el tiempo disponible para confirmar el pago.\n\nBoletos participantes:\n{{ticket_list}}',
       },
     ],
   },
@@ -213,24 +232,6 @@ const StatusPill: React.FC<{ ready: boolean; label: string }> = ({
     />
     {label}
   </span>
-);
-
-const ModalShell: React.FC<{
-  title: string;
-  subtitle: string;
-  onClose: () => void;
-  children: React.ReactNode;
-}> = ({ title, subtitle, onClose, children }) => (
-  <NexusModal
-    isOpen
-    title={title}
-    subtitle={subtitle}
-    onClose={onClose}
-    size="wide"
-    zIndex={250}
-  >
-    {children}
-  </NexusModal>
 );
 
 export const ChannelEditor: React.FC<ChannelEditorProps> = ({
@@ -262,11 +263,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
   const [instanceStatus, setInstanceStatus] = useState<
     "open" | "close" | "connecting" | "loading"
   >("loading");
-  const [qrData, setQRData] = useState<{
-    base64?: string;
-    instanceName?: string;
-    timeLeft?: number;
-  } | null>(null);
+  const [pairingData, setPairingData] = useState<WhatsAppPairingData | null>(null);
   const [templateDraft, setTemplateDraft] = useState<{
     type: string;
     label: string;
@@ -280,8 +277,8 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
 
   const instanceName = useMemo(
     () =>
-      PURPOSE_INSTANCES[generalData.purpose.toUpperCase()] ||
       whatsappObj?.instanceName ||
+      PURPOSE_INSTANCES[generalData.purpose.toUpperCase()] ||
       "",
     [generalData.purpose, whatsappObj?.instanceName],
   );
@@ -341,7 +338,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       });
 
       await checkInstanceStatus(
-        PURPOSE_INSTANCES[purpose?.toUpperCase?.()] || wa?.instanceName || "",
+        wa?.instanceName || PURPOSE_INSTANCES[purpose?.toUpperCase?.()] || "",
       );
     } catch (error) {
       showToast("Error al cargar datos del canal", "error");
@@ -357,19 +354,19 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
   useEffect(() => {
     let timer: any;
     let poll: any;
-    if (qrData?.instanceName) {
+    if (pairingData?.instanceName) {
       timer = setInterval(() => {
-        setQRData((prev) =>
+        setPairingData((prev) =>
           prev
-            ? { ...prev, timeLeft: Math.max(0, (prev.timeLeft || 0) - 1) }
+            ? { ...prev, timeLeft: Math.max(0, prev.timeLeft - 1) }
             : null,
         );
       }, 1000);
       poll = setInterval(async () => {
-        const state = await checkInstanceStatus(qrData.instanceName!);
+        const state = await checkInstanceStatus(pairingData.instanceName);
         if (state === "open") {
           showToast("WhatsApp vinculado correctamente", "success");
-          setQRData(null);
+          setPairingData(null);
         }
       }, 3000);
     }
@@ -377,7 +374,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       clearInterval(timer);
       clearInterval(poll);
     };
-  }, [qrData?.instanceName]);
+  }, [pairingData?.instanceName]);
 
   const paymentReady = Boolean(paymentData.bank && paymentData.beneficiary);
   const mpReady = Boolean((paymentObj as any)?.mpAccessToken);
@@ -504,7 +501,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
     }
   };
 
-  const openQrFlow = async () => {
+  const openWhatsAppFlow = async (method: WhatsAppPairingMethod) => {
     if (!instanceName) {
       showToast("Este canal no tiene instancia asignada", "error");
       return;
@@ -516,21 +513,33 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
 
     setConfirmDialog({
       isOpen: true,
-      title: "Confirmar linea de WhatsApp",
-      message: `Se generara un QR para vincular el numero ${whatsappData.phone}. Verifica que sea el telefono fisico que escaneara el codigo.`,
-      confirmLabel: "Generar QR",
+      title: "Confirmar línea de WhatsApp",
+      message: method === "qr"
+        ? `Se generará un QR para vincular el número ${whatsappData.phone}.`
+        : `Se generará un código asociado al número ${whatsappData.phone}.`,
+      confirmLabel: method === "qr" ? "Generar QR" : "Generar código",
       variant: "warning",
       onConfirm: async () => {
         setConfirmDialog({ isOpen: false });
         const saved = await saveWhatsApp(false);
         if (!saved) return;
         try {
-          const res = await apiWhatsApp.getQR(instanceName);
-          if (res.data.base64) {
-            setQRData({ base64: res.data.base64, instanceName, timeLeft: 40 });
-          }
-        } catch (error) {
-          showToast("Error al generar QR", "error");
+          const res = await apiWhatsApp.connect(instanceName, method, whatsappData.phone);
+          const value = method === "qr" ? res.data?.base64 : res.data?.pairingCode;
+          if (!value) throw new Error("Evolution API no devolvió un código");
+          setPairingData({
+            method,
+            base64: res.data?.base64,
+            pairingCode: res.data?.pairingCode,
+            instanceName,
+            timeLeft: 40,
+          });
+        } catch (error: any) {
+          showToast(
+            error?.response?.data?.error ||
+              (method === "qr" ? "Error al generar QR" : "Error al generar el código"),
+            "error",
+          );
         }
       },
     });
@@ -582,8 +591,13 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       .replace(/\{\{customer_name\}\}/g, "Carlos Ramirez")
       .replace(/\{\{order_id\}\}/g, "1284")
       .replace(/\{\{item_list\}\}/g, "1x Gallo colorado, 2x Alimento premium")
-      .replace(/\{\{ticket_list\}\}/g, "018, 042, 119")
+      .replace(
+        /\{\{ticket_list\}\}/g,
+        "002, 005, 009 y 010\n\n✨ Oportunidades adicionales:\n\n002: 164, 246, 271, 635, 701, 888, 986\n005: 171, 265, 534, 817, 929, 943, 976\n009: 212, 430, 516, 605, 626, 752, 882\n010: 405, 423, 436, 441, 538, 728, 963",
+      )
       .replace(/\{\{raffle_name\}\}/g, "Rifa Especial de Junio")
+      .replace(/\{\{opening_date\}\}/g, "lunes, 20 de julio de 2026 a las 8:00 a.m.")
+      .replace(/\{\{raffle_url\}\}/g, "https://rancholastrojes.com.mx/raffles/1")
       .replace(/\{\{amount\}\}/g, "1,250.00")
       .replace(/\{\{bank_info\}\}/g, bankInfo)
       .replace(/\{\{time_store\}\}/g, "24 horas")
@@ -858,6 +872,8 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
                   const Icon =
                     template.type === "PAYMENT_CONFIRMED"
                       ? CheckCircle2
+                      : template.type === "OPENING"
+                        ? BellRing
                       : template.type === "RESTORED"
                         ? RefreshCw
                       : template.type === "RELEASE"
@@ -909,10 +925,14 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       </NexusSection>
 
       {modal === "identity" && (
-        <ModalShell
+        <NexusModal
+          isOpen
           title="Identidad del canal"
-          subtitle="Edita el nombre visible. El proposito se mantiene estable para proteger historiales."
+          eyebrow="Editar Canal"
+          icon={Building2}
           onClose={() => setModal(null)}
+          size="standard"
+          zIndex={250}
         >
           <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
             <NexusInput
@@ -923,7 +943,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
               }
               icon={Building2}
             />
-            <NexusSelect label="Proposito" value={generalData.purpose} disabled>
+            <NexusSelect label="Propósito" value={generalData.purpose} disabled>
               <option value="COMBAT">Combate</option>
               <option value="BREEDING">Cria</option>
               {RAFFLE_ENABLED && <option value="RAFFLES">Rifas</option>}
@@ -937,14 +957,18 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
               Guardar Identidad
             </NexusAutonomousButton>
           </div>
-        </ModalShell>
+        </NexusModal>
       )}
 
       {modal === "bank" && (
-        <ModalShell
-          title="Informacion bancaria"
-          subtitle="Estos datos se insertan en mensajes con la variable {{bank_info}}."
+        <NexusModal
+          isOpen
+          title="Información bancaria"
+          eyebrow="Configurar Canal"
+          icon={Banknote}
           onClose={() => setModal(null)}
+          size="standard"
+          zIndex={250}
         >
           <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
             <NexusInput
@@ -996,18 +1020,22 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
               Guardar Banco
             </NexusAutonomousButton>
           </div>
-        </ModalShell>
+        </NexusModal>
       )}
 
       {modal === "mercadopago" && (
-        <ModalShell
+        <NexusModal
+          isOpen
           title="Mercado Pago"
-          subtitle="Vincula una cuenta para cobros automatizados de este canal."
+          eyebrow="Configurar Canal"
+          icon={CreditCard}
           onClose={() => setModal(null)}
+          size="standard"
+          zIndex={250}
         >
           <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
             <div
-              className="bg-bg-muted border border-border-main flex items-center"
+              className="flex w-full min-w-0 max-w-full flex-col items-stretch border border-border-main bg-bg-muted sm:flex-row sm:items-center"
               style={{
                 gap: "var(--space-md)",
                 padding: "var(--padding-inner)",
@@ -1015,7 +1043,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
               }}
             >
               <div
-                className={`flex items-center justify-center ${mpReady ? "bg-emerald-500 text-white" : "bg-bg-card text-text-muted border border-border-main"}`}
+                className={`flex shrink-0 items-center justify-center ${mpReady ? "bg-emerald-500 text-white" : "bg-bg-card text-text-muted border border-border-main"}`}
                 style={{
                   width: "var(--size-icon-autonomous)",
                   height: "var(--size-icon-autonomous)",
@@ -1028,14 +1056,14 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
                   <CreditCard size={26} />
                 )}
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-h2 text-text-main">
                   {mpReady ? "Cuenta vinculada" : "Sin pasarela vinculada"}
                 </p>
-                <p className="text-secondary text-text-muted">
+                <p className="break-words text-secondary text-text-muted">
                   {mpReady
                     ? `Usuario ${(paymentObj as any)?.mpUserId || "sin id"}`
-                    : "Mientras falte, se usara Mercado Pago Principal."}
+                    : "Mientras falte, se usará Mercado Pago Principal."}
                 </p>
               </div>
             </div>
@@ -1047,57 +1075,59 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
               {mpReady ? "Re-vincular Mercado Pago" : "Vincular Mercado Pago"}
             </NexusAutonomousButton>
           </div>
-        </ModalShell>
+        </NexusModal>
       )}
 
       {modal === "whatsapp" && (
-        <ModalShell
-          title="Mensajeria WhatsApp"
-          subtitle="Captura el numero antes de generar QR para evitar vincular el dispositivo equivocado."
+        <NexusModal
+          isOpen
+          title="Mensajería WhatsApp"
+          eyebrow="Configurar Canal"
+          icon={MessageCircle}
           onClose={() => setModal(null)}
+          size="standard"
+          zIndex={250}
         >
-          <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
+          <div
+            className="flex w-full min-w-0 max-w-full flex-col overflow-x-hidden"
+            style={{ gap: "var(--space-lg)" }}
+          >
             <NexusInput
-              label="Numero de WhatsApp"
+              label="Número de WhatsApp"
               value={whatsappData.phone}
               onChange={(e) =>
                 setWhatsappData({ ...whatsappData, phone: e.target.value })
               }
               icon={Smartphone}
-              helperText="Incluye codigo de pais. Para Mexico suele iniciar con 521."
+              helperText="Incluye código de país. Para México suele iniciar con 521."
             />
             <div
-              className="bg-bg-muted border border-border-main flex items-center justify-between"
+              className="flex w-full min-w-0 max-w-full flex-col items-stretch border border-border-main bg-bg-muted sm:flex-row sm:items-center sm:justify-between"
               style={{
                 gap: "var(--space-md)",
                 padding: "var(--padding-inner)",
                 borderRadius: "var(--radius-inner-visual)",
               }}
             >
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-h2 text-text-main">Notificaciones</p>
-                <p className="text-secondary text-text-muted">
+                <p className="break-words text-secondary text-text-muted">
                   {whatsappData.active
                     ? "Canal habilitado para enviar mensajes"
                     : "Canal en pausa"}
                 </p>
               </div>
-              <button
-                onClick={() =>
-                  setWhatsappData({
-                    ...whatsappData,
-                    active: !whatsappData.active,
-                  })
+              <NexusSwitch
+                className="shrink-0 self-start sm:self-center"
+                checked={whatsappData.active}
+                onChange={(active) =>
+                  setWhatsappData({ ...whatsappData, active })
                 }
-                className={`w-16 h-8 rounded-full transition-all relative active:scale-90 ${whatsappData.active ? "bg-brand-500 shadow-lg shadow-brand-500/20" : "bg-stone-300"}`}
-              >
-                <div
-                  className={`absolute top-1.5 w-5 h-5 rounded-full bg-white transition-all shadow-sm ${whatsappData.active ? "left-9" : "left-1.5"}`}
-                />
-              </button>
+                aria-label="Activar notificaciones de WhatsApp"
+              />
             </div>
             <div
-              className="grid grid-cols-1 sm:grid-cols-3"
+              className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)] sm:grid-cols-2"
               style={{ gap: "var(--space-base)" }}
             >
               <NexusAutonomousButton
@@ -1105,25 +1135,36 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
                 onClick={() => saveWhatsApp(true)}
                 isLoading={isSaving}
                 icon={Save}
-                className="sm:col-span-1"
+                className="w-full min-w-0 sm:col-span-1"
               >
                 Guardar
               </NexusAutonomousButton>
               <NexusAutonomousButton
                 density="compact"
-                onClick={openQrFlow}
+                onClick={() => openWhatsAppFlow("qr")}
                 icon={QrCode}
                 variant="success"
-                className="sm:col-span-1"
+                className="w-full min-w-0 sm:col-span-1"
+                disabled={instanceStatus === "open"}
               >
                 Vincular QR
+              </NexusAutonomousButton>
+              <NexusAutonomousButton
+                density="compact"
+                onClick={() => openWhatsAppFlow("pairing_code")}
+                icon={KeyRound}
+                variant="success"
+                className="w-full min-w-0 sm:col-span-1"
+                disabled={instanceStatus === "open"}
+              >
+                Usar código
               </NexusAutonomousButton>
               <NexusAutonomousButton
                 density="compact"
                 onClick={() => checkInstanceStatus(instanceName)}
                 icon={RefreshCw}
                 variant="secondary"
-                className="sm:col-span-1"
+                className="w-full min-w-0 sm:col-span-1"
               >
                 Revisar
               </NexusAutonomousButton>
@@ -1139,52 +1180,14 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
               </NexusAutonomousButton>
             )}
           </div>
-        </ModalShell>
+        </NexusModal>
       )}
 
-      {qrData && (
-        <ModalShell
-          title="Vinculacion por QR"
-          subtitle="Escanea este codigo desde WhatsApp en el dispositivo confirmado."
-          onClose={() => setQRData(null)}
-        >
-          <div className="text-center">
-            <div
-              className="inline-block bg-white border-8 border-bg-muted shadow-inner relative"
-              style={{
-                padding: "var(--padding-outer)",
-                borderRadius: "var(--radius-outer)",
-              }}
-            >
-              {qrData.timeLeft === 0 ? (
-                <div className="w-[240px] h-[240px] flex items-center justify-center">
-                  <NexusAutonomousButton onClick={openQrFlow} icon={QrCode}>
-                    Regenerar QR
-                  </NexusAutonomousButton>
-                </div>
-              ) : (
-                <>
-                  <img
-                    src={qrData.base64}
-                    alt="QR"
-                    className="w-[240px] h-[240px]"
-                    style={{ borderRadius: "var(--radius-card-inner)" }}
-                  />
-                  <div className="absolute -top-5 -right-5 w-14 h-14 bg-stone-950 text-white rounded-full flex items-center justify-center text-h2 font-black tabular-nums border-4 border-bg-card">
-                    {qrData.timeLeft}
-                  </div>
-                </>
-              )}
-            </div>
-            <p
-              className="text-label text-emerald-600"
-              style={{ marginTop: "var(--space-lg)" }}
-            >
-              Esperando dispositivo...
-            </p>
-          </div>
-        </ModalShell>
-      )}
+      <WhatsAppPairingModal
+        data={pairingData}
+        onClose={() => setPairingData(null)}
+        onRegenerate={openWhatsAppFlow}
+      />
     </div>
   );
 };

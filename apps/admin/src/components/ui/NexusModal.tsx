@@ -1,12 +1,12 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { createPortal } from "react-dom";
 import { LucideIcon, X } from "lucide-react";
 import { NexusAutonomousButton } from "./NexusButton";
+import { useModalScrollLock } from "./useModalScrollLock";
 
 interface NexusModalProps {
   isOpen: boolean;
   title: React.ReactNode;
-  subtitle?: React.ReactNode;
   eyebrow?: React.ReactNode;
   icon?: LucideIcon;
   iconTone?: "brand" | "danger" | "warning";
@@ -37,11 +37,7 @@ export const NexusModal: React.FC<NexusModalProps> = ({
   size = "standard",
   zIndex = 100,
 }) => {
-  useEffect(() => {
-    if (!isOpen) return;
-    document.body.classList.add("overflow-hidden");
-    return () => document.body.classList.remove("overflow-hidden");
-  }, [isOpen]);
+  useModalScrollLock(isOpen);
 
   if (!isOpen) return null;
 
@@ -55,7 +51,7 @@ export const NexusModal: React.FC<NexusModalProps> = ({
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 flex items-end justify-center p-0 animate-in fade-in duration-300 sm:items-center sm:p-[var(--space-lg)]"
+      className="fixed inset-0 flex w-full max-w-[100dvw] items-end justify-center overflow-x-hidden p-0 animate-in fade-in duration-300 sm:items-center sm:p-[var(--space-lg)]"
       style={{ zIndex }}
     >
       <div
@@ -64,10 +60,11 @@ export const NexusModal: React.FC<NexusModalProps> = ({
         onClick={onClose}
       />
       <div
-        className="relative w-full overflow-hidden rounded-b-none rounded-t-[var(--radius-outer)] bg-bg-card shadow-2xl animate-in slide-in-from-bottom-10 duration-300 sm:rounded-[var(--radius-outer)] sm:zoom-in-95"
-        style={{ maxWidth: widthBySize[size] }}
+        className="relative box-border w-full min-w-0 max-w-full overflow-hidden rounded-b-none rounded-t-[var(--radius-outer)] bg-bg-card shadow-2xl animate-in slide-in-from-bottom-10 duration-300 sm:rounded-[var(--radius-outer)] sm:zoom-in-95"
+        style={{ maxWidth: `min(100dvw, ${widthBySize[size]})` }}
       >
         <div
+          className="box-border w-full min-w-0 max-w-full overflow-x-hidden"
           style={{
             padding: "var(--padding-inner)",
             paddingBottom:
@@ -103,7 +100,7 @@ export const NexusModal: React.FC<NexusModalProps> = ({
                     {eyebrow}
                   </span>
                 )}
-                <h3 className="text-h1 text-text-main">{title}</h3>
+                <h3 className="break-words text-h1 text-text-main">{title}</h3>
               </div>
             </div>
             <NexusAutonomousButton

@@ -135,10 +135,68 @@ export interface Raffle {
   ticketPrice: string | number;
   ticketQuantity: number;
   opportunities: number;
+  distribution: "LINEAR" | "RANDOM";
   useZero: boolean;
   digits: number;
   drawDate: string | null;
   image: string | null;
+  imageType: "PHOTO" | "VIDEO";
+  imagePoster: string | null;
+  prizeShippingPolicy: "INCLUDED" | "WINNER_PAYS" | null;
   status: "ACTIVE" | "FINISHED" | "CANCELLED";
-  gallery?: any[];
+  featured: boolean;
+  featuredOrder: number | null;
+  winningNumber: string | null;
+  resultPublishedAt: string | null;
+  participationStartsAt: string | null;
+  participationEndsAt: string | null;
+  participationState: "OPEN" | "UPCOMING" | "EARLY_ACCESS" | "CLOSED" | "UNAVAILABLE";
+  earlyAccessEnabled: boolean;
+  earlyAccessConfigured: boolean;
+  gallery?: RaffleGalleryItem[];
+  extraOpportunities?: RaffleOpportunity[];
+  ticketStats?: RaffleTicketStats;
+}
+
+export interface RaffleTicketStats {
+  total: number;
+  available: number;
+  reserved: number;
+  paid: number;
+  occupancyPercent: number;
+  recentActivityCount: number;
+  lastParticipationAt: string | null;
+}
+
+export interface RaffleRecentResult {
+  id: number;
+  title: string;
+  image: string | null;
+  imagePoster: string | null;
+  drawDate: string | null;
+  winningNumber: string;
+  resultPublishedAt: string;
+  opportunities: number;
+  digits: number;
+}
+
+export interface RaffleOpportunity {
+  id: number;
+  raffleId: number;
+  mainTicketNumber: string;
+  extraOpportunities: string[];
+}
+
+export interface RaffleGalleryItem {
+  id: number;
+  filePath: string;
+  fileType: "PHOTO" | "VIDEO";
+  posterPath: string | null;
+}
+
+export type RaffleTicketAvailabilityStatus = "RESERVED" | "PAID";
+
+export interface RaffleTicketAvailability {
+  ticketNumber: string;
+  status: RaffleTicketAvailabilityStatus;
 }

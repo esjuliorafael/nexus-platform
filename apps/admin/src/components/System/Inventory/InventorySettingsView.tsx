@@ -1,285 +1,311 @@
-import React, { useState, useImperativeHandle, forwardRef, useEffect } from 'react';
-import { Timer, Info, RotateCcw } from 'lucide-react';
-import { apiSystem } from '../../../api';
-import { NexusInput } from '../../ui/NexusInputs';
+import React, { forwardRef, useEffect, useImperativeHandle, useState } from "react";
+import { CreditCard, RotateCcw, Timer } from "lucide-react";
+import { apiSystem } from "../../../api";
+import { NexusSectionCard } from "../../ui/NexusCard";
+import { NexusInlineNotice } from "../../ui/NexusInlineNotice";
+import { NexusInput } from "../../ui/NexusInputs";
+import { NexusSection } from "../../ui/NexusSection";
+import { NexusSwitch } from "../../ui/NexusSwitch";
 
 export interface InventorySettingsViewRef {
   handleSave: () => void;
 }
 
 interface InventorySettingsViewProps {
-  showToast: (message: string, type?: 'success' | 'error') => void;
+  showToast: (message: string, type?: "success" | "error") => void;
 }
+
+interface InventoryConfig {
+  storeActive: boolean;
+  storeHours: number;
+  storeReminderActive: boolean;
+  storeReminderHoursBefore: number;
+  raffleActive: boolean;
+  raffleHours: number;
+  raffleReminderActive: boolean;
+  raffleReminderHoursBefore: number;
+  cardHoldMinutes: number;
+}
+
+const DEFAULT_CONFIG: InventoryConfig = {
+  storeActive: true,
+  storeHours: 24,
+  storeReminderActive: false,
+  storeReminderHoursBefore: 4,
+  raffleActive: true,
+  raffleHours: 24,
+  raffleReminderActive: false,
+  raffleReminderHoursBefore: 4,
+  cardHoldMinutes: 30,
+};
+
+const SwitchState = ({
+  checked,
+  onChange,
+  label,
+}: {
+  checked: boolean;
+  onChange: (checked: boolean) => void;
+  label: string;
+}) => (
+  <div className="flex flex-col items-center" style={{ gap: "var(--space-xs)" }}>
+    <NexusSwitch checked={checked} onChange={onChange} aria-label={label} />
+    <span className="text-caption text-text-muted uppercase">
+      {checked ? "Activo" : "Inactivo"}
+    </span>
+  </div>
+);
 
 export const InventorySettingsView = forwardRef<InventorySettingsViewRef, InventorySettingsViewProps>(
   ({ showToast }, ref) => {
-    
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
+    const [config, setConfig] = useState<InventoryConfig>(DEFAULT_CONFIG);
 
-    // Estado local para los valores del formulario
-    const [config, setConfig] = useState({
-      storeActive: true,
-      storeHours: 24,
-      storeReminderActive: false,
-      storeReminderHoursBefore: 4,
-      raffleActive: true,
-      raffleHours: 24,
-      raffleReminderActive: false,
-      raffleReminderHoursBefore: 4
-    });
-
-    // 1. Cargar datos al montar el componente
     useEffect(() => {
       const loadConfig = async () => {
         setIsLoading(true);
         try {
           const data = await apiSystem.getConfig();
           setConfig({
-            storeActive: data['inventory_release_active'] === '1',
-            storeHours: Number(data['inventory_release_hours'] || 24),
-            storeReminderActive: data['inventory_reminder_active'] === '1',
-            storeReminderHoursBefore: Number(data['inventory_reminder_hours_before'] || 4),
-            raffleActive: data['raffle_release_active'] === '1',
-            raffleHours: Number(data['raffle_release_hours'] || 24),
-            raffleReminderActive: data['raffle_reminder_active'] === '1',
-            raffleReminderHoursBefore: Number(data['raffle_reminder_hours_before'] || 4)
+            storeActive: data.inventory_release_active === "1",
+            storeHours: Number(data.inventory_release_hours || 24),
+            storeReminderActive: data.inventory_reminder_active === "1",
+            storeReminderHoursBefore: Number(data.inventory_reminder_hours_before || 4),
+            raffleActive: data.raffle_release_active === "1",
+            raffleHours: Number(data.raffle_release_hours || 24),
+            raffleReminderActive: data.raffle_reminder_active === "1",
+            raffleReminderHoursBefore: Number(data.raffle_reminder_hours_before || 4),
+            cardHoldMinutes: Number(data.mp_payment_hold_minutes || 30),
           });
         } catch (error) {
           console.error("Error cargando configuración de inventario", error);
-          showToast('Error al cargar la configuración actual', 'error');
+          showToast("Error al cargar la configuración actual", "error");
         } finally {
           setIsLoading(false);
         }
       };
-      
-      loadConfig();
-    }, []);
 
-    // 2. Guardar datos (expuesto al App.tsx)
+      void loadConfig();
+    }, [showToast]);
+
     useImperativeHandle(ref, () => ({
       handleSave: async () => {
-        // Validación local
         if (config.storeActive && (!config.storeHours || config.storeHours <= 0)) {
-          showToast('Por favor ingresa un número de horas válido para la tienda.', 'error');
+          showToast("Ingresa un número de horas válido para la tienda.", "error");
           return;
         }
         if (config.raffleActive && (!config.raffleHours || config.raffleHours <= 0)) {
-          showToast('Por favor ingresa un número de horas válido para las rifas.', 'error');
+          showToast("Ingresa un número de horas válido para las rifas.", "error");
           return;
         }
-
-        if (config.storeReminderActive && (!config.storeReminderHoursBefore || config.storeReminderHoursBefore <= 0 || config.storeReminderHoursBefore >= config.storeHours)) {
-          showToast('El recordatorio de tienda debe ser menor al tiempo limite.', 'error');
+        if (
+          config.storeReminderActive &&
+          (!config.storeReminderHoursBefore || config.storeReminderHoursBefore <= 0 || config.storeReminderHoursBefore >= config.storeHours)
+        ) {
+          showToast("El recordatorio de tienda debe ser menor al tiempo límite.", "error");
           return;
         }
-        if (config.raffleReminderActive && (!config.raffleReminderHoursBefore || config.raffleReminderHoursBefore <= 0 || config.raffleReminderHoursBefore >= config.raffleHours)) {
-          showToast('El recordatorio de rifas debe ser menor al tiempo limite.', 'error');
+        if (
+          config.raffleReminderActive &&
+          (!config.raffleReminderHoursBefore || config.raffleReminderHoursBefore <= 0 || config.raffleReminderHoursBefore >= config.raffleHours)
+        ) {
+          showToast("El recordatorio de rifas debe ser menor al tiempo límite.", "error");
           return;
         }
-
+        if (!Number.isInteger(config.cardHoldMinutes) || config.cardHoldMinutes < 5 || config.cardHoldMinutes > 60) {
+          showToast("La retención para pagos con tarjeta debe estar entre 5 y 60 minutos.", "error");
+          return;
+        }
         if (isSaving) return;
-        setIsSaving(true);
 
+        setIsSaving(true);
         try {
           await apiSystem.updateConfig({
-            'inventory_release_active': config.storeActive ? '1' : '0',
-            'inventory_release_hours': config.storeHours.toString(),
-            'inventory_reminder_active': config.storeReminderActive ? '1' : '0',
-            'inventory_reminder_hours_before': config.storeReminderHoursBefore.toString(),
-            'raffle_release_active': config.raffleActive ? '1' : '0',
-            'raffle_release_hours': config.raffleHours.toString(),
-            'raffle_reminder_active': config.raffleReminderActive ? '1' : '0',
-            'raffle_reminder_hours_before': config.raffleReminderHoursBefore.toString()
+            inventory_release_active: config.storeActive ? "1" : "0",
+            inventory_release_hours: config.storeHours,
+            inventory_reminder_active: config.storeReminderActive ? "1" : "0",
+            inventory_reminder_hours_before: config.storeReminderHoursBefore,
+            raffle_release_active: config.raffleActive ? "1" : "0",
+            raffle_release_hours: config.raffleHours,
+            raffle_reminder_active: config.raffleReminderActive ? "1" : "0",
+            raffle_reminder_hours_before: config.raffleReminderHoursBefore,
+            mp_payment_hold_minutes: config.cardHoldMinutes,
           });
-          showToast('Configuración de liberación guardada correctamente', 'success');
+          showToast("Configuración de inventario guardada correctamente", "success");
         } catch (error) {
-          showToast('Error al guardar la configuración', 'error');
+          console.error("Error guardando configuración de inventario", error);
+          showToast("Error al guardar la configuración", "error");
         } finally {
           setIsSaving(false);
         }
-      }
+      },
     }));
 
     if (isLoading) {
       return (
         <div className="flex flex-col items-center justify-center py-40 animate-in fade-in duration-500">
-           <div className="relative w-16 h-16 mb-6">
-              <div className="absolute inset-0 border-4 border-brand-100 rounded-full" />
-              <div className="absolute inset-0 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
-           </div>
-           <p className="text-stone-400 font-black uppercase tracking-[0.2em] text-[10px]">Cargando Ajustes...</p>
+          <div className="relative mb-6 h-16 w-16">
+            <div className="absolute inset-0 rounded-full border-4 border-brand-100" />
+            <div className="absolute inset-0 animate-spin rounded-full border-4 border-brand-500 border-t-transparent" />
+          </div>
+          <p className="text-label text-text-muted uppercase">Cargando ajustes...</p>
         </div>
       );
     }
 
     return (
-      <div className="space-y-8 animate-in fade-in duration-700">
-        
-        {/* Banner Info */}
-        <div className="bg-brand-50 border border-brand-100 p-6 rounded-[2rem] flex gap-4 items-start shadow-sm dark:shadow-none">
-          <div className="text-brand-500 mt-1 shrink-0"><Info size={24} /></div>
-          <div>
-            <h4 className="font-bold text-brand-900 tracking-tight">¿Cómo funciona la liberación automática?</h4>
-            <p className="text-sm text-brand-800 mt-1 leading-relaxed font-medium">
-              Cuando esta opción está activa, el sistema cancelará automáticamente los pedidos o apartados que superen el tiempo límite establecido. 
-              <br/><br/>
-              • <strong>Tienda:</strong> Las aves reservadas vuelven a estar disponibles y el stock se repone.
-              <br/>
-              • <strong>Rifas:</strong> Los boletos apartados se liberan para que otros participantes puedan comprarlos.
-              <br/><br/>
-              En ambos casos, el cliente recibirá una notificación por WhatsApp informando sobre la cancelación.
-            </p>
-          </div>
-        </div>
+      <div className="flex flex-col animate-in fade-in duration-700" style={{ gap: "var(--space-xl)" }}>
+        <NexusInlineNotice title="Liberación automática" variant="info" context="section">
+          Las órdenes por depósito o transferencia utilizan el plazo comercial de cada módulo. Los pagos con tarjeta
+          emplean una retención breve e independiente mientras Mercado Pago resuelve el cobro.
+        </NexusInlineNotice>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          {/* Card Tienda */}
-          <div className="bg-bg-card border border-border-main rounded-[2.5rem] p-8 shadow-sm dark:shadow-none">
-            <div className="flex items-center justify-between mb-6 pb-6 border-b border-border-main gap-4">
-              <div className="flex items-center gap-3">
-                <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-bg-muted border border-border-main flex items-center justify-center text-stone-600">
-                  <RotateCcw size={20} />
-                </div>
-                <div>
-                  <h3 className="font-black text-text-main uppercase tracking-widest text-sm leading-tight">Órdenes (Tienda)</h3>
-                  <p className="text-[10px] text-stone-400 font-bold uppercase mt-1">Cancela órdenes vencidas</p>
-                </div>
-              </div>
-
-              <button 
-                onClick={() => setConfig({ ...config, storeActive: !config.storeActive })}
-                className={`flex-shrink-0 w-14 h-7 rounded-full transition-all relative ${config.storeActive ? 'bg-brand-500' : 'bg-stone-300'}`}
-              >
-                <div className={`absolute top-1 w-5 h-5 rounded-full bg-bg-card shadow-sm dark:shadow-none transition-all ${config.storeActive ? 'left-8' : 'left-1'}`} />
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-6 transition-all duration-300" style={{ opacity: config.storeActive ? 1 : 0.5, pointerEvents: config.storeActive ? 'auto' : 'none' }}>
-              <div className="space-y-2 group">
-                <div className="relative">
-                  <NexusInput 
-                    label="Tiempo Límite de Pago"
-                    type="number" 
-                    min="1"
-                    value={config.storeHours} 
-                    onChange={(e) => setConfig({ ...config, storeHours: parseInt(e.target.value) || 0 })} 
-                    placeholder="Ej. 72" 
-                    icon={Timer}
-                    helperText="Después de este periodo, el sistema cancelará la orden de la tienda."
-                  />
-                  <div className="absolute top-[3.7rem] right-5 flex items-center pointer-events-none text-stone-400 font-black text-[9px] uppercase tracking-widest">
-                    Horas
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-4 rounded-[1.5rem] border border-border-main bg-bg-muted p-4">
-                <div>
-                  <p className="text-label text-text-main uppercase tracking-widest">Recordatorio de Pago</p>
-                  <p className="text-caption text-text-muted">Envía un WhatsApp antes de vencer.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setConfig({ ...config, storeReminderActive: !config.storeReminderActive })}
-                  className={`flex-shrink-0 w-14 h-7 rounded-full transition-all relative ${config.storeReminderActive ? 'bg-brand-500' : 'bg-stone-300'}`}
-                >
-                  <div className={`absolute top-1 w-5 h-5 rounded-full bg-bg-card shadow-sm dark:shadow-none transition-all ${config.storeReminderActive ? 'left-8' : 'left-1'}`} />
-                </button>
-              </div>
-
-              <div className="relative" style={{ opacity: config.storeReminderActive ? 1 : 0.5, pointerEvents: config.storeReminderActive ? 'auto' : 'none' }}>
+        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "var(--space-xl)" }}>
+          <NexusSection
+            title="Órdenes de Tienda"
+            subtitle="Apartados por depósito o transferencia"
+            icon={RotateCcw}
+            action={(
+              <SwitchState
+                checked={config.storeActive}
+                onChange={(storeActive) => setConfig((current) => ({ ...current, storeActive }))}
+                label="Liberación automática de órdenes"
+              />
+            )}
+          >
+            <div
+              className="flex flex-col transition-opacity"
+              style={{ gap: "var(--space-lg)", opacity: config.storeActive ? 1 : 0.5, pointerEvents: config.storeActive ? "auto" : "none" }}
+            >
+              <div className="relative">
                 <NexusInput
-                  label="Horas Antes de Vencer"
+                  label="Tiempo límite de pago"
+                  type="number"
+                  min="1"
+                  value={config.storeHours}
+                  onChange={(event) => setConfig((current) => ({ ...current, storeHours: Number(event.target.value) }))}
+                  icon={Timer}
+                  suffix="Horas"
+                  helperText="Después de este plazo, la orden se cancela y el inventario se libera."
+                />
+              </div>
+
+              <NexusSectionCard
+                title="Recordatorio de pago"
+                subtitle="Envía un WhatsApp antes del vencimiento."
+                rightContent={(
+                  <SwitchState
+                    checked={config.storeReminderActive}
+                    onChange={(storeReminderActive) => setConfig((current) => ({ ...current, storeReminderActive }))}
+                    label="Recordatorio de pago de tienda"
+                  />
+                )}
+              />
+
+              <div className="relative" style={{ opacity: config.storeReminderActive ? 1 : 0.5, pointerEvents: config.storeReminderActive ? "auto" : "none" }}>
+                <NexusInput
+                  label="Horas antes de vencer"
                   type="number"
                   min="1"
                   value={config.storeReminderHoursBefore}
-                  onChange={(e) => setConfig({ ...config, storeReminderHoursBefore: parseInt(e.target.value) || 0 })}
-                  placeholder="Ej. 4"
+                  onChange={(event) => setConfig((current) => ({ ...current, storeReminderHoursBefore: Number(event.target.value) }))}
                   icon={Timer}
-                  helperText="Debe ser menor al tiempo limite de pago."
+                  suffix="Horas"
+                  helperText="Debe ser menor al tiempo límite de pago."
                 />
-                <div className="absolute top-[3.7rem] right-5 flex items-center pointer-events-none text-stone-400 font-black text-[9px] uppercase tracking-widest">
-                  Horas
-                </div>
               </div>
             </div>
-          </div>
+          </NexusSection>
 
-          {/* Card Rifas */}
-          <div className="bg-bg-card border border-border-main rounded-[2.5rem] p-8 shadow-sm dark:shadow-none">
-            <div className="flex items-center justify-between mb-6 pb-6 border-b border-border-main gap-4">
-              <div className="flex items-center gap-3">
-                <div className="flex-shrink-0 w-12 h-12 rounded-2xl bg-bg-muted border border-border-main flex items-center justify-center text-stone-600">
-                  <RotateCcw size={20} />
-                </div>
-                <div>
-                  <h3 className="font-black text-text-main uppercase tracking-widest text-sm leading-tight">Apartados (Rifas)</h3>
-                  <p className="text-[10px] text-stone-400 font-bold uppercase mt-1">Libera boletos vencidos</p>
-                </div>
-              </div>
-
-              <button 
-                onClick={() => setConfig({ ...config, raffleActive: !config.raffleActive })}
-                className={`flex-shrink-0 w-14 h-7 rounded-full transition-all relative ${config.raffleActive ? 'bg-brand-500' : 'bg-stone-300'}`}
-              >
-                <div className={`absolute top-1 w-5 h-5 rounded-full bg-bg-card shadow-sm dark:shadow-none transition-all ${config.raffleActive ? 'left-8' : 'left-1'}`} />
-              </button>
-            </div>
-
-            <div className="flex flex-col gap-6 transition-all duration-300" style={{ opacity: config.raffleActive ? 1 : 0.5, pointerEvents: config.raffleActive ? 'auto' : 'none' }}>
-              <div className="space-y-2 group">
-                <div className="relative">
-                  <NexusInput 
-                    label="Tiempo Límite de Apartado"
-                    type="number" 
-                    min="1"
-                    value={config.raffleHours} 
-                    onChange={(e) => setConfig({ ...config, raffleHours: parseInt(e.target.value) || 0 })} 
-                    placeholder="Ej. 24" 
-                    icon={Timer}
-                    helperText="Después de este periodo, los boletos se liberarán automáticamente."
-                  />
-                  <div className="absolute top-[3.7rem] right-5 flex items-center pointer-events-none text-stone-400 font-black text-[9px] uppercase tracking-widest">
-                    Horas
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between gap-4 rounded-[1.5rem] border border-border-main bg-bg-muted p-4">
-                <div>
-                  <p className="text-label text-text-main uppercase tracking-widest">Recordatorio de Pago</p>
-                  <p className="text-caption text-text-muted">Envía un WhatsApp antes de liberar boletos.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setConfig({ ...config, raffleReminderActive: !config.raffleReminderActive })}
-                  className={`flex-shrink-0 w-14 h-7 rounded-full transition-all relative ${config.raffleReminderActive ? 'bg-brand-500' : 'bg-stone-300'}`}
-                >
-                  <div className={`absolute top-1 w-5 h-5 rounded-full bg-bg-card shadow-sm dark:shadow-none transition-all ${config.raffleReminderActive ? 'left-8' : 'left-1'}`} />
-                </button>
-              </div>
-
-              <div className="relative" style={{ opacity: config.raffleReminderActive ? 1 : 0.5, pointerEvents: config.raffleReminderActive ? 'auto' : 'none' }}>
+          <NexusSection
+            title="Apartados de Rifas"
+            subtitle="Reservas por depósito o transferencia"
+            icon={RotateCcw}
+            action={(
+              <SwitchState
+                checked={config.raffleActive}
+                onChange={(raffleActive) => setConfig((current) => ({ ...current, raffleActive }))}
+                label="Liberación automática de boletos"
+              />
+            )}
+          >
+            <div
+              className="flex flex-col transition-opacity"
+              style={{ gap: "var(--space-lg)", opacity: config.raffleActive ? 1 : 0.5, pointerEvents: config.raffleActive ? "auto" : "none" }}
+            >
+              <div className="relative">
                 <NexusInput
-                  label="Horas Antes de Vencer"
+                  label="Tiempo límite de apartado"
+                  type="number"
+                  min="1"
+                  value={config.raffleHours}
+                  onChange={(event) => setConfig((current) => ({ ...current, raffleHours: Number(event.target.value) }))}
+                  icon={Timer}
+                  suffix="Horas"
+                  helperText="Después de este plazo, los boletos se liberan automáticamente."
+                />
+              </div>
+
+              <NexusSectionCard
+                title="Recordatorio de pago"
+                subtitle="Envía un WhatsApp antes de liberar los boletos."
+                rightContent={(
+                  <SwitchState
+                    checked={config.raffleReminderActive}
+                    onChange={(raffleReminderActive) => setConfig((current) => ({ ...current, raffleReminderActive }))}
+                    label="Recordatorio de pago de rifas"
+                  />
+                )}
+              />
+
+              <div className="relative" style={{ opacity: config.raffleReminderActive ? 1 : 0.5, pointerEvents: config.raffleReminderActive ? "auto" : "none" }}>
+                <NexusInput
+                  label="Horas antes de vencer"
                   type="number"
                   min="1"
                   value={config.raffleReminderHoursBefore}
-                  onChange={(e) => setConfig({ ...config, raffleReminderHoursBefore: parseInt(e.target.value) || 0 })}
-                  placeholder="Ej. 4"
+                  onChange={(event) => setConfig((current) => ({ ...current, raffleReminderHoursBefore: Number(event.target.value) }))}
                   icon={Timer}
-                  helperText="Debe ser menor al tiempo limite de apartado."
+                  suffix="Horas"
+                  helperText="Debe ser menor al tiempo límite de apartado."
                 />
-                <div className="absolute top-[3.7rem] right-5 flex items-center pointer-events-none text-stone-400 font-black text-[9px] uppercase tracking-widest">
-                  Horas
-                </div>
               </div>
             </div>
-          </div>
+          </NexusSection>
         </div>
 
+        <NexusSection
+          title="Pagos con Tarjeta"
+          subtitle="Retención temporal de productos y boletos"
+          icon={CreditCard}
+          iconVariant="blue"
+        >
+          <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "var(--space-xl)" }}>
+            <div className="relative">
+              <NexusInput
+                label="Tiempo de retención"
+                type="number"
+                min="5"
+                max="60"
+                step="1"
+                value={config.cardHoldMinutes}
+                onChange={(event) => setConfig((current) => ({ ...current, cardHoldMinutes: Number(event.target.value) }))}
+                icon={Timer}
+                suffix="Minutos"
+                helperText="Ventana disponible para completar el pago o intentar con otra tarjeta."
+              />
+            </div>
+
+            <NexusInlineNotice title="Conciliación protegida" variant="neutral" context="section">
+              Si Mercado Pago mantiene el cobro en proceso, Nexus conserva la retención y consulta el estado cada 10 minutos.
+              Después de 2 horas inicia la cancelación segura; el inventario solo se libera al confirmar un estado definitivo.
+            </NexusInlineNotice>
+          </div>
+        </NexusSection>
       </div>
     );
-  }
+  },
 );
+
+InventorySettingsView.displayName = "InventorySettingsView";

@@ -2,25 +2,30 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Calendar,
   Check,
+  Clock3,
   DollarSign,
   Film,
   Hash,
   Image as ImageIcon,
   Layers,
+  KeyRound,
   Loader2,
   PlusCircle,
   Ticket,
   Trash2,
+  Trophy,
   Upload,
   X,
 } from "lucide-react";
 import { apiRaffles, apiUpload } from "../../api";
 import { Raffle, RaffleGalleryItem } from "../../types";
+import { extractFramesFromVideo } from "../../utils/video";
 import { NexusInput, NexusSelect, NexusTextarea } from "../ui/NexusInputs";
 import { NexusAutonomousButton } from "../ui/NexusButton";
 import { NexusInlineNotice } from "../ui/NexusInlineNotice";
 import { NexusSegmentedControl } from "../ui/NexusSegmentedControl";
 import { NexusSection } from "../ui/NexusSection";
+import { NexusSwitch } from "../ui/NexusSwitch";
 import { InteractionStage } from "../ui/InteractionStage";
 import { UploadPreviewOverlay } from "../ui/UploadPreviewOverlay";
 
@@ -33,9 +38,19 @@ interface RaffleFormProps {
 }
 
 type RaffleType = "SIMPLE" | "OPPORTUNITIES";
-type GalleryItem = Pick<RaffleGalleryItem, "filePath" | "fileType">;
+type PrizeShippingPolicy = "" | "INCLUDED" | "WINNER_PAYS";
+type GalleryItem = Pick<RaffleGalleryItem, "filePath" | "fileType" | "posterPath">;
+type SuggestedThumbnail = { blob: Blob; url: string };
 
 const MAX_GALLERY_ITEMS = 6;
+
+const toDateTimeLocalValue = (value?: string | null) => {
+  if (!value) return "";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const offset = date.getTimezoneOffset() * 60_000;
+  return new Date(date.getTime() - offset).toISOString().slice(0, 16);
+};
 
 export const RaffleForm: React.FC<RaffleFormProps> = ({
   initialData,
@@ -56,16 +71,37 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
   const [ticketPrice, setTicketPrice] = useState(initialData?.ticketPrice?.toString() ?? "");
   const [title, setTitle] = useState(initialData?.title ?? "");
   const [description, setDescription] = useState(initialData?.description ?? "");
+  const [prizeShippingPolicy, setPrizeShippingPolicy] = useState<PrizeShippingPolicy>(
+    initialData?.prizeShippingPolicy ?? "",
+  );
   const [drawDate, setDrawDate] = useState(
     initialData?.drawDate ? new Date(initialData.drawDate).toISOString().split("T")[0] : "",
   );
   const [status, setStatus] = useState<Raffle["status"]>(initialData?.status ?? "ACTIVE");
+  const [winningNumber, setWinningNumber] = useState(initialData?.winningNumber ?? "");
+  const [participationStartsAt, setParticipationStartsAt] = useState(
+    toDateTimeLocalValue(initialData?.participationStartsAt),
+  );
+  const [participationEndsAt, setParticipationEndsAt] = useState(
+    toDateTimeLocalValue(initialData?.participationEndsAt),
+  );
+  const [earlyAccessEnabled, setEarlyAccessEnabled] = useState(initialData?.earlyAccessEnabled ?? false);
+  const [earlyAccessCode, setEarlyAccessCode] = useState("");
   const [imageUrl, setImageUrl] = useState(initialData?.image ?? "");
+  const [coverMediaType, setCoverMediaType] = useState<"PHOTO" | "VIDEO">(
+    initialData?.imageType ?? "PHOTO",
+  );
+  const [staticThumbUrl, setStaticThumbUrl] = useState(initialData?.imagePoster ?? "");
+  const [staticThumbFile, setStaticThumbFile] = useState<File | null>(null);
+  const [suggestedThumbs, setSuggestedThumbs] = useState<SuggestedThumbnail[]>([]);
+  const [isGeneratingThumbs, setIsGeneratingThumbs] = useState(false);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [gallery, setGallery] = useState<GalleryItem[]>(initialData?.gallery ?? []);
 
   const coverInputRef = useRef<HTMLInputElement>(null);
+  const thumbInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const autoExtractedCoverRef = useRef<string | null>(null);
   const hasActiveSales = Boolean(
     initialData && ((initialData.ticketStats?.paid ?? 0) > 0 || (initialData.ticketStats?.pending ?? 0) > 0),
   );
@@ -154,18 +190,93 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
       : `${gapMessage} Ajusta boletos u oportunidades hasta llegar a 99, 100, 999, 1000 o un nivel equivalente.`;
   }, [opportunities, raffleType, ticketQuantity, universePreview]);
 
-  const isFormValid = Boolean(title.trim()) && Number.parseFloat(ticketPrice) > 0 && isUniverseValid;
+  const hasCompleteParticipationWindow = Boolean(participationStartsAt) === Boolean(participationEndsAt);
+  const hasValidParticipationWindow = !participationStartsAt || (
+    new Date(participationStartsAt).getTime() < new Date(participationEndsAt).getTime()
+  );
+  const hasEarlyAccessCode = !earlyAccessEnabled || Boolean(
+    earlyAccessCode.trim() || initialData?.earlyAccessConfigured,
+  );
+  const isFormValid = Boolean(title.trim())
+    && Number.parseFloat(ticketPrice) > 0
+    && Boolean(prizeShippingPolicy)
+    && isUniverseValid
+    && hasCompleteParticipationWindow
+    && hasValidParticipationWindow
+    && (!earlyAccessEnabled || Boolean(participationStartsAt))
+    && hasEarlyAccessCode;
 
   useEffect(() => {
     onValidationChange?.(isFormValid);
   }, [isFormValid, onValidationChange]);
 
-  const handleCoverChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+  useEffect(() => {
+    if (
+      !imageUrl ||
+      coverMediaType !== "VIDEO" ||
+      coverFile ||
+      suggestedThumbs.length > 0 ||
+      isGeneratingThumbs ||
+      autoExtractedCoverRef.current === imageUrl
+    ) return;
+
+    autoExtractedCoverRef.current = imageUrl;
+    setIsGeneratingThumbs(true);
+    void extractFramesFromVideo(imageUrl, 3)
+      .then((frames) => {
+        setSuggestedThumbs(frames);
+      })
+      .catch((error) => console.info("No se pudieron extraer fotogramas de la portada.", error))
+      .finally(() => {
+        setIsGeneratingThumbs(false);
+      });
+  }, [coverFile, coverMediaType, imageUrl, isGeneratingThumbs, suggestedThumbs.length]);
+
+  const handleCoverChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (!file) return;
 
+    const isVideoFile = file.type.startsWith("video/");
     setCoverFile(file);
     setImageUrl(URL.createObjectURL(file));
+    setCoverMediaType(isVideoFile ? "VIDEO" : "PHOTO");
+    setStaticThumbUrl("");
+    setStaticThumbFile(null);
+    setSuggestedThumbs([]);
+    autoExtractedCoverRef.current = null;
+
+    if (!isVideoFile) return;
+
+    setIsGeneratingThumbs(true);
+    try {
+      const frames = await extractFramesFromVideo(file, 3);
+      setSuggestedThumbs(frames);
+      if (frames.length >= 2) {
+        const defaultFrame = frames[1];
+        setStaticThumbUrl(defaultFrame.url);
+        setStaticThumbFile(
+          new File([defaultFrame.blob], "raffle-thumbnail.jpg", { type: "image/jpeg" }),
+        );
+      }
+    } catch (error) {
+      console.info("Se usara el poster automatico del servidor.", error);
+    } finally {
+      setIsGeneratingThumbs(false);
+    }
+  };
+
+  const selectSuggestedThumb = (frame: SuggestedThumbnail) => {
+    setStaticThumbUrl(frame.url);
+    setStaticThumbFile(
+      new File([frame.blob], "raffle-thumbnail.jpg", { type: "image/jpeg" }),
+    );
+  };
+
+  const handleThumbUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (!file) return;
+    setStaticThumbUrl(URL.createObjectURL(file));
+    setStaticThumbFile(file);
   };
 
   const handleGalleryChange = async (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -187,6 +298,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
           return {
             filePath: response.url,
             fileType: file.type.startsWith("video/") ? "VIDEO" : "PHOTO",
+            posterPath: response.posterUrl,
           } satisfies GalleryItem;
         }),
       );
@@ -210,9 +322,19 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
     setIsSubmitting(true);
     try {
       let finalImageUrl = imageUrl;
+      let finalImageType = coverMediaType;
+      let finalImagePoster = staticThumbUrl || null;
+      let coverPosterAssetId: string | undefined;
       if (coverFile) {
         const response = await apiUpload.upload(coverFile);
         finalImageUrl = response.url;
+        finalImageType = response.type;
+        finalImagePoster = response.posterUrl;
+      }
+      if (finalImageType === "VIDEO" && staticThumbFile) {
+        const thumbnail = await apiUpload.upload(staticThumbFile);
+        coverPosterAssetId = thumbnail.assetId;
+        finalImagePoster = thumbnail.url;
       }
 
       const payload = {
@@ -223,9 +345,19 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
         opportunities: raffleType === "SIMPLE" ? 1 : Number.parseInt(opportunities, 10),
         distribution,
         drawDate: drawDate ? new Date(drawDate).toISOString() : null,
+        participationStartsAt: participationStartsAt ? new Date(participationStartsAt).toISOString() : null,
+        participationEndsAt: participationEndsAt ? new Date(participationEndsAt).toISOString() : null,
+        earlyAccessEnabled,
+        earlyAccessCode: earlyAccessCode.trim() || undefined,
+        clearEarlyAccessCode: !earlyAccessEnabled,
         image: finalImageUrl || null,
+        imageType: finalImageType,
+        imagePoster: finalImageType === "VIDEO" ? finalImagePoster : null,
+        ...(coverPosterAssetId ? { coverPosterAssetId } : {}),
+        prizeShippingPolicy,
         gallery,
         status,
+        winningNumber: status === "FINISHED" ? winningNumber.trim() || null : null,
       };
 
       if (initialData?.id) {
@@ -254,7 +386,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                 className="aspect-video w-full shadow-sm"
                 icon={Upload}
                 title="Portada de la Rifa"
-                description="Imagen principal que verán los participantes."
+                description="Imagen o video principal que verán los participantes."
                 onClick={() => coverInputRef.current?.click()}
               />
             ) : (
@@ -263,7 +395,19 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                 style={{ borderRadius: "var(--radius-outer)" }}
                 onClick={() => coverInputRef.current?.click()}
               >
-                <img src={imageUrl} className="h-full w-full object-cover" alt="Portada de la rifa" />
+                {coverMediaType === "VIDEO" ? (
+                  <video
+                    src={imageUrl}
+                    poster={staticThumbUrl || undefined}
+                    className="h-full w-full object-cover"
+                    muted
+                    autoPlay
+                    loop
+                    playsInline
+                  />
+                ) : (
+                  <img src={imageUrl} className="h-full w-full object-cover" alt="Portada de la rifa" />
+                )}
                 <UploadPreviewOverlay label="Cambiar Portada" />
                 <div
                   className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between"
@@ -273,10 +417,10 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                     <NexusAutonomousButton
                       type="button"
                       variant="ghost"
-                      icon={ImageIcon}
+                      icon={coverMediaType === "VIDEO" ? Film : ImageIcon}
                       className="pointer-events-none border border-white/10 bg-black/40 text-white shadow-none backdrop-blur-md"
                     >
-                      Foto
+                      {coverMediaType === "VIDEO" ? "Video" : "Foto"}
                     </NexusAutonomousButton>
                   </div>
                   <div className="pointer-events-auto">
@@ -291,6 +435,11 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                         event.stopPropagation();
                         setImageUrl("");
                         setCoverFile(null);
+                        setCoverMediaType("PHOTO");
+                        setStaticThumbUrl("");
+                        setStaticThumbFile(null);
+                        setSuggestedThumbs([]);
+                        autoExtractedCoverRef.current = null;
                         if (coverInputRef.current) coverInputRef.current.value = "";
                       }}
                     />
@@ -298,8 +447,79 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                 </div>
               </div>
             )}
-            <input ref={coverInputRef} className="hidden" type="file" accept="image/*" onChange={handleCoverChange} />
+            <input ref={coverInputRef} className="hidden" type="file" accept="image/*,video/*" onChange={handleCoverChange} />
           </div>
+
+          {coverMediaType === "VIDEO" && imageUrl && (
+            <NexusSection
+              title="Miniatura del Video"
+              subtitle="Selecciona el fotograma para la cartelera"
+              icon={ImageIcon}
+              iconVariant="brand"
+            >
+              <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+                <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5" style={{ gap: "var(--space-md)" }}>
+                  {suggestedThumbs.map((frame, index) => (
+                    <button
+                      key={frame.url}
+                      type="button"
+                      onClick={() => selectSuggestedThumb(frame)}
+                      className={`group relative aspect-video overflow-hidden border-2 transition-all duration-300 ${
+                        staticThumbUrl === frame.url
+                          ? "border-brand-500 ring-4 ring-brand-500/10 scale-[1.02]"
+                          : "border-border-main opacity-60 hover:border-brand-200 hover:opacity-100"
+                      }`}
+                      style={{ borderRadius: "var(--radius-inner-visual)" }}
+                    >
+                      <img src={frame.url} className="h-full w-full object-cover" alt={`Opción ${index + 1}`} />
+                      {staticThumbUrl === frame.url && (
+                        <span className="absolute inset-0 flex items-center justify-center bg-brand-500/10">
+                          <span
+                            className="bg-brand-500 text-white shadow-lg"
+                            style={{ padding: "var(--space-xs)", borderRadius: "var(--radius-nested-simple)" }}
+                          >
+                            <Check size={12} strokeWidth={4} />
+                          </span>
+                        </span>
+                      )}
+                    </button>
+                  ))}
+
+                  <button
+                    type="button"
+                    onClick={() => thumbInputRef.current?.click()}
+                    className={`group relative aspect-video overflow-hidden border-2 border-dashed flex flex-col items-center justify-center transition-all duration-300 ${
+                      staticThumbUrl && !suggestedThumbs.some((frame) => frame.url === staticThumbUrl)
+                        ? "border-emerald-500 bg-emerald-50 text-emerald-600"
+                        : "border-border-main/60 bg-bg-muted/20 text-text-muted hover:border-brand-300/50 hover:bg-brand-50/20"
+                    }`}
+                    style={{ borderRadius: "var(--radius-inner-visual)", gap: "var(--space-xs)" }}
+                  >
+                    {staticThumbUrl && !suggestedThumbs.some((frame) => frame.url === staticThumbUrl) ? (
+                      <>
+                        <img src={staticThumbUrl} className="absolute inset-0 h-full w-full object-cover opacity-20" alt="Miniatura manual" />
+                        <Check size={16} className="z-10" />
+                        <span className="z-10 text-label uppercase tracking-[0.15em]">
+                          {staticThumbFile ? "Manual" : "Actual"}
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <span
+                          className="bg-stone-100 text-stone-400 transition-colors group-hover:bg-brand-100 group-hover:text-brand-500"
+                          style={{ borderRadius: "var(--radius-nested-simple)", padding: "var(--space-sm)" }}
+                        >
+                          {isGeneratingThumbs ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
+                        </span>
+                        <span className="text-label uppercase tracking-[0.15em]">Manual</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <input ref={thumbInputRef} className="hidden" type="file" accept="image/*" onChange={handleThumbUpload} />
+              </div>
+            </NexusSection>
+          )}
 
           <NexusSection
             title="Galería Adicional"
@@ -323,7 +543,22 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                   style={{ borderRadius: "var(--radius-inner-visual)" }}
                 >
                   {item.fileType === "VIDEO" ? (
-                    <video src={`${item.filePath}#t=0.5`} className="h-full w-full object-cover" preload="metadata" muted playsInline />
+                    item.posterPath ? (
+                      <img src={item.posterPath} className="h-full w-full object-cover" alt={`Video ${index + 1}`} />
+                    ) : (
+                      <video
+                        src={item.filePath}
+                        className="h-full w-full object-cover"
+                        preload="metadata"
+                        muted
+                        playsInline
+                        onLoadedMetadata={(event) => {
+                          const video = event.currentTarget;
+                          if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+                          video.currentTime = Math.min(Math.max(video.duration * 0.2, 0.2), 5);
+                        }}
+                      />
+                    )
                   ) : (
                     <img src={item.filePath} className="h-full w-full object-cover" alt={`Medio ${index + 1}`} />
                   )}
@@ -501,6 +736,30 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                 onChange={(event) => setDescription(event.target.value)}
                 placeholder="Describe el premio, las bases del sorteo y cualquier información importante."
               />
+              <div className="flex flex-col" style={{ gap: "var(--space-xs)" }}>
+                <span className="text-label uppercase tracking-[0.15em] text-text-muted">
+                  Envío del Premio *
+                </span>
+                <NexusSegmentedControl
+                  context="section"
+                  value={prizeShippingPolicy}
+                  ariaLabel="Política de envío del premio"
+                  onChange={setPrizeShippingPolicy}
+                  className="grid h-[var(--h-input)] grid-cols-2"
+                  options={[
+                    {
+                      value: "INCLUDED",
+                      label: "Envío incluido",
+                      activeClassName: "bg-bg-card text-brand-600 border border-border-main shadow-sm",
+                    },
+                    {
+                      value: "WINNER_PAYS",
+                      label: "A cargo del ganador",
+                      activeClassName: "bg-bg-card text-brand-600 border border-border-main shadow-sm",
+                    },
+                  ]}
+                />
+              </div>
               <NexusInput
                 label="Fecha de la Rifa"
                 icon={Calendar}
@@ -513,6 +772,18 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                 <option value="FINISHED">Finalizada</option>
                 <option value="CANCELLED">Cancelada</option>
               </NexusSelect>
+              {status === "FINISHED" && (
+                <NexusInput
+                  label="Número Ganador"
+                  icon={Trophy}
+                  inputMode="numeric"
+                  value={winningNumber}
+                  onChange={(event) => setWinningNumber(event.target.value.replace(/\D/g, ""))}
+                  placeholder={`Ej. ${"0".repeat(Math.max(1, universePreview?.digits ?? 3))}`}
+                  maxLength={universePreview?.digits}
+                  helperText="Al guardar un número válido, el resultado se publicará en el Storefront."
+                />
+              )}
 
               {hasActiveSales && (
                 <div
@@ -523,6 +794,79 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                   <span className="text-secondary">El universo queda bloqueado mientras existan boletos activos.</span>
                 </div>
               )}
+            </div>
+          </NexusSection>
+
+          <NexusSection
+            title="Disponibilidad de la Participación"
+            subtitle="Programa cuándo pueden apartarse boletos y habilita accesos anticipados."
+            icon={Clock3}
+            iconVariant="brand"
+          >
+            <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-md)" }}>
+                <NexusInput
+                  label="Inicio de la Participación"
+                  type="datetime-local"
+                  value={participationStartsAt}
+                  onChange={(event) => setParticipationStartsAt(event.target.value)}
+                />
+                <NexusInput
+                  label="Cierre de la Participación"
+                  type="datetime-local"
+                  value={participationEndsAt}
+                  onChange={(event) => setParticipationEndsAt(event.target.value)}
+                />
+              </div>
+
+              <div
+                className="flex items-center justify-between border border-border-main bg-bg-muted"
+                style={{
+                  gap: "var(--space-md)",
+                  padding: "var(--padding-inner)",
+                  borderRadius: "var(--radius-inner-visual)",
+                }}
+              >
+                <div className="flex min-w-0 flex-col" style={{ gap: "var(--space-xs)" }}>
+                  <span className="text-secondary font-bold text-text-main">Acceso anticipado</span>
+                  <span className="text-label text-text-muted">
+                    Permite participar antes del inicio mediante un código privado.
+                  </span>
+                </div>
+                <NexusSwitch
+                  checked={earlyAccessEnabled}
+                  onChange={setEarlyAccessEnabled}
+                  aria-label="Activar acceso anticipado"
+                />
+              </div>
+
+              {earlyAccessEnabled && (
+                <NexusInput
+                  label={initialData?.earlyAccessConfigured ? "Nuevo Código de Acceso" : "Código de Acceso *"}
+                  type="password"
+                  icon={KeyRound}
+                  value={earlyAccessCode}
+                  onChange={(event) => setEarlyAccessCode(event.target.value)}
+                  placeholder={initialData?.earlyAccessConfigured ? "Déjalo vacío para conservar el actual" : "Mínimo 4 caracteres"}
+                  minLength={4}
+                  required={!initialData?.earlyAccessConfigured}
+                  helperText="Compártelo solo con las personas que podrán participar antes de la apertura pública."
+                />
+              )}
+
+              <NexusInlineNotice
+                variant={!hasCompleteParticipationWindow || !hasValidParticipationWindow ? "warning" : "neutral"}
+                icon={Clock3}
+                title="Periodo de Participación"
+              >
+                {!hasCompleteParticipationWindow
+                  ? "Define tanto el inicio como el cierre para programar la participación."
+                  : !hasValidParticipationWindow
+                    ? "El cierre debe ser posterior al inicio."
+                    : participationStartsAt
+                      ? "La rifa será visible antes de abrir. Al llegar la fecha, la participación pública se habilitará automáticamente."
+                      : "Sin fechas, la participación estará disponible inmediatamente mientras la rifa esté publicada y activa."}
+              </NexusInlineNotice>
             </div>
           </NexusSection>
 

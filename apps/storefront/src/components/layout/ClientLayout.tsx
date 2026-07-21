@@ -1,5 +1,6 @@
 "use client";
 
+import { useCallback, useMemo, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Header } from "./Header";
 import { BottomNav } from "./BottomNav";
@@ -11,6 +12,9 @@ import { useToastStore } from "../../store/toast.store";
 import { StorefrontToast } from "../ui/Toast";
 import { StorefrontUnavailableView } from "./StorefrontUnavailableView";
 import { AnimatePresence } from "framer-motion";
+import { RaffleSelectionDrawerHost } from "../raffle/RaffleSelectionDrawerHost";
+import { StorefrontRouteTransition } from "./StorefrontRouteTransition";
+import { StorefrontRouteRevealProvider } from "./StorefrontRouteMotionContext";
 
 interface ClientLayoutProps {
   children: React.ReactNode;
@@ -18,6 +22,10 @@ interface ClientLayoutProps {
 
 export function ClientLayout({ children }: ClientLayoutProps) {
   const pathname = usePathname();
+  const [routeRevealEpoch, setRouteRevealEpoch] = useState(0);
+  const [readyRoutePathname, setReadyRoutePathname] = useState<string | null>(
+    () => (pathname === "/raffles" ? null : pathname),
+  );
   const {
     getBranding,
     getStorefrontAvailability,
@@ -38,12 +46,50 @@ export function ClientLayout({ children }: ClientLayoutProps) {
 
   const showRaffles = isModuleEnabled("raffle_enabled");
   const isProductDetailRoute = pathname.startsWith("/store/");
+  const isRaffleDetailRoute = pathname.startsWith("/raffles/");
   const isCheckoutRoute = pathname === "/checkout";
+  const isPrimaryRoute = [
+    "/",
+    "/store",
+    "/gallery",
+    "/raffles",
+    "/contact",
+  ].includes(pathname);
+  const destinationReady =
+    pathname !== "/raffles" || readyRoutePathname === pathname;
   const branding = getBranding();
   const availability = getStorefrontAvailability();
+  const handleDestinationReveal = useCallback(() => {
+    setRouteRevealEpoch((current) => current + 1);
+  }, []);
+  const markRoutePending = useCallback((pendingPathname: string) => {
+    setReadyRoutePathname((current) =>
+      current === pendingPathname ? null : current,
+    );
+  }, []);
+  const markRouteReady = useCallback((readyPathname: string) => {
+    setReadyRoutePathname(readyPathname);
+  }, []);
+  const routeMotionContextValue = useMemo(
+    () => ({
+      revealEpoch: routeRevealEpoch,
+      markRoutePending,
+      markRouteReady,
+    }),
+    [markRoutePending, markRouteReady, routeRevealEpoch],
+  );
 
   if (settingsLoading) {
-    return <div className="min-h-screen bg-[var(--sf-bg-app)]" />;
+    return (
+      <div
+        className={`min-h-screen ${
+          isPrimaryRoute
+            ? "bg-stone-950 md:bg-[var(--sf-bg-app)]"
+            : "bg-[var(--sf-bg-app)]"
+        }`}
+        aria-busy="true"
+      />
+    );
   }
 
   if (availability.isUnavailable) {
@@ -70,43 +116,53 @@ export function ClientLayout({ children }: ClientLayoutProps) {
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-stone-50 text-stone-900">
-      <Header
-        showRaffles={showRaffles}
-        onOpenCart={openCart}
-      />
+    <StorefrontRouteRevealProvider value={routeMotionContextValue}>
+      <div className="flex min-h-screen flex-col bg-stone-50 text-stone-900">
+        <StorefrontRouteTransition
+          logoUrl={branding.logo_url}
+          brandName={branding.brand_name || "Nexus Store"}
+          destinationReady={destinationReady}
+          onDestinationReveal={handleDestinationReveal}
+        />
 
-      <main className={`flex-1 ${pathname === "/" ? "pt-0" : "pt-6 md:pt-24"}`}>
-        {children}
-      </main>
-
-      <AnimatePresence>
-        {message && (
-          <StorefrontToast
-            key={message}
-            title={title}
-            message={message}
-            type={type}
-            action={action}
-            durationMs={durationMs}
-            onClose={hideToast}
-          />
-        )}
-      </AnimatePresence>
-
-      {!isProductDetailRoute && !isCheckoutRoute && !settingsLoading && (
-        <BottomNav
+        <Header
           showRaffles={showRaffles}
           onOpenCart={openCart}
-          isCartOpen={isCartOpen}
         />
-      )}
 
-      <CartDrawer isOpen={isCartOpen} onClose={closeCart} />
+        <main className={`flex-1 ${pathname === "/" ? "pt-0" : "pt-6 md:pt-24"}`}>
+          {children}
+        </main>
 
-      <div className="hidden md:block">
-        <Footer />
+        <AnimatePresence>
+          {message && (
+            <StorefrontToast
+              key={message}
+              title={title}
+              message={message}
+              type={type}
+              action={action}
+              durationMs={durationMs}
+              onClose={hideToast}
+            />
+          )}
+        </AnimatePresence>
+
+        {!isProductDetailRoute && !isRaffleDetailRoute && !isCheckoutRoute && !settingsLoading && (
+          <BottomNav
+            showRaffles={showRaffles}
+            onOpenCart={openCart}
+            isCartOpen={isCartOpen}
+          />
+        )}
+
+        <CartDrawer isOpen={isCartOpen} onClose={closeCart} />
+        <RaffleSelectionDrawerHost />
+
+        <div className="hidden md:block">
+          <Footer />
+        </div>
       </div>
-    </div>
+    </StorefrontRouteRevealProvider>
   );
 }

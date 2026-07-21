@@ -403,7 +403,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
           </div>
 
           {/* Secondary Info: Stats */}
-          <div className="flex flex-row items-center shrink-0 lg:border-l lg:border-border-main lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-lg)' }}>
+          <div className="nexus-card-divider-desktop flex flex-row items-center shrink-0 lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-lg)' }}>
             {!isBird && (
               <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
                 <span className="text-label uppercase tracking-[0.15em] text-stone-400">Stock</span>
@@ -414,7 +414,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             {/* Price: Highlighted */}
             <div
               className={`flex flex-col items-end lg:min-w-[120px] ${
-                isBird ? '' : 'lg:border-l lg:border-border-main lg:pl-[var(--space-md)]'
+                isBird ? '' : 'nexus-card-divider-desktop lg:pl-[var(--space-md)]'
               }`}
               style={{ gap: 'var(--space-xs)' }}
             >
@@ -428,7 +428,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
           {/* Status & Actions */}
           <div
-            className="flex items-center justify-between shrink-0 border-t border-border-main pt-[var(--space-md)] lg:justify-end lg:border-l lg:border-t-0 lg:pl-[var(--space-md)] lg:pt-0"
+            className="nexus-card-divider-desktop flex items-center justify-between shrink-0 border-t border-border-main pt-[var(--space-md)] lg:justify-end lg:border-t-0 lg:pl-[var(--space-md)] lg:pt-0"
             style={{ gap: 'var(--space-md)' }}
           >
             {onTogglePublished && (

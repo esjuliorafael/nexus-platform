@@ -300,8 +300,12 @@ export const mediaAssetService = {
       }),
     ]);
 
-    if (!videoAsset || videoAsset.mediaType !== "VIDEO" || videoAsset.status !== "READY") {
-      throw unsupportedMedia("El asset de portada no es un video listo.");
+    if (
+      !videoAsset ||
+      videoAsset.mediaType !== "VIDEO" ||
+      !["UPLOADING", "READY"].includes(videoAsset.status)
+    ) {
+      throw unsupportedMedia("El asset de portada no es un video disponible.");
     }
     if (!posterAsset || posterAsset.mediaType !== "PHOTO" || !posterAsset.mediaUrl) {
       throw unsupportedMedia("La miniatura seleccionada no es una imagen valida.");
@@ -327,6 +331,20 @@ export const mediaAssetService = {
     if (previousPosterUrl && previousPosterUrl !== posterAsset.mediaUrl) {
       await storageService.deleteFile(previousPosterUrl);
     }
+
+    return posterAsset.mediaUrl;
+  },
+
+  async adoptPosterByUrl(videoUrl: string, posterAssetId: string) {
+    const videoAsset = await storePrisma.mediaAsset.findUnique({
+      where: { mediaUrl: videoUrl },
+      select: { id: true },
+    });
+    if (!videoAsset) {
+      throw unsupportedMedia("No se encontro el video de portada.");
+    }
+
+    return this.adoptPoster(videoAsset.id, posterAssetId);
   },
 
   async releaseIfUnreferenced(id: string) {

@@ -6,8 +6,11 @@ import {
   subcategoryRoutes,
 } from "./categories/category.routes";
 import { mediaPublicRoutes, mediaRoutes } from "./media/media.routes";
-import { settingRoutes } from "./settings/setting.routes";
-import { paymentChannelRoutes } from "./payment-channels/payment-channel.routes";
+import { publicSettingRoutes, settingRoutes } from "./settings/setting.routes";
+import {
+  paymentChannelRoutes,
+  publicPaymentOptionRoutes,
+} from "./payment-channels/payment-channel.routes";
 import { whatsappChannelRoutes } from "./whatsapp-channels/whatsapp-channel.routes";
 import { evolutionProxyRoutes } from "./whatsapp-channels/evolution-proxy.routes";
 import { evolutionWebhookRoutes } from "./whatsapp-channels/evolution-webhook.routes";
@@ -42,6 +45,10 @@ export async function storeRoutes(server: FastifyInstance) {
   await server.register(publicContactRoutes, { prefix: "/store/contacts" });
   await server.register(couponPublicRoutes, { prefix: "/store/coupons" });
   await server.register(orderRoutes, { prefix: "/store/orders" });
+  await server.register(publicPaymentOptionRoutes, {
+    prefix: "/store/payment-options",
+  });
+  await server.register(publicSettingRoutes, { prefix: "/store/settings" });
   await server.register(mpRoutes, { prefix: "/mp" });
   await server.register(evolutionWebhookRoutes, { prefix: "/webhooks" });
 

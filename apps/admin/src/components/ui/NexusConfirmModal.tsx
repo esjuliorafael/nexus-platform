@@ -1,8 +1,9 @@
-import React, { useEffect } from "react";
+import React from "react";
 import { createPortal } from "react-dom";
 import { AlertTriangle, LucideIcon } from "lucide-react";
 import { NexusAutonomousButton, NexusButtonVariant } from "./NexusButton";
 import { NexusModalActions } from "./NexusModal";
+import { useModalScrollLock } from "./useModalScrollLock";
 
 type NexusConfirmTone = "danger" | "warning" | "brand";
 
@@ -43,11 +44,7 @@ export const NexusConfirmModal: React.FC<NexusConfirmModalProps> = ({
   icon: Icon = AlertTriangle,
   zIndex = 250,
 }) => {
-  useEffect(() => {
-    if (!isOpen) return;
-    document.body.classList.add("overflow-hidden");
-    return () => document.body.classList.remove("overflow-hidden");
-  }, [isOpen]);
+  useModalScrollLock(isOpen);
 
   if (!isOpen) return null;
 

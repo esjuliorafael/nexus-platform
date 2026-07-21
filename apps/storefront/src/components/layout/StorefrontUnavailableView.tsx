@@ -3,6 +3,7 @@
 import { ExternalLink, Sparkles, Wrench } from "lucide-react";
 import { StorefrontSectionButton } from "../ui/Button";
 import { StorefrontSectionBadge } from "../ui/Badge";
+import { useBrandImageReady } from "../ui/BrandLogo";
 import { StorefrontSectionIcon } from "../ui/Icon";
 import { useFavicon } from "../../hooks/useFavicon";
 
@@ -48,6 +49,7 @@ export function StorefrontUnavailableView({
   secondaryHref,
 }: StorefrontUnavailableViewProps) {
   useFavicon(logoUrl || null);
+  const isBrandLogoReady = useBrandImageReady(logoUrl);
 
   const isLaunch = status === "COMING_SOON";
   const hasPrimaryCta = Boolean(primaryText && primaryHref);
@@ -79,25 +81,16 @@ export function StorefrontUnavailableView({
       <div className="absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-stone-950 via-stone-950/76 to-transparent" />
 
       <section
-        className="relative z-10 mx-auto flex min-h-[calc(100vh-(var(--sf-inset-page-mobile)*2))] w-full max-w-7xl flex-col justify-between"
+        className="relative z-10 mx-auto flex min-h-[calc(100vh-(var(--sf-inset-page-mobile)*2))] w-full max-w-[var(--sf-max-width-content)] flex-col justify-between"
         style={{ gap: "var(--sf-space-xl)" }}
       >
         <header className="flex items-center justify-between">
-          {showLogo ? (
-            logoUrl ? (
-              <img
-                src={logoUrl}
-                alt={brandName}
-                className="max-h-16 w-auto max-w-[12rem] object-contain drop-shadow-[0_18px_38px_rgba(0,0,0,0.45)]"
-              />
-            ) : (
-              <div
-                className="flex h-14 w-14 items-center justify-center bg-white text-xl font-black text-stone-950 shadow-2xl shadow-black/30"
-                style={{ borderRadius: "var(--sf-radius-card-inner)" }}
-              >
-                {brandName.charAt(0)}
-              </div>
-            )
+          {showLogo && logoUrl && isBrandLogoReady ? (
+            <img
+              src={logoUrl}
+              alt={brandName}
+              className="sf-brand-logo-reveal max-h-16 w-auto max-w-[12rem] object-contain drop-shadow-[0_18px_38px_rgba(0,0,0,0.45)]"
+            />
           ) : (
             <span />
           )}

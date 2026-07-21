@@ -29,6 +29,22 @@ export const settingService = {
     }, {});
   },
 
+  async getPublicGrouped() {
+    const grouped = await this.getAllGrouped();
+    const sensitiveKey = /(secret|token|api_key|access_key|private_key|client_id|evolution_key|password)/i;
+
+    return Object.fromEntries(
+      Object.entries(grouped).map(([group, values]) => [
+        group,
+        Object.fromEntries(
+          Object.entries(values as Record<string, string>).filter(
+            ([key]) => !sensitiveKey.test(key),
+          ),
+        ),
+      ]),
+    );
+  },
+
   async getByKey(key: string) {
     return storePrisma.setting.findUnique({ where: { key } });
   },

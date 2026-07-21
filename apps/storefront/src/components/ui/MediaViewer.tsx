@@ -529,7 +529,7 @@ export function MediaViewer({
       )}
 
       <div
-        className={`sf-media-viewer-body scrollbar-hide mx-auto flex h-full w-full max-w-7xl flex-col items-center overflow-y-auto px-[var(--sf-inset-page-mobile)] md:overflow-hidden lg:px-[calc(var(--sf-h-button-section)+var(--sf-space-lg))]${
+        className={`sf-media-viewer-body scrollbar-hide mx-auto flex h-full w-full max-w-[var(--sf-max-width-content)] flex-col items-center overflow-y-auto px-[var(--sf-inset-page)] md:overflow-hidden lg:px-[calc(var(--sf-h-button-section)+var(--sf-space-lg))]${
           isCompactMedia ? " sf-media-viewer-body--compact" : ""
         }`}
         onTouchStart={handleTouchStart}

@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { Ticket } from 'lucide-react';
 import { RaffleDetailsClient } from './RaffleDetailsClient';
 import { Button } from '../../../components/ui/Button';
-import { Raffle } from '../../../types';
+import { Raffle, RaffleTicketAvailability } from '../../../types';
 import { formatPrice } from '../../../utils/formatters';
 
 interface PageProps {
@@ -34,14 +34,14 @@ async function fetchRaffle(id: string): Promise<Raffle | null> {
   }
 }
 
-async function fetchOccupiedTickets(id: string): Promise<string[]> {
+async function fetchTicketAvailability(id: string): Promise<RaffleTicketAvailability[]> {
   const apiUrl = process.env.INTERNAL_API_URL || 
                  process.env.NEXT_PUBLIC_API_URL || 
                  process.env.VITE_API_URL || 
                  'http://localhost:3001/api/v1';
 
   try {
-    const res = await fetch(`${apiUrl}/raffles/${id}/occupied-tickets`, {
+    const res = await fetch(`${apiUrl}/raffles/${id}/ticket-availability`, {
       cache: 'no-store',
     });
 
@@ -51,8 +51,34 @@ async function fetchOccupiedTickets(id: string): Promise<string[]> {
 
     return res.json();
   } catch (error) {
-    console.error('Error fetching occupied tickets in SSR:', error);
+    console.error('Error fetching raffle ticket availability in SSR:', error);
     return [];
+  }
+}
+
+async function fetchRaffleReservationHours(): Promise<number | null> {
+  const apiUrl = process.env.INTERNAL_API_URL ||
+                 process.env.NEXT_PUBLIC_API_URL ||
+                 process.env.VITE_API_URL ||
+                 'http://localhost:3001/api/v1';
+
+  try {
+    const res = await fetch(`${apiUrl}/store/settings`, { cache: 'no-store' });
+    if (!res.ok) return null;
+
+    const settings = await res.json() as Record<string, Record<string, string | null>>;
+    const values = Object.values(settings).reduce<Record<string, string | null>>(
+      (all, group) => ({ ...all, ...group }),
+      {},
+    );
+
+    if (values.raffle_release_active !== '1') return null;
+
+    const hours = Number(values.raffle_release_hours || 24);
+    return Number.isFinite(hours) && hours > 0 ? hours : 24;
+  } catch (error) {
+    console.error('Error fetching raffle reservation settings in SSR:', error);
+    return null;
   }
 }
 
@@ -69,7 +95,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const title = `Gran Sorteo: ${raffle.title} | Nexus`;
   const description = raffle.description || `Participa y gana en nuestro sorteo. Costo del boleto: $${formatPrice(raffle.ticketPrice)}.`;
   const defaultFallbackImage = 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=1200&q=80';
-  const imageUrl = raffle.image || defaultFallbackImage;
+  const imageUrl = raffle.imagePoster || raffle.image || defaultFallbackImage;
 
   return {
     title,
@@ -92,14 +118,15 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function RaffleDetailPage({ params }: PageProps) {
   const raffleId = params.id;
 
-  const [raffle, occupiedTickets] = await Promise.all([
+  const [raffle, ticketAvailability, raffleReservationHours] = await Promise.all([
     fetchRaffle(raffleId),
-    fetchOccupiedTickets(raffleId),
+    fetchTicketAvailability(raffleId),
+    fetchRaffleReservationHours(),
   ]);
 
   if (!raffle) {
     return (
-      <div className="mx-auto flex min-h-[70vh] max-w-2xl flex-col items-center justify-center px-[var(--sf-inset-page-mobile)] text-center md:px-[var(--sf-padding-outer)]">
+      <div className="mx-auto flex min-h-[70vh] max-w-2xl flex-col items-center justify-center px-[var(--sf-inset-page)] text-center">
         <div
           className="mx-auto flex max-w-lg flex-col items-center justify-center border border-stone-200/60 bg-white text-center shadow-xl shadow-stone-100/50"
           style={{
@@ -134,5 +161,11 @@ export default async function RaffleDetailPage({ params }: PageProps) {
     );
   }
 
-  return <RaffleDetailsClient raffle={raffle} initialOccupiedTickets={occupiedTickets} />;
+  return (
+    <RaffleDetailsClient
+      raffle={raffle}
+      initialTicketAvailability={ticketAvailability}
+      reservationHours={raffleReservationHours}
+    />
+  );
 }

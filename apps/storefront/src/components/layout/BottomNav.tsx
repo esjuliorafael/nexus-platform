@@ -57,7 +57,7 @@ export function BottomNav({
   const navItems = [
     { to: "/", label: "Inicio", icon: Home },
     { to: "/store", label: "Tienda", icon: ShoppingBag },
-    { to: "/gallery", label: "Galeria", icon: ImageIcon },
+    { to: "/gallery", label: "Galería", icon: ImageIcon },
     ...(showRaffles ? [{ to: "/raffles", label: "Rifas", icon: Ticket }] : []),
     { to: "/contact", label: "Contacto", icon: Headphones },
   ];
@@ -93,7 +93,7 @@ export function BottomNav({
           style={{
             height: "var(--sf-h-mobile-nav)",
             borderRadius: "var(--sf-radius-outer)",
-            gap: "var(--sf-space-xs)",
+            gap: "var(--sf-gap-mobile-nav-actions)",
             padding: "var(--sf-space-sm)",
           }}
         >
@@ -181,13 +181,15 @@ function BottomNavItem({
     <Link
       href={href}
       aria-label={label}
-      className={`group relative flex min-w-0 items-center justify-center overflow-hidden border transition-all duration-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/25 ${
+      className={`group relative flex min-w-0 items-center justify-center overflow-hidden transition-all duration-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/25 ${
         active
-          ? "shrink-0 border-brand-100 bg-brand-50 text-brand-800 shadow-sm"
-          : "shrink-0 border-transparent px-0 text-stone-500 hover:bg-stone-100 hover:text-stone-950"
+          ? "shrink-0 border border-brand-100 bg-brand-50 text-brand-800 shadow-sm"
+          : "shrink-0 border-0 bg-transparent px-0 text-stone-500 hover:text-stone-950"
       }`}
       style={{
-        width: active ? undefined : "var(--sf-size-mobile-nav-item)",
+        width: active
+          ? undefined
+          : "var(--sf-width-mobile-nav-icon-action)",
         height: "var(--sf-size-mobile-nav-item)",
         gap: active ? "var(--sf-space-sm)" : undefined,
         paddingInline: active

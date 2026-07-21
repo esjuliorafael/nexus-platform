@@ -1,19 +1,38 @@
 import React from "react";
-import { Calendar, Edit2, Hash, Ticket, Trash2, Users } from "lucide-react";
+import {
+  ArrowDown,
+  ArrowUp,
+  Calendar,
+  Clock3,
+  Edit2,
+  Hash,
+  KeyRound,
+  Star,
+  Ticket,
+  Trash2,
+  Users,
+} from "lucide-react";
 import { ASSET_BASE_URL } from "../../api";
 import { Raffle } from "../../types";
 import { NexusAutonomousBadge } from "../ui/NexusBadge";
 import { NexusAutonomousButton } from "../ui/NexusButton";
 import { NexusAutonomousCard } from "../ui/NexusCard";
 import { NexusSwitch } from "../ui/NexusSwitch";
+import { parseCalendarDate } from "../../utils/calendarDate";
 
 interface RaffleCardProps {
   raffle: Raffle;
   onEdit: () => void;
   onDelete: () => void;
-  onViewDetail: () => void;
   onTogglePublished: () => void;
+  onToggleFeatured: () => void;
+  onMoveFeaturedUp?: () => void;
+  onMoveFeaturedDown?: () => void;
+  canMoveFeaturedUp?: boolean;
+  canMoveFeaturedDown?: boolean;
   isTogglingPublished?: boolean;
+  isTogglingFeatured?: boolean;
+  isReorderingFeatured?: boolean;
 }
 
 const getAssetUrl = (path?: string | null) => {
@@ -31,9 +50,8 @@ const statusConfig: Record<Raffle["status"], { label: string; variant: "success"
 };
 
 const formatDrawDate = (drawDate?: string) => {
-  if (!drawDate) return "Sin fecha";
-  const date = new Date(drawDate);
-  if (Number.isNaN(date.getTime())) return "Sin fecha";
+  const date = parseCalendarDate(drawDate);
+  if (!date) return "Sin fecha";
 
   return new Intl.DateTimeFormat("es-MX", {
     day: "2-digit",
@@ -46,14 +64,34 @@ export const RaffleCard: React.FC<RaffleCardProps> = ({
   raffle,
   onEdit,
   onDelete,
-  onViewDetail,
   onTogglePublished,
+  onToggleFeatured,
+  onMoveFeaturedUp,
+  onMoveFeaturedDown,
+  canMoveFeaturedUp,
+  canMoveFeaturedDown,
   isTogglingPublished,
+  isTogglingFeatured,
+  isReorderingFeatured,
 }) => {
   const status = statusConfig[raffle.status];
   const isOpportunityRaffle = raffle.opportunities > 1;
-  const imageUrl = getAssetUrl(raffle.image);
+  const imageUrl = getAssetUrl(raffle.imagePoster || raffle.image);
   const totalPotential = raffle.ticketPrice * raffle.ticketQuantity;
+  const now = Date.now();
+  const startsAt = raffle.participationStartsAt ? new Date(raffle.participationStartsAt).getTime() : null;
+  const endsAt = raffle.participationEndsAt ? new Date(raffle.participationEndsAt).getTime() : null;
+  const participationBadge = raffle.status !== "ACTIVE" || !raffle.published
+    ? null
+    : endsAt && now >= endsAt
+      ? { label: "Participación cerrada", variant: "muted" as const, icon: Clock3 }
+      : startsAt && now < startsAt
+        ? {
+            label: raffle.earlyAccessEnabled ? "Acceso anticipado" : "Próximamente",
+            variant: "warning" as const,
+            icon: raffle.earlyAccessEnabled ? KeyRound : Clock3,
+          }
+        : { label: "Participación abierta", variant: "success" as const, icon: Clock3 };
 
   return (
     <NexusAutonomousCard
@@ -67,12 +105,9 @@ export const RaffleCard: React.FC<RaffleCardProps> = ({
         className="grid grid-cols-1 items-stretch lg:grid-cols-[var(--size-slide-thumb-width)_1fr_auto]"
         style={{ gap: "var(--space-md)" }}
       >
-        <button
-          type="button"
-          onClick={onViewDetail}
-          className="group relative aspect-video w-full overflow-hidden bg-bg-muted text-left shadow-inner outline-none transition-transform duration-500 active:scale-[0.99] focus-visible:ring-4 focus-visible:ring-brand-500/20 lg:h-[var(--size-slide-thumb-height)]"
+        <div
+          className="group relative aspect-video w-full overflow-hidden bg-bg-muted text-left shadow-inner lg:h-[var(--size-slide-thumb-height)]"
           style={{ borderRadius: "var(--radius-card-inner)" }}
-          aria-label={`Ver detalle de ${raffle.title}`}
         >
           {imageUrl ? (
             <img
@@ -107,7 +142,7 @@ export const RaffleCard: React.FC<RaffleCardProps> = ({
               {formatDrawDate(raffle.drawDate)}
             </NexusAutonomousBadge>
           </div>
-        </button>
+        </div>
 
         <div className="flex min-w-0 flex-col justify-center lg:flex-row lg:items-center" style={{ gap: "var(--space-md)" }}>
           <div className="flex min-w-0 flex-1 flex-col" style={{ gap: "var(--space-sm)" }}>
@@ -120,6 +155,16 @@ export const RaffleCard: React.FC<RaffleCardProps> = ({
               </NexusAutonomousBadge>
               {raffle.status !== "ACTIVE" && (
                 <NexusAutonomousBadge variant={status.variant}>{status.label}</NexusAutonomousBadge>
+              )}
+              {participationBadge && (
+                <NexusAutonomousBadge variant={participationBadge.variant} icon={participationBadge.icon}>
+                  {participationBadge.label}
+                </NexusAutonomousBadge>
+              )}
+              {raffle.featured && (
+                <NexusAutonomousBadge variant="warning" icon={Star}>
+                  Destacada {raffle.featuredOrder ?? ""}
+                </NexusAutonomousBadge>
               )}
             </div>
 
@@ -138,16 +183,28 @@ export const RaffleCard: React.FC<RaffleCardProps> = ({
               </div>
             </div>
 
-            <div className="flex flex-col items-center" style={{ gap: "var(--space-xs)" }}>
-              <NexusSwitch
-                checked={raffle.published}
-                onChange={onTogglePublished}
-                disabled={isTogglingPublished}
-                aria-label={raffle.published ? "Pausar rifa" : "Publicar rifa"}
+            <div className="flex shrink-0 items-center" style={{ gap: "var(--space-sm)" }}>
+              <div className="flex flex-col items-center" style={{ gap: "var(--space-xs)" }}>
+                <NexusSwitch
+                  checked={raffle.published}
+                  onChange={onTogglePublished}
+                  disabled={isTogglingPublished}
+                  aria-label={raffle.published ? "Pausar rifa" : "Publicar rifa"}
+                />
+                <span className="text-label uppercase tracking-[0.15em] text-text-muted">
+                  {raffle.published ? "Publicado" : "Pausado"}
+                </span>
+              </div>
+              <FeaturedControls
+                raffle={raffle}
+                onToggleFeatured={onToggleFeatured}
+                onMoveFeaturedUp={onMoveFeaturedUp}
+                onMoveFeaturedDown={onMoveFeaturedDown}
+                canMoveFeaturedUp={canMoveFeaturedUp}
+                canMoveFeaturedDown={canMoveFeaturedDown}
+                isTogglingFeatured={isTogglingFeatured}
+                isReorderingFeatured={isReorderingFeatured}
               />
-              <span className="text-label uppercase tracking-[0.15em] text-text-muted">
-                {raffle.published ? "Publicado" : "Pausado"}
-              </span>
             </div>
           </div>
 
@@ -190,6 +247,16 @@ export const RaffleCard: React.FC<RaffleCardProps> = ({
           </div>
 
           <div className="flex shrink-0 items-center" style={{ gap: "var(--space-sm)" }}>
+            <FeaturedControls
+              raffle={raffle}
+              onToggleFeatured={onToggleFeatured}
+              onMoveFeaturedUp={onMoveFeaturedUp}
+              onMoveFeaturedDown={onMoveFeaturedDown}
+              canMoveFeaturedUp={canMoveFeaturedUp}
+              canMoveFeaturedDown={canMoveFeaturedDown}
+              isTogglingFeatured={isTogglingFeatured}
+              isReorderingFeatured={isReorderingFeatured}
+            />
             <NexusAutonomousButton density="compact" variant="secondary" isIconOnly icon={Edit2} onClick={onEdit} aria-label="Editar rifa" />
             <NexusAutonomousButton
               density="compact"
@@ -206,3 +273,63 @@ export const RaffleCard: React.FC<RaffleCardProps> = ({
     </NexusAutonomousCard>
   );
 };
+
+function FeaturedControls({
+  raffle,
+  onToggleFeatured,
+  onMoveFeaturedUp,
+  onMoveFeaturedDown,
+  canMoveFeaturedUp,
+  canMoveFeaturedDown,
+  isTogglingFeatured,
+  isReorderingFeatured,
+}: Pick<
+  RaffleCardProps,
+  | "raffle"
+  | "onToggleFeatured"
+  | "onMoveFeaturedUp"
+  | "onMoveFeaturedDown"
+  | "canMoveFeaturedUp"
+  | "canMoveFeaturedDown"
+  | "isTogglingFeatured"
+  | "isReorderingFeatured"
+>) {
+  return (
+    <>
+      <NexusAutonomousButton
+        density="compact"
+        variant={raffle.featured ? "brand" : "secondary"}
+        isIconOnly
+        icon={Star}
+        onClick={onToggleFeatured}
+        disabled={isTogglingFeatured || !raffle.published || raffle.status !== "ACTIVE"}
+        aria-label={raffle.featured ? "Quitar de destacadas" : "Destacar rifa"}
+        className={raffle.featured
+          ? "hover:border-amber-500 hover:bg-amber-500"
+          : "hover:border-amber-100 hover:bg-amber-50 hover:text-amber-600"}
+      />
+      {raffle.featured && (
+        <>
+          <NexusAutonomousButton
+            density="compact"
+            variant="secondary"
+            isIconOnly
+            icon={ArrowUp}
+            onClick={onMoveFeaturedUp}
+            disabled={isReorderingFeatured || !canMoveFeaturedUp}
+            aria-label="Subir rifa destacada"
+          />
+          <NexusAutonomousButton
+            density="compact"
+            variant="secondary"
+            isIconOnly
+            icon={ArrowDown}
+            onClick={onMoveFeaturedDown}
+            disabled={isReorderingFeatured || !canMoveFeaturedDown}
+            aria-label="Bajar rifa destacada"
+          />
+        </>
+      )}
+    </>
+  );
+}

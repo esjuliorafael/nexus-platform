@@ -5,6 +5,7 @@ import type {
   EvolutionQRResult,
   EvolutionConnectionState,
   EvolutionWebhookConfig,
+  EvolutionCreateInstanceResult,
 } from "./evolution.types";
 
 async function evRequest<T>(
@@ -41,10 +42,11 @@ export const evolutionClient = {
       { number: payload.number, text: payload.text }
     );
   },
-  getQR(instance: EvolutionInstance) {
+  getConnectionCode(instance: EvolutionInstance, number?: string) {
+    const query = number ? `?number=${encodeURIComponent(number)}` : "";
     return evRequest<EvolutionQRResult>(
       instance, "GET",
-      `/instance/connect/${instance.instanceName}`
+      `/instance/connect/${instance.instanceName}${query}`
     );
   },
   getConnectionState(instance: EvolutionInstance) {
@@ -59,8 +61,8 @@ export const evolutionClient = {
       `/instance/logout/${instance.instanceName}`
     );
   },
-  createInstance(instance: EvolutionInstance) {
-    return evRequest<{ instance: any; hash: string }>(
+  createInstance(instance: EvolutionInstance, number?: string) {
+    return evRequest<EvolutionCreateInstanceResult>(
       instance, "POST",
       "/instance/create",
       {
@@ -68,6 +70,7 @@ export const evolutionClient = {
         token: "",
         qrcode: true,
         integration: "WHATSAPP-BAILEYS",
+        ...(number ? { number } : {}),
       }
     );
   },

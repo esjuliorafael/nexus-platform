@@ -29,7 +29,7 @@ const resolveOrderKind = (order: ExpirableOrder): OrderKind => {
 };
 
 export const expirePendingOrder = async (orderId: number) => {
-  const order = await getExpirableOrder(orderId);
+  let order = await getExpirableOrder(orderId);
 
   if (
     !order ||
@@ -38,6 +38,19 @@ export const expirePendingOrder = async (orderId: number) => {
     order.expiresAt.getTime() > Date.now()
   ) {
     return null;
+  }
+
+  if (order.paymentMethod === "MERCADOPAGO" && order.mpPaymentId) {
+    const paymentId = order.mpPaymentId;
+    try {
+      const { mpService } = await import("../modules/store/payments/mercadopago.service");
+      await mpService.reconcilePayment(paymentId, order.mpSellerUserId);
+      order = await getExpirableOrder(orderId);
+      if (!order || order.status !== "PENDING") return null;
+    } catch (error) {
+      console.error(`[Order expiration] Could not reconcile Mercado Pago payment ${paymentId}:`, error);
+      return null;
+    }
   }
 
   const expiredOrder = await storePrisma.$transaction(async (tx) => {

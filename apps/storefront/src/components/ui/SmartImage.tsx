@@ -10,6 +10,8 @@ interface SmartImageProps {
   className?: string;
   wrapperClassName?: string;
   priority?: boolean;
+  onLoad?: () => void;
+  onError?: () => void;
 }
 
 export function SmartImage({ 
@@ -17,7 +19,9 @@ export function SmartImage({
   alt, 
   className, 
   wrapperClassName,
-  priority = false 
+  priority = false,
+  onLoad,
+  onError,
 }: SmartImageProps) {
   const [isLoaded, setIsLoaded] = useState(false);
 
@@ -44,7 +48,11 @@ export function SmartImage({
         src={src}
         alt={alt}
         loading={priority ? "eager" : "lazy"}
-        onLoad={() => setIsLoaded(true)}
+        onLoad={() => {
+          setIsLoaded(true);
+          onLoad?.();
+        }}
+        onError={onError}
         initial={{ opacity: 0, scale: 1.05 }}
         animate={{ 
           opacity: isLoaded ? 1 : 0, 

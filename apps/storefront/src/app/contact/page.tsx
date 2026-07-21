@@ -36,8 +36,8 @@ export default function ContactPage() {
   }, []);
 
   return (
-    <main className="min-h-screen px-[var(--sf-inset-page-mobile)] pb-[var(--sf-mobile-chrome-content-padding-bottom)] pt-[var(--sf-space-lg)] md:px-[var(--sf-padding-outer)] md:pt-24">
-      <div className="mx-auto flex max-w-7xl flex-col" style={{ gap: "var(--sf-space-lg)" }}>
+    <main className="min-h-screen px-[var(--sf-inset-page)] pb-[var(--sf-mobile-chrome-content-padding-bottom)] pt-[var(--sf-space-lg)] md:pt-24">
+      <div className="mx-auto flex max-w-[var(--sf-max-width-content)] flex-col" style={{ gap: "var(--sf-space-lg)" }}>
         <header className="flex max-w-3xl flex-col" style={{ gap: "var(--sf-space-sm)" }}>
           <Badge variant="brand" context="section" icon={Headphones} className="w-fit">
             Atencion directa

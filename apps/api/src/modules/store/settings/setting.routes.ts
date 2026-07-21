@@ -3,11 +3,11 @@ import { settingService } from "./setting.service";
 import { updateSettingSchema, bulkUpdateSettingsSchema } from "./setting.schema";
 
 export async function settingRoutes(server: FastifyInstance) {
-  server.get("/", async () => {
+  server.get("/", { preHandler: [server.authenticate] }, async () => {
     return settingService.getAllGrouped();
   });
 
-  server.get("/:key", async (request, reply) => {
+  server.get("/:key", { preHandler: [server.authenticate] }, async (request, reply) => {
     const { key } = request.params as { key: string };
     const setting = await settingService.getByKey(key);
     if (!setting) return reply.status(404).send({ message: "Setting not found" });
@@ -24,4 +24,8 @@ export async function settingRoutes(server: FastifyInstance) {
     const validated = bulkUpdateSettingsSchema.parse(request.body);
     return settingService.bulkUpsert(validated.settings);
   });
+}
+
+export async function publicSettingRoutes(server: FastifyInstance) {
+  server.get("/", async () => settingService.getPublicGrouped());
 }

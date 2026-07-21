@@ -26,6 +26,7 @@ import {
 import { whatsappWorker } from "./workers/whatsapp.worker";
 import { mediaProcessingWorker } from "./workers/media-processing.worker";
 import { expireOverduePendingOrders } from "./services/order-expiration.service";
+import { reconcileRaffleOpeningNotifications } from "./services/raffle-opening-notification.service";
 
 const server = fastify({
   logger: true,
@@ -199,6 +200,28 @@ async function bootstrap() {
       5 * 60 * 1000,
     );
     orderReminderReconciliationTimer.unref?.();
+
+    if (process.env.RAFFLE_ENABLED === "true") {
+      const reconcileRaffleOpeningReminders = async () => {
+        try {
+          const result = await reconcileRaffleOpeningNotifications();
+          if (result.scheduled > 0) {
+            server.log.info(
+              `Scheduled ${result.scheduled} raffle opening reminders (${result.scanned} scanned).`,
+            );
+          }
+        } catch (error: any) {
+          server.log.error(`Raffle opening reminder reconciliation failed: ${error.message}`);
+        }
+      };
+
+      await reconcileRaffleOpeningReminders();
+      const raffleOpeningReminderTimer = setInterval(
+        reconcileRaffleOpeningReminders,
+        5 * 60 * 1000,
+      );
+      raffleOpeningReminderTimer.unref?.();
+    }
 
     const refreshMercadoPagoConnections = async () => {
       try {

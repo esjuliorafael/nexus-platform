@@ -81,6 +81,8 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
       items: [
         { icon: <Ticket size={20} />, label: "Ver Rifas" },
         { icon: <TicketPlus size={20} />, label: "Nueva Rifa" },
+        { icon: <BadgePercent size={20} />, label: "Cupones de Rifas" },
+        { icon: <ClipboardList size={20} />, label: "Participaciones" },
       ],
     },
     {
@@ -129,7 +131,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
   if (isDetail) {
     filteredActions = [
       {
-        group: "Tienda",
+        group: context || "Tienda",
         items: [{ icon: <ArrowLeft size={20} />, label: "Volver" }],
       },
     ];

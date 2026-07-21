@@ -12,7 +12,7 @@ import {
   AnnualService,
   ExtraCharge,
   Raffle,
-  TicketSale,
+  RaffleParticipation,
   BillingPayment,
   TemplateType,
   RaffleIntelligenceOverview,
@@ -154,7 +154,11 @@ export const apiUpload = {
     let asset = normalizeUploadResult(res.data);
     const deadline = Date.now() + 5 * 60 * 1000;
 
-    while (asset.status === "PROCESSING" && Date.now() < deadline) {
+    while (
+      (asset.status === "PROCESSING" ||
+        (asset.type === "VIDEO" && asset.status === "READY" && !asset.posterUrl)) &&
+      Date.now() < deadline
+    ) {
       await new Promise((resolve) => window.setTimeout(resolve, 1200));
       const statusResponse = await api.get(`/admin/uploads/${asset.assetId}`);
       asset = normalizeUploadResult(statusResponse.data);
@@ -435,6 +439,42 @@ export const apiCoupons = {
   },
 };
 
+export interface RaffleCouponRecord {
+  id: string;
+  code: string;
+  name: string | null;
+  discountType: "PERCENTAGE" | "FIXED";
+  discountValue: number;
+  raffleId: string | null;
+  minTickets: number | null;
+  maxDiscount: number | null;
+  usageLimit: number | null;
+  usedCount: number;
+  active: boolean;
+  startsAt: string | null;
+  expiresAt: string | null;
+  raffle?: { id: number; title: string } | null;
+}
+
+const mapRaffleCoupon = (item: any): RaffleCouponRecord => ({
+  ...item,
+  id: String(item.id),
+  raffleId: item.raffleId == null ? null : String(item.raffleId),
+  discountValue: Number(item.discountValue || 0),
+  minTickets: mapNullableNumber(item.minTickets),
+  maxDiscount: mapNullableNumber(item.maxDiscount),
+  usageLimit: mapNullableNumber(item.usageLimit),
+  usedCount: Number(item.usedCount || 0),
+  active: item.active !== false,
+});
+
+export const apiRaffleCoupons = {
+  getAll: async (): Promise<RaffleCouponRecord[]> => (await api.get('/admin/raffle-coupons')).data.map(mapRaffleCoupon),
+  create: async (data: Partial<RaffleCouponRecord>) => mapRaffleCoupon((await api.post('/admin/raffle-coupons', data)).data),
+  update: async (id: string, data: Partial<RaffleCouponRecord>) => mapRaffleCoupon((await api.put(`/admin/raffle-coupons/${id}`, data)).data),
+  delete: (id: string) => api.delete(`/admin/raffle-coupons/${id}`),
+};
+
 export const apiCategories = {
   getAll: async (): Promise<Category[]> => {
     const res = await api.get("/admin/categories");
@@ -644,8 +684,14 @@ export const apiWhatsApp = {
   // Evolution Proxy
   getStatus: async (instanceName: string) =>
     api.get(`/admin/whatsapp/status/${instanceName}`),
-  getQR: async (instanceName: string) =>
-    api.post(`/admin/whatsapp/connect/${instanceName}`),
+  connect: async (
+    instanceName: string,
+    method: "qr" | "pairing_code",
+    phone?: string,
+  ) => api.post(`/admin/whatsapp/connect/${instanceName}`, {
+    method,
+    ...(method === "pairing_code" ? { phone } : {}),
+  }),
   disconnect: async (instanceName: string) =>
     api.post(`/admin/whatsapp/disconnect/${instanceName}`),
 };
@@ -655,6 +701,10 @@ export const apiChannels = {
     const res = await api.get("/admin/channels/overview");
     return res.data;
   },
+  createSpecialized: async (data: any) =>
+    api.post("/admin/channels", data),
+  deleteSpecialized: async (purpose: string) =>
+    api.delete(`/admin/channels/${encodeURIComponent(purpose)}`),
 };
 
 export const apiUsers = {
@@ -749,25 +799,57 @@ export const apiRaffles = {
       id: item.id.toString(),
       ticketPrice: parseFloat(item.ticketPrice),
       published: item.published !== false,
+      featured: item.featured === true,
+      featuredOrder: item.featuredOrder == null ? null : Number(item.featuredOrder),
+      earlyAccessEnabled: item.earlyAccessEnabled === true,
+      earlyAccessConfigured: item.earlyAccessConfigured === true,
     }));
   },
   create: async (data: any) => api.post("/raffles", data),
   update: async (id: string, data: any) => api.put(`/raffles/${id}`, data),
   updatePublication: async (id: string, published: boolean) =>
     api.patch(`/raffles/${id}/publication`, { published }),
-  remove: async (id: string) => api.delete(`/raffles/${id}`),
-  getTickets: async (raffleId: string): Promise<TicketSale[]> => {
-    const res = await api.get(`/raffles/${raffleId}/tickets`);
+  updateFeatured: async (id: string, featured: boolean, featuredOrder?: number | null) =>
+    api.patch(`/raffles/${id}/featured`, { featured, featuredOrder }),
+  reorderFeatured: async (ids: string[]): Promise<Raffle[]> => {
+    const res = await api.put("/raffles/featured/reorder", {
+      ids: ids.map((id) => Number(id)),
+    });
     return res.data.map((item: any) => ({
       ...item,
       id: item.id.toString(),
-      raffleId: item.raffleId.toString(),
+      ticketPrice: parseFloat(item.ticketPrice),
+      published: item.published !== false,
+      featured: item.featured === true,
+      featuredOrder: item.featuredOrder == null ? null : Number(item.featuredOrder),
+      earlyAccessEnabled: item.earlyAccessEnabled === true,
+      earlyAccessConfigured: item.earlyAccessConfigured === true,
     }));
   },
-  createTicket: async (raffleId: string, data: any) =>
-    api.post(`/raffles/${raffleId}/tickets`, data),
-  updateTicketStatus: async (id: string, status: string) => {
-    return api.patch(`/ticket-sales/${id}/status`, { paymentStatus: status });
+  remove: async (id: string) => api.delete(`/raffles/${id}`),
+};
+
+export const apiRaffleParticipations = {
+  getAll: async (): Promise<RaffleParticipation[]> => {
+    const response = await api.get("/ticket-sales/admin/participations");
+    return response.data;
+  },
+  getById: async (id: string): Promise<RaffleParticipation> => {
+    const response = await api.get(`/ticket-sales/admin/participations/${encodeURIComponent(id)}`);
+    return response.data;
+  },
+  updateStatus: async (id: string, paymentStatus: "PAID" | "CANCELLED") => {
+    const response = await api.patch(
+      `/ticket-sales/admin/participations/${encodeURIComponent(id)}/status`,
+      { paymentStatus },
+    );
+    return response.data as RaffleParticipation;
+  },
+  refundMercadoPago: async (id: string): Promise<RaffleParticipation> => {
+    const response = await api.post(
+      `/ticket-sales/admin/participations/${encodeURIComponent(id)}/refund`,
+    );
+    return response.data;
   },
 };
 
@@ -842,6 +924,8 @@ function mapProductType(type?: string): "BIRD" | "ITEM" {
 function mapOrderResponse(item: any): Order {
   return {
     id: item.id.toString(),
+    recordType: item.recordType || "ORDER",
+    paymentHoldId: item.paymentHoldId || null,
     customer: item.customerName,
     customerPhone: item.customerPhone,
     receiverName: item.receiverName,
@@ -854,6 +938,8 @@ function mapOrderResponse(item: any): Order {
     shippingCity: item.shippingCity,
     total: parseFloat(item.total),
     status: mapOrderStatus(item.status),
+    holdStatus: item.holdStatus || null,
+    expiresAt: item.expiresAt || null,
     paymentMethod: item.paymentMethod,
     paymentStatus: item.paymentStatus,
     paymentExpiresAt: item.paymentExpiresAt,
@@ -870,6 +956,17 @@ function mapOrderResponse(item: any): Order {
     date: item.createdAt,
     isRead: Boolean(item.isRead),
     readAt: item.readAt || undefined,
+    paymentAttempts: (item.paymentAttempts || []).map((attempt: any) => ({
+      id: attempt.id,
+      status: attempt.status,
+      statusDetail: attempt.statusDetail,
+      mpPaymentId: attempt.mpPaymentId,
+      retryable: Boolean(attempt.retryable),
+      uncertain: Boolean(attempt.uncertain),
+      customerMessage: attempt.customerMessage,
+      createdAt: attempt.createdAt,
+      updatedAt: attempt.updatedAt,
+    })),
     items: (item.items || []).map((i: any) => ({
       id: i.productId.toString(),
       name: i.productName || "Producto",
@@ -881,8 +978,10 @@ function mapOrderResponse(item: any): Order {
   };
 }
 
-function mapOrderStatus(status: string): "paid" | "pending" | "cancelled" {
+function mapOrderStatus(status: string): Order["status"] {
   const s = status.toUpperCase();
+  if (s === "PAYMENT_REVIEW") return "payment_review";
+  if (s === "NOT_COMPLETED") return "not_completed";
   if (s === "PAID" || s === "SHIPPED" || s === "DELIVERED") return "paid";
   if (s === "CANCELLED") return "cancelled";
   return "pending";

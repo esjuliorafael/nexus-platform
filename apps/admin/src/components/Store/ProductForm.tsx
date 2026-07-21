@@ -222,8 +222,7 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
 
       if (!finalCoverAssetId) throw new Error('Selecciona una portada para el producto.');
 
-      const isNewDirectVideoCover = !!coverFile && coverFile.type.startsWith('video/');
-      if (isVideo && staticThumbFile && !isNewDirectVideoCover) {
+      if (isVideo && staticThumbFile) {
         const uploadRes = await apiUpload.upload(staticThumbFile);
         coverPosterAssetId = uploadRes.assetId;
       }
@@ -440,10 +439,18 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                         <img src={galleryPosterUrl(idx)!} className="w-full h-full object-cover" alt={`Video ${idx + 1}`} />
                       ) : isGalleryVideo(url, idx) ? (
                         <video 
-                          src={`${url}#t=0.5`} 
+                          src={url}
                           className="w-full h-full object-cover" 
                           preload="metadata" 
                           playsInline
+                          onLoadedMetadata={(event) => {
+                            const video = event.currentTarget;
+                            if (!Number.isFinite(video.duration) || video.duration <= 0) return;
+                            video.currentTime = Math.min(
+                              Math.max(video.duration * 0.2, 0.2),
+                              5,
+                            );
+                          }}
                         />
                       ) : (
                         <img src={url} className="w-full h-full object-cover" alt={`Gallery ${idx}`} />

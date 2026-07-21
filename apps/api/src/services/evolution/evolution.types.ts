@@ -15,9 +15,16 @@ export interface EvolutionSendResult {
 }
 
 export interface EvolutionQRResult {
-  pairingCode: string | null;
-  code: string;
-  base64: string;
+  pairingCode?: string | null;
+  code?: string;
+  base64?: string;
+  count?: number;
+}
+
+export interface EvolutionCreateInstanceResult {
+  instance: unknown;
+  hash?: string;
+  qrcode?: EvolutionQRResult;
 }
 
 export interface EvolutionConnectionState {

@@ -9,6 +9,7 @@ import {
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
 import type { OrderKind, OrderItemPurpose } from "../../../services/evolution/channel.resolver";
 import { validateCouponForItems } from "../coupons/coupon.service";
+import { resolvePaymentHoldMinutes } from "../payments/payment-hold-policy";
 
 const createOrderError = (message: string, statusCode = 400) => {
   const error = new Error(message) as Error & { statusCode?: number };
@@ -17,6 +18,81 @@ const createOrderError = (message: string, statusCode = 400) => {
 };
 
 const normalizePhone = (phone: string | null | undefined) => String(phone || "").replace(/\D/g, "");
+
+const toStorePaymentHoldAdminStatus = (hold: any) => {
+  const latestAttempt = hold.paymentAttempts?.[0];
+  const holdStatus = String(hold.status || "").toUpperCase();
+  const paymentStatus = String(hold.mpPaymentStatus || "").toLowerCase();
+  const attemptStatus = String(latestAttempt?.status || "").toUpperCase();
+  const hasDefinitiveFailure =
+    ["EXPIRED", "CANCELLED"].includes(holdStatus) ||
+    ["rejected", "cancelled", "refunded", "charged_back"].includes(paymentStatus);
+
+  if (hasDefinitiveFailure) return "NOT_COMPLETED";
+
+  const isUnderReview =
+    holdStatus === "PROCESSING" ||
+    ["pending", "in_process", "authorized", "processing"].includes(paymentStatus) ||
+    ["PROCESSING", "UNKNOWN"].includes(attemptStatus);
+
+  return isUnderReview ? "PAYMENT_REVIEW" : "NOT_COMPLETED";
+};
+
+const toStorePaymentHoldSummary = (hold: any) => {
+  const latestAttempt = hold.paymentAttempts?.[0] || null;
+
+  return {
+    id: `hold-${hold.id}`,
+    recordType: "PAYMENT_HOLD",
+    paymentHoldId: hold.id,
+    customerName: hold.customerName,
+    customerPhone: hold.customerPhone,
+    customerEmail: hold.customerEmail,
+    receiverName: hold.receiverName,
+    deliveryType: hold.deliveryType,
+    deliveryMethod: hold.deliveryMethod,
+    shippingAddress: hold.shippingAddress,
+    shippingStreet: hold.shippingStreet,
+    shippingNeighborhood: hold.shippingNeighborhood,
+    shippingPostalCode: hold.shippingPostalCode,
+    shippingCity: hold.shippingCity,
+    shippingState: hold.shippingState,
+    subtotal: hold.subtotal,
+    discountTotal: hold.discountTotal,
+    shippingCost: hold.shippingCost,
+    total: hold.total,
+    couponCode: hold.couponCode,
+    status: toStorePaymentHoldAdminStatus(hold),
+    holdStatus: hold.status,
+    expiresAt: hold.expiresAt,
+    paymentMethod: "MERCADOPAGO",
+    paymentStatus: toStorePaymentHoldAdminStatus(hold) === "PAYMENT_REVIEW" ? "PENDING" : "FAILED",
+    paymentExpiresAt: hold.expiresAt,
+    mpPaymentId: hold.mpPaymentId || latestAttempt?.mpPaymentId || null,
+    mpSellerUserId: hold.mpSellerUserId,
+    mpPaymentStatus: hold.mpPaymentStatus || latestAttempt?.status?.toLowerCase() || null,
+    mpPaymentStatusDetail: hold.mpPaymentStatusDetail || latestAttempt?.statusDetail || null,
+    mpPaymentMethodId: null,
+    mpPaymentTypeId: null,
+    mpPaidAmount: null,
+    createdAt: hold.createdAt,
+    updatedAt: hold.updatedAt,
+    isRead: true,
+    readAt: null,
+    items: hold.items,
+    paymentAttempts: (hold.paymentAttempts || []).map((attempt: any) => ({
+      id: attempt.id,
+      status: attempt.status,
+      statusDetail: attempt.statusDetail,
+      mpPaymentId: attempt.mpPaymentId,
+      retryable: attempt.retryable,
+      uncertain: attempt.uncertain,
+      customerMessage: attempt.customerMessage,
+      createdAt: attempt.createdAt,
+      updatedAt: attempt.updatedAt,
+    })),
+  };
+};
 
 const resolveOrderKindFromProducts = (
   products: Array<{ type: string; purpose: string | null }>,
@@ -41,24 +117,43 @@ const resolveOrderKindFromProducts = (
 
 export const orderService = {
   async getAll(status: OrderStatus | undefined, userId: number) {
-    const orders = await storePrisma.order.findMany({
-      where: status ? { status } : {},
-      include: {
-        items: true,
-        reads: {
-          where: { userId },
-          select: { readAt: true },
-          take: 1,
+    const [orders, paymentHolds] = await Promise.all([
+      storePrisma.order.findMany({
+        where: status ? { status } : {},
+        include: {
+          items: true,
+          reads: {
+            where: { userId },
+            select: { readAt: true },
+            take: 1,
+          },
         },
-      },
-      orderBy: { createdAt: "desc" },
-    });
+        orderBy: { createdAt: "desc" },
+      }),
+      status
+        ? Promise.resolve([])
+        : storePrisma.storePaymentHold.findMany({
+            where: { promotedOrderId: null },
+            include: {
+              items: true,
+              paymentAttempts: { orderBy: { createdAt: "desc" } },
+            },
+            orderBy: { createdAt: "desc" },
+          }),
+    ]);
 
-    return orders.map(({ reads, ...order }) => ({
+    const orderSummaries = orders.map(({ reads, ...order }) => ({
       ...order,
+      recordType: "ORDER",
       isRead: reads.length > 0,
       readAt: reads[0]?.readAt ?? null,
     }));
+    const holdSummaries = paymentHolds.map(toStorePaymentHoldSummary);
+
+    return [...orderSummaries, ...holdSummaries].sort(
+      (left, right) =>
+        new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+    );
   },
 
   async markRead(ids: number[], userId: number) {
@@ -77,11 +172,27 @@ export const orderService = {
     return { count: result.count };
   },
 
-  async getById(id: number) {
-    return storePrisma.order.findUnique({
-      where: { id },
+  async getById(id: number | string) {
+    const holdMatch = typeof id === "string" ? /^hold-([0-9a-f-]{36})$/i.exec(id) : null;
+    if (holdMatch) {
+      const hold = await storePrisma.storePaymentHold.findUnique({
+        where: { id: holdMatch[1] },
+        include: {
+          items: true,
+          paymentAttempts: { orderBy: { createdAt: "desc" } },
+        },
+      });
+      if (!hold || hold.promotedOrderId) return null;
+      return toStorePaymentHoldSummary(hold);
+    }
+
+    const orderId = typeof id === "number" ? id : Number(id);
+    if (!Number.isInteger(orderId) || orderId < 1) return null;
+    const order = await storePrisma.order.findUnique({
+      where: { id: orderId },
       include: { items: true },
     });
+    return order ? { ...order, recordType: "ORDER" } : null;
   },
 
   async getWhatsappLogs(id: number) {
@@ -142,6 +253,9 @@ export const orderService = {
   },
 
   async create(data: any) {
+    if (data.paymentMethod === "MERCADOPAGO") {
+      throw createOrderError("Los pagos con tarjeta deben iniciar mediante una retención de inventario.", 409);
+    }
     const settings = await storePrisma.setting.findMany();
     const settingsMap = settings.reduce((acc: any, s) => {
       acc[s.key] = s.value;
@@ -215,7 +329,7 @@ export const orderService = {
     const releaseHours = Number(settingsMap["inventory_release_hours"] || 24);
     const isReminderActive = settingsMap["inventory_reminder_active"] === "1";
     const reminderHoursBefore = Number(settingsMap["inventory_reminder_hours_before"] || 4);
-    const mpHoldMinutes = Math.max(5, Number(settingsMap["mp_payment_hold_minutes"] || 30));
+    const mpHoldMinutes = resolvePaymentHoldMinutes(settingsMap["mp_payment_hold_minutes"]);
     const expiresAt = isMercadoPagoOrder
       ? new Date(Date.now() + mpHoldMinutes * 60 * 1000)
       : isReleaseActive
@@ -257,15 +371,36 @@ export const orderService = {
       // Reserve inventory
       for (const item of orderItemsData) {
         if (item.productType === "BIRD") {
-          await tx.product.update({
-            where: { id: item.productId },
+          const reserved = await tx.product.updateMany({
+            where: {
+              id: item.productId,
+              active: true,
+              saleStatus: "AVAILABLE",
+            },
             data: { saleStatus: "RESERVED" },
           });
+          if (reserved.count !== 1) {
+            throw createOrderError(
+              `El producto "${item.productName || item.productId}" acaba de dejar de estar disponible.`,
+              409,
+            );
+          }
         } else {
-          await tx.product.update({
-            where: { id: item.productId },
+          const reserved = await tx.product.updateMany({
+            where: {
+              id: item.productId,
+              active: true,
+              saleStatus: "AVAILABLE",
+              stock: { gte: item.quantity },
+            },
             data: { stock: { decrement: item.quantity } },
           });
+          if (reserved.count !== 1) {
+            throw createOrderError(
+              `No hay existencias suficientes de "${item.productName || item.productId}".`,
+              409,
+            );
+          }
         }
       }
 

@@ -7,6 +7,7 @@ interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   error?: string;
   helperText?: string;
   copyable?: boolean;
+  suffix?: React.ReactNode;
   animationDelay?: string;
 }
 
@@ -18,8 +19,9 @@ export const NexusInput: React.FC<InputProps> = ({
   label, 
   icon: Icon, 
   error, 
-  helperText, 
+  helperText,
   copyable,
+  suffix,
   animationDelay,
   className = '', 
   ...props 
@@ -40,13 +42,13 @@ export const NexusInput: React.FC<InputProps> = ({
 
   return (
     <div 
-      className="group flex flex-col animate-in fade-in zoom-in-95 duration-300"
+      className="group flex w-full min-w-0 flex-col animate-in fade-in zoom-in-95 duration-300"
       style={{ animationDelay, animationTimingFunction: 'var(--ease-emil)', animationFillMode: 'both', gap: 'var(--space-xs)' }}
     >
       <label className="text-label uppercase tracking-[0.15em] text-text-muted ml-1 group-focus-within:text-brand-500 transition-colors">
         {label}
       </label>
-      <div className="relative flex items-center h-[var(--h-input)]">
+      <div className="relative flex h-[var(--h-input)] w-full min-w-0 items-center">
         {Icon && (
           <div className="absolute left-5 text-text-muted group-focus-within:text-brand-500 transition-colors pointer-events-none z-10 flex items-center justify-center">
             <Icon style={{ width: 'var(--size-inner-icon-card)', height: 'var(--size-inner-icon-card)' }} strokeWidth={1.5} />
@@ -55,15 +57,20 @@ export const NexusInput: React.FC<InputProps> = ({
         <input 
           {...props}
           type={inputType}
-          className={`w-full h-full bg-bg-muted border border-border-main focus:outline-none focus:ring-4 focus:ring-brand-500/5 focus:border-brand-500/50 focus:bg-bg-card transition-all duration-300 font-medium text-text-main disabled:opacity-50 disabled:cursor-not-allowed tabular-nums 
+          className={`h-full w-full min-w-0 bg-bg-muted border border-border-main focus:outline-none focus:ring-4 focus:ring-brand-500/5 focus:border-brand-500/50 focus:bg-bg-card transition-all duration-300 font-medium text-text-main disabled:opacity-50 disabled:cursor-not-allowed tabular-nums
             ${Icon ? 'pl-14' : 'px-6'} 
-            ${(isPasswordField || copyable) ? 'pr-14' : 'pr-6'}
+            ${(isPasswordField || copyable || suffix) ? 'pr-20' : 'pr-6'}
             ${props.type === 'date' ? '[&::-webkit-calendar-picker-indicator]:opacity-0 [&::-webkit-calendar-picker-indicator]:absolute [&::-webkit-calendar-picker-indicator]:inset-0 [&::-webkit-calendar-picker-indicator]:cursor-pointer dark:[&::-webkit-calendar-picker-indicator]:invert' : ''}
             ${className}`}
           style={{ transitionTimingFunction: 'var(--ease-emil)', borderRadius: 'var(--radius-inner-visual)' }}
         />
 
         <div className="absolute right-3 flex items-center gap-1">
+          {suffix && (
+            <span className="pointer-events-none px-2 text-label text-text-muted uppercase">
+              {suffix}
+            </span>
+          )}
           {copyable && props.value && (
             <button
               type="button"

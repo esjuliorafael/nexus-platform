@@ -8,6 +8,12 @@ import {
   updateOrderStatusSchema,
 } from "./order.schema";
 import { OrderStatus } from "@prisma/client-store";
+import { storePaymentHoldService } from "./store-payment-hold.service";
+import { z } from "zod";
+
+const convertPaymentHoldSchema = z.object({
+  customerPhone: z.string().trim().min(1),
+});
 
 export async function orderRoutes(server: FastifyInstance) {
   // Storefront read (Public)
@@ -30,6 +36,35 @@ export async function orderRoutes(server: FastifyInstance) {
         return reply.status(400).send({ message: "Validation error", errors: err.errors });
       }
       return reply.status(400).send({ message: err.message });
+    }
+  });
+
+  server.post("/payment-holds", async (request, reply) => {
+    try {
+      const validated = createOrderSchema.parse(request.body);
+      if (validated.paymentMethod !== "MERCADOPAGO") {
+        return reply.status(400).send({ message: "Una retención de pago requiere Mercado Pago." });
+      }
+      return await storePaymentHoldService.create(validated);
+    } catch (error: any) {
+      if (error?.issues) return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      return reply.status(error?.statusCode || 400).send({ message: error?.message || "No se pudo retener el inventario." });
+    }
+  });
+
+  server.post("/payment-holds/:holdId/transfer", async (request, reply) => {
+    try {
+      const { holdId } = request.params as { holdId: string };
+      const body = convertPaymentHoldSchema.parse(request.body);
+      return await storePaymentHoldService.convertToTransfer(holdId, body.customerPhone);
+    } catch (error: any) {
+      if (error?.issues) {
+        return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      }
+      return reply.status(error?.statusCode || 400).send({
+        message: error?.message || "No se pudo cambiar el método de pago.",
+        code: error?.code,
+      });
     }
   });
 
@@ -88,7 +123,7 @@ export async function orderRoutes(server: FastifyInstance) {
 
   server.get("/admin/:id", { preHandler: [server.authenticate] }, async (request, reply) => {
     const { id } = request.params as { id: string };
-    const order = await orderService.getById(parseInt(id));
+    const order = await orderService.getById(id);
     if (!order) return reply.status(404).send({ message: "Order not found" });
     return order;
   });

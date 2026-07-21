@@ -96,26 +96,27 @@ model Subcategory {
 }
 
 model Product {
-  id            Int              @id @default(autoincrement())
-  stock         Int              @default(1)
-  active        Boolean          @default(true) @map("active")
-  published     Boolean          @default(true) @map("published")
-  createdAt     DateTime         @default(now()) @map("created_at")
-  description   String?          @map("description")
-  name          String           @map("name")
-  price         Decimal          @default(0.00) @map("price")
-  ringNumber    String?          @map("ring_number")
-  saleStatus    SaleStatus       @default(AVAILABLE) @map("sale_status")
-  coverAssetId  String?          @map("cover_asset_id") @db.Uuid
-  type          ProductType      @map("type")
-  featured      Boolean          @default(false) @map("featured")
-  featuredOrder Int?             @map("featured_order")
-  updated_at    DateTime         @default(now()) @map("updated_at")
-  age           BirdAge?         @map("age")
-  purpose       BirdPurpose?     @map("purpose")
-  orderItems    OrderItem[]
-  gallery       ProductGallery[]
-  coverAsset    MediaAsset?      @relation("ProductCoverAsset", fields: [coverAssetId], references: [id], onDelete: SetNull)
+  id               Int                    @id @default(autoincrement())
+  stock            Int                    @default(1)
+  active           Boolean                @default(true) @map("active")
+  published        Boolean                @default(true) @map("published")
+  createdAt        DateTime               @default(now()) @map("created_at")
+  description      String?                @map("description")
+  name             String                 @map("name")
+  price            Decimal                @default(0.00) @map("price")
+  ringNumber       String?                @map("ring_number")
+  saleStatus       SaleStatus             @default(AVAILABLE) @map("sale_status")
+  coverAssetId     String?                @map("cover_asset_id") @db.Uuid
+  type             ProductType            @map("type")
+  featured         Boolean                @default(false) @map("featured")
+  featuredOrder    Int?                   @map("featured_order")
+  updated_at       DateTime               @default(now()) @map("updated_at")
+  age              BirdAge?               @map("age")
+  purpose          BirdPurpose?           @map("purpose")
+  orderItems       OrderItem[]
+  paymentHoldItems StorePaymentHoldItem[]
+  gallery          ProductGallery[]
+  coverAsset       MediaAsset?            @relation("ProductCoverAsset", fields: [coverAssetId], references: [id], onDelete: SetNull)
 
   @@index([coverAssetId])
   @@index([active, published])
@@ -158,48 +159,126 @@ model ProductGallery {
 }
 
 model Order {
-  id              Int          @id @default(autoincrement())
-  subtotal        Decimal      @map("subtotal")
-  discountTotal   Decimal      @default(0.00) @map("discount_total")
-  total           Decimal      @map("total")
-  createdAt       DateTime     @default(now()) @map("created_at")
-  customerName    String       @map("customer_name")
-  customerPhone   String       @map("customer_phone")
-  receiverName    String?      @map("receiver_name")
-  deliveryType    DeliveryType @default(SHIPPING) @map("delivery_type")
-  deliveryMethod  String?      @map("delivery_method")
-  shippingAddress String?      @map("shipping_address")
-  shippingStreet  String?      @map("shipping_street")
-  shippingNeighborhood String? @map("shipping_neighborhood")
-  shippingPostalCode String?   @map("shipping_postal_code")
-  shippingCity    String?      @map("shipping_city")
-  shippingCost    Decimal      @map("shipping_cost")
-  shippingState   String?      @map("shipping_state")
-  status          OrderStatus  @default(PENDING) @map("status")
-  paymentMethod   String       @default("TRANSFER") @map("payment_method")
-  paymentStatus   String       @default("PENDING") @map("payment_status")
-  paymentExpiresAt DateTime?   @map("payment_expires_at")
-  mpPaymentId     String?      @map("mp_payment_id")
-  mpSellerUserId  String?      @map("mp_seller_user_id")
-  mpPaymentStatus String?      @map("mp_payment_status")
-  mpPaymentStatusDetail String? @map("mp_payment_status_detail")
-  mpPaymentMethodId String?    @map("mp_payment_method_id")
-  mpPaymentTypeId String?      @map("mp_payment_type_id")
-  mpPaidAmount    Decimal?     @map("mp_paid_amount")
-  mpRefundId      String?      @map("mp_refund_id")
-  mpRefundedAmount Decimal     @default(0.00) @map("mp_refunded_amount")
-  mpRefundedAt    DateTime?    @map("mp_refunded_at")
-  customerEmail   String?      @map("customer_email")
-  couponId        Int?         @map("coupon_id")
-  couponCode      String?      @map("coupon_code")
-  expiresAt       DateTime?    @map("expires_at")
-  coupon          Coupon?      @relation(fields: [couponId], references: [id], onDelete: SetNull)
-  items           OrderItem[]
-  reads           OrderRead[]
-  events          OrderEvent[]
+  id                    Int                   @id @default(autoincrement())
+  subtotal              Decimal               @map("subtotal")
+  discountTotal         Decimal               @default(0.00) @map("discount_total")
+  total                 Decimal               @map("total")
+  createdAt             DateTime              @default(now()) @map("created_at")
+  customerName          String                @map("customer_name")
+  customerPhone         String                @map("customer_phone")
+  receiverName          String?               @map("receiver_name")
+  deliveryType          DeliveryType          @default(SHIPPING) @map("delivery_type")
+  deliveryMethod        String?               @map("delivery_method")
+  shippingAddress       String?               @map("shipping_address")
+  shippingStreet        String?               @map("shipping_street")
+  shippingNeighborhood  String?               @map("shipping_neighborhood")
+  shippingPostalCode    String?               @map("shipping_postal_code")
+  shippingCity          String?               @map("shipping_city")
+  shippingCost          Decimal               @map("shipping_cost")
+  shippingState         String?               @map("shipping_state")
+  status                OrderStatus           @default(PENDING) @map("status")
+  paymentMethod         String                @default("TRANSFER") @map("payment_method")
+  paymentStatus         String                @default("PENDING") @map("payment_status")
+  paymentExpiresAt      DateTime?             @map("payment_expires_at")
+  mpPaymentId           String?               @map("mp_payment_id")
+  mpSellerUserId        String?               @map("mp_seller_user_id")
+  mpPaymentStatus       String?               @map("mp_payment_status")
+  mpPaymentStatusDetail String?               @map("mp_payment_status_detail")
+  mpPaymentMethodId     String?               @map("mp_payment_method_id")
+  mpPaymentTypeId       String?               @map("mp_payment_type_id")
+  mpPaidAmount          Decimal?              @map("mp_paid_amount")
+  mpRefundId            String?               @map("mp_refund_id")
+  mpRefundedAmount      Decimal               @default(0.00) @map("mp_refunded_amount")
+  mpRefundedAt          DateTime?             @map("mp_refunded_at")
+  customerEmail         String?               @map("customer_email")
+  couponId              Int?                  @map("coupon_id")
+  couponCode            String?               @map("coupon_code")
+  expiresAt             DateTime?             @map("expires_at")
+  coupon                Coupon?               @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  items                 OrderItem[]
+  reads                 OrderRead[]
+  events                OrderEvent[]
+  paymentAttempts       OrderPaymentAttempt[]
+  paymentHold           StorePaymentHold?
 
   @@index([couponId])
   @@map("orders")
+}
+
+model StorePaymentHold {
+  id                    String                 @id @default(uuid()) @db.Uuid
+  customerName          String                 @map("customer_name")
+  customerPhone         String                 @map("customer_phone")
+  customerEmail         String?                @map("customer_email")
+  receiverName          String?                @map("receiver_name")
+  deliveryType          DeliveryType           @default(SHIPPING) @map("delivery_type")
+  deliveryMethod        String?                @map("delivery_method")
+  shippingAddress       String?                @map("shipping_address")
+  shippingStreet        String?                @map("shipping_street")
+  shippingNeighborhood  String?                @map("shipping_neighborhood")
+  shippingPostalCode    String?                @map("shipping_postal_code")
+  shippingCity          String?                @map("shipping_city")
+  shippingState         String?                @map("shipping_state")
+  subtotal              Decimal
+  discountTotal         Decimal                @default(0.00) @map("discount_total")
+  shippingCost          Decimal                @map("shipping_cost")
+  total                 Decimal
+  couponId              Int?                   @map("coupon_id")
+  couponCode            String?                @map("coupon_code")
+  status                PaymentHoldStatus      @default(ACTIVE)
+  expiresAt             DateTime               @map("expires_at")
+  promotedOrderId       Int?                   @unique @map("promoted_order_id")
+  mpPaymentId           String?                @map("mp_payment_id")
+  mpSellerUserId        String?                @map("mp_seller_user_id")
+  mpPaymentStatus       String?                @map("mp_payment_status")
+  mpPaymentStatusDetail String?                @map("mp_payment_status_detail")
+  createdAt             DateTime               @default(now()) @map("created_at")
+  updatedAt             DateTime               @updatedAt @map("updated_at")
+  coupon                Coupon?                @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  promotedOrder         Order?                 @relation(fields: [promotedOrderId], references: [id], onDelete: SetNull)
+  items                 StorePaymentHoldItem[]
+  paymentAttempts       OrderPaymentAttempt[]
+
+  @@index([status, expiresAt])
+  @@index([mpPaymentId])
+  @@map("store_payment_holds")
+}
+
+model StorePaymentHoldItem {
+  id          Int              @id @default(autoincrement())
+  holdId      String           @map("hold_id") @db.Uuid
+  productId   Int              @map("product_id")
+  productName String           @map("product_name")
+  productType ProductType      @map("product_type")
+  quantity    Int
+  unitPrice   Decimal          @map("unit_price")
+  hold        StorePaymentHold @relation(fields: [holdId], references: [id], onDelete: Cascade)
+  product     Product          @relation(fields: [productId], references: [id])
+
+  @@index([holdId])
+  @@map("store_payment_hold_items")
+}
+
+model OrderPaymentAttempt {
+  id              String            @id @db.Uuid
+  orderId         Int?              @map("order_id")
+  holdId          String?           @map("hold_id") @db.Uuid
+  idempotencyKey  String            @unique @map("idempotency_key")
+  status          String            @default("INITIATED")
+  statusDetail    String?           @map("status_detail")
+  mpPaymentId     String?           @map("mp_payment_id")
+  retryable       Boolean           @default(false)
+  uncertain       Boolean           @default(false)
+  customerMessage String?           @map("customer_message")
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  order           Order?            @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  hold            StorePaymentHold? @relation(fields: [holdId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, createdAt])
+  @@index([holdId, createdAt])
+  @@index([mpPaymentId])
+  @@map("order_payment_attempts")
 }
 
 model Coupon {
@@ -219,6 +298,7 @@ model Coupon {
   createdAt     DateTime           @default(now()) @map("created_at")
   updatedAt     DateTime           @updatedAt @map("updated_at")
   orders        Order[]
+  paymentHolds  StorePaymentHold[]
 
   @@index([active, startsAt, expiresAt])
   @@map("coupons")
@@ -345,18 +425,18 @@ model MediaAsset {
 }
 
 model PaymentChannel {
-  id             Int      @id @default(autoincrement())
-  clabe          String?  @map("clabe")
-  bank           String   @map("bank")
-  beneficiary    String   @map("beneficiary")
-  accountNumber  String?  @map("account_number")
-  card           String?  @map("card")
-  createdAt      DateTime @default(now()) @map("created_at")
-  name           String   @map("name")
-  purpose        String   @map("purpose")
-  mpAccessToken  String?  @map("mp_access_token")
-  mpRefreshToken String?  @map("mp_refresh_token")
-  mpUserId       String?  @map("mp_user_id")
+  id                     Int       @id @default(autoincrement())
+  clabe                  String?   @map("clabe")
+  bank                   String    @map("bank")
+  beneficiary            String    @map("beneficiary")
+  accountNumber          String?   @map("account_number")
+  card                   String?   @map("card")
+  createdAt              DateTime  @default(now()) @map("created_at")
+  name                   String    @map("name")
+  purpose                String    @map("purpose")
+  mpAccessToken          String?   @map("mp_access_token")
+  mpRefreshToken         String?   @map("mp_refresh_token")
+  mpUserId               String?   @map("mp_user_id")
   mpAccessTokenExpiresAt DateTime? @map("mp_access_token_expires_at")
 
   @@map("payment_channels")
@@ -442,21 +522,21 @@ model BillingPayment {
 }
 
 model WhatsappMessageLog {
-  id             Int      @id @default(autoincrement())
-  attempt        Int      @default(1) @map("attempt")
-  status         String   @map("status")
-  errorMessage   String?  @map("error_message")
-  instanceName   String   @map("instance_name")
-  jobId          String?  @map("job_id")
-  lastStatusAt   DateTime? @map("last_status_at")
-  messageId      String?  @map("message_id")
-  orderId        String?  @map("order_id")
-  providerStatus String?  @map("provider_status")
-  responsePayload Json?   @map("response_payload")
-  recipientPhone String   @map("recipient_phone")
-  sentAt         DateTime @default(now()) @map("sent_at")
-  templateUsed   String   @map("template_used")
-  ticketSaleId   Int?     @map("ticket_sale_id")
+  id              Int       @id @default(autoincrement())
+  attempt         Int       @default(1) @map("attempt")
+  status          String    @map("status")
+  errorMessage    String?   @map("error_message")
+  instanceName    String    @map("instance_name")
+  jobId           String?   @map("job_id")
+  lastStatusAt    DateTime? @map("last_status_at")
+  messageId       String?   @map("message_id")
+  orderId         String?   @map("order_id")
+  providerStatus  String?   @map("provider_status")
+  responsePayload Json?     @map("response_payload")
+  recipientPhone  String    @map("recipient_phone")
+  sentAt          DateTime  @default(now()) @map("sent_at")
+  templateUsed    String    @map("template_used")
+  ticketSaleId    Int?      @map("ticket_sale_id")
 
   @@map("whatsapp_message_logs")
 }
@@ -520,6 +600,14 @@ enum OrderStatus {
   CANCELLED @map("cancelled")
 }
 
+enum PaymentHoldStatus {
+  ACTIVE     @map("active")
+  PROCESSING @map("processing")
+  CONSUMED   @map("consumed")
+  EXPIRED    @map("expired")
+  CANCELLED  @map("cancelled")
+}
+
 enum MediaType {
   PHOTO @map("photo")
   VIDEO @map("video")
@@ -543,6 +631,7 @@ enum TemplateType {
   PAYMENT_CONFIRMED @map("payment_confirmed")
   RESTORED          @map("restored")
   REMINDER          @map("reminder")
+  OPENING           @map("opening")
 }
 
 enum ShippingType {

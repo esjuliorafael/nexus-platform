@@ -1,46 +1,83 @@
 "use client";
 
-import { type CSSProperties, type ReactNode, type TouchEvent, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
-import { useRouter } from 'next/navigation';
-import { type Media, Product } from '../../../types';
-import { Button } from '../../../components/ui/Button';
-import { Badge } from '../../../components/ui/Badge';
-import { StorefrontCard } from '../../../components/ui/Card';
-import { MediaViewer } from '../../../components/ui/MediaViewer';
-import { useCartUiStore } from '../../../store/cart-ui.store';
-import { useCartStore } from '../../../store/cart.store';
-import { useToastStore } from '../../../store/toast.store';
-import { CalendarClock, ChevronLeft, Clock3, Hash, MessageCircle, PlayCircle, ShoppingCart, Tag, Target, Truck, type LucideIcon } from 'lucide-react';
-import { formatBirdAge, formatBirdPurpose, formatPrice, formatSaleStatus, getAssetUrl } from '../../../utils/formatters';
+import {
+  type CSSProperties,
+  type ReactNode,
+  type TouchEvent,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { motion, useReducedMotion } from "framer-motion";
+import { type Media, Product } from "../../../types";
+import { Button } from "../../../components/ui/Button";
+import { Badge } from "../../../components/ui/Badge";
+import { StorefrontCard } from "../../../components/ui/Card";
+import { MediaViewer } from "../../../components/ui/MediaViewer";
+import {
+  StorefrontReveal,
+  StorefrontRevealGroup,
+  StorefrontRevealItem,
+} from "../../../components/ui/Reveal";
+import { useCartUiStore } from "../../../store/cart-ui.store";
+import { useCartStore } from "../../../store/cart.store";
+import { useToastStore } from "../../../store/toast.store";
+import {
+  CalendarClock,
+  ChevronLeft,
+  Clock3,
+  Hash,
+  MessageCircle,
+  PlayCircle,
+  ShoppingCart,
+  Tag,
+  Target,
+  Truck,
+  type LucideIcon,
+} from "lucide-react";
+import {
+  formatBirdAge,
+  formatBirdPurpose,
+  formatPrice,
+  formatSaleStatus,
+  getAssetUrl,
+} from "../../../utils/formatters";
+import {
+  STOREFRONT_DETAIL_MOTION_SEQUENCE_MS,
+  STOREFRONT_EASING,
+  STOREFRONT_MOTION_MS,
+  toMotionSeconds,
+} from "../../../lib/motion";
 
 interface ProductDetailsClientProps {
   product: Product;
+  reservationHours: number | null;
 }
 
 const knowledgeItems = [
   {
-    icon: Clock3,
-    title: 'Tiempo de apartado',
-    description:
-      'El apartado es temporal. Si el pago no se confirma dentro del plazo indicado, el producto puede liberarse nuevamente.',
-  },
-  {
     icon: Truck,
-    title: 'Envíos',
+    title: "Envíos",
     description:
-      'Coordinamos el envío contigo según tu ubicación. En aves, acordamos la central de autobuses o aeropuerto más conveniente antes de confirmar.',
+      "Coordinamos el envío contigo según tu ubicación. En aves, acordamos la central de autobuses o aeropuerto más conveniente antes de confirmar.",
   },
   {
     icon: MessageCircle,
-    title: 'Atención y comunicación',
+    title: "Atención y comunicación",
     description:
-      'Te acompañamos por WhatsApp antes, durante y después de la compra para resolver dudas y dar seguimiento a tu pedido.',
+      "Te acompañamos por WhatsApp antes, durante y después de la compra para resolver dudas y dar seguimiento a tu pedido.",
   },
 ];
 
-export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
+export function ProductDetailsClient({
+  product,
+  reservationHours,
+}: ProductDetailsClientProps) {
   const router = useRouter();
+  const prefersReducedMotion = useReducedMotion();
   const [mounted, setMounted] = useState(false);
   const [showTopTitle, setShowTopTitle] = useState(false);
   const productTitleRef = useRef<HTMLHeadingElement | null>(null);
@@ -55,6 +92,19 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
     state.items.reduce((acc, item) => acc + item.quantity, 0),
   );
   const openCart = useCartUiStore((state) => state.openCart);
+  const reservationHoursLabel = reservationHours === 1
+    ? "1 hora"
+    : `${reservationHours} horas`;
+  const productKnowledgeItems = [
+    {
+      icon: Clock3,
+      title: "Tiempo de apartado",
+      description: reservationHours
+        ? `El apartado es temporal. Tienes ${reservationHoursLabel} para confirmar tu pago; si el plazo vence, el producto se libera automáticamente.`
+        : "El apartado es temporal. Si el pago no se confirma dentro del plazo indicado, el producto se libera automáticamente.",
+    },
+    ...knowledgeItems,
+  ];
 
   useEffect(() => {
     setMounted(true);
@@ -71,8 +121,8 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
       const handleScroll = () => setShowTopTitle(browserWindow.scrollY > 160);
 
       handleScroll();
-      browserWindow.addEventListener('scroll', handleScroll, { passive: true });
-      return () => browserWindow.removeEventListener('scroll', handleScroll);
+      browserWindow.addEventListener("scroll", handleScroll, { passive: true });
+      return () => browserWindow.removeEventListener("scroll", handleScroll);
     }
 
     const observer = new browserWindow.IntersectionObserver(
@@ -82,7 +132,7 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
       {
         root: null,
         threshold: 0,
-        rootMargin: '-88px 0px 0px 0px',
+        rootMargin: "-88px 0px 0px 0px",
       },
     );
 
@@ -90,7 +140,7 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
     return () => observer.disconnect();
   }, []);
 
-  const isAvailable = product.saleStatus === 'AVAILABLE';
+  const isAvailable = product.saleStatus === "AVAILABLE";
   const productMediaItems = useMemo<Media[]>(() => {
     const coverItem: Media[] = product.coverMediaUrl
       ? [
@@ -98,12 +148,12 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
             id: product.id * -1,
             title: product.name,
             description: product.description,
-            type: product.coverMediaType || 'PHOTO',
+            type: product.coverMediaType || "PHOTO",
             filePath: product.coverMediaUrl,
             assetId: product.coverAssetId || `product-cover-${product.id}`,
             mediaUrl: product.coverMediaUrl,
             posterUrl: product.coverPosterUrl,
-            mediaType: product.coverMediaType || 'PHOTO',
+            mediaType: product.coverMediaType || "PHOTO",
             categoryId: null,
             subcategoryId: null,
             subcategoryIds: [],
@@ -135,7 +185,8 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
     return [...coverItem, ...galleryItems];
   }, [product]);
   const activeMedia = productMediaItems[activeMediaIndex] ?? null;
-  const selectedViewerMedia = viewerIndex === null ? null : productMediaItems[viewerIndex] ?? null;
+  const selectedViewerMedia =
+    viewerIndex === null ? null : (productMediaItems[viewerIndex] ?? null);
   const galleryStartIndex = product.coverMediaUrl ? 1 : 0;
   const additionalGalleryItems = productMediaItems.slice(galleryStartIndex);
   const canNavigateProductMedia = productMediaItems.length > 1;
@@ -145,15 +196,17 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
       name: product.name,
       price: Number(product.price),
       quantity: 1,
-      thumbnail: getAssetUrl(product.coverPosterUrl || product.coverMediaUrl || product.thumbnail),
-      type: product.type.toLowerCase() as 'bird' | 'item',
+      thumbnail: getAssetUrl(
+        product.coverPosterUrl || product.coverMediaUrl || product.thumbnail,
+      ),
+      type: product.type.toLowerCase() as "bird" | "item",
     });
 
-    if (result === 'already-in-cart') {
-      showToast('Este ejemplar ya está en tu carrito.', {
-        type: 'info',
-        title: 'Ya está en el carrito',
-        action: { label: 'Ver carrito', onClick: openCart },
+    if (result === "already-in-cart") {
+      showToast("Este ejemplar ya está en tu carrito.", {
+        type: "info",
+        title: "Ya está en el carrito",
+        action: { label: "Ver carrito", onClick: openCart },
         durationMs: 3000,
       });
       return;
@@ -163,9 +216,9 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
     window.setTimeout(() => setAddFeedbackActive(false), 650);
 
     showToast(`${product.name} se agregó correctamente.`, {
-      type: 'success',
-      title: 'Agregado al carrito',
-      action: { label: 'Ver carrito', onClick: openCart },
+      type: "success",
+      title: "Agregado al carrito",
+      action: { label: "Ver carrito", onClick: openCart },
       durationMs: 3000,
     });
   };
@@ -176,14 +229,15 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
       return;
     }
 
-    router.push('/store');
+    router.push("/store");
   };
 
   const showPreviousProductMedia = () => {
     if (!canNavigateProductMedia) return;
 
-    setActiveMediaIndex((current) =>
-      (current - 1 + productMediaItems.length) % productMediaItems.length,
+    setActiveMediaIndex(
+      (current) =>
+        (current - 1 + productMediaItems.length) % productMediaItems.length,
     );
   };
 
@@ -231,10 +285,17 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
     setViewerIndex(index);
   };
 
+  const introTransition = (
+    delayMs: number,
+    durationMs: number = STOREFRONT_DETAIL_MOTION_SEQUENCE_MS.contentDurationMs,
+  ) => ({
+    duration: prefersReducedMotion ? 0 : toMotionSeconds(durationMs),
+    delay: prefersReducedMotion ? 0 : toMotionSeconds(delayMs),
+    ease: STOREFRONT_EASING.reveal,
+  });
+
   return (
-    <div
-      className="mx-auto max-w-7xl px-[var(--sf-inset-page-mobile)] pb-[var(--sf-mobile-chrome-content-padding-bottom)] pt-[var(--sf-mobile-chrome-content-padding-top)] md:pb-[var(--sf-space-xl)] md:pt-[var(--sf-space-xl)]"
-    >
+    <div className="mx-auto max-w-[var(--sf-max-width-content)] px-[var(--sf-inset-page)] pb-[var(--sf-mobile-chrome-content-padding-bottom)] pt-[var(--sf-mobile-chrome-content-padding-top)] md:pb-[var(--sf-space-xl)] md:pt-[var(--sf-space-xl)]">
       <ProductTopBar
         productName={product.name}
         showTitle={showTopTitle}
@@ -244,188 +305,367 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
         onOpenCart={openCart}
       />
 
-      <div className="flex flex-col" style={{ gap: 'var(--sf-space-lg)' }}>
-        <Link
-          href="/store"
-          className="hidden w-fit items-center text-stone-500 transition-colors hover:text-brand-500 sf-text-label md:inline-flex"
-          style={{ gap: 'var(--sf-space-sm)' }}
+      <div className="flex flex-col" style={{ gap: "var(--sf-space-lg)" }}>
+        <motion.div
+          className="hidden md:block"
+          initial={prefersReducedMotion ? false : { opacity: 0, x: -12 }}
+          animate={{ opacity: 1, x: 0 }}
+          transition={introTransition(
+            STOREFRONT_DETAIL_MOTION_SEQUENCE_MS.chromeDelayMs,
+          )}
         >
-          <ChevronLeft size={18} />
-          Volver al catálogo
-        </Link>
+          <Link
+            href="/store"
+            className="inline-flex w-fit items-center text-stone-500 transition-colors hover:text-brand-500 sf-text-label"
+            style={{ gap: "var(--sf-space-sm)" }}
+          >
+            <ChevronLeft size={18} />
+            Volver al catálogo
+          </Link>
+        </motion.div>
 
-        <div className="grid grid-cols-1 gap-[var(--sf-space-lg)] lg:grid-cols-2 lg:gap-[var(--sf-space-xl)]">
-          <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
-            <StorefrontCard
-              density="none"
-              role="button"
-              tabIndex={activeMedia ? 0 : -1}
-              aria-label="Abrir medio del producto"
-              onClick={() => {
-                if (mediaSwipeHandledRef.current) return;
-                openProductMediaViewer(activeMediaIndex);
-              }}
-              onKeyDown={(event) => {
-                if (event.key !== 'Enter' && event.key !== ' ') return;
-                event.preventDefault();
-                openProductMediaViewer(activeMediaIndex);
-              }}
-              onTouchStart={handleMediaTouchStart}
-              onTouchEnd={handleMediaTouchEnd}
-              onTouchCancel={() => {
-                mediaTouchStartRef.current = null;
-              }}
-              className="aspect-square cursor-pointer overflow-hidden shadow-xl shadow-stone-200/50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20"
-            >
-              {activeMedia ? (
-                activeMedia.mediaType === 'VIDEO' ? (
-                  <video 
-                    src={getAssetUrl(activeMedia.mediaUrl)}
-                    poster={activeMedia.posterUrl ? getAssetUrl(activeMedia.posterUrl) : undefined}
-                    className="h-full w-full object-cover" 
-                    autoPlay 
-                    muted 
-                    loop 
-                    playsInline 
-                  />
-                ) : (
-                  <img src={getAssetUrl(activeMedia.mediaUrl)} className="h-full w-full object-cover animate-in fade-in duration-500" alt={product.name} />
-                )
-              ) : (
-                <div className="flex h-full w-full flex-col items-center justify-center bg-stone-100/50 text-stone-300" style={{ gap: 'var(--sf-space-sm)' }}>
-                  <Tag size={40} strokeWidth={1.2} />
-                  <span className="sf-text-label">Sin imagen</span>
-                </div>
+        <div className="flex flex-col gap-[var(--sf-space-lg)] lg:gap-[var(--sf-space-xl)]">
+          <div className="grid grid-cols-1 gap-[var(--sf-space-lg)] lg:grid-cols-2 lg:gap-[var(--sf-space-xl)]">
+            <motion.div
+              className="flex flex-col"
+              style={{ gap: "var(--sf-space-md)" }}
+              initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.985 }}
+              animate={{ opacity: 1, scale: 1 }}
+              transition={introTransition(
+                STOREFRONT_DETAIL_MOTION_SEQUENCE_MS.coverDelayMs,
+                STOREFRONT_DETAIL_MOTION_SEQUENCE_MS.coverDurationMs,
               )}
-            </StorefrontCard>
+            >
+              <StorefrontCard
+                density="none"
+                role="button"
+                tabIndex={activeMedia ? 0 : -1}
+                aria-label="Abrir medio del producto"
+                onClick={() => {
+                  if (mediaSwipeHandledRef.current) return;
+                  openProductMediaViewer(activeMediaIndex);
+                }}
+                onKeyDown={(event) => {
+                  if (event.key !== "Enter" && event.key !== " ") return;
+                  event.preventDefault();
+                  openProductMediaViewer(activeMediaIndex);
+                }}
+                onTouchStart={handleMediaTouchStart}
+                onTouchEnd={handleMediaTouchEnd}
+                onTouchCancel={() => {
+                  mediaTouchStartRef.current = null;
+                }}
+                className="aspect-square cursor-pointer overflow-hidden shadow-xl shadow-stone-200/50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20"
+              >
+                {activeMedia ? (
+                  activeMedia.mediaType === "VIDEO" ? (
+                    <motion.video
+                      key={activeMedia.id}
+                      src={getAssetUrl(activeMedia.mediaUrl)}
+                      poster={
+                        activeMedia.posterUrl
+                          ? getAssetUrl(activeMedia.posterUrl)
+                          : undefined
+                      }
+                      className="h-full w-full object-cover"
+                      autoPlay
+                      muted
+                      loop
+                      playsInline
+                      initial={prefersReducedMotion ? false : { opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{
+                        duration: prefersReducedMotion
+                          ? 0
+                          : toMotionSeconds(
+                              STOREFRONT_MOTION_MS.duration.standard,
+                            ),
+                        ease: STOREFRONT_EASING.standard,
+                      }}
+                    />
+                  ) : (
+                    <motion.img
+                      key={activeMedia.id}
+                      src={getAssetUrl(activeMedia.mediaUrl)}
+                      className="h-full w-full object-cover"
+                      alt={product.name}
+                      initial={prefersReducedMotion ? false : { opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      transition={{
+                        duration: prefersReducedMotion
+                          ? 0
+                          : toMotionSeconds(
+                              STOREFRONT_MOTION_MS.duration.standard,
+                            ),
+                        ease: STOREFRONT_EASING.standard,
+                      }}
+                    />
+                  )
+                ) : (
+                  <div
+                    className="flex h-full w-full flex-col items-center justify-center bg-stone-100/50 text-stone-300"
+                    style={{ gap: "var(--sf-space-sm)" }}
+                  >
+                    <Tag size={40} strokeWidth={1.2} />
+                    <span className="sf-text-label">Sin imagen</span>
+                  </div>
+                )}
+              </StorefrontCard>
+            </motion.div>
 
+            <div
+              className="flex flex-col"
+              style={{ gap: "var(--sf-space-lg)" }}
+            >
+              <div
+                className="flex flex-col"
+                style={{ gap: "var(--sf-space-md)" }}
+              >
+                <motion.div
+                  className="flex items-center justify-between md:justify-start"
+                  style={{ gap: "var(--sf-space-sm)" }}
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={introTransition(
+                    STOREFRONT_DETAIL_MOTION_SEQUENCE_MS.badgesDelayMs,
+                  )}
+                >
+                  <Badge
+                    variant={product.type === "BIRD" ? "default" : "outline"}
+                  >
+                    {product.type === "BIRD" ? "Ave" : "Artículo"}
+                  </Badge>
+                  <Badge variant={isAvailable ? "success" : "warning"}>
+                    {formatSaleStatus(product.saleStatus)}
+                  </Badge>
+                </motion.div>
+
+                <div
+                  className="flex flex-col"
+                  style={{ gap: "var(--sf-space-sm)" }}
+                >
+                  <motion.h1
+                    ref={productTitleRef}
+                    className="sf-text-hero text-stone-850"
+                    initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={introTransition(
+                      STOREFRONT_DETAIL_MOTION_SEQUENCE_MS.titleDelayMs,
+                    )}
+                  >
+                    {product.name}
+                  </motion.h1>
+                  <motion.p
+                    className="hidden sf-text-display text-brand-500 md:block"
+                    initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={introTransition(
+                      STOREFRONT_DETAIL_MOTION_SEQUENCE_MS.priceDelayMs,
+                    )}
+                  >
+                    ${formatPrice(product.price)}
+                  </motion.p>
+                </div>
+              </div>
+
+              <div
+                className="flex flex-col"
+                style={{ gap: "var(--sf-space-md)" }}
+              >
+                <motion.div
+                  className="flex flex-col"
+                  style={{ gap: "var(--sf-space-xs)" }}
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={introTransition(
+                    STOREFRONT_DETAIL_MOTION_SEQUENCE_MS.descriptionDelayMs,
+                  )}
+                >
+                  <h2 className="sf-text-h2 text-stone-950">Descripción</h2>
+                  <p className="sf-text-body max-w-xl text-stone-500">
+                    {product.description || "Sin descripción disponible."}
+                  </p>
+                </motion.div>
+
+                <motion.div
+                  className="hidden md:block"
+                  initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={introTransition(
+                    STOREFRONT_DETAIL_MOTION_SEQUENCE_MS.actionsDelayMs,
+                  )}
+                >
+                  {isAvailable ? (
+                    <Button
+                      size="lg"
+                      context="section"
+                      className="w-full"
+                      onClick={handleAddToCart}
+                    >
+                      <ShoppingCart className="mr-2" size={22} />
+                      {addFeedbackActive ? "Agregado" : "Agregar al Carrito"}
+                    </Button>
+                  ) : (
+                    <Button
+                      size="lg"
+                      context="section"
+                      className="w-full"
+                      disabled
+                    >
+                      No disponible
+                    </Button>
+                  )}
+                </motion.div>
+              </div>
+            </div>
           </div>
 
-          <div className="flex flex-col" style={{ gap: 'var(--sf-space-lg)' }}>
-            <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
-              <div className="flex items-center justify-between md:justify-start" style={{ gap: 'var(--sf-space-sm)' }}>
-                <Badge variant={product.type === 'BIRD' ? 'default' : 'outline'}>
-                  {product.type === 'BIRD' ? 'Ave' : 'Artículo'}
-                </Badge>
-                <Badge variant={isAvailable ? 'success' : 'warning'}>
-                  {formatSaleStatus(product.saleStatus)}
-                </Badge>
-              </div>
-
-              <div className="flex flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
-                <h1 ref={productTitleRef} className="sf-text-hero text-stone-850">
-                  {product.name}
-                </h1>
-                <p className="hidden sf-text-display text-brand-500 md:block">
-                  ${formatPrice(product.price)}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
-              <h2 className="sf-text-h2 text-stone-950">Descripción</h2>
-              <p className="sf-text-body max-w-xl text-stone-500">
-                {product.description || 'Sin descripción disponible.'}
-              </p>
-            </div>
-
-            {additionalGalleryItems.length > 0 && (
-              <section className="flex flex-col" style={{ gap: 'var(--sf-space-sm)' }} aria-label="Galería adicional del producto">
+          {additionalGalleryItems.length > 0 && (
+            <StorefrontReveal
+              cadence="editorial"
+              amount={0.3}
+            >
+              <section
+                className="flex flex-col"
+                style={{ gap: "var(--sf-space-md)" }}
+                aria-label="Galería adicional del producto"
+              >
                 <h2 className="sf-text-h2 text-stone-950">Galería</h2>
-                <div
-                  className="-mx-[var(--sf-inset-page-mobile)] flex snap-x snap-mandatory overflow-x-auto px-[var(--sf-inset-page-mobile)] pb-[var(--sf-space-xs)] scrollbar-hide"
+                <StorefrontRevealGroup
+                  cadence="compact"
+                  className="-mx-[var(--sf-inset-page-mobile)] flex snap-x snap-mandatory overflow-x-auto px-[var(--sf-inset-page-mobile)] pb-[var(--sf-space-xs)] scrollbar-hide md:mx-0 md:px-0"
                   style={{
-                    gap: 'var(--sf-space-base)',
-                    scrollPaddingInline: 'var(--sf-inset-page-mobile)',
+                    gap: "var(--sf-space-base)",
+                    scrollPaddingInline: "var(--sf-inset-page-mobile)",
                   }}
+                  amount={0.25}
                 >
                   {additionalGalleryItems.map((item, index) => {
                     const productMediaIndex = galleryStartIndex + index;
 
                     return (
-                    <button
-                      key={item.id}
-                      onClick={() => openProductMediaViewer(productMediaIndex)}
-                      className={`relative aspect-[7/5] w-[10rem] shrink-0 snap-start overflow-hidden border transition-all duration-300 sm:w-[12rem] ${
-                        activeMediaIndex === productMediaIndex
-                          ? 'border-brand-500 shadow-lg shadow-brand-500/10'
-                          : 'border-stone-300 hover:border-stone-400'
-                      }`}
-                      style={{
-                        borderRadius: 'var(--sf-radius-media-tile)',
-                        transitionTimingFunction: 'var(--sf-ease)',
-                      }}
-                      aria-label="Cambiar imagen del producto"
-                    >
-                      {item.mediaType === 'VIDEO' ? (
-                        <div className="relative h-full w-full">
-                          {item.posterUrl ? (
-                            <img src={getAssetUrl(item.posterUrl)} className="h-full w-full object-cover" alt="Miniatura del video" />
+                      <StorefrontRevealItem
+                        key={item.id}
+                        className="aspect-[7/5] w-[10rem] shrink-0 snap-start sm:w-[12rem]"
+                      >
+                        <button
+                          onClick={() => openProductMediaViewer(productMediaIndex)}
+                          className={`relative h-full w-full overflow-hidden border transition-all duration-300 ${
+                            activeMediaIndex === productMediaIndex
+                              ? "border-brand-500 shadow-lg shadow-brand-500/10"
+                              : "border-stone-300 hover:border-stone-400"
+                          }`}
+                          style={{
+                            borderRadius: "var(--sf-radius-media-tile)",
+                            transitionTimingFunction: "var(--sf-ease)",
+                          }}
+                          aria-label="Cambiar imagen del producto"
+                        >
+                          {item.mediaType === "VIDEO" ? (
+                            <div className="relative h-full w-full">
+                              {item.posterUrl ? (
+                                <img
+                                  src={getAssetUrl(item.posterUrl)}
+                                  className="h-full w-full object-cover"
+                                  alt="Miniatura del video"
+                                />
+                              ) : (
+                                <video
+                                  src={getAssetUrl(item.mediaUrl)}
+                                  className="h-full w-full object-cover"
+                                  preload="metadata"
+                                  playsInline
+                                />
+                              )}
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
+                                <PlayCircle
+                                  className="text-white drop-shadow-md"
+                                  size={24}
+                                  fill="currentColor"
+                                />
+                              </div>
+                            </div>
                           ) : (
-                            <video src={getAssetUrl(item.mediaUrl)} className="h-full w-full object-cover" preload="metadata" playsInline />
+                            <img
+                              src={getAssetUrl(item.mediaUrl)}
+                              className="h-full w-full object-cover"
+                              alt="Imagen del producto"
+                            />
                           )}
-                          <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                            <PlayCircle className="text-white drop-shadow-md" size={24} fill="currentColor" />
-                          </div>
-                        </div>
-                      ) : (
-                        <img src={getAssetUrl(item.mediaUrl)} className="h-full w-full object-cover" alt="Imagen del producto" />
-                      )}
-                    </button>
+                        </button>
+                      </StorefrontRevealItem>
                     );
                   })}
+                </StorefrontRevealGroup>
+              </section>
+            </StorefrontReveal>
+          )}
+
+          <div
+            className="grid grid-cols-1 items-start gap-[var(--sf-space-lg)] lg:grid-cols-2 lg:gap-[var(--sf-space-xl)]"
+          >
+            {product.type === "BIRD" && (
+              <StorefrontReveal cadence="editorial">
+                <StorefrontCard
+                  density="compact"
+                  className="border-brand-500/20 bg-brand-500 text-white shadow-xl shadow-brand-500/15"
+                >
+                  <div
+                    className="flex flex-col"
+                    style={{ gap: "var(--sf-space-md)" }}
+                  >
+                    <h2 className="sf-text-h2">Información</h2>
+                    <div
+                      className="grid grid-cols-1"
+                      style={{ gap: "var(--sf-space-md)" }}
+                    >
+                      <ProductInfoItem
+                        icon={Hash}
+                        label="No. anillo"
+                        value={product.ringNumber || "N/A"}
+                      />
+                      <ProductInfoItem
+                        icon={CalendarClock}
+                        label="Edad / etapa"
+                        value={formatBirdAge(product.age)}
+                      />
+                      <ProductInfoItem
+                        icon={Target}
+                        label="Propósito"
+                        value={formatBirdPurpose(product.purpose)}
+                      />
+                    </div>
+                  </div>
+                </StorefrontCard>
+              </StorefrontReveal>
+            )}
+
+            <StorefrontReveal
+              cadence="editorial"
+              delayMs={STOREFRONT_MOTION_MS.pulse.full * 2}
+              className={product.type !== "BIRD" ? "lg:col-span-2" : undefined}
+            >
+              <section
+                className="flex flex-col"
+                style={{ gap: "var(--sf-space-md)" }}
+                aria-label="Qué debes saber"
+              >
+                <h2 className="sf-text-h2 text-stone-950">Qué debes saber</h2>
+                <div
+                  className="flex flex-col"
+                  style={{ gap: "var(--sf-space-md)" }}
+                >
+                  {productKnowledgeItems.map((item) => (
+                    <ProductKnowledgeItem
+                      key={item.title}
+                      icon={item.icon}
+                      title={item.title}
+                      description={item.description}
+                    />
+                  ))}
                 </div>
               </section>
-            )}
-
-            {product.type === 'BIRD' && (
-              <StorefrontCard
-                density="compact"
-                className="border-brand-500/20 bg-brand-500 text-white shadow-xl shadow-brand-500/15"
-              >
-                <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
-                  <h2 className="sf-text-h2">Información</h2>
-                  <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-1" style={{ gap: 'var(--sf-space-md)' }}>
-                    <ProductInfoItem icon={Hash} label="No. anillo" value={product.ringNumber || 'N/A'} />
-                    <ProductInfoItem icon={CalendarClock} label="Edad / etapa" value={formatBirdAge(product.age)} />
-                    <ProductInfoItem icon={Target} label="Propósito" value={formatBirdPurpose(product.purpose)} />
-                  </div>
-                </div>
-              </StorefrontCard>
-            )}
-
-            <section className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }} aria-label="Que debes saber">
-              <h2 className="sf-text-h2 text-stone-950">Qué debes saber</h2>
-              <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
-                {knowledgeItems.map((item) => (
-                  <ProductKnowledgeItem
-                    key={item.title}
-                    icon={item.icon}
-                    title={item.title}
-                    description={item.description}
-                  />
-                ))}
-              </div>
-            </section>
-
-            <div className="hidden md:block">
-              {isAvailable ? (
-                <Button
-                  size="lg"
-                  context="section"
-                  className="w-full"
-                  onClick={handleAddToCart}
-                >
-                  <ShoppingCart className="mr-2" size={22} />
-                  {addFeedbackActive ? 'Agregado' : 'Agregar al Carrito'}
-                </Button>
-              ) : (
-                <Button size="lg" context="section" className="w-full" disabled>
-                  No disponible
-                </Button>
-              )}
-            </div>
-
+            </StorefrontReveal>
           </div>
         </div>
       </div>
@@ -447,7 +687,8 @@ export function ProductDetailsClient({ product }: ProductDetailsClientProps) {
           setViewerIndex((current) =>
             current === null
               ? 0
-              : (current - 1 + productMediaItems.length) % productMediaItems.length,
+              : (current - 1 + productMediaItems.length) %
+                productMediaItems.length,
           );
         }}
         onNext={() => {
@@ -476,23 +717,49 @@ function ProductTopBar({
   onBack: () => void;
   onOpenCart: () => void;
 }) {
+  const prefersReducedMotion = useReducedMotion();
+
   return (
-    <div className="fixed z-40 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center md:hidden" style={{ top: 'var(--sf-inset-mobile-chrome-block)', left: 'var(--sf-inset-mobile-chrome)', right: 'var(--sf-inset-mobile-chrome)', gap: 'var(--sf-space-md)' }}>
+    <motion.div
+      className="fixed z-40 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center md:hidden"
+      initial={prefersReducedMotion ? false : { opacity: 0, y: -12 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: prefersReducedMotion
+          ? 0
+          : toMotionSeconds(STOREFRONT_MOTION_MS.duration.deliberate),
+        delay: prefersReducedMotion
+          ? 0
+          : toMotionSeconds(
+              STOREFRONT_DETAIL_MOTION_SEQUENCE_MS.chromeDelayMs,
+            ),
+        ease: STOREFRONT_EASING.reveal,
+      }}
+      style={{
+        top: "var(--sf-inset-mobile-chrome-block)",
+        left: "var(--sf-inset-mobile-chrome)",
+        right: "var(--sf-inset-mobile-chrome)",
+        gap: "var(--sf-space-md)",
+      }}
+    >
       <ProductTopRail>
         <button
           type="button"
           onClick={onBack}
           className="group flex shrink-0 items-center justify-center border border-transparent text-stone-500 transition-all duration-300 hover:bg-stone-100 hover:text-stone-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/25"
           style={{
-            width: 'var(--sf-size-mobile-nav-item)',
-            height: 'var(--sf-size-mobile-nav-item)',
-            borderRadius: 'var(--sf-radius-mobile-nav-item)',
-            transitionTimingFunction: 'var(--sf-ease)',
+            width: "var(--sf-size-mobile-nav-item)",
+            height: "var(--sf-size-mobile-nav-item)",
+            borderRadius: "var(--sf-radius-mobile-nav-item)",
+            transitionTimingFunction: "var(--sf-ease)",
           }}
           aria-label="Volver al catálogo"
         >
           <ChevronLeft
-            style={{ width: 'var(--sf-size-mobile-nav-icon)', height: 'var(--sf-size-mobile-nav-icon)' }}
+            style={{
+              width: "var(--sf-size-mobile-nav-icon)",
+              height: "var(--sf-size-mobile-nav-icon)",
+            }}
             strokeWidth={2.35}
           />
         </button>
@@ -500,13 +767,13 @@ function ProductTopBar({
 
       <div
         className={`pointer-events-none flex min-w-0 items-center justify-center overflow-hidden border border-stone-200/90 bg-white shadow-[0_18px_48px_rgba(87,68,55,0.14)] transition-all duration-200 ${
-          showTitle ? 'translate-y-0 opacity-100' : '-translate-y-1 opacity-0'
+          showTitle ? "translate-y-0 opacity-100" : "-translate-y-1 opacity-0"
         }`}
         style={{
-          height: 'var(--sf-h-mobile-nav)',
-          borderRadius: 'var(--sf-radius-outer)',
-          paddingInline: 'var(--sf-space-md)',
-          transitionTimingFunction: 'var(--sf-ease)',
+          height: "var(--sf-h-mobile-nav)",
+          borderRadius: "var(--sf-radius-outer)",
+          paddingInline: "var(--sf-space-md)",
+          transitionTimingFunction: "var(--sf-ease)",
         }}
         aria-hidden={!showTitle}
       >
@@ -521,15 +788,18 @@ function ProductTopBar({
           onClick={onOpenCart}
           className="group relative flex shrink-0 items-center justify-center border border-transparent text-stone-500 transition-all duration-300 hover:bg-stone-100 hover:text-stone-950 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/25"
           style={{
-            width: 'var(--sf-size-mobile-nav-item)',
-            height: 'var(--sf-size-mobile-nav-item)',
-            borderRadius: 'var(--sf-radius-mobile-nav-item)',
-            transitionTimingFunction: 'var(--sf-ease)',
+            width: "var(--sf-size-mobile-nav-item)",
+            height: "var(--sf-size-mobile-nav-item)",
+            borderRadius: "var(--sf-radius-mobile-nav-item)",
+            transitionTimingFunction: "var(--sf-ease)",
           }}
           aria-label="Carrito"
         >
           <ShoppingCart
-            style={{ width: 'var(--sf-size-mobile-nav-icon)', height: 'var(--sf-size-mobile-nav-icon)' }}
+            style={{
+              width: "var(--sf-size-mobile-nav-icon)",
+              height: "var(--sf-size-mobile-nav-icon)",
+            }}
             strokeWidth={2.35}
           />
           {mounted && totalItems > 0 && (
@@ -539,7 +809,7 @@ function ProductTopBar({
           )}
         </button>
       </ProductTopRail>
-    </div>
+    </motion.div>
   );
 }
 
@@ -548,9 +818,9 @@ function ProductTopRail({ children }: { children: ReactNode }) {
     <div
       className="flex shrink-0 items-center justify-center border border-stone-200/90 bg-white shadow-[0_18px_48px_rgba(87,68,55,0.14)]"
       style={{
-        height: 'var(--sf-h-mobile-nav)',
-        borderRadius: 'var(--sf-radius-outer)',
-        padding: 'var(--sf-space-sm)',
+        height: "var(--sf-h-mobile-nav)",
+        borderRadius: "var(--sf-radius-outer)",
+        padding: "var(--sf-space-sm)",
       }}
     >
       {children}
@@ -564,23 +834,42 @@ function ProductPurchaseBar({
   addFeedbackActive,
   onAddToCart,
 }: {
-  price: Product['price'];
+  price: Product["price"];
   isAvailable: boolean;
   addFeedbackActive: boolean;
   onAddToCart: () => void;
 }) {
+  const prefersReducedMotion = useReducedMotion();
+
   return (
-    <div
+    <motion.div
       className="fixed z-40 md:hidden"
-      style={{ bottom: 'var(--sf-inset-mobile-chrome-block)', left: 'var(--sf-inset-mobile-chrome)', right: 'var(--sf-inset-mobile-chrome)' }}
+      initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{
+        duration: prefersReducedMotion
+          ? 0
+          : toMotionSeconds(STOREFRONT_MOTION_MS.duration.deliberate),
+        delay: prefersReducedMotion
+          ? 0
+          : toMotionSeconds(
+              STOREFRONT_DETAIL_MOTION_SEQUENCE_MS.actionsDelayMs,
+            ),
+        ease: STOREFRONT_EASING.reveal,
+      }}
+      style={{
+        bottom: "var(--sf-inset-mobile-chrome-block)",
+        left: "var(--sf-inset-mobile-chrome)",
+        right: "var(--sf-inset-mobile-chrome)",
+      }}
     >
       <div
         className="flex items-center justify-between border border-stone-200/90 bg-white shadow-[0_18px_48px_rgba(87,68,55,0.14)]"
         style={{
-          height: 'var(--sf-h-mobile-nav)',
-          borderRadius: 'var(--sf-radius-outer)',
-          gap: 'var(--sf-space-sm)',
-          padding: 'var(--sf-space-sm)',
+          height: "var(--sf-h-mobile-nav)",
+          borderRadius: "var(--sf-radius-outer)",
+          gap: "var(--sf-space-sm)",
+          padding: "var(--sf-space-sm)",
         }}
       >
         <div className="min-w-0 shrink-0 pl-[var(--sf-space-sm)]">
@@ -593,52 +882,86 @@ function ProductPurchaseBar({
         <Button
           type="button"
           context="autonomous"
-          variant={isAvailable ? 'primary' : 'outline'}
+          variant={isAvailable ? "primary" : "outline"}
           disabled={!isAvailable}
           icon={ShoppingCart}
           onClick={onAddToCart}
           className="shrink-0"
-          style={{
-            height: 'var(--sf-size-mobile-nav-item)',
-            borderRadius: 'var(--sf-radius-mobile-nav-item)',
-            '--sf-button-icon-size': 'var(--sf-size-mobile-nav-icon)',
-          } as CSSProperties}
+          style={
+            {
+              height: "var(--sf-size-mobile-nav-item)",
+              borderRadius: "var(--sf-radius-mobile-nav-item)",
+              "--sf-button-icon-size": "var(--sf-size-mobile-nav-icon)",
+            } as CSSProperties
+          }
         >
-          {isAvailable ? (addFeedbackActive ? 'Agregado' : 'Agregar al Carrito') : 'No disponible'}
+          {isAvailable
+            ? addFeedbackActive
+              ? "Agregado"
+              : "Agregar al Carrito"
+            : "No disponible"}
         </Button>
       </div>
-    </div>
+    </motion.div>
   );
 }
 
-function ProductInfoItem({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string | null }) {
+function ProductInfoItem({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string | null;
+}) {
   return (
-    <div className="flex items-center" style={{ gap: 'var(--sf-space-sm)' }}>
+    <div className="flex items-center" style={{ gap: "var(--sf-space-sm)" }}>
       <div
         className="flex shrink-0 items-center justify-center border border-white/85 text-white"
         style={{
-          width: 'var(--sf-h-button-card)',
-          height: 'var(--sf-h-button-card)',
-          borderRadius: 'var(--sf-radius-card-inner)',
+          width: "var(--sf-h-button-card)",
+          height: "var(--sf-h-button-card)",
+          borderRadius: "var(--sf-radius-card-inner)",
         }}
       >
         <Icon size={20} strokeWidth={2.1} />
       </div>
       <div className="min-w-0">
         <span className="sf-text-label text-white/90">{label}</span>
-        <p className="sf-text-h2 leading-tight text-white">{value || 'N/A'}</p>
+        <p className="sf-text-h2 leading-tight text-white">{value || "N/A"}</p>
       </div>
     </div>
   );
 }
 
-function ProductKnowledgeItem({ icon: Icon, title, description }: { icon: LucideIcon; title: string; description: string }) {
+function ProductKnowledgeItem({
+  icon: Icon,
+  title,
+  description,
+}: {
+  icon: LucideIcon;
+  title: string;
+  description: string;
+}) {
   return (
-    <div className="grid grid-cols-[auto_minmax(0,1fr)]" style={{ gap: 'var(--sf-space-sm)' }}>
-      <Icon className="mt-[0.125rem] text-stone-950" size={20} strokeWidth={2} />
-      <div className="flex min-w-0 flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
+    <div
+      className="grid grid-cols-[auto_minmax(0,1fr)]"
+      style={{ gap: "var(--sf-space-sm)" }}
+    >
+      <Icon
+        className="mt-[0.125rem] text-stone-950"
+        size={20}
+        strokeWidth={2}
+      />
+      <div
+        className="flex min-w-0 flex-col"
+        style={{ gap: "var(--sf-space-xs)" }}
+      >
         <h3 className="sf-text-secondary-strong text-stone-950">{title}</h3>
-        <p className="sf-text-secondary max-w-xl text-stone-600">{description}</p>
+        <p className="sf-text-secondary max-w-xl text-stone-600">
+          {description}
+        </p>
       </div>
     </div>
   );

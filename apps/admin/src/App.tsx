@@ -58,6 +58,11 @@ import {
   BillingViewRef,
 } from "./components/System/Billing/BillingView";
 import { RaffleView } from "./components/Raffle/RaffleView";
+import {
+  RaffleParticipationsView,
+  RaffleParticipationStatusFilter,
+} from "./components/Raffle/Participations/RaffleParticipationsView";
+import { RaffleParticipationDetailView } from "./components/Raffle/Participations/RaffleParticipationDetailView";
 import { RaffleSettingsView } from "./components/System/Raffle/RaffleSettingsView";
 import { RaffleIntelligenceView } from "./components/System/Intelligence/RaffleIntelligenceView";
 import {
@@ -72,8 +77,9 @@ import {
   AnnualService,
   ExtraCharge,
   BillingPayment,
+  RaffleParticipation,
 } from "./types";
-import { apiOrders, apiDashboard, apiBilling, apiSystem, api } from "./api";
+import { apiOrders, apiDashboard, apiBilling, apiSystem, api, apiRaffleParticipations } from "./api";
 import {
   NexusAutonomousButton,
   NexusSectionButton,
@@ -144,9 +150,19 @@ type OrderStatusFilter =
   | "pending"
   | "paid"
   | "cancelled"
+  | "payment_review"
+  | "not_completed"
   | "all";
 
-type RaffleModeType = "list" | "create" | "edit" | "detail";
+type RaffleModeType =
+  | "list"
+  | "create"
+  | "edit"
+  | "coupon_list"
+  | "coupon_create"
+  | "coupon_edit"
+  | "participations"
+  | "participation-detail";
 
 const DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS: StoreProductAdvancedFilters = {
   publication: "all",
@@ -190,7 +206,16 @@ const STORE_MODES: StoreModeType[] = [
   "order-detail",
 ];
 
-const RAFFLE_MODES: RaffleModeType[] = ["list", "create", "edit", "detail"];
+const RAFFLE_MODES: RaffleModeType[] = [
+  "list",
+  "create",
+  "edit",
+  "coupon_list",
+  "coupon_create",
+  "coupon_edit",
+  "participations",
+  "participation-detail",
+];
 
 const getStoredEnum = <T extends string>(
   key: string,
@@ -421,6 +446,10 @@ function App() {
   const [orderSearchQuery, setOrderSearchQuery] = useState("");
   const [orderStatusFilter, setOrderStatusFilter] =
     useState<OrderStatusFilter>("pending");
+  const [raffleParticipationSearchQuery, setRaffleParticipationSearchQuery] =
+    useState("");
+  const [raffleParticipationStatusFilter, setRaffleParticipationStatusFilter] =
+    useState<RaffleParticipationStatusFilter>("PENDING");
   const [storeProductSearchQuery, setStoreProductSearchQuery] = useState("");
   const [storeProductFilter, setStoreProductFilter] =
     useState<StoreProductFilter>("all");
@@ -438,9 +467,19 @@ function App() {
     const saved = getStoredEnum("admin_store_view_mode", STORE_MODES, "list");
     return saved === "order-detail" ? "orders" : saved;
   });
-  const [raffleViewMode, setRaffleViewMode] = useState<RaffleModeType>(() =>
-    getStoredEnum("admin_raffle_view_mode", RAFFLE_MODES, "list"),
-  );
+  const [raffleViewMode, setRaffleViewMode] = useState<RaffleModeType>(() => {
+    const legacyMode = localStorage.getItem("admin_raffle_view_mode");
+    if (legacyMode === "orders" || legacyMode === "order-detail") {
+      return "participations";
+    }
+    if (legacyMode === "coupons") return "coupon_list";
+    const saved = getStoredEnum(
+      "admin_raffle_view_mode",
+      RAFFLE_MODES,
+      "list",
+    );
+    return saved === "participation-detail" ? "participations" : saved;
+  });
   const [profileViewMode, setProfileViewMode] = useState<ProfileViewMode>(() =>
     getStoredEnum(
       "admin_profile_view_mode",
@@ -547,6 +586,8 @@ function App() {
   const storefrontStatusRef = React.useRef<StorefrontStatusViewRef>(null);
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const [selectedRaffleParticipation, setSelectedRaffleParticipation] =
+    useState<RaffleParticipation | null>(null);
   const [orders, setOrders] = useState<Order[]>([]);
   const [pendingOrderIds, setPendingOrderIds] = useState<Set<string>>(new Set());
   const announcedUnreadOrderIdsRef = React.useRef<Set<string>>(new Set());
@@ -775,6 +816,8 @@ function App() {
   const isSystemMode = activeTab === "Sistema";
   const isProfileMode = activeTab === "Mi Perfil";
   const isRafflesMode = activeTab === "Rifas";
+  const isRaffleParticipationsListViewActive =
+    isRafflesMode && raffleViewMode === "participations";
   // The active raffle route reserves its navigation rail before remote config resolves.
   const showRaffleNavigation = raffleEnabled || isRafflesMode;
 
@@ -787,17 +830,39 @@ function App() {
         label: "Todas",
       },
       {
+        value: "payment_review",
+        label: "En revisión",
+      },
+      {
         value: "pending",
-        label: "Pendientes",
+        label: "Apartadas",
       },
       {
         value: "paid",
         label: "Pagadas",
       },
       {
+        value: "not_completed",
+        label: "No concretadas",
+      },
+      {
         value: "cancelled",
         label: "Canceladas",
       },
+    ],
+    [],
+  );
+
+  const raffleParticipationToolbarSegments = React.useMemo<
+    NexusViewToolbarSegment<RaffleParticipationStatusFilter>[]
+  >(
+    () => [
+      { value: "ALL", label: "Todas" },
+      { value: "PAYMENT_REVIEW", label: "En revisión" },
+      { value: "PENDING", label: "Apartadas" },
+      { value: "PAID", label: "Pagadas" },
+      { value: "NOT_COMPLETED", label: "No concretadas" },
+      { value: "CANCELLED", label: "Canceladas" },
     ],
     [],
   );
@@ -885,6 +950,10 @@ function App() {
   const isEditingCoupon = isStoreMode && storeViewMode === "coupon_edit";
   const isCreatingRaffle = isRafflesMode && raffleViewMode === "create";
   const isEditingRaffle = isRafflesMode && raffleViewMode === "edit";
+  const isCreatingRaffleCoupon =
+    isRafflesMode && raffleViewMode === "coupon_create";
+  const isEditingRaffleCoupon =
+    isRafflesMode && raffleViewMode === "coupon_edit";
 
   const isFormMode =
     isCreatingMedia ||
@@ -898,7 +967,9 @@ function App() {
     isCreatingCoupon ||
     isEditingCoupon ||
     isCreatingRaffle ||
-    isEditingRaffle;
+    isEditingRaffle ||
+    isCreatingRaffleCoupon ||
+    isEditingRaffleCoupon;
 
   const navigateToMedia = (mode: any = "list") => {
     setActiveTab("Medios");
@@ -993,6 +1064,15 @@ function App() {
         setActiveTab("Rifas");
         setRaffleViewMode("create");
         break;
+      case "Participaciones":
+        setActiveTab("Rifas");
+        setRaffleViewMode("participations");
+        break;
+      case "Cupones de Rifas":
+        setActiveTab("Rifas");
+        setRaffleViewMode("coupon_list");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        break;
       case "Notificaciones":
         setActiveTab("Mi Perfil");
         setProfileViewMode("notifications");
@@ -1020,10 +1100,14 @@ function App() {
           setChannelsViewMode("hub");
           setSelectedChannelId(null);
           window.scrollTo({ top: 0, behavior: "smooth" });
+        } else if (isRafflesMode && raffleViewMode === "participation-detail") {
+          setRaffleViewMode("participations");
+          setSelectedRaffleParticipation(null);
+          window.scrollTo({ top: 0, behavior: "smooth" });
         } else if (
           isOrdersTab ||
-          storeViewMode === "orders" ||
-          storeViewMode === "order-detail"
+          (isStoreMode &&
+            (storeViewMode === "orders" || storeViewMode === "order-detail"))
         ) {
           navigateToOrders();
         } else if (isStoreMode) {
@@ -1048,6 +1132,10 @@ function App() {
         else if (isCreatingCoupon || isEditingCoupon)
           setStoreViewMode("coupon_list");
         else if (isStoreMode) setStoreViewMode("list");
+        else if (isCreatingRaffle || isEditingRaffle)
+          setRaffleViewMode("list");
+        else if (isCreatingRaffleCoupon || isEditingRaffleCoupon)
+          setRaffleViewMode("coupon_list");
         else if (isCreatingSlide || isEditingSlide)
           setMediaViewMode("slider_list");
         else if (isMediaMode) setMediaViewMode("list");
@@ -1119,6 +1207,22 @@ function App() {
     }
   };
 
+  const handleRaffleParticipationStatusChange = async (
+    paymentStatus: "PAID" | "CANCELLED",
+  ) => {
+    if (!selectedRaffleParticipation) return;
+    try {
+      const updated = await apiRaffleParticipations.updateStatus(
+        selectedRaffleParticipation.id,
+        paymentStatus,
+      );
+      setSelectedRaffleParticipation(updated);
+      showToast(paymentStatus === "PAID" ? "Pago confirmado" : "Apartado cancelado");
+    } catch (error: any) {
+      showToast(error?.response?.data?.message || "No se pudo actualizar la participación", "error");
+    }
+  };
+
   const getActionAddon = () => {
     if (isFormMode) {
       return (
@@ -1144,10 +1248,18 @@ function App() {
                 homeSliderRef.current?.handleSave();
               if (isCreatingRaffle || isEditingRaffle)
                 (document.getElementById("raffle-form") as HTMLFormElement | null)?.requestSubmit();
+              if (isCreatingRaffleCoupon || isEditingRaffleCoupon)
+                (document.getElementById("raffle-coupon-form") as HTMLFormElement | null)?.requestSubmit();
             }}
             variant="brand"
             icon={Save}
-            disabled={(isCreatingRaffle || isEditingRaffle) && !isFormValid}
+            disabled={
+              (isCreatingRaffle ||
+                isEditingRaffle ||
+                isCreatingRaffleCoupon ||
+                isEditingRaffleCoupon) &&
+              !isFormValid
+            }
           >
             Guardar Cambios
           </NexusSectionButton>
@@ -1224,6 +1336,53 @@ function App() {
               Restaurar Orden
             </NexusSectionButton>
           )}
+        </>
+      );
+    }
+
+    if (
+      isRafflesMode &&
+      raffleViewMode === "participation-detail" &&
+      selectedRaffleParticipation?.status === "PENDING"
+    ) {
+      const isTransfer = selectedRaffleParticipation.paymentMethod !== "MERCADOPAGO";
+      if (!isTransfer) return null;
+      return (
+        <>
+          <NexusSectionButton
+            variant="secondary"
+            className="text-text-muted hover:text-text-main"
+            onClick={() => setConfirmDialog({
+              isOpen: true,
+              title: "¿Cancelar apartado?",
+              message: "Los boletos volverán a estar disponibles y se notificará al participante.",
+              confirmLabel: "Sí, Cancelar",
+              variant: "danger",
+              onConfirm: async () => {
+                await handleRaffleParticipationStatusChange("CANCELLED");
+                closeConfirm();
+              },
+            })}
+          >
+            Cancelar
+          </NexusSectionButton>
+          <NexusSectionButton
+            variant="brand"
+            icon={CheckCircle2}
+            onClick={() => setConfirmDialog({
+              isOpen: true,
+              title: "¿Confirmar pago?",
+              message: `Se confirmará el pago de ${selectedRaffleParticipation.ticketCount} ${selectedRaffleParticipation.ticketCount === 1 ? "boleto" : "boletos"}.`,
+              confirmLabel: "Confirmar Pago",
+              variant: "brand",
+              onConfirm: async () => {
+                await handleRaffleParticipationStatusChange("PAID");
+                closeConfirm();
+              },
+            })}
+          >
+            Confirmar Pago
+          </NexusSectionButton>
         </>
       );
     }
@@ -1308,6 +1467,18 @@ function App() {
           icon={Plus}
         >
           Nueva Rifa
+        </NexusSectionButton>
+      );
+    }
+
+    if (isRafflesMode && raffleViewMode === "coupon_list") {
+      return (
+        <NexusSectionButton
+          onClick={() => setRaffleViewMode("coupon_create")}
+          variant="brand"
+          icon={Plus}
+        >
+          Nuevo Cupón
         </NexusSectionButton>
       );
     }
@@ -1412,6 +1583,7 @@ function App() {
               onClick={() => channelFormRef.current?.handleSave()}
               variant="brand"
               icon={Save}
+              disabled={channelsViewMode === "create" && !isFormValid}
             >
               {channelsViewMode === "create"
                 ? "Crear Canal"
@@ -1479,7 +1651,9 @@ function App() {
             className="flex flex-col justify-between sm:flex-row sm:items-end"
             style={{
               gap: "var(--space-md)",
-              marginBottom: isOrdersListViewActive || isStoreProductListViewActive
+              marginBottom: isOrdersListViewActive ||
+                isStoreProductListViewActive ||
+                isRaffleParticipationsListViewActive
                 ? "var(--space-md)"
                 : "var(--space-lg)",
             }}
@@ -1505,6 +1679,7 @@ function App() {
               profileViewMode={profileViewMode}
               shippingSubView={shippingSubView}
               channelsViewMode={channelsViewMode}
+              selectedOrderRecordType={selectedOrder?.recordType}
               actionAddon={getActionAddon()}
             />
           </div>
@@ -1538,6 +1713,19 @@ function App() {
             </div>
           )}
 
+          {isRaffleParticipationsListViewActive && (
+            <div style={{ marginBottom: "var(--space-lg)" }}>
+              <NexusViewToolbar
+                searchValue={raffleParticipationSearchQuery}
+                onSearchChange={setRaffleParticipationSearchQuery}
+                searchPlaceholder="Buscar rifa, participante, teléfono, estado o boleto..."
+                segments={raffleParticipationToolbarSegments}
+                activeSegment={raffleParticipationStatusFilter}
+                onSegmentChange={setRaffleParticipationStatusFilter}
+              />
+            </div>
+          )}
+
           <div
             className="flex flex-col lg:flex-row"
             style={{ gap: "var(--space-lg)" }}
@@ -1548,6 +1736,7 @@ function App() {
                 onAction={handleQuickAction}
                 isDetail={
                   storeViewMode === "order-detail" ||
+                  (isRafflesMode && raffleViewMode === "participation-detail") ||
                   (isSystemMode &&
                     systemViewMode === "channels" &&
                     channelsViewMode === "principal")
@@ -1631,14 +1820,39 @@ function App() {
                   />
                 )
               ) : isRafflesMode ? (
-                <RaffleView
-                  searchQuery={searchQuery}
-                  viewMode={raffleViewMode}
-                  onSetViewMode={setRaffleViewMode}
-                  showToast={showToast}
-                  setConfirmDialog={setConfirmDialog}
-                  onValidationChange={setIsFormValid}
-                />
+                raffleViewMode === "participations" ? (
+                  <RaffleParticipationsView
+                    statusFilter={raffleParticipationStatusFilter}
+                    searchQuery={raffleParticipationSearchQuery}
+                    onViewDetail={(participation) => {
+                      setSelectedRaffleParticipation(participation);
+                      setRaffleViewMode("participation-detail");
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    onParticipationChange={(participation) => {
+                      setSelectedRaffleParticipation((current) =>
+                        current?.id === participation.id ? participation : current,
+                      );
+                    }}
+                    showToast={showToast}
+                    setConfirmDialog={setConfirmDialog}
+                  />
+                ) : raffleViewMode === "participation-detail" && selectedRaffleParticipation ? (
+                  <RaffleParticipationDetailView
+                    participation={selectedRaffleParticipation}
+                    onLoaded={setSelectedRaffleParticipation}
+                    showToast={showToast}
+                  />
+                ) : (
+                  <RaffleView
+                    searchQuery={searchQuery}
+                    viewMode={raffleViewMode}
+                    onSetViewMode={setRaffleViewMode}
+                    showToast={showToast}
+                    setConfirmDialog={setConfirmDialog}
+                    onValidationChange={setIsFormValid}
+                  />
+                )
               ) : isSystemMode ? (
                 <div
                   className="animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-visible"

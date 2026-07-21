@@ -97,7 +97,7 @@ export const StoreHeroCard: React.FC<StoreHeroCardProps> = ({
         </div>
 
         <div
-          className="flex items-center justify-between border-t border-border-main pt-[var(--space-md)] lg:justify-end lg:border-l lg:border-t-0 lg:pl-[var(--space-md)] lg:pt-0"
+          className="nexus-card-divider-desktop flex items-center justify-between border-t border-border-main pt-[var(--space-md)] lg:justify-end lg:border-t-0 lg:pl-[var(--space-md)] lg:pt-0"
           style={{ gap: "var(--space-md)" }}
         >
           <div className="flex flex-col items-center" style={{ gap: "var(--space-xs)" }}>

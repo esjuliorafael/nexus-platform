@@ -7,6 +7,7 @@ import {
   Edit2,
   FileText,
   Hash,
+  KeyRound,
   Link as LinkIcon,
   LogOut,
   MessageCircle,
@@ -26,6 +27,11 @@ import { NexusInput, NexusTextarea } from '../../ui/NexusInputs';
 import { NexusModal } from '../../ui/NexusModal';
 import { NexusSwitch } from '../../ui/NexusSwitch';
 import { NexusConfirmModal } from '../../ui/NexusConfirmModal';
+import {
+  WhatsAppPairingData,
+  WhatsAppPairingMethod,
+  WhatsAppPairingModal,
+} from './WhatsAppPairingModal';
 
 interface PrincipalChannelViewProps {
   showToast: (message: string, type?: 'success' | 'error') => void;
@@ -41,16 +47,17 @@ const TEMPLATE_GROUPS = [
       { key: 'whatsapp_global_store_pay', label: 'Pago confirmado', variables: ['{{customer_name}}', '{{order_id}}', '{{item_list}}', '{{amount}}'] },
       { key: 'whatsapp_global_store_restored', label: 'Apartado restaurado', variables: ['{{greeting}}', '{{customer_name}}', '{{order_id}}', '{{item_list}}', '{{amount}}', '{{bank_info}}', '{{time_store}}'] },
       { key: 'whatsapp_global_store_reminder', label: 'Recordatorio de pago', variables: ['{{greeting}}', '{{customer_name}}', '{{order_id}}', '{{item_list}}', '{{amount}}', '{{bank_info}}', '{{time_remaining}}'] },
-      { key: 'whatsapp_global_store_rel', label: 'Liberacion de orden', variables: ['{{customer_name}}', '{{order_id}}', '{{time_store}}'] },
+      { key: 'whatsapp_global_store_rel', label: 'Liberación de orden', variables: ['{{customer_name}}', '{{order_id}}', '{{item_list}}'] },
     ],
   },
   {
     label: 'Rifas',
     templates: [
+      { key: 'whatsapp_global_raffle_opening', label: 'Aviso de apertura', variables: ['{{raffle_name}}', '{{opening_date}}', '{{raffle_url}}'] },
       { key: 'whatsapp_global_raffle_res', label: 'Apartado de boletos', variables: ['{{customer_name}}', '{{ticket_list}}', '{{raffle_name}}', '{{amount}}', '{{bank_info}}', '{{time_raffle}}'] },
       { key: 'whatsapp_global_raffle_pay', label: 'Pago confirmado', variables: ['{{customer_name}}', '{{ticket_list}}', '{{raffle_name}}', '{{amount}}'] },
       { key: 'whatsapp_global_raffle_reminder', label: 'Recordatorio de pago', variables: ['{{customer_name}}', '{{ticket_list}}', '{{raffle_name}}', '{{amount}}', '{{bank_info}}', '{{time_remaining}}'] },
-      { key: 'whatsapp_global_raffle_rel', label: 'Liberacion de boletos', variables: ['{{customer_name}}', '{{ticket_list}}', '{{raffle_name}}', '{{time_raffle}}'] },
+      { key: 'whatsapp_global_raffle_rel', label: 'Liberación de boletos', variables: ['{{customer_name}}', '{{ticket_list}}', '{{raffle_name}}'] },
     ],
   },
 ];
@@ -61,8 +68,13 @@ const previewMessage = (content: string) => (
     .replace(/\{\{customer_name\}\}/g, 'Carlos Ramirez')
     .replace(/\{\{order_id\}\}/g, '1284')
     .replace(/\{\{item_list\}\}/g, '1x Gallo colorado, 2x Alimento premium')
-    .replace(/\{\{ticket_list\}\}/g, '018, 042, 119')
+    .replace(
+      /\{\{ticket_list\}\}/g,
+      '002, 005, 009 y 010\n\n✨ Oportunidades adicionales:\n\n002: 164, 246, 271, 635, 701, 888, 986\n005: 171, 265, 534, 817, 929, 943, 976\n009: 212, 430, 516, 605, 626, 752, 882\n010: 405, 423, 436, 441, 538, 728, 963',
+    )
     .replace(/\{\{raffle_name\}\}/g, 'Rifa Especial de Junio')
+    .replace(/\{\{opening_date\}\}/g, 'Lunes, 20 de julio de 2026, 8:00 a. m.')
+    .replace(/\{\{raffle_url\}\}/g, 'https://rancholastrojes.com.mx/raffles/1')
     .replace(/\{\{amount\}\}/g, '1,250.00')
     .replace(/\{\{bank_info\}\}/g, 'Banco: BBVA\nBeneficiario: Rancho Demo\nNo. Cuenta: 1234567890\nCLABE: 012345678901234567\nTarjeta: 1234 5678 9012 3456')
     .replace(/\{\{time_store\}\}/g, '24 horas')
@@ -76,7 +88,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ show
   const [isSaving, setIsSaving] = useState(false);
   const [modal, setModal] = useState<ModalType>(null);
   const [instanceStatus, setInstanceStatus] = useState<'open' | 'close' | 'connecting' | 'loading'>('loading');
-  const [qrData, setQRData] = useState<{ base64?: string; instanceName?: string; timeLeft?: number } | null>(null);
+  const [pairingData, setPairingData] = useState<WhatsAppPairingData | null>(null);
   const [editingTemplate, setEditingTemplate] = useState<{ key: string; label: string; variables: string[] } | null>(null);
   const [confirmDisconnectMP, setConfirmDisconnectMP] = useState(false);
   const [isDisconnectingMP, setIsDisconnectingMP] = useState(false);
@@ -121,21 +133,21 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ show
   };
 
   useEffect(() => {
-    if (config.whatsapp_evolution_instance) checkInstanceStatus(config.whatsapp_evolution_instance);
-  }, [config.whatsapp_evolution_instance]);
+    if (config.whatsapp_evolution_instance) checkInstanceStatus(principalInstance);
+  }, [config.whatsapp_evolution_instance, principalInstance]);
 
   useEffect(() => {
     let timer: any;
     let poll: any;
-    if (qrData?.instanceName) {
+    if (pairingData?.instanceName) {
       timer = setInterval(() => {
-        setQRData(prev => prev ? { ...prev, timeLeft: Math.max(0, (prev.timeLeft || 0) - 1) } : null);
+        setPairingData(prev => prev ? { ...prev, timeLeft: Math.max(0, prev.timeLeft - 1) } : null);
       }, 1000);
       poll = setInterval(async () => {
-        const state = await checkInstanceStatus(qrData.instanceName!);
+        const state = await checkInstanceStatus(pairingData.instanceName);
         if (state === 'open') {
           showToast('Dispositivo principal vinculado');
-          setQRData(null);
+          setPairingData(null);
         }
       }, 3000);
     }
@@ -143,11 +155,11 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ show
       clearInterval(timer);
       clearInterval(poll);
     };
-  }, [qrData?.instanceName]);
+  }, [pairingData?.instanceName]);
 
-  const openQrFlow = async () => {
+  const openWhatsAppFlow = async (method: WhatsAppPairingMethod) => {
     if (!config.whatsapp_main_phone?.trim()) {
-      showToast('Captura primero el numero de WhatsApp principal', 'error');
+      showToast('Captura primero el número de WhatsApp principal', 'error');
       return;
     }
     try {
@@ -160,12 +172,29 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ show
         whatsapp_evolution_instance: prefix,
       }, false);
 
-      const res = await apiWhatsApp.getQR(instanceName);
-      if (res.data?.base64) {
-        setQRData({ base64: res.data.base64, instanceName, timeLeft: 40 });
-      }
-    } catch (error) {
-      showToast('No se pudo generar el QR principal', 'error');
+      const res = await apiWhatsApp.connect(
+        instanceName,
+        method,
+        config.whatsapp_main_phone,
+      );
+      const value = method === 'qr' ? res.data?.base64 : res.data?.pairingCode;
+      if (!value) throw new Error('Evolution API no devolvió un código');
+
+      setPairingData({
+        method,
+        base64: res.data?.base64,
+        pairingCode: res.data?.pairingCode,
+        instanceName,
+        timeLeft: 40,
+      });
+    } catch (error: any) {
+      showToast(
+        error?.response?.data?.error ||
+          (method === 'qr'
+            ? 'No se pudo generar el QR principal'
+            : 'No se pudo generar el código de emparejamiento'),
+        'error',
+      );
     }
   };
 
@@ -382,7 +411,15 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ show
       </NexusSection>
 
       {modal === 'bank' && (
-        <NexusModal isOpen title="Informacion Bancaria Principal" onClose={() => setModal(null)}>
+        <NexusModal
+          isOpen
+          title="Información Bancaria Principal"
+          eyebrow="Configurar Canal"
+          icon={Banknote}
+          onClose={() => setModal(null)}
+          size="standard"
+          zIndex={250}
+        >
           <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
             <NexusInput label="Banco" value={config.bank_main_name || ''} onChange={(e) => setConfig({ ...config, bank_main_name: e.target.value })} icon={Banknote} />
             <NexusInput label="Beneficiario" value={config.bank_main_beneficiary || ''} onChange={(e) => setConfig({ ...config, bank_main_beneficiary: e.target.value })} icon={User} />
@@ -408,29 +445,38 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ show
       )}
 
       {modal === 'mercadopago' && (
-        <NexusModal isOpen title="Mercado Pago Principal" onClose={() => setModal(null)}>
-          <div className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
+        <NexusModal
+          isOpen
+          title="Mercado Pago Principal"
+          eyebrow="Configurar Canal"
+          icon={CreditCard}
+          onClose={() => setModal(null)}
+          size="standard"
+          zIndex={250}
+        >
+          <div className="flex w-full min-w-0 max-w-full flex-col" style={{ gap: 'var(--space-lg)' }}>
             <NexusInput
               label="Identidad en Extracto"
               value={config.mp_statement_descriptor || ''}
               onChange={(e) => setConfig({ ...config, mp_statement_descriptor: e.target.value.substring(0, 16).toUpperCase() })}
               icon={CreditCard}
-              helperText="Texto que aparece en el extracto del cliente. Maximo 16 caracteres."
+              helperText="Texto que aparece en el extracto del cliente. Máximo 16 caracteres."
             />
-            <div className="bg-bg-muted border border-border-main flex items-center" style={{ gap: 'var(--space-md)', padding: 'var(--padding-inner)', borderRadius: 'var(--radius-inner-visual)' }}>
-              <div className={`flex items-center justify-center ${mpReady ? 'bg-emerald-500 text-white' : 'bg-bg-card text-text-muted border border-border-main'}`} style={{ width: 'var(--size-icon-autonomous)', height: 'var(--size-icon-autonomous)', borderRadius: 'var(--radius-card-inner)' }}>
+            <div className="flex w-full min-w-0 max-w-full flex-col items-stretch border border-border-main bg-bg-muted sm:flex-row sm:items-center" style={{ gap: 'var(--space-md)', padding: 'var(--padding-inner)', borderRadius: 'var(--radius-inner-visual)' }}>
+              <div className={`flex shrink-0 items-center justify-center ${mpReady ? 'bg-emerald-500 text-white' : 'bg-bg-card text-text-muted border border-border-main'}`} style={{ width: 'var(--size-icon-autonomous)', height: 'var(--size-icon-autonomous)', borderRadius: 'var(--radius-card-inner)' }}>
                 <CheckCircle2 size={24} />
               </div>
-              <div>
+              <div className="min-w-0 flex-1">
                 <p className="text-h2 text-text-main">{mpReady ? 'Cuenta vinculada' : 'Sin cuenta vinculada'}</p>
-                <p className="text-secondary text-text-muted">{mpReady ? `Usuario ${config.mp_seller_user_id || 'sin id'}` : 'Vincula la pasarela principal para cobros por tarjeta.'}</p>
+                <p className="break-words text-secondary text-text-muted">{mpReady ? `Usuario ${config.mp_seller_user_id || 'sin id'}` : 'Vincula la pasarela principal para cobros por tarjeta.'}</p>
               </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 'var(--space-md)' }}>
-              <NexusAutonomousButton onClick={() => updateConfig({ mp_statement_descriptor: config.mp_statement_descriptor || '' })} isLoading={isSaving} icon={Save}>
+            <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)] sm:grid-cols-2" style={{ gap: 'var(--space-md)' }}>
+              <NexusAutonomousButton className="w-full min-w-0" onClick={() => updateConfig({ mp_statement_descriptor: config.mp_statement_descriptor || '' })} isLoading={isSaving} icon={Save}>
                 Guardar Extracto
               </NexusAutonomousButton>
               <NexusAutonomousButton
+                className="w-full min-w-0"
                 icon={mpReady ? LogOut : LinkIcon}
                 variant={mpReady ? 'danger' : 'brand'}
                 onClick={mpReady ? () => setConfirmDisconnectMP(true) : connectMercadoPago}
@@ -456,28 +502,37 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ show
       />
 
       {modal === 'whatsapp' && (
-        <NexusModal isOpen title="Mensajeria Principal" onClose={() => setModal(null)}>
-          <div className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
+        <NexusModal
+          isOpen
+          title="Mensajería Principal"
+          eyebrow="Configurar Canal"
+          icon={MessageCircle}
+          onClose={() => setModal(null)}
+          size="standard"
+          zIndex={250}
+        >
+          <div className="flex w-full min-w-0 max-w-full flex-col overflow-x-hidden" style={{ gap: 'var(--space-lg)' }}>
             <NexusInput
-              label="Numero de WhatsApp"
+              label="Número de WhatsApp"
               value={config.whatsapp_main_phone || ''}
               onChange={(e) => setConfig({ ...config, whatsapp_main_phone: e.target.value })}
               icon={Smartphone}
-              helperText="Incluye codigo de pais. Este sera el telefono fisico que escaneara el QR."
+              helperText="Incluye código de país. Este será el teléfono físico que escaneará el QR."
             />
-            <div className="bg-bg-muted border border-border-main flex items-center justify-between" style={{ gap: 'var(--space-md)', padding: 'var(--padding-inner)', borderRadius: 'var(--radius-inner-visual)' }}>
-              <div>
+            <div className="flex w-full min-w-0 max-w-full flex-col items-stretch justify-between border border-border-main bg-bg-muted sm:flex-row sm:items-center" style={{ gap: 'var(--space-md)', padding: 'var(--padding-inner)', borderRadius: 'var(--radius-inner-visual)' }}>
+              <div className="min-w-0 flex-1">
                 <p className="text-h2 text-text-main">Dispositivo principal</p>
-                <p className="text-secondary text-text-muted">
+                <p className="break-words text-secondary text-text-muted">
                   {instanceStatus === 'open' ? 'Vinculado con Evolution API' : `Instancia: ${principalInstance}`}
                 </p>
               </div>
-              <span className={`text-label ${instanceStatus === 'open' ? 'text-emerald-600' : 'text-text-muted'}`}>
-                {instanceStatus === 'loading' ? 'Revisando' : instanceStatus === 'open' ? 'En linea' : 'Desconectado'}
+              <span className={`shrink-0 text-label ${instanceStatus === 'open' ? 'text-emerald-600' : 'text-text-muted'}`}>
+                {instanceStatus === 'loading' ? 'Revisando' : instanceStatus === 'open' ? 'En línea' : 'Desconectado'}
               </span>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 'var(--space-base)' }}>
+            <div className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)] sm:grid-cols-2" style={{ gap: 'var(--space-base)' }}>
               <NexusAutonomousButton
+                className="w-full min-w-0"
                 density="compact"
                 onClick={() => updateConfig({
                   whatsapp_main_phone: config.whatsapp_main_phone || '',
@@ -488,10 +543,13 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ show
               >
                 Guardar
               </NexusAutonomousButton>
-              <NexusAutonomousButton density="compact" onClick={openQrFlow} icon={QrCode} variant="success">
+              <NexusAutonomousButton className="w-full min-w-0" density="compact" onClick={() => openWhatsAppFlow('qr')} icon={QrCode} variant="success" disabled={instanceStatus === 'open'}>
                 Vincular QR
               </NexusAutonomousButton>
-              <NexusAutonomousButton density="compact" onClick={() => checkInstanceStatus()} icon={RefreshCw} variant="secondary">
+              <NexusAutonomousButton className="w-full min-w-0" density="compact" onClick={() => openWhatsAppFlow('pairing_code')} icon={KeyRound} variant="success" disabled={instanceStatus === 'open'}>
+                Usar código
+              </NexusAutonomousButton>
+              <NexusAutonomousButton className="w-full min-w-0" density="compact" onClick={() => checkInstanceStatus()} icon={RefreshCw} variant="secondary">
                 Revisar
               </NexusAutonomousButton>
             </div>
@@ -504,27 +562,12 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ show
         </NexusModal>
       )}
 
-      {qrData && (
-        <NexusModal isOpen title="Vinculacion por QR" onClose={() => setQRData(null)} zIndex={260}>
-          <div className="text-center">
-            <div className="bg-white inline-block border-8 border-bg-muted shadow-inner relative" style={{ padding: 'var(--padding-outer)', borderRadius: 'var(--radius-outer)' }}>
-              {qrData.timeLeft === 0 ? (
-                <div className="w-[240px] h-[240px] flex items-center justify-center">
-                  <NexusAutonomousButton onClick={openQrFlow} icon={QrCode}>Regenerar QR</NexusAutonomousButton>
-                </div>
-              ) : (
-                <>
-                  <img src={qrData.base64} alt="QR" className="w-[240px] h-[240px]" style={{ borderRadius: 'var(--radius-card-inner)' }} />
-                  <div className="absolute -top-5 -right-5 w-14 h-14 bg-stone-950 text-white rounded-full flex items-center justify-center text-h2 font-black tabular-nums border-4 border-bg-card">
-                    {qrData.timeLeft}
-                  </div>
-                </>
-              )}
-            </div>
-            <p className="text-label text-emerald-600" style={{ marginTop: 'var(--space-lg)' }}>Esperando dispositivo...</p>
-          </div>
-        </NexusModal>
-      )}
+      <WhatsAppPairingModal
+        data={pairingData}
+        onClose={() => setPairingData(null)}
+        onRegenerate={openWhatsAppFlow}
+        zIndex={260}
+      />
     </div>
   );
 };

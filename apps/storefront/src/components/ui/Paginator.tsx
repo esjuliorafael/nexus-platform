@@ -25,23 +25,18 @@ export function StorefrontPaginator({
   };
 
   return (
-    <div
-      className={`flex items-center justify-center ${className}`}
-      style={{ paddingTop: "var(--sf-space-lg)" }}
-    >
+    <div className={`flex items-center justify-center ${className}`}>
       <nav
-        className="flex items-center border border-stone-200/90 bg-white shadow-[0_1rem_2rem_rgba(31,24,17,0.06)]"
-        aria-label="Paginacion"
+        className="flex items-center"
+        aria-label="Paginación"
         style={{
           gap: "var(--sf-space-sm)",
-          padding: "var(--sf-space-sm)",
-          borderRadius: "var(--sf-radius-card-inner)",
         }}
       >
         <PageArrowButton
           disabled={page <= 1}
           onClick={() => goToPage(page - 1)}
-          ariaLabel="Pagina anterior"
+          ariaLabel="Página anterior"
           icon={ChevronLeft}
         />
 
@@ -70,7 +65,7 @@ export function StorefrontPaginator({
         <PageArrowButton
           disabled={page >= totalPages}
           onClick={() => goToPage(page + 1)}
-          ariaLabel="Pagina siguiente"
+          ariaLabel="Página siguiente"
           icon={ChevronRight}
         />
       </nav>
@@ -113,13 +108,13 @@ function PageNumberButton({
       aria-current={isActive ? "page" : undefined}
       className={`sf-text-button-card flex items-center justify-center tabular-nums transition-all duration-300 active:scale-95 ${
         isActive
-          ? "bg-brand-500 text-white shadow-lg shadow-brand-500/20"
-          : "text-stone-500 hover:bg-stone-100 hover:text-stone-950"
+          ? "border border-brand-500 bg-brand-500 text-white shadow-lg shadow-brand-500/20"
+          : "border border-stone-200/90 bg-white text-stone-500 shadow-[0_0.5rem_1.25rem_rgba(31,24,17,0.05)] hover:border-stone-300 hover:bg-stone-100 hover:text-stone-950"
       }`}
       style={{
         width: "var(--sf-h-button-card)",
         height: "var(--sf-h-button-card)",
-        borderRadius: "var(--sf-radius-card-nested-compact)",
+        borderRadius: "var(--sf-radius-control-surface)",
         transitionTimingFunction: "var(--sf-ease)",
       }}
     >
@@ -145,11 +140,11 @@ function PageArrowButton({
       disabled={disabled}
       onClick={onClick}
       aria-label={ariaLabel}
-      className="flex items-center justify-center text-stone-500 transition-all duration-300 active:scale-95 hover:bg-stone-100 hover:text-stone-950 disabled:pointer-events-none disabled:opacity-40"
+      className="flex items-center justify-center border border-stone-200/90 bg-white text-stone-500 shadow-[0_0.5rem_1.25rem_rgba(31,24,17,0.05)] transition-all duration-300 active:scale-95 hover:border-stone-300 hover:bg-stone-100 hover:text-stone-950 disabled:pointer-events-none disabled:opacity-40"
       style={{
         width: "var(--sf-h-button-card)",
         height: "var(--sf-h-button-card)",
-        borderRadius: "var(--sf-radius-card-nested-compact)",
+        borderRadius: "var(--sf-radius-control-surface)",
         transitionTimingFunction: "var(--sf-ease)",
       }}
     >

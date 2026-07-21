@@ -23,24 +23,40 @@ model Setting {
 
 // Raffle Specific Models
 model Raffle {
-  id              Int                 @id @default(autoincrement())
-  title           String              @map("title")
-  description     String?             @map("description")
-  ticketPrice     Decimal             @map("ticket_price")
-  ticketQuantity  Int                 @map("ticket_quantity")
-  opportunities   Int                 @default(1) @map("opportunities")
-  distribution    RaffleDistribution  @default(LINEAR) @map("distribution")
-  useZero         Boolean             @default(false) @map("use_zero")
-  digits          Int                 @default(3) @map("digits")
-  drawDate        DateTime?           @map("draw_date")
-  image           String?             @map("image")
-  status          RaffleStatus        @default(ACTIVE) @map("status")
-  published       Boolean             @default(true) @map("published")
-  createdAt       DateTime            @default(now()) @map("created_at")
-  gallery         RaffleGallery[]
-  extraOpportunities RaffleOpportunity[]
-  ticketSales     TicketSale[]
+  id                    Int                         @id @default(autoincrement())
+  title                 String                      @map("title")
+  description           String?                     @map("description")
+  ticketPrice           Decimal                     @map("ticket_price")
+  ticketQuantity        Int                         @map("ticket_quantity")
+  opportunities         Int                         @default(1) @map("opportunities")
+  distribution          RaffleDistribution          @default(LINEAR) @map("distribution")
+  useZero               Boolean                     @default(false) @map("use_zero")
+  digits                Int                         @default(3) @map("digits")
+  drawDate              DateTime?                   @map("draw_date")
+  image                 String?                     @map("image")
+  imageType             MediaType                   @default(PHOTO) @map("image_type")
+  imagePoster           String?                     @map("image_poster")
+  prizeShippingPolicy   RafflePrizeShippingPolicy?  @map("prize_shipping_policy")
+  status                RaffleStatus                @default(ACTIVE) @map("status")
+  published             Boolean                     @default(true) @map("published")
+  featured              Boolean                     @default(false)
+  featuredOrder         Int?                        @map("featured_order")
+  winningNumber         String?                     @map("winning_number")
+  resultPublishedAt     DateTime?                   @map("result_published_at")
+  participationStartsAt DateTime?                   @map("participation_starts_at")
+  participationEndsAt   DateTime?                   @map("participation_ends_at")
+  earlyAccessEnabled    Boolean                     @default(false) @map("early_access_enabled")
+  earlyAccessCodeHash   String?                     @map("early_access_code_hash")
+  createdAt             DateTime                    @default(now()) @map("created_at")
+  gallery               RaffleGallery[]
+  extraOpportunities    RaffleOpportunity[]
+  ticketSales           TicketSale[]
+  paymentHolds          RafflePaymentHold[]
+  coupons               RaffleCoupon[]
+  openingSubscriptions  RaffleOpeningSubscription[]
 
+  @@index([featured, featuredOrder])
+  @@index([resultPublishedAt])
   @@map("raffles")
 }
 
@@ -49,10 +65,41 @@ enum RaffleDistribution {
   RANDOM @map("random")
 }
 
+enum RafflePrizeShippingPolicy {
+  INCLUDED    @map("included")
+  WINNER_PAYS @map("winner_pays")
+}
+
 enum RaffleStatus {
-  ACTIVE @map("active")
-  FINISHED @map("finished")
+  ACTIVE    @map("active")
+  FINISHED  @map("finished")
   CANCELLED @map("cancelled")
+}
+
+model RaffleOpeningSubscription {
+  id        String                          @id @default(uuid())
+  raffleId  Int                             @map("raffle_id")
+  phone     String
+  status    RaffleOpeningSubscriptionStatus @default(PENDING)
+  consentAt DateTime                        @default(now()) @map("consent_at")
+  sentAt    DateTime?                       @map("sent_at")
+  attempts  Int                             @default(0)
+  lastError String?                         @map("last_error")
+  createdAt DateTime                        @default(now()) @map("created_at")
+  updatedAt DateTime                        @updatedAt @map("updated_at")
+  raffle    Raffle                          @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+
+  @@unique([raffleId, phone])
+  @@index([status, raffleId])
+  @@map("raffle_opening_subscriptions")
+}
+
+enum RaffleOpeningSubscriptionStatus {
+  PENDING    @map("pending")
+  PROCESSING @map("processing")
+  SENT       @map("sent")
+  FAILED     @map("failed")
+  CANCELLED  @map("cancelled")
 }
 
 model RaffleGallery {
@@ -60,6 +107,7 @@ model RaffleGallery {
   raffleId  Int       @map("raffle_id")
   filePath  String    @map("file_path")
   fileType  MediaType @default(PHOTO) @map("file_type")
+  posterPath String?   @map("poster_path")
   createdAt DateTime  @default(now()) @map("created_at")
   raffle    Raffle    @relation(fields: [raffleId], references: [id], onDelete: Cascade)
 
@@ -72,32 +120,150 @@ enum MediaType {
 }
 
 model RaffleOpportunity {
-  id                 Int      @id @default(autoincrement())
-  raffleId           Int      @map("raffle_id")
-  mainTicketNumber   String   @map("main_ticket_number")
-  extraOpportunities Json     @map("extra_opportunities")
-  raffle             Raffle   @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  id                 Int    @id @default(autoincrement())
+  raffleId           Int    @map("raffle_id")
+  mainTicketNumber   String @map("main_ticket_number")
+  extraOpportunities Json   @map("extra_opportunities")
+  raffle             Raffle @relation(fields: [raffleId], references: [id], onDelete: Cascade)
 
   @@map("raffle_opportunities")
 }
 
 model TicketSale {
-  id              Int         @id @default(autoincrement())
-  raffleId        Int         @map("raffle_id")
-  ticketNumber    String      @map("ticket_number")
-  customerName    String      @map("customer_name")
-  customerPhone   String      @map("customer_phone")
-  customerState   String?     @map("customer_state")
-  paymentStatus   TicketStatus @default(PENDING) @map("payment_status")
-  paymentMethod   String?     @map("payment_method")
-  createdAt       DateTime    @default(now()) @map("created_at")
-  raffle          Raffle      @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  id                    Int           @id @default(autoincrement())
+  raffleId              Int           @map("raffle_id")
+  ticketNumber          String        @map("ticket_number")
+  customerName          String        @map("customer_name")
+  customerPhone         String        @map("customer_phone")
+  customerState         String?       @map("customer_state")
+  reservationId         String?       @map("reservation_id")
+  paymentStatus         TicketStatus  @default(PENDING) @map("payment_status")
+  paymentMethod         String?       @map("payment_method")
+  mpPaymentId           String?       @map("mp_payment_id")
+  mpSellerUserId        String?       @map("mp_seller_user_id")
+  mpPaymentStatus       String?       @map("mp_payment_status")
+  mpPaymentStatusDetail String?       @map("mp_payment_status_detail")
+  mpPaymentMethodId     String?       @map("mp_payment_method_id")
+  mpPaymentTypeId       String?       @map("mp_payment_type_id")
+  mpPaidAmount          Decimal?      @map("mp_paid_amount")
+  mpRefundId            String?       @map("mp_refund_id")
+  mpRefundedAmount      Decimal?      @map("mp_refunded_amount")
+  mpRefundedAt          DateTime?     @map("mp_refunded_at")
+  couponId              Int?          @map("coupon_id")
+  couponCode            String?       @map("coupon_code")
+  discountTotal         Decimal       @default(0.00) @map("discount_total")
+  createdAt             DateTime      @default(now()) @map("created_at")
+  raffle                Raffle        @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  coupon                RaffleCoupon? @relation(fields: [couponId], references: [id], onDelete: SetNull)
 
+  @@index([reservationId])
+  @@index([couponId])
+  @@index([mpPaymentId])
   @@map("ticket_sales")
 }
 
+model RafflePaymentHold {
+  id                    String                    @id @default(uuid()) @db.Uuid
+  raffleId              Int                       @map("raffle_id")
+  customerName          String                    @map("customer_name")
+  customerPhone         String                    @map("customer_phone")
+  customerState         String?                   @map("customer_state")
+  couponId              Int?                      @map("coupon_id")
+  couponCode            String?                   @map("coupon_code")
+  discountTotal         Decimal                   @default(0.00) @map("discount_total")
+  ticketNumbers         String[]                  @default([]) @map("ticket_numbers")
+  status                PaymentHoldStatus         @default(ACTIVE)
+  expiresAt             DateTime                  @map("expires_at")
+  promotedReservationId String?                   @unique @map("promoted_reservation_id")
+  mpPaymentId           String?                   @map("mp_payment_id")
+  mpSellerUserId        String?                   @map("mp_seller_user_id")
+  mpPaymentStatus       String?                   @map("mp_payment_status")
+  mpPaymentStatusDetail String?                   @map("mp_payment_status_detail")
+  createdAt             DateTime                  @default(now()) @map("created_at")
+  updatedAt             DateTime                  @updatedAt @map("updated_at")
+  raffle                Raffle                    @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  coupon                RaffleCoupon?             @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  tickets               RafflePaymentHoldTicket[]
+  paymentAttempts       RafflePaymentAttempt[]
+
+  @@index([raffleId, status, expiresAt])
+  @@index([mpPaymentId])
+  @@map("raffle_payment_holds")
+}
+
+model RafflePaymentHoldTicket {
+  id           Int               @id @default(autoincrement())
+  holdId       String            @map("hold_id") @db.Uuid
+  raffleId     Int               @map("raffle_id")
+  ticketNumber String            @map("ticket_number")
+  hold         RafflePaymentHold @relation(fields: [holdId], references: [id], onDelete: Cascade)
+
+  @@unique([raffleId, ticketNumber])
+  @@index([holdId])
+  @@map("raffle_payment_hold_tickets")
+}
+
+model RafflePaymentAttempt {
+  id              String             @id @db.Uuid
+  raffleId        Int                @map("raffle_id")
+  reservationId   String?            @map("reservation_id")
+  holdId          String?            @map("hold_id") @db.Uuid
+  idempotencyKey  String             @unique @map("idempotency_key")
+  status          String             @default("INITIATED")
+  statusDetail    String?            @map("status_detail")
+  mpPaymentId     String?            @map("mp_payment_id")
+  retryable       Boolean            @default(false)
+  uncertain       Boolean            @default(false)
+  customerMessage String?            @map("customer_message")
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+  hold            RafflePaymentHold? @relation(fields: [holdId], references: [id], onDelete: Cascade)
+
+  @@index([raffleId, reservationId, createdAt])
+  @@index([holdId, createdAt])
+  @@index([mpPaymentId])
+  @@map("raffle_payment_attempts")
+}
+
+model RaffleCoupon {
+  id            Int                      @id @default(autoincrement())
+  code          String                   @unique
+  name          String?
+  discountType  RaffleCouponDiscountType @map("discount_type")
+  discountValue Decimal                  @map("discount_value")
+  raffleId      Int?                     @map("raffle_id")
+  minTickets    Int?                     @map("min_tickets")
+  maxDiscount   Decimal?                 @map("max_discount")
+  usageLimit    Int?                     @map("usage_limit")
+  usedCount     Int                      @default(0) @map("used_count")
+  active        Boolean                  @default(true)
+  startsAt      DateTime?                @map("starts_at")
+  expiresAt     DateTime?                @map("expires_at")
+  createdAt     DateTime                 @default(now()) @map("created_at")
+  updatedAt     DateTime                 @updatedAt @map("updated_at")
+  raffle        Raffle?                  @relation(fields: [raffleId], references: [id], onDelete: SetNull)
+  ticketSales   TicketSale[]
+  paymentHolds  RafflePaymentHold[]
+
+  @@index([raffleId, active])
+  @@map("raffle_coupons")
+}
+
+enum RaffleCouponDiscountType {
+  PERCENTAGE @map("percentage")
+  FIXED      @map("fixed")
+}
+
 enum TicketStatus {
-  PENDING @map("pending")
-  PAID @map("paid")
+  PENDING   @map("pending")
+  PAID      @map("paid")
   CANCELLED @map("cancelled")
+}
+
+enum PaymentHoldStatus {
+  ACTIVE     @map("active")
+  PROCESSING @map("processing")
+  CONSUMED   @map("consumed")
+  EXPIRED    @map("expired")
+  CANCELLED  @map("cancelled")
 }

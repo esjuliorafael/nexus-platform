@@ -41,7 +41,7 @@ export const PlatformSettingsView = forwardRef<PlatformSettingsViewRef, Platform
             r2SecretKey: data.storage_r2_secret_key || '',
             r2BucketName: data.storage_r2_bucket_name || '',
             r2PublicDomain: data.storage_r2_public_domain || '',
-            mpFee: data.mp_app_fee_percentage || data.mp_application_fee || '0'
+            mpFee: data.mp_app_fee_percentage || '0'
           });
         } catch (error) {
           console.error("Error loading config:", error);
@@ -101,6 +101,9 @@ export const PlatformSettingsView = forwardRef<PlatformSettingsViewRef, Platform
               <NexusInput 
                 label="Comisión de Plataforma (%)"
                 type="number"
+                min="0"
+                max="100"
+                step="0.01"
                 value={config.mpFee} 
                 onChange={(e) => setConfig({ ...config, mpFee: e.target.value })}
                 placeholder="Ej. 3.00" 

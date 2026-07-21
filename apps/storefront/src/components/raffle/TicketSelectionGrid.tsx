@@ -1,229 +1,284 @@
-import { useEffect, useMemo, useState } from 'react';
-import { CheckCircle2, MapPin, Phone, Search, User, type LucideIcon } from 'lucide-react';
-import { Raffle } from '../../types';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Search, SlidersHorizontal } from 'lucide-react';
+import { Raffle, RaffleTicketAvailability } from '../../types';
 import { cn } from '../../utils/cn';
 import { Button } from '../ui/Button';
 import { StorefrontField } from '../ui/Field';
 import { StorefrontPaginator } from '../ui/Paginator';
-import { formatPrice } from '../../utils/formatters';
+import { TicketFilterPanel, TicketFilters } from './TicketFilterPanel';
+import { RaffleSelectionSummaryCard } from './RaffleSelectionSummaryCard';
 
-const TICKETS_PER_PAGE = 100;
+const DEFAULT_TICKETS_PER_PAGE = 50;
+const DEFAULT_TICKET_FILTERS: TicketFilters = {
+  availability: 'AVAILABLE',
+  parity: 'ALL',
+  pageSize: DEFAULT_TICKETS_PER_PAGE,
+};
 
 interface TicketSelectionGridProps {
   raffle: Raffle;
-  occupiedTickets: string[];
-  onReserve: (data: {
-    tickets: string[];
-    customerName: string;
-    customerPhone: string;
-    customerState?: string;
-  }) => Promise<void>;
-  isReserving: boolean;
+  ticketAvailability: RaffleTicketAvailability[];
+  selectedTickets: string[];
+  onSelectedTicketsChange: (tickets: string[]) => void;
+  onOpenSelection: () => void;
 }
 
-export function TicketSelectionGrid({ raffle, occupiedTickets, onReserve, isReserving }: TicketSelectionGridProps) {
-  const [selectedTickets, setSelectedTickets] = useState<string[]>([]);
-  const [customerName, setCustomerName] = useState('');
-  const [customerPhone, setCustomerPhone] = useState('');
-  const [customerState, setCustomerState] = useState('');
+function getPrimaryTickets(raffle: Raffle) {
+  if (raffle.extraOpportunities?.length) {
+    return raffle.extraOpportunities
+      .map((opportunity) => opportunity.mainTicketNumber)
+      .sort((left, right) => Number(left) - Number(right));
+  }
+
+  // Defensive fallback for an older API response. Main folios always start at 1;
+  // zero belongs to the opportunity pool in a closed opportunity universe.
+  return Array.from(
+    { length: raffle.ticketQuantity },
+    (_, index) => String(index + 1).padStart(raffle.digits, '0'),
+  );
+}
+
+export function TicketSelectionGrid({
+  raffle,
+  ticketAvailability,
+  selectedTickets,
+  onSelectedTicketsChange,
+  onOpenSelection,
+}: TicketSelectionGridProps) {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
+  const selectionSectionRef = useRef<HTMLElement>(null);
+  const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
+  const [filters, setFilters] = useState<TicketFilters>({ ...DEFAULT_TICKET_FILTERS });
+  const [draftFilters, setDraftFilters] = useState<TicketFilters>(filters);
 
   const allTickets = useMemo(() => {
-    const tickets: string[] = [];
-    const start = raffle.useZero ? 0 : 1;
-    const end = raffle.useZero ? raffle.ticketQuantity - 1 : raffle.ticketQuantity;
-
-    for (let index = start; index <= end; index++) {
-      tickets.push(index.toString().padStart(raffle.digits, '0'));
-    }
-
-    return tickets;
+    return getPrimaryTickets(raffle);
   }, [raffle]);
 
-  const toggleTicket = (number: string) => {
-    if (occupiedTickets.includes(number)) return;
+  const ticketStatusByNumber = useMemo(
+    () => new Map(ticketAvailability.map((ticket) => [ticket.ticketNumber, ticket.status])),
+    [ticketAvailability],
+  );
 
-    setSelectedTickets((current) =>
-      current.includes(number)
-        ? current.filter((ticket) => ticket !== number)
-        : [...current, number]
+  const toggleTicket = (number: string) => {
+    if (ticketStatusByNumber.has(number)) return;
+
+    onSelectedTicketsChange(
+      selectedTickets.includes(number)
+        ? selectedTickets.filter((ticket) => ticket !== number)
+        : [...selectedTickets, number]
     );
   };
 
-  const handleReserve = async (event: React.FormEvent) => {
-    event.preventDefault();
-    if (selectedTickets.length === 0 || !customerName || !customerPhone) return;
+  const filteredTickets = allTickets.filter((ticket) => {
+    const status = ticketStatusByNumber.get(ticket) ?? 'AVAILABLE';
+    const number = Number.parseInt(ticket, 10);
+    const matchesSearch = ticket.includes(search);
+    const matchesAvailability = filters.availability === 'ALL' || status === filters.availability;
+    const matchesParity = filters.parity === 'ALL' || (filters.parity === 'EVEN' ? number % 2 === 0 : number % 2 !== 0);
 
-    await onReserve({
-      tickets: selectedTickets,
-      customerName,
-      customerPhone,
-      customerState,
+    return matchesSearch && matchesAvailability && matchesParity;
+  });
+  const totalPages = Math.max(1, Math.ceil(filteredTickets.length / filters.pageSize));
+  const visibleTickets = filteredTickets.slice((page - 1) * filters.pageSize, page * filters.pageSize);
+  const visibleRangeStart = filteredTickets.length === 0 ? 0 : ((page - 1) * filters.pageSize) + 1;
+  const visibleRangeEnd = Math.min(page * filters.pageSize, filteredTickets.length);
+  const totalAmount = selectedTickets.length * Number(raffle.ticketPrice);
+  const hasActiveFilters = filters.availability !== DEFAULT_TICKET_FILTERS.availability
+    || filters.parity !== 'ALL'
+    || filters.pageSize !== DEFAULT_TICKETS_PER_PAGE;
+
+  const openFilters = () => {
+    setDraftFilters(filters);
+    setIsFilterPanelOpen(true);
+  };
+
+  const applyFilters = () => {
+    setFilters(draftFilters);
+    setIsFilterPanelOpen(false);
+  };
+
+  const resetFilters = () => {
+    setDraftFilters({ ...DEFAULT_TICKET_FILTERS });
+  };
+
+  const showAllTickets = () => {
+    const nextFilters: TicketFilters = { ...filters, availability: 'ALL' };
+    setFilters(nextFilters);
+    setDraftFilters(nextFilters);
+  };
+
+  const changePage = (nextPage: number) => {
+    setPage(nextPage);
+    window.requestAnimationFrame(() => {
+      selectionSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
     });
   };
 
-  const filteredTickets = allTickets.filter((ticket) => ticket.includes(search));
-  const totalPages = Math.max(1, Math.ceil(filteredTickets.length / TICKETS_PER_PAGE));
-  const visibleTickets = filteredTickets.slice((page - 1) * TICKETS_PER_PAGE, page * TICKETS_PER_PAGE);
-  const totalAmount = selectedTickets.length * Number(raffle.ticketPrice);
-
   useEffect(() => {
     setPage(1);
-  }, [search]);
+  }, [filters, search]);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   return (
-    <div className="flex flex-col" style={{ gap: 'var(--sf-space-lg)' }}>
-      <div className="flex flex-col items-start xl:flex-row" style={{ gap: 'var(--sf-space-lg)' }}>
-        <div className="w-full flex-1">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between" style={{ gap: 'var(--sf-space-md)' }}>
-            <div>
-              <h4 className="sf-text-h2 text-stone-850 uppercase italic">Elige tus numeros</h4>
-              <p className="sf-text-label text-stone-400">{selectedTickets.length} seleccionados</p>
-            </div>
-            <div className="w-full sm:w-64">
+    <>
+      <div
+        className="grid grid-cols-1 items-start lg:grid-cols-[minmax(0,1fr)_minmax(22rem,26rem)]"
+        style={{ gap: 'var(--sf-space-xl)' }}
+      >
+        <section
+          ref={selectionSectionRef}
+          className="flex min-w-0 scroll-mt-[var(--sf-mobile-chrome-content-padding-top)] flex-col md:scroll-mt-[var(--sf-space-lg)]"
+          style={{ gap: 'var(--sf-space-md)' }}
+        >
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between" style={{ gap: 'var(--sf-space-md)' }}>
+          <div className="flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
+            <h2 className="sf-text-h1 text-stone-850">Selecciona tus boletos</h2>
+            <p className="sf-text-body text-stone-500">Elige los números disponibles para participar.</p>
+          </div>
+          <div className="flex w-full sm:w-auto" style={{ gap: 'var(--sf-space-sm)' }}>
+            <div className="min-w-0 flex-1 sm:w-64 sm:flex-none">
               <StorefrontField
                 icon={Search}
                 type="text"
-                placeholder="Buscar numero..."
+                placeholder="Buscar número..."
                 value={search}
                 onChange={(event) => setSearch(event.target.value)}
-              />
-            </div>
-          </div>
-
-          <div
-            className="mt-6 grid max-h-[500px] grid-cols-5 overflow-y-auto border border-stone-100 bg-stone-50/40 p-4 sm:grid-cols-8 md:grid-cols-10"
-            style={{ borderRadius: 'var(--sf-radius-outer)', gap: 'var(--sf-space-sm)' }}
-          >
-            {visibleTickets.map((number) => {
-              const isOccupied = occupiedTickets.includes(number);
-              const isSelected = selectedTickets.includes(number);
-
-              return (
-                <button
-                  key={number}
-                  disabled={isOccupied}
-                  onClick={() => toggleTicket(number)}
-                  className={cn(
-                    'aspect-square flex items-center justify-center text-xs font-black transition-all duration-300 active:scale-90 sm:text-sm',
-                    isOccupied
-                      ? 'cursor-not-allowed bg-stone-200 text-stone-400 opacity-50'
-                      : isSelected
-                        ? 'scale-105 bg-brand-500 text-white shadow-lg shadow-brand-500/30'
-                        : 'border border-stone-200 bg-white text-stone-600 hover:border-brand-500 hover:text-brand-500'
-                  )}
-                  style={{ borderRadius: 'var(--sf-radius-nested)' }}
-                >
-                  {number}
-                </button>
-              );
-            })}
-          </div>
-
-          <div className="mt-4 flex flex-wrap sf-text-label text-stone-400" style={{ gap: 'var(--sf-space-md)' }}>
-            <LegendItem label="Disponible" className="bg-white border border-stone-200" />
-            <LegendItem label="Seleccionado" className="bg-brand-500" />
-            <LegendItem label="Ocupado" className="bg-stone-200" />
-          </div>
-
-          <StorefrontPaginator
-            page={page}
-            totalPages={totalPages}
-            onPageChange={setPage}
-            className="mt-[var(--sf-space-md)]"
-          />
-        </div>
-
-        <div className="w-full xl:w-96 xl:sticky xl:top-24">
-          <form
-            onSubmit={handleReserve}
-            className="flex flex-col bg-stone-900 text-white shadow-2xl shadow-stone-900/25"
-            style={{ borderRadius: 'var(--sf-radius-outer)', padding: 'var(--sf-padding-outer)', gap: 'var(--sf-space-lg)' }}
-          >
-            <div className="flex flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
-              <h5 className="sf-text-h1 uppercase italic">Apartar Boletos</h5>
-              <p className="sf-text-secondary text-stone-400">Completa tus datos para contactarte y confirmar tu pago.</p>
-            </div>
-
-            <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
-              <DarkField
-                icon={User}
-                label="Nombre Completo"
-                required
-                type="text"
-                placeholder="Tu nombre"
-                value={customerName}
-                onChange={(event) => setCustomerName(event.target.value)}
-              />
-              <DarkField
-                icon={Phone}
-                label="WhatsApp / Telefono"
-                required
-                type="tel"
-                placeholder="10 digitos"
-                value={customerPhone}
-                onChange={(event) => setCustomerPhone(event.target.value)}
-              />
-              <DarkField
-                icon={MapPin}
-                label="Estado"
-                type="text"
-                placeholder="Ej. Jalisco"
-                value={customerState}
-                onChange={(event) => setCustomerState(event.target.value)}
-              />
-            </div>
-
-            <div className="flex flex-col border-t border-stone-800 pt-[var(--sf-space-md)]" style={{ gap: 'var(--sf-space-md)' }}>
-              <div className="flex items-center justify-between">
-                <span className="sf-text-label text-stone-400">Total</span>
-                <span className="sf-text-display text-brand-500">${formatPrice(totalAmount)}</span>
-              </div>
-
-              <Button
-                type="submit"
-                context="section"
                 className="w-full"
-                icon={CheckCircle2}
-                isLoading={isReserving}
-                disabled={selectedTickets.length === 0 || !customerName || !customerPhone || isReserving}
-              >
-                Reservar Ahora
-              </Button>
+              />
             </div>
-          </form>
+            <Button
+              type="button"
+              variant={hasActiveFilters ? 'brand' : 'outline'}
+              context="section"
+              size="icon"
+              isIconOnly
+              icon={SlidersHorizontal}
+              onClick={openFilters}
+              aria-label="Filtrar boletos"
+              className="shrink-0"
+            />
+          </div>
         </div>
+
+        {filteredTickets.length > 0 ? (
+          <>
+            <div
+              className="grid grid-cols-5 sm:grid-cols-8 md:grid-cols-10"
+              style={{ gap: 'var(--sf-space-sm)' }}
+            >
+              {visibleTickets.map((number) => {
+                const ticketStatus = ticketStatusByNumber.get(number);
+                const isOccupied = Boolean(ticketStatus);
+                const isSelected = selectedTickets.includes(number);
+
+                return (
+                  <button
+                    key={number}
+                    type="button"
+                    disabled={isOccupied}
+                    onClick={() => toggleTicket(number)}
+                    className={cn(
+                      'aspect-square flex items-center justify-center text-xs font-black transition-all duration-300 active:scale-90 sm:text-sm',
+                      ticketStatus === 'PAID'
+                        ? 'cursor-not-allowed border border-emerald-200 bg-emerald-50 text-emerald-700 opacity-70'
+                        : ticketStatus === 'RESERVED'
+                          ? 'cursor-not-allowed border border-amber-200 bg-amber-50 text-amber-700 opacity-70'
+                          : isSelected
+                            ? 'scale-105 bg-brand-500 text-white shadow-lg shadow-brand-500/30'
+                            : 'border border-stone-200 bg-white text-stone-600 hover:border-brand-500 hover:text-brand-500'
+                    )}
+                    style={{ borderRadius: 'var(--sf-radius-inner)' }}
+                  >
+                    {number}
+                  </button>
+                );
+              })}
+            </div>
+
+            <div
+              className="grid grid-cols-[max-content_max-content] justify-center sf-text-label text-stone-400 md:flex md:flex-wrap md:items-center md:justify-center"
+              style={{
+                columnGap: 'var(--sf-space-md)',
+                rowGap: 'var(--sf-space-sm)',
+              }}
+            >
+              <LegendItem label="Disponible" className="bg-white border border-stone-200" />
+              <LegendItem label="Seleccionado" className="bg-brand-500" />
+              <LegendItem label="Apartado" className="bg-amber-500" />
+              <LegendItem label="Pagado" className="bg-emerald-600" />
+            </div>
+
+            <div
+              className="flex flex-col items-center md:flex-row md:justify-between"
+              style={{ gap: 'var(--sf-space-base)' }}
+            >
+              <p className="text-center sf-text-secondary text-stone-500 md:text-left">
+                Mostrando {visibleRangeStart}–{visibleRangeEnd} de {filteredTickets.length} boletos
+              </p>
+
+              <StorefrontPaginator page={page} totalPages={totalPages} onPageChange={changePage} />
+            </div>
+          </>
+        ) : (
+          <div
+            className="flex flex-col items-center text-center"
+            style={{ gap: 'var(--sf-space-md)', paddingBlock: 'var(--sf-space-xl)' }}
+          >
+            <div className="flex max-w-md flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
+              <h3 className="sf-text-h2 text-stone-950">
+                {filters.availability === 'AVAILABLE' ? 'No quedan boletos disponibles' : 'No encontramos boletos'}
+              </h3>
+              <p className="sf-text-secondary text-stone-500">
+                {filters.availability === 'AVAILABLE'
+                  ? 'Puedes consultar el universo completo y revisar el estado de cada boleto.'
+                  : 'Prueba con otros filtros o cambia el número que estás buscando.'}
+              </p>
+            </div>
+            {filters.availability === 'AVAILABLE' && (
+              <Button type="button" variant="outline" context="autonomous" onClick={showAllTickets}>
+                Ver todos
+              </Button>
+            )}
+          </div>
+        )}
+        </section>
+
+        <aside id="raffle-selection-summary" className="hidden scroll-mt-[var(--sf-mobile-chrome-content-padding-top)] lg:block">
+          <RaffleSelectionSummaryCard
+            selectedTickets={selectedTickets}
+            ticketOpportunities={raffle.extraOpportunities ?? []}
+            total={totalAmount}
+            onRemoveTicket={toggleTicket}
+            actionLabel="Revisar selección"
+            onAction={onOpenSelection}
+            actionDisabled={selectedTickets.length === 0}
+            actionTestId="raffle-selection-trigger"
+          />
+        </aside>
       </div>
-    </div>
+
+      <TicketFilterPanel
+        isOpen={isFilterPanelOpen}
+        filters={draftFilters}
+        onChange={setDraftFilters}
+        onReset={resetFilters}
+        onApply={applyFilters}
+        onClose={() => setIsFilterPanelOpen(false)}
+      />
+    </>
   );
 }
 
 function LegendItem({ label, className }: { label: string; className: string }) {
   return (
-    <div className="flex items-center" style={{ gap: 'var(--sf-space-sm)' }}>
+    <div className="flex items-center justify-start" style={{ gap: 'var(--sf-space-sm)' }}>
       <div className={cn('h-3 w-3 rounded-full', className)} />
       {label}
     </div>
-  );
-}
-
-function DarkField({
-  icon: Icon,
-  label,
-  ...props
-}: React.InputHTMLAttributes<HTMLInputElement> & { icon: LucideIcon; label: string }) {
-  return (
-    <label className="group flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
-      <span className="sf-text-label text-stone-500 group-focus-within:text-brand-500">{label}</span>
-      <div className="relative flex h-[var(--sf-h-input)] items-center">
-        <Icon className="absolute left-5 text-stone-600 group-focus-within:text-brand-500" size={18} />
-        <input
-          {...props}
-          className="h-full w-full border border-stone-700 bg-stone-800 pl-14 pr-5 text-sm font-bold text-white transition-all placeholder:text-stone-600 focus:border-brand-500 focus:outline-none focus:ring-4 focus:ring-brand-500/10"
-          style={{ borderRadius: 'var(--sf-radius-card-inner)', transitionTimingFunction: 'var(--sf-ease)' }}
-        />
-      </div>
-    </label>
   );
 }

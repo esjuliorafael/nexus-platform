@@ -109,10 +109,11 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     if (hasBirds) return { label: 'Aves', icon: Bird, mainIcon: Bird };
     return { label: 'Artículos', icon: ShoppingBag, mainIcon: ShoppingBag };
   }, [order.items]);
+  const isPaymentHold = order.recordType === 'PAYMENT_HOLD';
 
   const statusConfig = useMemo<{
     cardOpacity: string;
-    iconVariant: 'emerald' | 'brand' | 'muted';
+    iconVariant: 'emerald' | 'brand' | 'orange' | 'muted';
     badgeVariant: NexusBadgeVariant;
     icon: LucideIcon;
     label: string;
@@ -144,6 +145,24 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           badgeVariant: 'danger',
           icon: CircleX,
           label: 'Cancelada',
+          showStatusPill: true,
+        };
+      case 'payment_review':
+        return {
+          cardOpacity: '',
+          iconVariant: 'orange',
+          badgeVariant: 'warning',
+          icon: Clock,
+          label: 'En revisión',
+          showStatusPill: true,
+        };
+      case 'not_completed':
+        return {
+          cardOpacity: 'opacity-70 grayscale-[0.5]',
+          iconVariant: 'muted',
+          badgeVariant: 'danger',
+          icon: CircleX,
+          label: 'No concretada',
           showStatusPill: true,
         };
       default:
@@ -178,27 +197,28 @@ export const OrderCard: React.FC<OrderCardProps> = ({
 
   return (
     <NexusAutonomousCard
-      swipeable={order.status === 'pending'}
-      isMuted={order.status === 'cancelled'}
+      swipeable={!isPaymentHold && order.status === 'pending'}
+      isMuted={order.status === 'cancelled' || order.status === 'not_completed'}
       className={`group ${statusConfig.cardOpacity} animate-in fade-in duration-500`}
       style={style}
       customSwipeLeft={
         <NexusAutonomousButton
           onClick={() => onMarkAsPaid(order.id)}
           variant="success"
-          className="h-full w-full flex-col rounded-none"
-          isIconOnly
           icon={Check}
-        />
+        >
+          Confirmar pago
+        </NexusAutonomousButton>
       }
       customSwipeRight={
         <NexusAutonomousButton
           onClick={() => onCancelOrder(order.id)}
-          variant="danger"
-          className="h-full w-full flex-col rounded-none"
-          isIconOnly
+          variant="secondary"
+          className="border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700"
           icon={CircleX}
-        />
+        >
+          Cancelar orden
+        </NexusAutonomousButton>
       }
     >
       <div
@@ -229,10 +249,10 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               </NexusAutonomousBadge>
               <NexusAutonomousBadge
                 variant="brand"
-                icon={Hash}
+                icon={isPaymentHold ? CreditCard : Hash}
                 className="border-brand-100/50 bg-brand-50/80 backdrop-blur-sm"
               >
-                {order.id}
+                {isPaymentHold ? 'Intento MP' : order.id}
               </NexusAutonomousBadge>
               {statusConfig.showStatusPill && (
                 <NexusAutonomousBadge
@@ -310,10 +330,10 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               </NexusAutonomousBadge>
               <NexusAutonomousBadge
                 variant="brand"
-                icon={Hash}
+                icon={isPaymentHold ? CreditCard : Hash}
                 className="border-brand-100/50 bg-brand-50/80 backdrop-blur-sm"
               >
-                {order.id}
+                {isPaymentHold ? 'Intento MP' : order.id}
               </NexusAutonomousBadge>
               {isCardPayment && (
                 <NexusAutonomousBadge
@@ -329,7 +349,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             <h3 className="truncate text-h2 font-bold text-text-main">{order.customer}</h3>
           </div>
 
-          <div className="flex shrink-0 flex-row items-center lg:border-l lg:border-border-main lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-lg)' }}>
+          <div className="nexus-card-divider-desktop flex shrink-0 flex-row items-center lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-lg)' }}>
             <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
               <span className="text-label uppercase tracking-[0.15em] text-stone-400">Fecha</span>
               <div className="flex items-center text-secondary font-bold text-text-main" style={{ gap: 'var(--space-xs)' }}>
@@ -346,7 +366,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
               </div>
             </div>
 
-            <div className="flex flex-col items-end lg:min-w-[120px] lg:border-l lg:border-border-main lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-xs)' }}>
+            <div className="nexus-card-divider-desktop flex flex-col items-end lg:min-w-[120px] lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-xs)' }}>
               <span className="text-label uppercase tracking-[0.15em] text-stone-400">Total</span>
               <div className="flex items-baseline text-h1 font-black text-text-main">
                 <span className="mr-0.5 text-secondary opacity-50">$</span>
@@ -355,7 +375,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             </div>
           </div>
 
-          <div className="flex shrink-0 items-center justify-between lg:justify-end lg:border-l lg:border-border-main lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-sm)' }}>
+          <div className="nexus-card-divider-desktop flex shrink-0 items-center justify-between lg:justify-end lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-sm)' }}>
             {statusConfig.showStatusPill && (
               <div className="hidden sm:block">
                 <NexusAutonomousBadge
@@ -369,7 +389,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             )}
 
             <div className="ml-auto hidden items-center sm:ml-0 sm:flex" style={{ gap: 'var(--space-sm)' }}>
-              {order.status === 'pending' && (
+              {!isPaymentHold && order.status === 'pending' && (
                 <NexusAutonomousButton
                   density="compact"
                   onClick={(e) => {
@@ -382,7 +402,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                   title="Marcar pagada"
                 />
               )}
-              {(order.status === 'pending' || order.status === 'paid') && (
+              {!isPaymentHold && (order.status === 'pending' || order.status === 'paid') && (
                 <NexusAutonomousButton
                   density="compact"
                   onClick={(e) => {

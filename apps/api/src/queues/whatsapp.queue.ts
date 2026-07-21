@@ -63,6 +63,11 @@ export type WhatsappJobData =
       ticketSaleIds: number[];
       recipientPhone: string;
       timeRemaining: string;
+    }
+  | {
+      kind: "raffle-opening";
+      subscriptionId: string;
+      recipientPhone: string;
     };
 
 export const whatsappQueue = new Queue<WhatsappJobData>(

@@ -82,6 +82,7 @@
   --h-input: clamp(3rem, 4vw, 3.5rem); /* 48px to 56px */
   --h-button-section: clamp(3rem, 4vw, 3.5rem); /* Main CTAs: 48px to 56px */
   --h-button-card: clamp(2.5rem, 3vw, 3rem); /* Secondary CTAs: 40px to 48px */
+  --h-card-divider-vertical: var(--h-button-card);
 
   /* Semantic Component Sizes - Level Scale */
   --size-button-section: var(--h-button-section);
@@ -146,6 +147,23 @@
   --size-stage-container-compact: clamp(4.5rem, 6vw, 5.5rem); /* 72px to 88px */
   --size-stage-icon: clamp(2.5rem, 4vw, 3.25rem); /* 40px to 52px */
   --size-stage-icon-compact: clamp(1.75rem, 3vw, 2.25rem); /* 28px to 36px */
+}
+
+@media (min-width: 1024px) {
+  .nexus-card-divider-desktop {
+    position: relative;
+  }
+
+  .nexus-card-divider-desktop::before {
+    content: "";
+    position: absolute;
+    top: 50%;
+    left: 0;
+    width: 1px;
+    height: var(--h-card-divider-vertical);
+    transform: translateY(-50%);
+    background-color: var(--border-main);
+  }
 }
 
 @utility text-hero {

@@ -8,6 +8,7 @@ import { sendAndLog } from "../services/evolution/evolution.service";
 import type { WhatsappJobData } from "../queues/whatsapp.queue";
 import type { OrderKind } from "../services/evolution/channel.resolver";
 import { queueName } from "../queues/queue-name";
+import { formatRaffleTicketList } from "../utils/raffle-ticket-list";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
 const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
@@ -35,6 +36,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
               "whatsapp_global_raffle_rel",
               "whatsapp_global_raffle_pay",
               "whatsapp_global_raffle_reminder",
+              "whatsapp_global_raffle_opening",
               "bank_main_name",
               "bank_main_beneficiary",
               "bank_main_account",
@@ -96,24 +98,23 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       // Dynamic template resolution
       let template = "";
       if (data.kind === "order") {
-        template = wa?.templates?.find((t: any) => t.type.toLowerCase() === "reservation")?.content 
-                   || wa?.template 
+        template = wa?.templates?.find((t: any) => t.active && t.type.toLowerCase() === "reservation")?.content
                    || getSetting("whatsapp_global_store_res") 
                    || "";
       } else if (data.kind === "order-paid") {
-        template = wa?.templates?.find((t: any) => t.type.toLowerCase() === "payment_confirmed")?.content
+        template = wa?.templates?.find((t: any) => t.active && t.type.toLowerCase() === "payment_confirmed")?.content
                    || getSetting("whatsapp_global_store_pay")
-                   || "¡Hola {{customer_name}}! Hemos recibido tu pago por la orden #{{order_id}}. Tu pedido ya está siendo procesado.";
+                   || "";
       } else if (data.kind === "order-restored") {
-        template = wa?.templates?.find((t: any) => t.type.toLowerCase() === "restored")?.content
+        template = wa?.templates?.find((t: any) => t.active && t.type.toLowerCase() === "restored")?.content
                    || getSetting("whatsapp_global_store_restored")
                    || "";
       } else if (data.kind === "order-reminder") {
-        template = wa?.templates?.find((t: any) => t.type.toLowerCase() === "reminder")?.content
+        template = wa?.templates?.find((t: any) => t.active && t.type.toLowerCase() === "reminder")?.content
                    || getSetting("whatsapp_global_store_reminder")
                    || "";
       } else {
-        template = wa?.templates?.find((t: any) => t.type.toLowerCase() === "release")?.content 
+        template = wa?.templates?.find((t: any) => t.active && t.type.toLowerCase() === "release")?.content
                    || getSetting("whatsapp_global_store_rel")
                    || "";
       }
@@ -164,21 +165,24 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         paymentChannel = payChannels.find((channel) => channel.purpose.toUpperCase() === orderPurpose) ?? null;
       }
 
-      const bankInfo = paymentChannel
-        ? formatBankInfo({
+      const bankInfo = resolveBankInfo(
+        paymentChannel
+          ? {
             bank: paymentChannel.bank,
             beneficiary: paymentChannel.beneficiary,
             account: paymentChannel.accountNumber ?? undefined,
             clabe: paymentChannel.clabe ?? undefined,
             card: paymentChannel.card ?? undefined,
-          })
-        : formatBankInfo({
-            bank: getSetting("bank_main_name") ?? "",
-            beneficiary: getSetting("bank_main_beneficiary") ?? "",
-            account: getSetting("bank_main_account") ?? undefined,
-            clabe: getSetting("bank_main_clabe") ?? undefined,
-            card: getSetting("bank_main_card") ?? undefined
-          });
+          }
+          : null,
+        {
+          bank: getSetting("bank_main_name") ?? "",
+          beneficiary: getSetting("bank_main_beneficiary") ?? "",
+          account: getSetting("bank_main_account") ?? undefined,
+          clabe: getSetting("bank_main_clabe") ?? undefined,
+          card: getSetting("bank_main_card") ?? undefined,
+        },
+      );
 
       const itemList = order.items
         .map(i => `${i.quantity}x ${i.productName}`)
@@ -213,6 +217,131 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       });
     }
 
+    if (data.kind === "raffle-opening") {
+      const subscription = await rafflePrisma.raffleOpeningSubscription.findUnique({
+        where: { id: data.subscriptionId },
+        include: { raffle: true },
+      });
+      if (!subscription || subscription.status === "SENT" || subscription.status === "CANCELLED") {
+        return;
+      }
+
+      const claimed = await rafflePrisma.raffleOpeningSubscription.updateMany({
+        where: {
+          id: subscription.id,
+          status: { in: ["PENDING", "FAILED"] },
+        },
+        data: {
+          status: "PROCESSING",
+          lastError: null,
+        },
+      });
+      if (claimed.count === 0) return;
+
+      const now = new Date();
+      const raffle = subscription.raffle;
+      if (
+        raffle.status !== "ACTIVE" ||
+        !raffle.participationStartsAt ||
+        (raffle.participationEndsAt && raffle.participationEndsAt <= now)
+      ) {
+        await rafflePrisma.raffleOpeningSubscription.update({
+          where: { id: subscription.id },
+          data: { status: "CANCELLED" },
+        });
+        return;
+      }
+
+      if (!raffle.published || raffle.participationStartsAt > now) {
+        await rafflePrisma.raffleOpeningSubscription.update({
+          where: { id: subscription.id },
+          data: { status: "PENDING" },
+        });
+        return;
+      }
+
+      const raffleChannel = waChannels.find(
+        (channel) => channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
+      );
+      const instanceName = raffleChannel?.instanceName || getSetting("whatsapp_evolution_instance");
+      const baseUrl = raffleChannel?.evolutionUrl || globalUrl;
+      const apiKey = raffleChannel?.evolutionKey || globalKey;
+      const template =
+        raffleChannel?.templates?.find(
+          (item: any) => item.active && item.type.toLowerCase() === "opening",
+        )?.content ||
+        getSetting("whatsapp_global_raffle_opening") ||
+        "";
+
+      if (!instanceName || !baseUrl || !apiKey || !template) {
+        const errorMessage = !template
+          ? "No hay plantilla de aviso de apertura configurada."
+          : "No hay configuración de Evolution API para enviar el aviso de apertura.";
+        await rafflePrisma.raffleOpeningSubscription.update({
+          where: { id: subscription.id },
+          data: {
+            status: "FAILED",
+            attempts: { increment: 1 },
+            lastError: errorMessage,
+          },
+        });
+        await storePrisma.whatsappMessageLog.create({
+          data: {
+            attempt: subscription.attempts + 1,
+            recipientPhone: subscription.phone,
+            instanceName: instanceName || "missing",
+            jobId: String(job.id ?? ""),
+            templateUsed: "raffle_opening",
+            status: "failed",
+            errorMessage,
+          },
+        });
+        return;
+      }
+
+      const storefrontUrl = (
+        process.env.STOREFRONT_HTTPS_URL ||
+        process.env.STOREFRONT_URL ||
+        "http://localhost:3000"
+      ).replace(/\/+$/, "");
+      const raffleUrl = `${storefrontUrl}/raffles/${raffle.id}`;
+      const openingDate = formatOpeningDate(raffle.participationStartsAt);
+      const message = template
+        .replace(/\{\{raffle_name\}\}/g, raffle.title)
+        .replace(/\{\{raffle_url\}\}/g, raffleUrl)
+        .replace(/\{\{opening_date\}\}/g, openingDate);
+
+      try {
+        await sendAndLog({
+          instance: { instanceName, baseUrl, apiKey },
+          recipientPhone: subscription.phone,
+          message,
+          templateName: "raffle_opening",
+          jobId: String(job.id ?? ""),
+          attempt: subscription.attempts + 1,
+        });
+        await rafflePrisma.raffleOpeningSubscription.update({
+          where: { id: subscription.id },
+          data: {
+            status: "SENT",
+            sentAt: new Date(),
+            attempts: { increment: 1 },
+            lastError: null,
+          },
+        });
+      } catch (error: any) {
+        await rafflePrisma.raffleOpeningSubscription.update({
+          where: { id: subscription.id },
+          data: {
+            status: "FAILED",
+            attempts: { increment: 1 },
+            lastError: error?.message || "No se pudo enviar el aviso de apertura.",
+          },
+        });
+        throw error;
+      }
+    }
+
     if (data.kind === "reservation" || data.kind === "reservation-cancelled" || data.kind === "reservation-paid" || data.kind === "reservation-reminder") {
       const raffleChannel = waChannels.find(
         (c) => c.purpose.toUpperCase() === "RAFFLES" && c.active
@@ -233,28 +362,32 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
 
       const sales = await rafflePrisma.ticketSale.findMany({
         where: { id: { in: data.ticketSaleIds } },
-        include: { raffle: true },
+        include: {
+          raffle: {
+            include: { extraOpportunities: true },
+          },
+        },
+        orderBy: { ticketNumber: "asc" },
       });
       if (sales.length === 0) return;
 
       let template = "";
       if (data.kind === "reservation") {
-        template = raffleChannel?.templates?.find((t: any) => t.type.toLowerCase() === "reservation")?.content 
-                   || raffleChannel?.template
-                   || "Hola {{customer_name}}, tus boletos ({{ticket_list}}) para la rifa \"{{raffle_name}}\" han sido reservados. Monto a pagar: ${{amount}}.\n\n{{bank_info}}\n\nTienes hasta {{time_raffle}} para realizar tu pago.";
+        template = raffleChannel?.templates?.find((t: any) => t.active && t.type.toLowerCase() === "reservation")?.content
+                   || getSetting("whatsapp_global_raffle_res")
+                   || "";
       } else if (data.kind === "reservation-paid") {
-        template = raffleChannel?.templates?.find((t: any) => t.type.toLowerCase() === "payment_confirmed")?.content
+        template = raffleChannel?.templates?.find((t: any) => t.active && t.type.toLowerCase() === "payment_confirmed")?.content
                    || getSetting("whatsapp_global_raffle_pay")
-                   || "¡Hola {{customer_name}}! Hemos recibido tu pago por los boletos ({{ticket_list}}) de la rifa \"{{raffle_name}}\". ¡Mucha suerte!";
+                   || "";
       } else if (data.kind === "reservation-reminder") {
-        template = raffleChannel?.templates?.find((t: any) => t.type.toLowerCase() === "reminder")?.content
+        template = raffleChannel?.templates?.find((t: any) => t.active && t.type.toLowerCase() === "reminder")?.content
                    || getSetting("whatsapp_global_raffle_reminder")
                    || "";
       } else {
-        const firstSale = sales[0];
-        const ticketNumbers = sales.map((s) => s.ticketNumber).join(", ");
-        template = raffleChannel?.templates?.find((t: any) => t.type.toLowerCase() === "release")?.content 
-                   || `Hola ${firstSale.customerName}, tus boletos (${ticketNumbers}) para la rifa "${firstSale.raffle?.title}" han sido liberados debido a que se superó el tiempo límite de apartado.`;
+        template = raffleChannel?.templates?.find((t: any) => t.active && t.type.toLowerCase() === "release")?.content
+                   || getSetting("whatsapp_global_raffle_rel")
+                   || "";
       }
 
       if (!template) {
@@ -267,51 +400,45 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
             templateUsed: data.kind,
             status: "failed",
             ticketSaleId: sales[0].id,
-            errorMessage: "No hay plantilla de WhatsApp configurada para este tipo de notificaciÃ³n.",
+            errorMessage: "No hay plantilla de WhatsApp configurada para este tipo de notificación.",
           },
         });
         return;
       }
 
-      let message = "";
-      if (data.kind === "reservation") {
-        // Find payment channel for Rifas or use main bank info from settings
+      let raffleBankInfo = "";
+      if (data.kind === "reservation" || data.kind === "reservation-reminder") {
         const payChannel = payChannels.find(
           (c) => c.purpose.toUpperCase() === "RAFFLES"
         );
 
-        const bankInfo = payChannel 
-          ? formatBankInfo({
+        raffleBankInfo = resolveBankInfo(
+          payChannel
+            ? {
               bank: payChannel.bank,
               beneficiary: payChannel.beneficiary,
               account: payChannel.accountNumber ?? undefined,
               clabe: payChannel.clabe ?? undefined,
-              card: payChannel.card ?? undefined
-            })
-          : formatBankInfo({
-              bank: getSetting("bank_main_name") ?? "",
-              beneficiary: getSetting("bank_main_beneficiary") ?? "",
-              account: getSetting("bank_main_account") ?? undefined,
-              clabe: getSetting("bank_main_clabe") ?? undefined,
-              card: getSetting("bank_main_card") ?? undefined
-            });
-
-        message = buildReservationMessage(
-          template,
-          sales,
-          bankInfo,
-          'timeLimit' in data ? data.timeLimit : undefined,
-          'timeRemaining' in data && typeof data.timeRemaining === "string" ? data.timeRemaining : undefined,
-        );
-      } else {
-        message = buildReservationMessage(
-          template,
-          sales,
-          "",
-          'timeLimit' in data ? data.timeLimit : undefined,
-          'timeRemaining' in data && typeof data.timeRemaining === "string" ? data.timeRemaining : undefined,
+              card: payChannel.card ?? undefined,
+            }
+            : null,
+          {
+            bank: getSetting("bank_main_name") ?? "",
+            beneficiary: getSetting("bank_main_beneficiary") ?? "",
+            account: getSetting("bank_main_account") ?? undefined,
+            clabe: getSetting("bank_main_clabe") ?? undefined,
+            card: getSetting("bank_main_card") ?? undefined,
+          },
         );
       }
+
+      const message = buildReservationMessage(
+        template,
+        sales,
+        raffleBankInfo,
+        'timeLimit' in data ? data.timeLimit : undefined,
+        'timeRemaining' in data && typeof data.timeRemaining === "string" ? data.timeRemaining : undefined,
+      );
 
       await sendAndLog({
         instance: { instanceName, baseUrl, apiKey },
@@ -365,6 +492,18 @@ interface BankData {
   card?: string;
 }
 
+function resolveBankInfo(
+  specialized: BankData | null,
+  principal: BankData,
+): string {
+  const selected = hasCompleteBankInfo(specialized) ? specialized : principal;
+  return formatBankInfo(selected);
+}
+
+function hasCompleteBankInfo(data: BankData | null): data is BankData {
+  return Boolean(data?.bank?.trim() && data?.beneficiary?.trim());
+}
+
 function formatBankInfo(data: BankData): string {
   if (!data.bank || !data.beneficiary) return "";
   
@@ -383,15 +522,17 @@ function formatBankInfo(data: BankData): string {
 
 function buildReservationMessage(template: string, sales: any[], bankInfo: string, timeLimit?: string, timeRemaining?: string): string {
   const firstSale = sales[0];
-  const ticketNumbers = sales.map((s) => s.ticketNumber).join(", ");
-  const totalAmount = sales.reduce(
+  const ticketList = formatRaffleTicketList(sales);
+  const subtotal = sales.reduce(
     (sum, s) => sum + parseFloat(s.raffle.ticketPrice.toString()),
     0
   );
+  const discountTotal = parseFloat(firstSale.discountTotal?.toString() || "0");
+  const totalAmount = Math.max(0, subtotal - discountTotal);
 
   let msg = template
     .replace(/\{\{customer_name\}\}/g, firstSale.customerName ?? "")
-    .replace(/\{\{ticket_list\}\}/g, ticketNumbers)
+    .replace(/\{\{ticket_list\}\}/g, ticketList)
     .replace(/\{\{raffle_name\}\}/g, firstSale.raffle?.title ?? "")
     .replace(/\{\{amount\}\}/g, totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
     .replace(/\{\{customer_phone\}\}/g, firstSale.customerPhone ?? "")
@@ -400,4 +541,18 @@ function buildReservationMessage(template: string, sales: any[], bankInfo: strin
   return msg
     .replace(/\{\{time_raffle\}\}/g, timeLimit || "")
     .replace(/\{\{time_remaining\}\}/g, timeRemaining || "");
+}
+
+function formatOpeningDate(value: Date): string {
+  const formatted = new Intl.DateTimeFormat("es-MX", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    timeZone: process.env.TZ || "America/Mexico_City",
+  }).format(value);
+
+  return formatted.charAt(0).toLocaleUpperCase("es-MX") + formatted.slice(1);
 }

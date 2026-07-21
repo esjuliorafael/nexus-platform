@@ -2,8 +2,8 @@ import client from './client';
 import { GroupedSettings, Media } from '../types';
 
 export const settingsApi = {
-  getStoreSettings: () => client.get<GroupedSettings>('/admin/settings').then(res => res.data),
-  getRaffleSettings: () => client.get<GroupedSettings>('/raffle/settings').then(res => res.data),
+  getStoreSettings: () => client.get<GroupedSettings>('/store/settings').then(res => res.data),
+  getRaffleSettings: () => client.get<GroupedSettings>('/store/settings').then(res => res.data),
   getPublicShippingZones: () => client.get<any[]>('/admin/shipping-zones/public').then(res => res.data),
 };
 
