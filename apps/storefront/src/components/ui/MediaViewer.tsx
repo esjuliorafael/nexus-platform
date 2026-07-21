@@ -27,6 +27,7 @@ interface MediaViewerProps {
   onPrevious?: () => void;
   onNext?: () => void;
   canNavigate?: boolean;
+  showDetails?: boolean;
 }
 
 const formatMediaDate = (value: string | null) => {
@@ -171,13 +172,18 @@ function MediaViewerInfo({
   media,
   isVideo,
   formattedDate,
+  showDetails,
   className = "",
 }: {
   media: Media;
   isVideo: boolean;
   formattedDate: string | null;
+  showDetails: boolean;
   className?: string;
 }) {
+  const hasEditorialCopy = showDetails && Boolean(media.title || media.description);
+  const hasMetadata = showDetails && Boolean(media.location || formattedDate);
+
   return (
     <div className={`flex min-w-0 flex-col ${className}`} style={{ gap: "var(--sf-space-md)" }}>
       <div className="flex min-w-0 flex-col" style={{ gap: "var(--sf-space-sm)" }}>
@@ -187,20 +193,22 @@ function MediaViewerInfo({
           icon={isVideo ? Video : Camera}
           className="w-fit"
         >
-          {isVideo ? "Video" : "Fotografia"}
+          {isVideo ? "Video" : "Fotografía"}
         </Badge>
 
-        <div className="flex min-w-0 flex-col" style={{ gap: "var(--sf-space-xs)" }}>
-          <h2 className="sf-text-h1 text-white">{media.title}</h2>
-          {media.description && (
-            <p className="sf-text-secondary max-w-2xl truncate text-stone-300">
-              {media.description}
-            </p>
-          )}
-        </div>
+        {hasEditorialCopy && (
+          <div className="flex min-w-0 flex-col" style={{ gap: "var(--sf-space-xs)" }}>
+            {media.title && <h2 className="sf-text-h1 text-white">{media.title}</h2>}
+            {media.description && (
+              <p className="sf-text-secondary max-w-2xl truncate text-stone-300">
+                {media.description}
+              </p>
+            )}
+          </div>
+        )}
       </div>
 
-      {(media.location || formattedDate) && (
+      {hasMetadata && (
         <div
           className="flex flex-wrap items-center text-stone-300"
           style={{ gap: "var(--sf-space-md)" }}
@@ -236,6 +244,7 @@ export function MediaViewer({
   onPrevious,
   onNext,
   canNavigate = false,
+  showDetails = true,
 }: MediaViewerProps) {
   const viewerRef = useRef<HTMLDivElement>(null);
   const mediaStageRef = useRef<HTMLDivElement>(null);
@@ -249,7 +258,10 @@ export function MediaViewer({
   const [isVideoWaiting, setIsVideoWaiting] = useState(false);
   const [videoCurrentTime, setVideoCurrentTime] = useState(0);
   const [videoDuration, setVideoDuration] = useState(0);
-  const [mediaAspectRatio, setMediaAspectRatio] = useState<number | null>(null);
+  const [mediaGeometry, setMediaGeometry] = useState<{
+    key: string;
+    aspectRatio: number;
+  } | null>(null);
   const [areVideoControlsVisible, setAreVideoControlsVisible] = useState(true);
 
   onPreviousRef.current = onPrevious;
@@ -317,7 +329,6 @@ export function MediaViewer({
     setIsVideoMuted(true);
     setVideoCurrentTime(0);
     setVideoDuration(0);
-    setMediaAspectRatio(null);
     setAreVideoControlsVisible(true);
   }, [isOpen, media?.mediaUrl, media?.filePath]);
 
@@ -351,7 +362,11 @@ export function MediaViewer({
   const posterUrl = media.posterUrl ? getAssetUrl(media.posterUrl) : undefined;
   const isVideo = media.mediaType === "VIDEO";
   const formattedDate = formatMediaDate(media.mediaDate);
-  const isCompactMedia = mediaAspectRatio !== null && mediaAspectRatio >= 0.7;
+  const activeAspectRatio = mediaGeometry?.key === mediaUrl
+    ? mediaGeometry.aspectRatio
+    : null;
+  const isMediaReady = activeAspectRatio !== null;
+  const isCompactMedia = activeAspectRatio !== null && activeAspectRatio >= 0.7;
 
   const handleVideoPlayPause = () => {
     const video = videoRef.current;
@@ -540,8 +555,13 @@ export function MediaViewer({
       >
         <div
           ref={mediaStageRef}
-          className="sf-media-viewer-stage relative w-fit max-w-full overflow-hidden"
-          style={{ borderRadius: "var(--sf-radius-card-inner)" }}
+          className={`sf-media-viewer-stage relative w-fit max-w-full overflow-hidden transition-opacity duration-200 ${
+            isMediaReady ? "opacity-100" : "pointer-events-none opacity-0"
+          }`}
+          style={{
+            borderRadius: "var(--sf-radius-card-inner)",
+            transitionTimingFunction: "var(--sf-ease)",
+          }}
           onMouseEnter={isVideo ? revealVideoControls : undefined}
           onMouseMove={isVideo ? revealVideoControls : undefined}
           onFocusCapture={isVideo ? revealVideoControls : undefined}
@@ -565,8 +585,14 @@ export function MediaViewer({
                 setVideoDuration(video.duration || 0);
                 setIsVideoMuted(video.muted);
                 if (video.videoWidth > 0 && video.videoHeight > 0) {
-                  setMediaAspectRatio(video.videoWidth / video.videoHeight);
+                  setMediaGeometry({
+                    key: mediaUrl,
+                    aspectRatio: video.videoWidth / video.videoHeight,
+                  });
                 }
+              }}
+              onError={() => {
+                setMediaGeometry({ key: mediaUrl, aspectRatio: 1 });
               }}
               onTimeUpdate={(event) => {
                 setVideoCurrentTime(event.currentTarget.currentTime || 0);
@@ -581,8 +607,14 @@ export function MediaViewer({
               onLoad={(event) => {
                 const image = event.currentTarget;
                 if (image.naturalWidth > 0 && image.naturalHeight > 0) {
-                  setMediaAspectRatio(image.naturalWidth / image.naturalHeight);
+                  setMediaGeometry({
+                    key: mediaUrl,
+                    aspectRatio: image.naturalWidth / image.naturalHeight,
+                  });
                 }
+              }}
+              onError={() => {
+                setMediaGeometry({ key: mediaUrl, aspectRatio: 1 });
               }}
               className="sf-media-viewer-asset block h-auto w-full max-w-full object-contain"
             />
@@ -604,11 +636,17 @@ export function MediaViewer({
             />
           )}
 
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 hidden bg-gradient-to-t from-stone-950 via-stone-950/85 to-transparent pt-[var(--sf-space-xl)] md:block">
+          <div
+            className={`pointer-events-none absolute inset-x-0 bottom-0 hidden md:block ${
+              showDetails
+                ? "bg-gradient-to-t from-stone-950 via-stone-950/85 to-transparent pt-[var(--sf-space-xl)]"
+                : ""
+            }`}
+          >
             <div
               className="flex w-full flex-col"
               style={{
-                paddingTop: "var(--sf-space-lg)",
+                paddingTop: showDetails ? "var(--sf-space-lg)" : 0,
                 paddingInline: "var(--sf-padding-inner)",
                 paddingBottom: isVideo
                   ? "calc(var(--sf-padding-inner) + var(--sf-h-button-card))"
@@ -619,6 +657,7 @@ export function MediaViewer({
                 media={media}
                 isVideo={isVideo}
                 formattedDate={formattedDate}
+                showDetails={showDetails}
               />
             </div>
           </div>
@@ -628,6 +667,7 @@ export function MediaViewer({
           media={media}
           isVideo={isVideo}
           formattedDate={formattedDate}
+          showDetails={showDetails}
           className="w-full md:hidden"
         />
       </div>

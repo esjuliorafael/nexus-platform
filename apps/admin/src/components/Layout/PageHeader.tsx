@@ -70,6 +70,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       return <>Nuevo <span className="text-text-muted">Slide</span></>;
     if (isEditingSlide)
       return <>Editar <span className="text-text-muted">Slide</span></>;
+    if (isMediaMode && mediaViewMode === "vault_upload")
+      return <>Subir a <span className="text-text-muted">Bóveda</span></>;
     if (isStoreMode && storeViewMode === "coupon_create")
       return <>Nuevo <span className="text-text-muted">{"Cup\u00f3n"}</span></>;
     if (isStoreMode && storeViewMode === "coupon_edit")
@@ -100,6 +102,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         return <>Gestionar <span className="text-text-muted">Categorías</span></>;
       if (mediaViewMode === "slider_list")
         return <>Slider <span className="text-text-muted">Principal</span></>;
+      if (mediaViewMode === "vault_list")
+        return <>Bóveda de <span className="text-text-muted">Medios</span></>;
       return <>Panel de <span className="text-text-muted">Medios</span></>;
     }
 
@@ -198,6 +202,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       return "Completa los detalles para gestionar el contenido visual del catálogo del rancho.";
     if (isCreatingSlide || isEditingSlide)
       return "Configura el contenido editorial que se muestra en el primer impacto del Storefront.";
+    if (isMediaMode && mediaViewMode === "vault_upload")
+      return "Carga originales sin compresión para compartirlos de forma privada y temporal.";
     if (isMediaMode) {
       if (
         mediaViewMode === "categories_list" ||
@@ -207,6 +213,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         return "Revisa y organiza las agrupaciones de contenido de tu galería.";
       if (mediaViewMode === "slider_list")
         return "Administra las imágenes, videos y mensajes principales del inicio del Storefront.";
+      if (mediaViewMode === "vault_list")
+        return "Consulta, descarga y administra archivos originales disponibles durante 30 días.";
       return "Explora, organiza y gestiona todos los medios visuales del rancho.";
     }
     if (isOrdersMode)

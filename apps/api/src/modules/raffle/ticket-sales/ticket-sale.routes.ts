@@ -51,6 +51,33 @@ export async function ticketSaleRoutes(server: FastifyInstance) {
     }
   });
 
+  server.patch("/admin/participations/:participationId/participant", { preHandler: [server.authenticate] }, async (request, reply) => {
+    const schema = z.object({
+      customerName: z.string().trim().min(2).max(120),
+      customerPhone: z.string().trim().min(7).max(30),
+      customerState: z.string().trim().max(80).nullable().optional(),
+    });
+
+    try {
+      const { participationId } = request.params as { participationId: string };
+      const data = schema.parse(request.body);
+      const participation = await ticketSaleService.updateParticipationParticipant(
+        rafflePrisma,
+        participationId,
+        data,
+      );
+      if (!participation) {
+        return reply.status(404).send({ message: "Raffle participation not found" });
+      }
+      return participation;
+    } catch (error: any) {
+      if (error?.issues) {
+        return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      }
+      throw error;
+    }
+  });
+
   server.post("/admin/participations/:participationId/refund", { preHandler: [server.authenticate] }, async (request, reply) => {
     const { participationId } = request.params as { participationId: string };
     try {

@@ -8,7 +8,7 @@ export const raffleService = {
   async getAllActive(prisma: PrismaClient) {
     const raffles = await prisma.raffle.findMany({
       where: { status: RaffleStatus.ACTIVE, published: true },
-      include: { gallery: true },
+      include: { gallery: true, prizes: { orderBy: { position: "asc" } } },
       orderBy: [
         { featured: "desc" },
         { featuredOrder: "asc" },
@@ -135,6 +135,7 @@ export const raffleService = {
       include: {
         gallery: true,
         extraOpportunities: true,
+        prizes: { orderBy: { position: "asc" } },
       },
     });
     return raffle ? toPublicRaffle(raffle) : null;
@@ -146,13 +147,14 @@ export const raffleService = {
       include: {
         gallery: true,
         extraOpportunities: true,
+        prizes: { orderBy: { position: "asc" } },
       },
     });
   },
 
   async getAllAdmin(prisma: PrismaClient) {
     const raffles = await prisma.raffle.findMany({
-      include: { gallery: true },
+      include: { gallery: true, prizes: { orderBy: { position: "asc" } } },
       orderBy: { createdAt: "desc" },
     });
     return raffles.map(toPublicRaffle);
@@ -164,6 +166,7 @@ export const raffleService = {
       earlyAccessCode,
       clearEarlyAccessCode: _clearEarlyAccessCode,
       coverPosterAssetId,
+      prizes,
       ...raffleData
     } = data;
     const earlyAccessCodeHash = earlyAccessCode ? await bcrypt.hash(earlyAccessCode, 12) : null;
@@ -181,6 +184,13 @@ export const raffleService = {
           earlyAccessCodeHash,
           ticketPrice: raffleData.ticketPrice.toString(), // Prisma Decimal
           gallery: gallery?.length ? { create: gallery } : undefined,
+          prizes: {
+            create: prizes.map((prize: { title: string; description: string; winnerRule?: string | null }, index: number) => ({
+              ...prize,
+              winnerRule: prize.winnerRule || null,
+              position: index + 1,
+            })),
+          },
         },
       });
 
@@ -189,6 +199,10 @@ export const raffleService = {
       return tx.raffle.update({
         where: { id: raffle.id },
         data: { digits, useZero: startFromZero },
+        include: {
+          gallery: true,
+          prizes: { orderBy: { position: "asc" } },
+        },
       });
     });
 
@@ -268,7 +282,7 @@ export const raffleService = {
 
       const raffles = await tx.raffle.findMany({
         where: { id: { in: ids } },
-        include: { gallery: true },
+        include: { gallery: true, prizes: { orderBy: { position: "asc" } } },
         orderBy: { featuredOrder: "asc" },
       });
       return raffles.map(toPublicRaffle);
@@ -276,7 +290,7 @@ export const raffleService = {
   },
 
   async update(prisma: PrismaClient, id: number, data: any) {
-    const { gallery, earlyAccessCode, clearEarlyAccessCode, coverPosterAssetId, ...updateData } = data;
+    const { gallery, prizes, earlyAccessCode, clearEarlyAccessCode, coverPosterAssetId, ...updateData } = data;
     // Read the current record once for result publication, universe changes, and media cleanup.
     const current = await prisma.raffle.findUnique({ where: { id }, include: { gallery: true } });
     if (coverPosterAssetId) {
@@ -330,6 +344,22 @@ export const raffleService = {
                 },
               }
             : {}),
+          ...(prizes !== undefined
+            ? {
+                prizes: {
+                  deleteMany: {},
+                  create: prizes.map((prize: { title: string; description: string; winnerRule?: string | null }, index: number) => ({
+                    ...prize,
+                    winnerRule: prize.winnerRule || null,
+                    position: index + 1,
+                  })),
+                },
+              }
+            : {}),
+        },
+        include: {
+          gallery: true,
+          prizes: { orderBy: { position: "asc" } },
         },
       });
 
@@ -340,6 +370,10 @@ export const raffleService = {
       return tx.raffle.update({
         where: { id },
         data: { digits, useZero: startFromZero },
+        include: {
+          gallery: true,
+          prizes: { orderBy: { position: "asc" } },
+        },
       });
     });
 

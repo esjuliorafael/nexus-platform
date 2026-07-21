@@ -1,12 +1,17 @@
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, Calendar, Clock, CreditCard, Hash, MapPin, MessageCircle, Phone, RotateCcw, Ticket, UserRound } from "lucide-react";
+import { AlertTriangle, Calendar, Clock, CreditCard, Edit2, Hash, MapPin, MessageCircle, Phone, RotateCcw, Save, Sparkles, Ticket, UserRound, Waypoints } from "lucide-react";
 import { apiRaffleParticipations } from "../../../api";
-import { RaffleParticipation } from "../../../types";
-import { NexusBadge } from "../../ui/NexusBadge";
+import { MEXICO_STATES } from "../../../constants";
+import { RaffleParticipation, RaffleParticipationTicket } from "../../../types";
+import { NexusAutonomousBadge, NexusBadge, NexusCardBadge } from "../../ui/NexusBadge";
+import { NexusSectionCard } from "../../ui/NexusCard";
+import { NexusAutonomousIcon, NexusCardIcon } from "../../ui/NexusIcon";
 import { NexusSection } from "../../ui/NexusSection";
 import { NexusSpinner } from "../../ui/NexusSpinner";
-import { NexusSectionButton } from "../../ui/NexusButton";
+import { NexusAutonomousButton, NexusSectionButton } from "../../ui/NexusButton";
 import { NexusConfirmModal } from "../../ui/NexusConfirmModal";
+import { NexusInput, NexusSelect } from "../../ui/NexusInputs";
+import { NexusModal, NexusModalActions } from "../../ui/NexusModal";
 
 interface RaffleParticipationDetailViewProps {
   participation: RaffleParticipation;
@@ -53,6 +58,18 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
   const [isLoading, setIsLoading] = useState(true);
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
   const [isRefunding, setIsRefunding] = useState(false);
+  const [isParticipantModalOpen, setIsParticipantModalOpen] = useState(false);
+  const [isSavingParticipant, setIsSavingParticipant] = useState(false);
+  const [participantForm, setParticipantForm] = useState({
+    customerName: participation.customerName || "",
+    customerPhone: participation.customerPhone || "",
+    customerState: participation.customerState || "",
+  });
+  const [selectedTicket, setSelectedTicket] = useState<RaffleParticipationTicket | null>(null);
+
+  useEffect(() => {
+    setDetail(participation);
+  }, [participation]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -111,9 +128,41 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
     }
   };
 
+  const handleOpenParticipantModal = () => {
+    setParticipantForm({
+      customerName: detail.customerName || "",
+      customerPhone: detail.customerPhone || "",
+      customerState: detail.customerState || "",
+    });
+    setIsParticipantModalOpen(true);
+  };
+
+  const handleSaveParticipant = async (event: React.FormEvent) => {
+    event.preventDefault();
+    setIsSavingParticipant(true);
+    try {
+      const updated = await apiRaffleParticipations.updateParticipant(detail.id, {
+        customerName: participantForm.customerName,
+        customerPhone: participantForm.customerPhone,
+        customerState: participantForm.customerState || null,
+      });
+      setDetail(updated);
+      onLoaded(updated);
+      setIsParticipantModalOpen(false);
+      showToast("Información del participante actualizada", "success");
+    } catch (error: any) {
+      showToast(
+        error?.response?.data?.message || "No se pudo actualizar el participante",
+        "error",
+      );
+    } finally {
+      setIsSavingParticipant(false);
+    }
+  };
+
   return (
-    <div className="grid grid-cols-1 items-start lg:grid-cols-2" style={{ gap: "var(--space-lg)", paddingBottom: "var(--space-3xl)" }}>
-      <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
+    <div className="grid grid-cols-1 items-start lg:grid-cols-3" style={{ gap: "var(--space-lg)", paddingBottom: "var(--space-3xl)" }}>
+      <div className="flex flex-col lg:col-span-2" style={{ gap: "var(--space-lg)" }}>
         <NexusSection
           title={isPaymentHold ? "Intento de participación" : "Participación"}
           subtitle={isPaymentHold ? "Trazabilidad del pago con tarjeta" : "Resumen del apartado"}
@@ -139,42 +188,195 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
           icon={Hash}
           iconVariant="blue"
         >
-          <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+          <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-md)" }}>
             {!(detail.tickets || []).length && (
-              <p className="text-secondary text-text-muted">
+              <p className="text-secondary text-text-muted sm:col-span-2">
                 Este intento se registró antes de que Nexus conservara una copia histórica de los boletos liberados.
               </p>
             )}
             {(detail.tickets || []).map((ticket) => (
-              <div key={ticket.id} className="border border-border-main bg-bg-muted/50 p-[var(--padding-card-nested)]" style={{ borderRadius: "var(--radius-card-nested)" }}>
-                <div className="flex items-center justify-between" style={{ gap: "var(--space-md)" }}>
-                  <div>
-                    <p className="text-label uppercase tracking-[0.15em] text-text-muted">Boleto</p>
-                    <p className="text-h2 font-black text-text-main" style={{ marginTop: "var(--space-xs)" }}>{ticket.number}</p>
+              <NexusSectionCard
+                key={ticket.id}
+                icon={Ticket}
+                iconVariant="solid-brand"
+                layout="horizontal"
+                onClick={() => setSelectedTicket(ticket)}
+                title={(
+                  <div className="flex min-w-0 flex-col" style={{ gap: "var(--space-xs)" }}>
+                    <span className="text-label uppercase tracking-[0.15em] text-text-muted">
+                      Núm. princ.
+                    </span>
+                    <span className="text-h1 font-black leading-none text-text-main">
+                      {ticket.number}
+                    </span>
                   </div>
-                  {ticket.opportunities.length > 0 && (
-                    <NexusBadge variant="brand">{ticket.opportunities.length + 1} oportunidades</NexusBadge>
-                  )}
-                </div>
-                {ticket.opportunities.length > 0 && (
-                  <p className="text-secondary text-text-muted" style={{ marginTop: "var(--space-md)" }}>
-                    Adicionales: {ticket.opportunities.join(", ")}
-                  </p>
                 )}
-              </div>
+                rightContent={ticket.opportunities.length > 0 ? (
+                  <NexusCardBadge variant="brand">
+                    {ticket.opportunities.length + 1} núms.
+                  </NexusCardBadge>
+                ) : undefined}
+              />
             ))}
           </div>
         </NexusSection>
+
+        <NexusModal
+          isOpen={Boolean(selectedTicket)}
+          onClose={() => setSelectedTicket(null)}
+          title="Oportunidades del boleto"
+          eyebrow={selectedTicket ? `Boleto ${selectedTicket.number}` : undefined}
+          icon={Waypoints}
+          iconTone="brand"
+          size="standard"
+          zIndex={260}
+        >
+          {selectedTicket && (
+            <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
+              <div className="flex items-center justify-between" style={{ gap: "var(--space-md)" }}>
+                <div className="flex min-w-0 items-center" style={{ gap: "var(--space-md)" }}>
+                  <NexusAutonomousIcon icon={Ticket} variant="solid-brand" />
+                  <div className="flex min-w-0 flex-col" style={{ gap: "var(--space-xs)" }}>
+                    <span className="text-label uppercase tracking-[0.15em] text-text-muted">
+                      Núm. princ.
+                    </span>
+                    <span className="text-display font-black leading-none text-text-main">
+                      {selectedTicket.number}
+                    </span>
+                  </div>
+                </div>
+                <NexusAutonomousBadge variant="brand">
+                  {selectedTicket.opportunities.length + 1}{" "}
+                  {selectedTicket.opportunities.length === 0 ? "núm." : "núms."}
+                </NexusAutonomousBadge>
+              </div>
+
+              <div
+                className="flex flex-col border-t border-border-main pt-[var(--space-lg)]"
+                style={{ gap: "var(--space-md)" }}
+              >
+                <div className="flex items-start" style={{ gap: "var(--space-sm)" }}>
+                  <Sparkles className="mt-0.5 shrink-0 text-brand-500" size={18} strokeWidth={2.25} />
+                  <div className="flex min-w-0 flex-col" style={{ gap: "var(--space-xs)" }}>
+                    <h4 className="text-h2 font-bold text-text-main">
+                      Oportunidades adicionales
+                    </h4>
+                    <p className="text-secondary text-text-muted">
+                      {selectedTicket.opportunities.length > 0
+                        ? "Este boleto también participa con estos números."
+                        : "Este boleto participa únicamente con su número principal."}
+                    </p>
+                  </div>
+                </div>
+
+                {selectedTicket.opportunities.length > 0 && (
+                  <div className="grid grid-cols-4" style={{ gap: "var(--space-sm)" }}>
+                    {selectedTicket.opportunities.map((number) => (
+                      <span
+                        key={number}
+                        className="flex min-w-0 items-center justify-center border border-border-main bg-bg-muted text-secondary font-bold text-text-main"
+                        style={{
+                          minHeight: "var(--h-button-card)",
+                          borderRadius: "var(--radius-inner-visual)",
+                          paddingInline: "var(--space-sm)",
+                        }}
+                      >
+                        {number}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+        </NexusModal>
       </div>
 
       <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
-        <NexusSection title="Participante" subtitle="Datos de contacto" icon={UserRound} iconVariant="emerald">
+        <NexusSection
+          title="Participante"
+          subtitle="Datos de contacto"
+          icon={UserRound}
+          iconVariant="emerald"
+          actionPlacement="below"
+          action={
+            !isPaymentHold ? (
+              <NexusSectionButton onClick={handleOpenParticipantModal} icon={Edit2}>
+                Editar Participante
+              </NexusSectionButton>
+            ) : undefined
+          }
+        >
           <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-lg)" }}>
             <Field label="Nombre completo" value={detail.customerName} />
             <Field label="WhatsApp" value={<span className="flex items-center" style={{ gap: "var(--space-xs)" }}><Phone size={14} />{detail.customerPhone}</span>} />
             <Field label="Estado" value={<span className="flex items-center" style={{ gap: "var(--space-xs)" }}><MapPin size={14} />{detail.customerState || "Sin especificar"}</span>} />
           </div>
         </NexusSection>
+
+        <NexusModal
+          isOpen={isParticipantModalOpen}
+          onClose={() => setIsParticipantModalOpen(false)}
+          title={detail.customerName || "Participante"}
+          eyebrow="Editar Participante"
+          icon={UserRound}
+          iconTone="brand"
+          size="standard"
+          zIndex={260}
+        >
+          <form onSubmit={handleSaveParticipant} className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
+            <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+              <NexusInput
+                label="Nombre completo *"
+                value={participantForm.customerName}
+                onChange={(event) => setParticipantForm({ ...participantForm, customerName: event.target.value })}
+                placeholder="Nombre del participante"
+                icon={UserRound}
+                required
+              />
+              <NexusInput
+                label="Teléfono / WhatsApp *"
+                value={participantForm.customerPhone}
+                onChange={(event) => setParticipantForm({ ...participantForm, customerPhone: event.target.value })}
+                placeholder="Ej. 2225251930"
+                icon={Phone}
+                required
+              />
+              <NexusSelect
+                label="Estado"
+                value={participantForm.customerState}
+                onChange={(event) => setParticipantForm({ ...participantForm, customerState: event.target.value })}
+                icon={MapPin}
+              >
+                <option value="">Sin estado</option>
+                {MEXICO_STATES.map((state) => (
+                  <option key={state} value={state}>{state}</option>
+                ))}
+              </NexusSelect>
+            </div>
+
+            <NexusModalActions>
+              <NexusAutonomousButton
+                type="button"
+                variant="secondary"
+                onClick={() => setIsParticipantModalOpen(false)}
+                className="flex-1"
+              >
+                Cancelar
+              </NexusAutonomousButton>
+              <NexusAutonomousButton
+                type="submit"
+                variant="brand"
+                icon={Save}
+                isLoading={isSavingParticipant}
+                disabled={!participantForm.customerName.trim() || !participantForm.customerPhone.trim()}
+                className="flex-[2]"
+              >
+                Guardar Cambios
+              </NexusAutonomousButton>
+            </NexusModalActions>
+          </form>
+        </NexusModal>
 
         {detail.paymentMethod === "MERCADOPAGO" && (
           <NexusSection

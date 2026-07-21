@@ -5,6 +5,7 @@ import { RaffleDetailsClient } from './RaffleDetailsClient';
 import { Button } from '../../../components/ui/Button';
 import { Raffle, RaffleTicketAvailability } from '../../../types';
 import { formatPrice } from '../../../utils/formatters';
+import { getClientNameForMetadata, getSiteTitle } from '../../../utils/siteMetadata';
 
 interface PageProps {
   params: {
@@ -83,17 +84,18 @@ async function fetchRaffleReservationHours(): Promise<number | null> {
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const clientName = await getClientNameForMetadata();
   const raffle = await fetchRaffle(params.id);
 
   if (!raffle) {
     return {
-      title: 'Sorteo no encontrado | Nexus Sorteos',
-      description: 'El sorteo solicitado no esta disponible.',
+      title: getSiteTitle('Rifa no encontrada', clientName),
+      description: 'La rifa solicitada no está disponible.',
     };
   }
 
-  const title = `Gran Sorteo: ${raffle.title} | Nexus`;
-  const description = raffle.description || `Participa y gana en nuestro sorteo. Costo del boleto: $${formatPrice(raffle.ticketPrice)}.`;
+  const title = getSiteTitle(raffle.title, clientName);
+  const description = raffle.description || `Participa y gana en nuestra rifa. Costo del boleto: $${formatPrice(raffle.ticketPrice)}.`;
   const defaultFallbackImage = 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=1200&q=80';
   const imageUrl = raffle.imagePoster || raffle.image || defaultFallbackImage;
 
@@ -103,6 +105,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     openGraph: {
       title,
       description,
+      siteName: clientName,
       images: [{ url: imageUrl }],
       type: 'website',
     },
@@ -147,9 +150,9 @@ export default async function RaffleDetailPage({ params }: PageProps) {
           </div>
 
           <div className="flex flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
-            <h1 className="sf-text-h1 uppercase italic text-stone-800">Sorteo no encontrado</h1>
+            <h1 className="sf-text-h1 uppercase italic text-stone-800">Rifa no encontrada</h1>
             <p className="sf-text-secondary mx-auto max-w-xs text-stone-500">
-              El sorteo solicitado no existe o fue cancelado.
+              La rifa solicitada no existe o fue cancelada.
             </p>
           </div>
 

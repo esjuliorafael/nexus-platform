@@ -719,7 +719,7 @@ function RaffleCheckoutCompletion({
           {
             icon: Ticket,
             title: 'Boletos confirmados',
-            description: `${ticketLabel} ya ${ticketCount === 1 ? 'está participando' : 'están participando'} en el sorteo.`,
+            description: `${ticketLabel} ya ${ticketCount === 1 ? 'está participando' : 'están participando'} en la rifa.`,
           },
           {
             icon: MessageCircle,
@@ -821,7 +821,7 @@ function getRaffleCheckoutCompletionPresentation(state: Exclude<CompletionState,
       icon: CheckCircle2,
       title: 'Pago confirmado',
       greeting: (firstName: string) => `Tu participación está lista, ${firstName}`,
-      description: 'El pago fue aprobado y tus boletos quedaron confirmados para el sorteo.',
+      description: 'El pago fue aprobado y tus boletos quedaron confirmados para la rifa.',
       summaryStatus: 'Pago confirmado',
       mobileStatus: 'Pagado',
     };

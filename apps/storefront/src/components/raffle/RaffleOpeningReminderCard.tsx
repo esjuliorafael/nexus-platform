@@ -6,6 +6,7 @@ import { raffleApi } from "../../api/raffles";
 import {
   hasRegisteredRaffleOpeningReminder,
   markRaffleOpeningReminderRegistered,
+  subscribeToRaffleOpeningReminder,
 } from "../../lib/raffle-opening-reminder";
 import { Button } from "../ui/Button";
 import { StorefrontAutonomousCard } from "../ui/Card";
@@ -31,6 +32,7 @@ export function useRaffleOpeningReminder(
 
   useEffect(() => {
     setIsRegistered(hasRegisteredRaffleOpeningReminder(raffleId));
+    return subscribeToRaffleOpeningReminder(raffleId, setIsRegistered);
   }, [raffleId]);
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
@@ -197,9 +199,10 @@ export function RaffleOpeningReminderContent({
               context="section"
               icon={BellRing}
               isLoading={isSubmitting}
+              aria-label={isSubmitting ? "Registrando aviso" : "Avísame"}
               className="w-full self-end sm:w-auto"
             >
-              Quiero el aviso
+              Avísame
             </Button>
           </div>
         </form>

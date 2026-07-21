@@ -49,7 +49,7 @@ export function RaffleMobileTopBar({
         gap: 'var(--sf-space-md)',
       }}
     >
-      <RailButton icon={ChevronLeft} label="Volver a sorteos" onClick={onBack} />
+      <RailButton icon={ChevronLeft} label="Volver a rifas" onClick={onBack} />
 
       <div
         className={`pointer-events-none min-w-0 overflow-hidden border border-stone-200/90 bg-white shadow-[0_18px_48px_rgba(87,68,55,0.14)] transition-all duration-200 ${
@@ -242,7 +242,7 @@ export function RaffleOpeningReminderBar({
               '--sf-button-icon-size': 'var(--sf-size-mobile-nav-icon)',
             } as CSSProperties}
           >
-            Quiero el aviso
+            Avísame
           </Button>
         )}
       </div>

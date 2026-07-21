@@ -15,7 +15,7 @@ const SalesChartSkeleton: React.FC = () => (
   <NexusAutonomousCard className="h-full min-h-[320px] animate-pulse">
     <NexusHeader
       title="Tendencia de Ventas"
-      subtitle="Análisis de los últimos 7 días"
+      subtitle="Tienda y rifas de los últimos 7 días"
       icon={TrendingUp}
     />
     <div className="flex flex-col justify-between h-full">
@@ -64,7 +64,7 @@ export const SalesChart: React.FC<SalesChartProps> = ({ data = {}, isLoading = f
       <div className="flex flex-col h-full">
         <NexusHeader
           title="Tendencia de Ventas"
-          subtitle="Análisis de los últimos 7 días"
+          subtitle="Tienda y rifas de los últimos 7 días"
           icon={TrendingUp}
           iconVariant="emerald"
         />

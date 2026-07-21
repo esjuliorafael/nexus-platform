@@ -2,9 +2,12 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Calendar,
   Check,
+  ChevronDown,
+  ChevronUp,
   Clock3,
   DollarSign,
   Film,
+  Gift,
   Hash,
   Image as ImageIcon,
   Layers,
@@ -18,10 +21,10 @@ import {
   X,
 } from "lucide-react";
 import { apiRaffles, apiUpload } from "../../api";
-import { Raffle, RaffleGalleryItem } from "../../types";
+import { Raffle, RaffleGalleryItem, RafflePrize } from "../../types";
 import { extractFramesFromVideo } from "../../utils/video";
 import { NexusInput, NexusSelect, NexusTextarea } from "../ui/NexusInputs";
-import { NexusAutonomousButton } from "../ui/NexusButton";
+import { NexusAutonomousButton, NexusCardButton, NexusSectionButton } from "../ui/NexusButton";
 import { NexusInlineNotice } from "../ui/NexusInlineNotice";
 import { NexusSegmentedControl } from "../ui/NexusSegmentedControl";
 import { NexusSection } from "../ui/NexusSection";
@@ -40,9 +43,15 @@ interface RaffleFormProps {
 type RaffleType = "SIMPLE" | "OPPORTUNITIES";
 type PrizeShippingPolicy = "" | "INCLUDED" | "WINNER_PAYS";
 type GalleryItem = Pick<RaffleGalleryItem, "filePath" | "fileType" | "posterPath">;
+type PrizeItem = Pick<RafflePrize, "title" | "description" | "winnerRule">;
 type SuggestedThumbnail = { blob: Blob; url: string };
 
-const MAX_GALLERY_ITEMS = 6;
+const MAX_GALLERY_ITEMS = 10;
+const MAX_PRIZES = 10;
+
+const createEmptyPrize = (): PrizeItem => ({ title: "", description: "", winnerRule: "" });
+
+const formatPrizePosition = (index: number) => index === 0 ? "1.er lugar" : `${index + 1}.º lugar`;
 
 const toDateTimeLocalValue = (value?: string | null) => {
   if (!value) return "";
@@ -97,6 +106,16 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
   const [isGeneratingThumbs, setIsGeneratingThumbs] = useState(false);
   const [coverFile, setCoverFile] = useState<File | null>(null);
   const [gallery, setGallery] = useState<GalleryItem[]>(initialData?.gallery ?? []);
+  const [prizes, setPrizes] = useState<PrizeItem[]>(() => {
+    if (initialData?.prizes?.length) {
+      return initialData.prizes.map((prize) => ({
+        title: prize.title,
+        description: prize.description,
+        winnerRule: prize.winnerRule ?? "",
+      }));
+    }
+    return [createEmptyPrize()];
+  });
 
   const coverInputRef = useRef<HTMLInputElement>(null);
   const thumbInputRef = useRef<HTMLInputElement>(null);
@@ -204,7 +223,9 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
     && hasCompleteParticipationWindow
     && hasValidParticipationWindow
     && (!earlyAccessEnabled || Boolean(participationStartsAt))
-    && hasEarlyAccessCode;
+    && hasEarlyAccessCode
+    && prizes.length > 0
+    && prizes.every((prize) => prize.title.trim() && prize.description.trim());
 
   useEffect(() => {
     onValidationChange?.(isFormValid);
@@ -285,6 +306,13 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
     const selectedFiles = files.slice(0, availableSlots);
     event.target.value = "";
 
+    if (files.length > availableSlots && availableSlots > 0) {
+      showToast(
+        `La galería admite hasta ${MAX_GALLERY_ITEMS} medios. Se agregarán los primeros ${availableSlots}.`,
+        "error",
+      );
+    }
+
     if (!selectedFiles.length) {
       if (files.length) showToast(`La galería admite hasta ${MAX_GALLERY_ITEMS} medios.`, "error");
       return;
@@ -313,6 +341,32 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
 
   const removeGalleryItem = (index: number) => {
     setGallery((current) => current.filter((_, itemIndex) => itemIndex !== index));
+  };
+
+  const updatePrize = (index: number, changes: Partial<PrizeItem>) => {
+    setPrizes((current) => current.map((prize, prizeIndex) => (
+      prizeIndex === index ? { ...prize, ...changes } : prize
+    )));
+  };
+
+  const addPrize = () => {
+    if (prizes.length >= MAX_PRIZES) return;
+    setPrizes((current) => [...current, createEmptyPrize()]);
+  };
+
+  const removePrize = (index: number) => {
+    if (prizes.length === 1) return;
+    setPrizes((current) => current.filter((_, prizeIndex) => prizeIndex !== index));
+  };
+
+  const movePrize = (index: number, direction: -1 | 1) => {
+    const targetIndex = index + direction;
+    if (targetIndex < 0 || targetIndex >= prizes.length) return;
+    setPrizes((current) => {
+      const reordered = [...current];
+      [reordered[index], reordered[targetIndex]] = [reordered[targetIndex], reordered[index]];
+      return reordered;
+    });
   };
 
   const handleSubmit = async (event?: React.FormEvent) => {
@@ -355,6 +409,11 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
         imagePoster: finalImageType === "VIDEO" ? finalImagePoster : null,
         ...(coverPosterAssetId ? { coverPosterAssetId } : {}),
         prizeShippingPolicy,
+        prizes: prizes.map((prize) => ({
+          title: prize.title.trim(),
+          description: prize.description.trim(),
+          winnerRule: prize.winnerRule?.trim() || null,
+        })),
         gallery,
         status,
         winningNumber: status === "FINISHED" ? winningNumber.trim() || null : null,
@@ -794,6 +853,101 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                   <span className="text-secondary">El universo queda bloqueado mientras existan boletos activos.</span>
                 </div>
               )}
+            </div>
+          </NexusSection>
+
+          <NexusSection
+            title="Premios por Lugar"
+            subtitle="Especifica con claridad qué recibe cada lugar de la rifa."
+            icon={Gift}
+            iconVariant="brand"
+            action={
+              prizes.length < MAX_PRIZES ? (
+                <NexusSectionButton type="button" icon={PlusCircle} onClick={addPrize}>
+                  Añadir Premio
+                </NexusSectionButton>
+              ) : undefined
+            }
+            actionPlacement="below"
+          >
+            <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+              {prizes.map((prize, index) => (
+                <div
+                  key={`prize-${index}`}
+                  className="border border-border-main bg-bg-muted"
+                  style={{
+                    borderRadius: "var(--radius-inner-visual)",
+                    padding: "var(--padding-inner)",
+                  }}
+                >
+                  <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+                    <div className="flex items-center justify-between" style={{ gap: "var(--space-md)" }}>
+                      <div className="min-w-0">
+                        <span className="text-label uppercase tracking-[0.15em] text-text-muted">Lugar</span>
+                        <h4 className="text-h2 text-text-main">{formatPrizePosition(index)}</h4>
+                      </div>
+                      <div className="flex shrink-0" style={{ gap: "var(--space-xs)" }}>
+                        <NexusCardButton
+                          type="button"
+                          variant="secondary"
+                          isIconOnly
+                          icon={ChevronUp}
+                          title="Subir premio"
+                          aria-label={`Subir ${formatPrizePosition(index)}`}
+                          disabled={index === 0}
+                          onClick={() => movePrize(index, -1)}
+                        />
+                        <NexusCardButton
+                          type="button"
+                          variant="secondary"
+                          isIconOnly
+                          icon={ChevronDown}
+                          title="Bajar premio"
+                          aria-label={`Bajar ${formatPrizePosition(index)}`}
+                          disabled={index === prizes.length - 1}
+                          onClick={() => movePrize(index, 1)}
+                        />
+                        <NexusCardButton
+                          type="button"
+                          variant="secondary"
+                          isIconOnly
+                          icon={Trash2}
+                          title="Eliminar premio"
+                          aria-label={`Eliminar ${formatPrizePosition(index)}`}
+                          disabled={prizes.length === 1}
+                          className="hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
+                          onClick={() => removePrize(index)}
+                        />
+                      </div>
+                    </div>
+
+                    <NexusInput
+                      label="Premio *"
+                      value={prize.title}
+                      maxLength={120}
+                      onChange={(event) => updatePrize(index, { title: event.target.value })}
+                      placeholder="Ej. Percha completa de diez pollos"
+                    />
+                    <NexusTextarea
+                      label="Descripción del Premio *"
+                      rows={4}
+                      maxLength={1000}
+                      value={prize.description}
+                      onChange={(event) => updatePrize(index, { description: event.target.value })}
+                      placeholder="Detalla exactamente qué recibe el ganador de este lugar."
+                    />
+                    <NexusTextarea
+                      label="Criterio de Asignación"
+                      rows={3}
+                      maxLength={500}
+                      value={prize.winnerRule ?? ""}
+                      onChange={(event) => updatePrize(index, { winnerRule: event.target.value })}
+                      placeholder="Ej. Se asigna al boleto que coincida con los últimos tres dígitos del Premio Mayor."
+                      helperText="Opcional. Úsalo cuando este lugar tenga una regla distinta o requiera una aclaración adicional."
+                    />
+                  </div>
+                </div>
+              ))}
             </div>
           </NexusSection>
 

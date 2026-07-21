@@ -30,7 +30,7 @@ export function RaffleSection() {
             >
               <Badge className="border-brand-500/30 bg-brand-500/20 text-brand-400">
                 <Ticket size={12} className="mr-2" />
-                Sorteos Exclusivos
+                Rifas Exclusivas
               </Badge>
             </motion.div>
 

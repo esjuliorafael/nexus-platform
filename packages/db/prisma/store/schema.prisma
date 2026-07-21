@@ -35,6 +35,7 @@ model User {
   mustChangePassword   Boolean         @default(true) @map("must_change_password")
   orderReads           OrderRead[]
   contactProfile       ContactProfile?
+  mediaVaultItems      MediaVaultItem[]
 
   @@map("users")
 }
@@ -419,9 +420,29 @@ model MediaAsset {
   mediaEntries   Media[]
   homeSlides     HomeSlide[]
   storeHeroes    StoreHero[]
+  vaultItem      MediaVaultItem?
 
   @@index([status, createdAt])
   @@map("media_assets")
+}
+
+model MediaVaultItem {
+  id             String      @id @default(uuid()) @db.Uuid
+  assetId        String      @unique @map("asset_id") @db.Uuid
+  uploadedById   Int?        @map("uploaded_by_id")
+  uploadedByName String      @map("uploaded_by_name")
+  downloadName   String      @map("download_name")
+  expiresAt      DateTime    @map("expires_at")
+  downloadedAt   DateTime?   @map("downloaded_at")
+  downloadCount  Int         @default(0) @map("download_count")
+  createdAt      DateTime    @default(now()) @map("created_at")
+  updatedAt      DateTime    @updatedAt @map("updated_at")
+  asset           MediaAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  uploadedBy      User?       @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+
+  @@index([expiresAt])
+  @@index([uploadedById, createdAt])
+  @@map("media_vault_items")
 }
 
 model PaymentChannel {

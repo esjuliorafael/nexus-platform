@@ -154,8 +154,17 @@ export interface Raffle {
   earlyAccessEnabled: boolean;
   earlyAccessConfigured: boolean;
   gallery?: RaffleGalleryItem[];
+  prizes?: RafflePrize[];
   extraOpportunities?: RaffleOpportunity[];
   ticketStats?: RaffleTicketStats;
+}
+
+export interface RafflePrize {
+  id: number;
+  position: number;
+  title: string;
+  description: string;
+  winnerRule: string | null;
 }
 
 export interface RaffleTicketStats {

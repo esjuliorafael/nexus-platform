@@ -31,6 +31,17 @@ export function createStorageKey(
   return `media/${year}/${month}/${assetId}${suffix}.${normalizedExtension}`;
 }
 
+export function createVaultStorageKey(
+  assetId: string,
+  extension: string,
+  date = new Date(),
+) {
+  const year = date.getUTCFullYear();
+  const month = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const normalizedExtension = extension.replace(/^\./, "").toLowerCase();
+  return `media-vault/${year}/${month}/${assetId}.${normalizedExtension}`;
+}
+
 export function normalizeOriginalName(fileName: string) {
   return path.basename(fileName).replace(/[\u0000-\u001f\u007f]/g, "").slice(0, 255);
 }

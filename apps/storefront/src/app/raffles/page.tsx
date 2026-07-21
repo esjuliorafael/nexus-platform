@@ -9,6 +9,7 @@ import {
   Banknote,
   BellRing,
   Calendar,
+  CheckCircle2,
   ChevronLeft,
   ChevronRight,
   Clock3,
@@ -286,7 +287,7 @@ export default function RafflesPage() {
             <h1 className="sf-text-display text-stone-850">Módulo desactivado</h1>
             <p className="sf-text-body max-w-md text-stone-500">
               El módulo de rifas no está activo en este momento. Vuelve pronto para conocer
-              nuestros próximos sorteos.
+              nuestras próximas rifas.
             </p>
             <Button asChild variant="outline" context="section">
               <Link href="/">Volver al inicio</Link>
@@ -317,8 +318,8 @@ export default function RafflesPage() {
       ) : raffles.length === 0 ? (
         <EmptyState
           icon={Ticket}
-          title="Sin sorteos activos"
-          description="Actualmente no tenemos ninguna rifa activa. Vuelve pronto para conocer nuestros próximos sorteos."
+          title="Sin rifas activas"
+          description="Actualmente no tenemos ninguna rifa activa. Vuelve pronto para conocer nuestras próximas rifas."
         />
       ) : (
         <div className="flex flex-col gap-[var(--sf-space-lg)] md:gap-[var(--sf-space-xl)]">
@@ -915,11 +916,12 @@ function UpcomingRaffleCard({ raffle, now }: { raffle: Raffle; now: number }) {
             type="button"
             context="autonomous"
             variant="secondary"
-            icon={BellRing}
+            icon={reminder.isRegistered ? CheckCircle2 : BellRing}
             className="w-full"
+            disabled={reminder.isRegistered}
             onClick={() => setIsReminderOpen(true)}
           >
-            Quiero el aviso
+            {reminder.isRegistered ? "Registrado" : "Avísame"}
           </Button>
         </div>
       </StorefrontCard>
@@ -1455,7 +1457,7 @@ function RecentRaffleResults({ results }: { results: RaffleRecentResult[] }) {
       <RaffleSectionHeading
         icon={Trophy}
         title="Resultados recientes"
-        description="Consulta los números ganadores publicados de los sorteos más recientes."
+        description="Consulta los números ganadores publicados de las rifas más recientes."
       />
 
       <div className="grid grid-cols-1 lg:grid-cols-3" style={{ gap: "var(--sf-space-md)" }}>
@@ -1661,7 +1663,7 @@ function getRaffleCountdown(raffle: Raffle, now: number) {
     return { label: "Cierra en", value: formatRemainingTime(endsAt - now) };
   }
   if (drawAt && now < drawAt) {
-    return { label: "Sorteo en", value: formatRemainingTime(drawAt - now) };
+    return { label: "La rifa inicia en", value: formatRemainingTime(drawAt - now) };
   }
   return null;
 }

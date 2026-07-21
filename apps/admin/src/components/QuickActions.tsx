@@ -1,5 +1,6 @@
 import React from "react";
 import {
+  Archive,
   Image,
   PlusCircle,
   Layers,
@@ -28,6 +29,7 @@ import {
   KeyRound,
   Store,
   BadgePercent,
+  UploadCloud,
 } from "lucide-react";
 import { QuickActionGroup } from "../types";
 
@@ -57,6 +59,12 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
         { icon: <Tags size={20} />, label: "Ver Categorías" },
         { icon: <FolderPlus size={20} />, label: "Nueva Categoría" },
         { icon: <MonitorPlay size={20} />, label: "Slider Inicio" },
+        ...(["admin", "superadmin"].includes(userRole?.toLowerCase())
+          ? [
+              { icon: <Archive size={20} />, label: "Bóveda de Medios" },
+              { icon: <UploadCloud size={20} />, label: "Subir a Bóveda" },
+            ]
+          : []),
       ],
     },
     {

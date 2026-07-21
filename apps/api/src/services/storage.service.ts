@@ -99,6 +99,17 @@ export const storageService = {
     };
   },
 
+  async createSignedDownloadUrl(key: string, fileName: string) {
+    const { bucketName, client } = await getConfiguredStorage();
+    const safeFileName = fileName.replace(/[^a-zA-Z0-9._-]/g, "-");
+    const command = new GetObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+      ResponseContentDisposition: `attachment; filename="${safeFileName}"`,
+    });
+    return getSignedUrl(client, command, { expiresIn: 5 * 60 });
+  },
+
   async headObject(key: string) {
     const { bucketName, client } = await getConfiguredStorage();
     return client.send(new HeadObjectCommand({ Bucket: bucketName, Key: key }));

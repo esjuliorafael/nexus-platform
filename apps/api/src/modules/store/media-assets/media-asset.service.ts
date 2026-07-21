@@ -9,6 +9,7 @@ import { mediaProcessingQueue } from "../../../queues/media-processing.queue";
 import { storageService } from "../../../services/storage.service";
 import {
   createStorageKey,
+  createVaultStorageKey,
   extensionForMime,
   normalizeOriginalName,
 } from "../../../utils/file.utils";
@@ -45,6 +46,16 @@ const VIDEO_MIME_BY_EXTENSION: Record<string, string> = {
   "3g2": "video/3gpp2",
 };
 
+const IMAGE_MIME_BY_EXTENSION: Record<string, string> = {
+  jpg: "image/jpeg",
+  jpeg: "image/jpeg",
+  png: "image/png",
+  webp: "image/webp",
+  gif: "image/gif",
+  heic: "image/heic",
+  heif: "image/heif",
+};
+
 function unsupportedMedia(message: string) {
   const error = new Error(message) as Error & { statusCode?: number };
   error.statusCode = 415;
@@ -64,6 +75,16 @@ function normalizeDirectVideoMime(fileName: string, inputMimeType: string) {
 
   const extension = fileName.split(".").pop()?.trim().toLowerCase() || "";
   return VIDEO_MIME_BY_EXTENSION[extension] || mimeType;
+}
+
+function normalizeOriginalMediaMime(fileName: string, inputMimeType: string) {
+  const mimeType = inputMimeType.trim().toLowerCase();
+  if (ACCEPTED_IMAGE_MIMES.has(mimeType) || ACCEPTED_VIDEO_MIMES.has(mimeType)) {
+    return mimeType;
+  }
+
+  const extension = fileName.split(".").pop()?.trim().toLowerCase() || "";
+  return IMAGE_MIME_BY_EXTENSION[extension] || VIDEO_MIME_BY_EXTENSION[extension] || mimeType;
 }
 
 async function createImageAsset(inputPath: string, originalName: string) {
@@ -162,6 +183,44 @@ async function createVideoAsset(
 }
 
 export const mediaAssetService = {
+  async createDirectOriginalUpload(input: {
+    fileName: string;
+    mimeType: string;
+    sizeBytes?: number | null;
+  }) {
+    const mimeType = normalizeOriginalMediaMime(input.fileName, input.mimeType);
+    const isImage = ACCEPTED_IMAGE_MIMES.has(mimeType);
+    const isVideo = ACCEPTED_VIDEO_MIMES.has(mimeType);
+    if (!isImage && !isVideo) {
+      throw unsupportedMedia(
+        "Formato no compatible. Usa JPG, PNG, WebP, HEIC, MP4, MOV, WebM o 3GP.",
+      );
+    }
+
+    const assetId = randomUUID();
+    const extension = extensionForDirectUpload(input.fileName, mimeType);
+    const sourceKey = createVaultStorageKey(assetId, extension);
+    const signedUpload = await storageService.createSignedPutUrl(sourceKey, mimeType);
+    const asset = await storePrisma.mediaAsset.create({
+      data: {
+        id: assetId,
+        mediaUrl: signedUpload.publicUrl,
+        sourceKey,
+        mediaType: isVideo ? "VIDEO" : "PHOTO",
+        mimeType,
+        originalName: normalizeOriginalName(input.fileName),
+        status: "UPLOADING",
+        sizeBytes: input.sizeBytes || null,
+      },
+    });
+
+    return {
+      asset,
+      uploadUrl: signedUpload.uploadUrl,
+      expiresInSeconds: signedUpload.expiresInSeconds,
+    };
+  },
+
   async createDirectVideoUpload(input: {
     fileName: string;
     mimeType: string;
@@ -222,6 +281,8 @@ export const mediaAssetService = {
           errorMessage: null,
         },
       });
+
+      if (completed.mediaType !== "VIDEO") return completed;
 
       try {
         await mediaProcessingQueue.add(
@@ -288,6 +349,7 @@ export const mediaAssetService = {
       storePrisma.mediaAsset.findUnique({
         where: { id: posterAssetId },
         include: {
+          vaultItem: { select: { id: true } },
           _count: {
             select: {
               coverProducts: true,
@@ -315,7 +377,7 @@ export const mediaAssetService = {
       (total, count) => total + count,
       0,
     );
-    if (references > 0) {
+    if (references > 0 || posterAsset.vaultItem) {
       throw unsupportedMedia("La miniatura ya esta asociada a otro contenido.");
     }
 
@@ -351,6 +413,7 @@ export const mediaAssetService = {
     const asset = await storePrisma.mediaAsset.findUnique({
       where: { id },
       include: {
+        vaultItem: { select: { id: true } },
         _count: {
           select: {
             coverProducts: true,
@@ -367,7 +430,7 @@ export const mediaAssetService = {
       (total, count) => total + count,
       0,
     );
-    if (references > 0) return false;
+    if (references > 0 || asset.vaultItem) return false;
 
     await storePrisma.mediaAsset.delete({ where: { id } });
     await Promise.all([

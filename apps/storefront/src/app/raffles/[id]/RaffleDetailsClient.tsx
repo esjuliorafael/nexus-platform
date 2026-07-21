@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { motion, useReducedMotion } from 'framer-motion';
-import { ArrowLeft, BellRing, Calendar, Clock3, PackageCheck, PlayCircle, Sparkles, Ticket, Timer, Trophy, Truck, Waypoints, type LucideIcon } from 'lucide-react';
+import { ArrowLeft, Award, BellRing, Calendar, Clock3, Gift, PackageCheck, Sparkles, Ticket, Timer, Trophy, Truck, Waypoints, type LucideIcon } from 'lucide-react';
 import { raffleApi } from '../../../api/raffles';
 import { RaffleCouponValidationResponse } from '../../../api/raffle-coupons';
 import { Media, Raffle, RaffleTicketAvailability } from '../../../types';
@@ -12,10 +12,13 @@ import { Button } from '../../../components/ui/Button';
 import { StorefrontAutonomousCard, StorefrontCard } from '../../../components/ui/Card';
 import { BottomSheet } from '../../../components/ui/BottomSheet';
 import { MediaViewer } from '../../../components/ui/MediaViewer';
+import {
+  StorefrontMediaRail,
+  StorefrontVideoThumbnailIndicator,
+} from '../../../components/ui/MediaRail';
 import { StorefrontNote } from '../../../components/ui/Note';
 import {
   StorefrontReveal,
-  StorefrontRevealGroup,
   StorefrontRevealItem,
 } from '../../../components/ui/Reveal';
 import { TicketSelectionGrid } from '../../../components/raffle/TicketSelectionGrid';
@@ -81,7 +84,7 @@ export function RaffleDetailsClient({ raffle, initialTicketAvailability, reserva
       ? [{
           id: raffle.id * -1,
           title: raffle.title,
-          description: raffle.description,
+          description: null,
           type: raffle.imageType,
           filePath: raffle.image,
           assetId: `raffle-cover-${raffle.id}`,
@@ -97,10 +100,10 @@ export function RaffleDetailsClient({ raffle, initialTicketAvailability, reserva
         }]
       : [];
 
-    const galleryItems = (raffle.gallery ?? []).map<Media>((item, index) => ({
+    const galleryItems = (raffle.gallery ?? []).map<Media>((item) => ({
       id: item.id,
-      title: `${raffle.title} ${index + 1}`,
-      description: raffle.description,
+      title: raffle.title,
+      description: null,
       type: item.fileType,
       filePath: item.filePath,
       assetId: `raffle-gallery-${item.id}`,
@@ -345,7 +348,7 @@ export function RaffleDetailsClient({ raffle, initialTicketAvailability, reserva
           style={{ gap: 'var(--sf-space-sm)' }}
         >
           <ArrowLeft size={14} />
-          Volver a Sorteos
+          Volver a Rifas
         </motion.button>
 
         <div className="flex flex-col gap-[var(--sf-space-lg)] lg:gap-[var(--sf-space-xl)]">
@@ -474,40 +477,99 @@ export function RaffleDetailsClient({ raffle, initialTicketAvailability, reserva
                     {raffle.description || 'Consulta los detalles de la rifa y elige tus boletos disponibles.'}
                   </p>
                 </motion.div>
-                {raffle.prizeShippingPolicy && (
-                  <motion.div
-                    initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={introTransition(STOREFRONT_DETAIL_MOTION_SEQUENCE_MS.noteDelayMs)}
-                  >
-                    <RafflePrizeShippingNote policy={raffle.prizeShippingPolicy} />
-                  </motion.div>
-                )}
               </div>
             </section>
           </div>
+
+          {((raffle.prizes?.length ?? 0) > 0 || raffle.prizeShippingPolicy) && (
+            <StorefrontReveal cadence="editorial" amount={0.25}>
+              <section
+                className="flex flex-col"
+                style={{ gap: 'var(--sf-space-md)' }}
+                aria-label="Premios de la rifa"
+              >
+                {(raffle.prizes?.length ?? 0) > 0 && (
+                  <>
+                    <div className="flex items-center" style={{ gap: 'var(--sf-space-sm)' }}>
+                      <div
+                        className="flex shrink-0 items-center justify-center bg-brand-50 text-brand-500"
+                        style={{
+                          width: 'var(--sf-size-icon-section)',
+                          height: 'var(--sf-size-icon-section)',
+                          borderRadius: 'var(--sf-radius-inner)',
+                        }}
+                      >
+                        <Gift size={22} strokeWidth={2.1} />
+                      </div>
+                      <div className="flex min-w-0 flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
+                        <h2 className="sf-text-h2 text-stone-950">Premios</h2>
+                        <p className="sf-text-secondary text-stone-500">
+                          {raffle.prizes!.length === 1
+                            ? 'Consulta el premio definido para esta rifa.'
+                            : 'Consulta qué recibe cada lugar de esta rifa.'}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
+                      {raffle.prizes!.map((prize, index) => (
+                        <StorefrontAutonomousCard key={prize.id} density="compact">
+                          <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
+                            <div className="flex items-center" style={{ gap: 'var(--sf-space-md)' }}>
+                              <div
+                                className="flex shrink-0 items-center justify-center border border-brand-100 bg-brand-50 text-brand-600"
+                                style={{
+                                  width: 'var(--sf-h-button-section)',
+                                  height: 'var(--sf-h-button-section)',
+                                  borderRadius: 'var(--sf-radius-card-inner)',
+                                }}
+                              >
+                                <Trophy size={22} strokeWidth={2.1} />
+                              </div>
+                              <div className="flex min-w-0 flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
+                                <span className="sf-text-label text-brand-500">{formatPrizePosition(index)}</span>
+                                <h3 className="sf-text-h2 text-stone-950">{prize.title}</h3>
+                              </div>
+                            </div>
+
+                            <p className="sf-text-secondary max-w-3xl text-stone-600">{prize.description}</p>
+
+                            {prize.winnerRule && (
+                              <div
+                                className="flex items-start border-t border-stone-200/70"
+                                style={{ gap: 'var(--sf-space-sm)', paddingTop: 'var(--sf-space-md)' }}
+                              >
+                                <Award className="mt-[0.125rem] shrink-0 text-stone-500" size={18} strokeWidth={2} />
+                                <div className="flex min-w-0 flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
+                                  <span className="sf-text-label text-stone-500">Criterio de asignación</span>
+                                  <p className="sf-text-secondary text-stone-600">{prize.winnerRule}</p>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        </StorefrontAutonomousCard>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {raffle.prizeShippingPolicy && (
+                  <RafflePrizeShippingNote policy={raffle.prizeShippingPolicy} />
+                )}
+              </section>
+            </StorefrontReveal>
+          )}
 
           {raffle.gallery && raffle.gallery.length > 0 && (
             <StorefrontReveal
               cadence="editorial"
               amount={0.3}
             >
-              <section
-                className="flex flex-col"
-                style={{ gap: 'var(--sf-space-md)' }}
-                aria-label="Galería adicional de la rifa"
+              <StorefrontMediaRail
+                ariaLabel="Galería adicional de la rifa"
+                itemCount={raffle.gallery.length}
               >
-                <h2 className="sf-text-h2 text-stone-950">Galería</h2>
-                <StorefrontRevealGroup
-                  className="-mx-[var(--sf-inset-page-mobile)] flex snap-x snap-mandatory overflow-x-auto px-[var(--sf-inset-page-mobile)] pb-[var(--sf-space-xs)] scrollbar-hide md:mx-0 md:px-0"
-                  style={{
-                    gap: 'var(--sf-space-base)',
-                    scrollPaddingInline: 'var(--sf-inset-page-mobile)',
-                  }}
-                  cadence="compact"
-                  amount={0.25}
-                >
-                  {raffle.gallery.map((item, index) => (
+                {raffle.gallery.map((item, index) => (
                     <StorefrontRevealItem
                       key={item.id}
                       className="aspect-[7/5] w-[10rem] shrink-0 snap-start sm:w-[12rem]"
@@ -535,13 +597,7 @@ export function RaffleDetailsClient({ raffle, initialTicketAvailability, reserva
                                 playsInline
                               />
                             )}
-                            <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                              <PlayCircle
-                                className="text-white drop-shadow-md"
-                                size={24}
-                                fill="currentColor"
-                              />
-                            </div>
+                            <StorefrontVideoThumbnailIndicator />
                           </>
                         ) : (
                           <img
@@ -552,9 +608,8 @@ export function RaffleDetailsClient({ raffle, initialTicketAvailability, reserva
                         )}
                       </button>
                     </StorefrontRevealItem>
-                  ))}
-                </StorefrontRevealGroup>
-              </section>
+                ))}
+              </StorefrontMediaRail>
             </StorefrontReveal>
           )}
 
@@ -572,7 +627,7 @@ export function RaffleDetailsClient({ raffle, initialTicketAvailability, reserva
                     <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
                       <RaffleInfoItem
                         icon={Calendar}
-                        label="Fecha del sorteo"
+                        label="Fecha de la rifa"
                         value={formatCalendarDate(raffle.drawDate, {
                           day: 'numeric',
                           month: 'long',
@@ -629,7 +684,7 @@ export function RaffleDetailsClient({ raffle, initialTicketAvailability, reserva
                   )}
                   <RaffleKnowledgeItem
                     icon={Trophy}
-                    title="Resultado del sorteo"
+                    title="Resultado de la rifa"
                     description={`El número ganador se determina con los últimos ${raffle.digits} ${digitLabel} del Premio Mayor de la Lotería Nacional.`}
                   />
                   <RaffleKnowledgeItem
@@ -727,6 +782,7 @@ export function RaffleDetailsClient({ raffle, initialTicketAvailability, reserva
       <MediaViewer
         isOpen={viewerIndex !== null}
         media={selectedViewerMedia}
+        showDetails={false}
         onClose={() => setViewerIndex(null)}
         canNavigate={canNavigateRaffleMedia}
         onPrevious={() => {
@@ -746,6 +802,10 @@ export function RaffleDetailsClient({ raffle, initialTicketAvailability, reserva
       />
     </div>
   );
+}
+
+function formatPrizePosition(index: number) {
+  return index === 0 ? '1.er lugar' : `${index + 1}.º lugar`;
 }
 
 function RaffleInfoItem({ icon: Icon, label, value }: { icon: LucideIcon; label: string; value: string }) {
@@ -820,7 +880,7 @@ function RafflePrizeShippingNote({
         <p>
           {isIncluded
             ? 'El envío del premio está incluido. Coordinaremos directamente con el ganador la entrega más conveniente.'
-            : 'El costo del envío será cubierto por el ganador. El método y los detalles de entrega se coordinarán después del sorteo.'}
+            : 'El costo del envío será cubierto por el ganador. El método y los detalles de entrega se coordinarán después de la rifa.'}
         </p>
       </div>
     </StorefrontNote>
@@ -864,14 +924,14 @@ function RaffleCountdown({
   const minutes = totalMinutes % 60;
 
   const stateLabel = status === 'FINISHED'
-    ? 'El sorteo finalizó'
+    ? 'La rifa finalizó'
     : status === 'CANCELLED'
-      ? 'El sorteo fue cancelado'
+      ? 'La rifa fue cancelada'
       : isWaitingForPublicOpening
         ? 'La participación pública comienza en'
       : hasStarted
-        ? 'El sorteo está en curso'
-        : 'El sorteo inicia en';
+        ? 'La rifa está en curso'
+        : 'La rifa inicia en';
 
   return (
     <StorefrontAutonomousCard

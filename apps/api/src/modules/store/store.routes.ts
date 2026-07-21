@@ -31,6 +31,7 @@ import {
   storeHeroPublicRoutes,
 } from "./store-heroes/store-hero.routes";
 import { publicContactRoutes } from "./profile/profile.routes";
+import { mediaVaultRoutes } from "./media-vault/media-vault.routes";
 
 export async function storeRoutes(server: FastifyInstance) {
   // Public Storefront Routes
@@ -74,6 +75,7 @@ export async function storeRoutes(server: FastifyInstance) {
     prefix: "/admin/shipping-zones",
   });
   await server.register(uploadRoutes, { prefix: "/admin/uploads" });
+  await server.register(mediaVaultRoutes, { prefix: "/admin/media-vault" });
   await server.register(channelsOverviewRoutes, { prefix: "/admin/channels" });
   await server.register(couponAdminRoutes, { prefix: "/admin/coupons" });
 

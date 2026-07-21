@@ -54,10 +54,27 @@ model Raffle {
   paymentHolds          RafflePaymentHold[]
   coupons               RaffleCoupon[]
   openingSubscriptions  RaffleOpeningSubscription[]
+  prizes                RafflePrize[]
 
   @@index([featured, featuredOrder])
   @@index([resultPublishedAt])
   @@map("raffles")
+}
+
+model RafflePrize {
+  id          Int      @id @default(autoincrement())
+  raffleId    Int      @map("raffle_id")
+  position    Int
+  title       String
+  description String
+  winnerRule  String?  @map("winner_rule")
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  raffle      Raffle   @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+
+  @@unique([raffleId, position])
+  @@index([raffleId, position])
+  @@map("raffle_prizes")
 }
 
 enum RaffleDistribution {
@@ -103,13 +120,13 @@ enum RaffleOpeningSubscriptionStatus {
 }
 
 model RaffleGallery {
-  id        Int       @id @default(autoincrement())
-  raffleId  Int       @map("raffle_id")
-  filePath  String    @map("file_path")
-  fileType  MediaType @default(PHOTO) @map("file_type")
+  id         Int       @id @default(autoincrement())
+  raffleId   Int       @map("raffle_id")
+  filePath   String    @map("file_path")
+  fileType   MediaType @default(PHOTO) @map("file_type")
   posterPath String?   @map("poster_path")
-  createdAt DateTime  @default(now()) @map("created_at")
-  raffle    Raffle    @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  createdAt  DateTime  @default(now()) @map("created_at")
+  raffle     Raffle    @relation(fields: [raffleId], references: [id], onDelete: Cascade)
 
   @@map("raffle_gallery")
 }
@@ -126,6 +143,7 @@ model RaffleOpportunity {
   extraOpportunities Json   @map("extra_opportunities")
   raffle             Raffle @relation(fields: [raffleId], references: [id], onDelete: Cascade)
 
+  @@unique([raffleId, mainTicketNumber], map: "raffle_opportunities_raffle_main_ticket_key")
   @@map("raffle_opportunities")
 }
 

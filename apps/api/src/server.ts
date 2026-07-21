@@ -27,6 +27,7 @@ import { whatsappWorker } from "./workers/whatsapp.worker";
 import { mediaProcessingWorker } from "./workers/media-processing.worker";
 import { expireOverduePendingOrders } from "./services/order-expiration.service";
 import { reconcileRaffleOpeningNotifications } from "./services/raffle-opening-notification.service";
+import { mediaVaultService } from "./modules/store/media-vault/media-vault.service";
 
 const server = fastify({
   logger: true,
@@ -238,6 +239,21 @@ async function bootstrap() {
     await refreshMercadoPagoConnections();
     const mercadoPagoRefreshTimer = setInterval(refreshMercadoPagoConnections, 24 * 60 * 60 * 1000);
     mercadoPagoRefreshTimer.unref?.();
+
+    const expireMediaVault = async () => {
+      try {
+        const result = await mediaVaultService.expireOverdue();
+        if (result.expired > 0) {
+          server.log.info(`Expired ${result.expired} media vault files.`);
+        }
+      } catch (error: any) {
+        server.log.error(`Media vault expiration sweep failed: ${error.message}`);
+      }
+    };
+
+    await expireMediaVault();
+    const mediaVaultExpirationTimer = setInterval(expireMediaVault, 60 * 60 * 1000);
+    mediaVaultExpirationTimer.unref?.();
 
     // Start Server
     const port = parseInt(process.env.PORT || "3001", 10);

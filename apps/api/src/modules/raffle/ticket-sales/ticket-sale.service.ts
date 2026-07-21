@@ -310,6 +310,48 @@ export const ticketSaleService = {
     return this.getParticipationAdmin(prisma, participationKey);
   },
 
+  async updateParticipationParticipant(
+    prisma: PrismaClient,
+    participationKey: string,
+    data: {
+      customerName: string;
+      customerPhone: string;
+      customerState?: string | null;
+    },
+  ) {
+    const participant = {
+      customerName: data.customerName.trim(),
+      customerPhone: data.customerPhone.trim(),
+      customerState: data.customerState?.trim() || null,
+    };
+    const holdMatch = /^hold-([0-9a-f-]{36})$/i.exec(participationKey);
+
+    if (holdMatch) {
+      const hold = await prisma.rafflePaymentHold.findUnique({
+        where: { id: holdMatch[1] },
+        select: { id: true, promotedReservationId: true },
+      });
+      if (!hold || hold.promotedReservationId) return null;
+
+      await prisma.rafflePaymentHold.update({
+        where: { id: hold.id },
+        data: participant,
+      });
+      return this.getParticipationAdmin(prisma, participationKey);
+    }
+
+    const legacyMatch = /^sale-(\d+)$/.exec(participationKey);
+    const result = await prisma.ticketSale.updateMany({
+      where: legacyMatch
+        ? { id: Number(legacyMatch[1]) }
+        : { reservationId: participationKey },
+      data: participant,
+    });
+    if (result.count === 0) return null;
+
+    return this.getParticipationAdmin(prisma, participationKey);
+  },
+
   async reserveTickets(
     prisma: PrismaClient,
     storePrisma: StorePrismaClient,

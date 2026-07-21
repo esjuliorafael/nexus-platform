@@ -18,8 +18,11 @@ import { Badge } from "../../../components/ui/Badge";
 import { StorefrontCard } from "../../../components/ui/Card";
 import { MediaViewer } from "../../../components/ui/MediaViewer";
 import {
+  StorefrontMediaRail,
+  StorefrontVideoThumbnailIndicator,
+} from "../../../components/ui/MediaRail";
+import {
   StorefrontReveal,
-  StorefrontRevealGroup,
   StorefrontRevealItem,
 } from "../../../components/ui/Reveal";
 import { useCartUiStore } from "../../../store/cart-ui.store";
@@ -31,7 +34,6 @@ import {
   Clock3,
   Hash,
   MessageCircle,
-  PlayCircle,
   ShoppingCart,
   Tag,
   Target,
@@ -147,7 +149,7 @@ export function ProductDetailsClient({
           {
             id: product.id * -1,
             title: product.name,
-            description: product.description,
+            description: null,
             type: product.coverMediaType || "PHOTO",
             filePath: product.coverMediaUrl,
             assetId: product.coverAssetId || `product-cover-${product.id}`,
@@ -164,10 +166,10 @@ export function ProductDetailsClient({
         ]
       : [];
 
-    const galleryItems = (product.gallery ?? []).map<Media>((item, index) => ({
+    const galleryItems = (product.gallery ?? []).map<Media>((item) => ({
       id: item.id,
-      title: `${product.name} ${index + 1}`,
-      description: product.description,
+      title: product.name,
+      description: null,
       type: item.mediaType,
       filePath: item.mediaUrl,
       assetId: item.assetId,
@@ -525,22 +527,11 @@ export function ProductDetailsClient({
               cadence="editorial"
               amount={0.3}
             >
-              <section
-                className="flex flex-col"
-                style={{ gap: "var(--sf-space-md)" }}
-                aria-label="Galería adicional del producto"
+              <StorefrontMediaRail
+                ariaLabel="Galería adicional del producto"
+                itemCount={additionalGalleryItems.length}
               >
-                <h2 className="sf-text-h2 text-stone-950">Galería</h2>
-                <StorefrontRevealGroup
-                  cadence="compact"
-                  className="-mx-[var(--sf-inset-page-mobile)] flex snap-x snap-mandatory overflow-x-auto px-[var(--sf-inset-page-mobile)] pb-[var(--sf-space-xs)] scrollbar-hide md:mx-0 md:px-0"
-                  style={{
-                    gap: "var(--sf-space-base)",
-                    scrollPaddingInline: "var(--sf-inset-page-mobile)",
-                  }}
-                  amount={0.25}
-                >
-                  {additionalGalleryItems.map((item, index) => {
+                {additionalGalleryItems.map((item, index) => {
                     const productMediaIndex = galleryStartIndex + index;
 
                     return (
@@ -577,13 +568,7 @@ export function ProductDetailsClient({
                                   playsInline
                                 />
                               )}
-                              <div className="absolute inset-0 flex items-center justify-center bg-black/20">
-                                <PlayCircle
-                                  className="text-white drop-shadow-md"
-                                  size={24}
-                                  fill="currentColor"
-                                />
-                              </div>
+                              <StorefrontVideoThumbnailIndicator />
                             </div>
                           ) : (
                             <img
@@ -595,9 +580,8 @@ export function ProductDetailsClient({
                         </button>
                       </StorefrontRevealItem>
                     );
-                  })}
-                </StorefrontRevealGroup>
-              </section>
+                })}
+              </StorefrontMediaRail>
             </StorefrontReveal>
           )}
 
@@ -680,6 +664,7 @@ export function ProductDetailsClient({
       <MediaViewer
         isOpen={viewerIndex !== null}
         media={selectedViewerMedia}
+        showDetails={false}
         onClose={() => setViewerIndex(null)}
         canNavigate={canNavigateProductMedia}
         onPrevious={() => {

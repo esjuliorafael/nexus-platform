@@ -845,6 +845,16 @@ export const apiRaffleParticipations = {
     );
     return response.data as RaffleParticipation;
   },
+  updateParticipant: async (
+    id: string,
+    data: { customerName: string; customerPhone: string; customerState?: string | null },
+  ): Promise<RaffleParticipation> => {
+    const response = await api.patch(
+      `/ticket-sales/admin/participations/${encodeURIComponent(id)}/participant`,
+      data,
+    );
+    return response.data;
+  },
   refundMercadoPago: async (id: string): Promise<RaffleParticipation> => {
     const response = await api.post(
       `/ticket-sales/admin/participations/${encodeURIComponent(id)}/refund`,
@@ -899,6 +909,78 @@ export const apiRaffleIntelligence = {
     link.click();
     link.remove();
     window.URL.revokeObjectURL(url);
+  },
+};
+
+export interface MediaVaultItem {
+  id: string;
+  assetId: string;
+  uploadedByName: string;
+  downloadName: string;
+  expiresAt: string;
+  downloadedAt: string | null;
+  downloadCount: number;
+  createdAt: string;
+  mediaType: "PHOTO" | "VIDEO";
+  mimeType: string;
+  status: "UPLOADING" | "PROCESSING" | "READY" | "FAILED";
+  mediaUrl: string | null;
+  posterUrl: string | null;
+  sizeBytes: number | null;
+  width: number | null;
+  height: number | null;
+  durationMs: number | null;
+  error: string | null;
+}
+
+export interface MediaVaultPage {
+  items: MediaVaultItem[];
+  pagination: {
+    page: number;
+    pageSize: number;
+    total: number;
+    totalPages: number;
+  };
+}
+
+export const apiMediaVault = {
+  list: async (params: {
+    page?: number;
+    pageSize?: number;
+    type?: "PHOTO" | "VIDEO";
+    search?: string;
+  } = {}): Promise<MediaVaultPage> => {
+    const res = await api.get("/admin/media-vault", { params });
+    return res.data;
+  },
+  beginUpload: async (file: File) => {
+    const res = await api.post("/admin/media-vault/uploads", {
+      fileName: file.name,
+      mimeType: file.type,
+      sizeBytes: file.size,
+    });
+    return res.data as {
+      item: MediaVaultItem;
+      uploadUrl: string;
+      expiresInSeconds: number;
+    };
+  },
+  completeUpload: async (id: string): Promise<MediaVaultItem> => {
+    const res = await api.post(`/admin/media-vault/${id}/complete`);
+    return res.data;
+  },
+  getDownload: async (
+    id: string,
+  ): Promise<{ url: string; fileName: string }> => {
+    const res = await api.post(`/admin/media-vault/${id}/download`);
+    return res.data;
+  },
+  extend: async (id: string): Promise<MediaVaultItem> => {
+    const res = await api.post(`/admin/media-vault/${id}/extend`);
+    return res.data;
+  },
+  delete: async (id: string): Promise<void> => {
+    await api.delete(`/admin/media-vault/${id}`);
   },
 };
 

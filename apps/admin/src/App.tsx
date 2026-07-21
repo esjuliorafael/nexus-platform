@@ -28,6 +28,12 @@ import {
   HomeSliderViewRef,
 } from "./components/Media/Slider/HomeSliderView";
 import {
+  MediaVaultView,
+  MediaVaultFilter,
+  MediaVaultViewMode,
+  MediaVaultViewRef,
+} from "./components/Media/Vault/MediaVaultView";
+import {
   StoreView,
   StoreViewRef,
   StoreProductFilter,
@@ -131,7 +137,8 @@ type MediaModeType =
   | "category_create"
   | "categories_list"
   | "category_edit"
-  | HomeSliderViewMode;
+  | HomeSliderViewMode
+  | MediaVaultViewMode;
 
 type StoreModeType =
   | "list"
@@ -190,6 +197,8 @@ const MEDIA_MODES: MediaModeType[] = [
   "slider_list",
   "slide_create",
   "slide_edit",
+  "vault_list",
+  "vault_upload",
 ];
 
 const STORE_MODES: StoreModeType[] = [
@@ -441,6 +450,7 @@ function App() {
   const storeRef = React.useRef<StoreViewRef>(null);
   const galleryRef = React.useRef<GalleryViewRef>(null);
   const homeSliderRef = React.useRef<HomeSliderViewRef>(null);
+  const mediaVaultRef = React.useRef<MediaVaultViewRef>(null);
 
   const [activeTab, setActiveTab] = useState<ActiveTabType>(getStoredActiveTab);
   const [orderSearchQuery, setOrderSearchQuery] = useState("");
@@ -453,6 +463,9 @@ function App() {
   const [storeProductSearchQuery, setStoreProductSearchQuery] = useState("");
   const [storeProductFilter, setStoreProductFilter] =
     useState<StoreProductFilter>("all");
+  const [mediaVaultSearchQuery, setMediaVaultSearchQuery] = useState("");
+  const [mediaVaultFilter, setMediaVaultFilter] =
+    useState<MediaVaultFilter>("ALL");
   const [storeProductAdvancedFilters, setStoreProductAdvancedFilters] =
     useState<StoreProductAdvancedFilters>(
       DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS,
@@ -813,6 +826,8 @@ function App() {
   const isOrdersListViewActive =
     isOrdersViewActive && storeViewMode !== "order-detail";
   const isStoreProductListViewActive = isStoreMode && storeViewMode === "list";
+  const isMediaVaultListViewActive =
+    isMediaMode && mediaViewMode === "vault_list";
   const isSystemMode = activeTab === "Sistema";
   const isProfileMode = activeTab === "Mi Perfil";
   const isRafflesMode = activeTab === "Rifas";
@@ -887,6 +902,17 @@ function App() {
     [],
   );
 
+  const mediaVaultToolbarSegments = React.useMemo<
+    NexusViewToolbarSegment<MediaVaultFilter>[]
+  >(
+    () => [
+      { value: "ALL", label: "Todos" },
+      { value: "PHOTO", label: "Fotografías" },
+      { value: "VIDEO", label: "Videos" },
+    ],
+    [],
+  );
+
   const hasStoreProductAdvancedFilters =
     storeProductAdvancedFilters.publication !== "all" ||
     storeProductAdvancedFilters.purpose !== "all" ||
@@ -942,6 +968,7 @@ function App() {
   const isEditingMedia = isMediaMode && mediaViewMode === "media_edit";
   const isCreatingSlide = isMediaMode && mediaViewMode === "slide_create";
   const isEditingSlide = isMediaMode && mediaViewMode === "slide_edit";
+  const isUploadingToVault = isMediaMode && mediaViewMode === "vault_upload";
   const isCreatingProduct = isStoreMode && storeViewMode === "create";
   const isEditingProduct = isStoreMode && storeViewMode === "edit";
   const isCreatingStoreHero = isStoreMode && storeViewMode === "hero_create";
@@ -960,6 +987,7 @@ function App() {
     isEditingMedia ||
     isCreatingSlide ||
     isEditingSlide ||
+    isUploadingToVault ||
     isCreatingProduct ||
     isEditingProduct ||
     isCreatingStoreHero ||
@@ -1016,6 +1044,12 @@ function App() {
         break;
       case "Nuevo Slide":
         navigateToMedia("slide_create");
+        break;
+      case "Bóveda de Medios":
+        navigateToMedia("vault_list");
+        break;
+      case "Subir a Bóveda":
+        navigateToMedia("vault_upload");
         break;
       case "Nuevo Producto":
         navigateToStore("create");
@@ -1138,6 +1172,8 @@ function App() {
           setRaffleViewMode("coupon_list");
         else if (isCreatingSlide || isEditingSlide)
           setMediaViewMode("slider_list");
+        else if (isUploadingToVault)
+          setMediaViewMode("vault_list");
         else if (isMediaMode) setMediaViewMode("list");
         closeConfirm();
       },
@@ -1246,22 +1282,25 @@ function App() {
                 galleryRef.current?.handleSave();
               if (isCreatingSlide || isEditingSlide)
                 homeSliderRef.current?.handleSave();
+              if (isUploadingToVault)
+                mediaVaultRef.current?.handleSave();
               if (isCreatingRaffle || isEditingRaffle)
                 (document.getElementById("raffle-form") as HTMLFormElement | null)?.requestSubmit();
               if (isCreatingRaffleCoupon || isEditingRaffleCoupon)
                 (document.getElementById("raffle-coupon-form") as HTMLFormElement | null)?.requestSubmit();
             }}
             variant="brand"
-            icon={Save}
+            icon={isUploadingToVault ? Upload : Save}
             disabled={
               (isCreatingRaffle ||
                 isEditingRaffle ||
                 isCreatingRaffleCoupon ||
-                isEditingRaffleCoupon) &&
+                isEditingRaffleCoupon ||
+                isUploadingToVault) &&
               !isFormValid
             }
           >
-            Guardar Cambios
+            {isUploadingToVault ? "Subir Archivos" : "Guardar Cambios"}
           </NexusSectionButton>
         </>
       );
@@ -1418,6 +1457,17 @@ function App() {
             icon={Plus}
           >
             Nuevo Slide
+          </NexusSectionButton>
+        );
+      }
+      if (mediaViewMode === "vault_list") {
+        return (
+          <NexusSectionButton
+            onClick={() => setMediaViewMode("vault_upload")}
+            variant="brand"
+            icon={Upload}
+          >
+            Subir Archivos
           </NexusSectionButton>
         );
       }
@@ -1653,7 +1703,8 @@ function App() {
               gap: "var(--space-md)",
               marginBottom: isOrdersListViewActive ||
                 isStoreProductListViewActive ||
-                isRaffleParticipationsListViewActive
+                isRaffleParticipationsListViewActive ||
+                isMediaVaultListViewActive
                 ? "var(--space-md)"
                 : "var(--space-lg)",
             }}
@@ -1726,6 +1777,19 @@ function App() {
             </div>
           )}
 
+          {isMediaVaultListViewActive && (
+            <div style={{ marginBottom: "var(--space-lg)" }}>
+              <NexusViewToolbar
+                searchValue={mediaVaultSearchQuery}
+                onSearchChange={setMediaVaultSearchQuery}
+                searchPlaceholder="Buscar archivo, formato o usuario..."
+                segments={mediaVaultToolbarSegments}
+                activeSegment={mediaVaultFilter}
+                onSegmentChange={setMediaVaultFilter}
+              />
+            </div>
+          )}
+
           <div
             className="flex flex-col lg:flex-row"
             style={{ gap: "var(--space-lg)" }}
@@ -1770,6 +1834,18 @@ function App() {
                     viewMode={mediaViewMode}
                     onSetViewMode={setMediaViewMode}
                     showToast={showToast}
+                    onValidationChange={setIsFormValid}
+                  />
+                ) : mediaViewMode === "vault_list" ||
+                  mediaViewMode === "vault_upload" ? (
+                  <MediaVaultView
+                    ref={mediaVaultRef}
+                    viewMode={mediaViewMode}
+                    filter={mediaVaultFilter}
+                    searchQuery={mediaVaultSearchQuery}
+                    onSetViewMode={setMediaViewMode}
+                    showToast={showToast}
+                    setConfirmDialog={setConfirmDialog}
                     onValidationChange={setIsFormValid}
                   />
                 ) : (

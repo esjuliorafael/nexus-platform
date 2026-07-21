@@ -11,6 +11,12 @@ const raffleGalleryItemSchema = z.object({
   posterPath: z.string().url().optional().nullable(),
 });
 
+const rafflePrizeSchema = z.object({
+  title: z.string().trim().min(1).max(120),
+  description: z.string().trim().min(1).max(1000),
+  winnerRule: z.string().trim().max(500).optional().nullable(),
+});
+
 export const isClosedRaffleUniverse = (ticketQuantity: number, opportunities: number) => {
   const universe = ticketQuantity * opportunities;
   if (universe < 99 || universe > 100_000) return false;
@@ -96,7 +102,8 @@ export const createRaffleSchema = z
     coverPosterAssetId: z.string().uuid().optional(),
     prizeShippingPolicy: z.nativeEnum(RafflePrizeShippingPolicy),
     winningNumber: z.string().trim().regex(/^\d+$/).optional().nullable(),
-    gallery: z.array(raffleGalleryItemSchema).max(6).optional(),
+    gallery: z.array(raffleGalleryItemSchema).max(10).optional(),
+    prizes: z.array(rafflePrizeSchema).min(1).max(10),
     status: z.nativeEnum(RaffleStatus).optional(),
     ...participationWindowFields,
   })
@@ -125,7 +132,8 @@ export const updateRaffleSchema = z.object({
   coverPosterAssetId: z.string().uuid().optional(),
   prizeShippingPolicy: z.nativeEnum(RafflePrizeShippingPolicy).optional().nullable(),
   winningNumber: z.string().trim().regex(/^\d+$/).optional().nullable(),
-  gallery: z.array(raffleGalleryItemSchema).max(6).optional(),
+  gallery: z.array(raffleGalleryItemSchema).max(10).optional(),
+  prizes: z.array(rafflePrizeSchema).min(1).max(10).optional(),
   status: z.nativeEnum(RaffleStatus).optional(),
   ...participationWindowFields,
 });

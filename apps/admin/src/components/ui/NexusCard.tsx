@@ -245,6 +245,7 @@ interface LegacyCardProps {
   onClick?: () => void;
   className?: string;
   swipeable?: boolean;
+  layout?: 'responsive' | 'horizontal';
 }
 
 /**
@@ -337,13 +338,26 @@ export const NexusControlRow: React.FC<LegacyCardProps & { statusColor?: string 
  * Mantiene el espaciado y jerarquía visual de nivel medio.
  */
 export const NexusSectionCard: React.FC<LegacyCardProps> = ({
-  title, subtitle, icon, thumbnail, iconVariant, isMuted, delay, rightContent, actions, onEdit, onDelete, showActionsAlways, onClick, className, swipeable
+  title, subtitle, icon, thumbnail, iconVariant, isMuted, delay, rightContent, actions, onEdit, onDelete, showActionsAlways, onClick, className, swipeable, layout = 'responsive'
 }) => {
   const hasActionContent = Boolean(actions || onEdit || onDelete);
+  const isHorizontal = layout === 'horizontal';
 
   return (
     <NexusCardBase level={2} swipeable={swipeable} onEdit={onEdit} onDelete={onDelete} isMuted={isMuted} delay={delay} className={`${className} ${onClick ? 'cursor-pointer active:scale-[0.99] transition-transform' : ''}`}>
-      <div onClick={onClick} className="flex flex-col md:flex-row md:items-center justify-between h-full" style={{ gap: 'var(--space-lg)' }}>
+      <div
+        onClick={onClick}
+        onKeyDown={onClick ? (event) => {
+          if (event.key === 'Enter' || event.key === ' ') {
+            event.preventDefault();
+            onClick();
+          }
+        } : undefined}
+        role={onClick ? 'button' : undefined}
+        tabIndex={onClick ? 0 : undefined}
+        className={`flex justify-between h-full ${isHorizontal ? 'flex-row items-center' : 'flex-col md:flex-row md:items-center'} ${onClick ? 'outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-brand-500/20' : ''}`}
+        style={{ gap: isHorizontal ? 'var(--space-md)' : 'var(--space-lg)' }}
+      >
         <div className="flex items-center min-w-0 flex-1" style={{ gap: 'var(--space-md)' }}>
           {thumbnail ? (
             <NexusCardThumbnailIcon src={thumbnail} alt={typeof title === 'string' ? title : ''} isMuted={isMuted} hoverGroup="group/card" />
@@ -359,7 +373,10 @@ export const NexusSectionCard: React.FC<LegacyCardProps> = ({
             {subtitle && <div className="text-secondary text-text-muted/60 flex items-center gap-2 truncate">{subtitle}</div>}
           </div>
         </div>
-        <div className="flex items-center justify-between md:justify-end shrink-0 border-t md:border-t-0 border-border-main pt-[var(--space-md)] md:pt-0" style={{ gap: 'var(--space-lg)' }}>
+        <div
+          className={`flex items-center justify-between shrink-0 border-border-main ${isHorizontal ? 'border-t-0 pt-0' : 'border-t pt-[var(--space-md)] md:justify-end md:border-t-0 md:pt-0'}`}
+          style={{ gap: isHorizontal ? 'var(--space-sm)' : 'var(--space-lg)' }}
+        >
           {rightContent && <div className="text-left md:text-right flex flex-col items-start md:items-end" style={{ gap: 'var(--space-xs)' }}>{rightContent}</div>}
           {hasActionContent && (
             <div className="flex w-full items-center md:w-auto" style={{ gap: 'var(--space-sm)' }}>

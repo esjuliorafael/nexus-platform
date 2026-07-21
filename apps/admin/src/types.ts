@@ -433,6 +433,7 @@ export interface Raffle {
     imageType?: "PHOTO" | "VIDEO";
     imagePoster?: string | null;
     gallery?: RaffleGalleryItem[];
+    prizes?: RafflePrize[];
     status: "ACTIVE" | "FINISHED" | "CANCELLED";
     published: boolean;
     featured: boolean;
@@ -451,6 +452,14 @@ export interface Raffle {
     pending: number;
     available: number;
   };
+}
+
+export interface RafflePrize {
+  id?: number;
+  position?: number;
+  title: string;
+  description: string;
+  winnerRule?: string | null;
 }
 
 export interface RaffleGalleryItem {
