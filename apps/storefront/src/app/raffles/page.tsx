@@ -70,7 +70,7 @@ const FEATURED_ROTATION_MS = 8_000;
 const DEFAULT_RAFFLE_TYPE: RaffleCatalogType = "ALL";
 
 export default function RafflesPage() {
-  const { isModuleEnabled } = useSettings();
+  const { isModuleEnabled, loading: settingsLoading } = useSettings();
   const routeRevealEpoch = useStorefrontRouteRevealEpoch();
   const [raffles, setRaffles] = useState<Raffle[]>([]);
   const [recentResults, setRecentResults] = useState<RaffleRecentResult[]>([]);
@@ -95,10 +95,14 @@ export default function RafflesPage() {
 
   useEffect(() => {
     const loadRaffles = async () => {
+      if (settingsLoading) return;
+
       if (!isRaffleEnabled) {
         setLoading(false);
         return;
       }
+
+      setLoading(true);
 
       try {
         const [data, results] = await Promise.all([
@@ -115,7 +119,7 @@ export default function RafflesPage() {
     };
 
     void loadRaffles();
-  }, [isRaffleEnabled]);
+  }, [isRaffleEnabled, settingsLoading]);
 
   useEffect(() => {
     if (!isRaffleEnabled || typeof EventSource === "undefined") return;
@@ -267,7 +271,7 @@ export default function RafflesPage() {
     }
   };
 
-  if (!isRaffleEnabled) {
+  if (!settingsLoading && !isRaffleEnabled) {
     return (
       <main
         className="flex min-h-[60vh] items-center justify-center px-[var(--sf-inset-page)]"
