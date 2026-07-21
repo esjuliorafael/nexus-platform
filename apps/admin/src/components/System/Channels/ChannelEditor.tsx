@@ -40,6 +40,7 @@ import {
   WhatsAppPairingMethod,
   WhatsAppPairingModal,
 } from "./WhatsAppPairingModal";
+import { resolveChannelInstanceName } from "./channelInstance";
 
 interface ChannelEditorProps {
   id: string;
@@ -50,12 +51,6 @@ interface ChannelEditorProps {
 }
 
 type ModalType = "identity" | "bank" | "mercadopago" | "whatsapp" | null;
-
-const PURPOSE_INSTANCES: Record<string, string> = {
-  COMBAT: "nexus_combate",
-  BREEDING: "nexus_cria",
-  RAFFLES: "nexus_rifas",
-};
 
 const PURPOSE_LABELS: Record<string, string> = {
   COMBAT: "Canal de Combate",
@@ -278,9 +273,15 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
   const instanceName = useMemo(
     () =>
       whatsappObj?.instanceName ||
-      PURPOSE_INSTANCES[generalData.purpose.toUpperCase()] ||
-      "",
-    [generalData.purpose, whatsappObj?.instanceName],
+      resolveChannelInstanceName(
+        globalConfig.whatsapp_evolution_instance,
+        generalData.purpose,
+      ),
+    [
+      generalData.purpose,
+      globalConfig.whatsapp_evolution_instance,
+      whatsappObj?.instanceName,
+    ],
   );
 
   const checkInstanceStatus = async (name: string) => {
@@ -338,7 +339,11 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       });
 
       await checkInstanceStatus(
-        wa?.instanceName || PURPOSE_INSTANCES[purpose?.toUpperCase?.()] || "",
+        wa?.instanceName ||
+          resolveChannelInstanceName(
+            settings.whatsapp_evolution_instance,
+            purpose,
+          ),
       );
     } catch (error) {
       showToast("Error al cargar datos del canal", "error");

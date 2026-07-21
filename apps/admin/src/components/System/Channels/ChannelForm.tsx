@@ -16,6 +16,7 @@ import {
   WhatsAppPairingMethod,
   WhatsAppPairingModal,
 } from './WhatsAppPairingModal';
+import { resolveChannelInstanceName } from './channelInstance';
 
 export interface ChannelFormRef {
   handleSave: () => void;
@@ -30,12 +31,6 @@ interface ChannelFormProps {
 }
 
 type TabType = 'identity' | 'payments' | 'whatsapp';
-
-const PURPOSE_INSTANCE_SUFFIXES: Record<string, string> = {
-  COMBAT: 'combat',
-  BREEDING: 'breeding',
-  RAFFLES: 'raffles'
-};
 
 export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({ 
   onCancel, 
@@ -67,9 +62,10 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
 
   const resolveInstanceName = async () => {
     const globalConfig = await apiSystem.getConfig();
-    const prefix = globalConfig.whatsapp_evolution_instance || 'nexus';
-    const suffix = PURPOSE_INSTANCE_SUFFIXES[generalData.purpose.toUpperCase()];
-    return suffix ? `${prefix}_${suffix}` : '';
+    return resolveChannelInstanceName(
+      globalConfig.whatsapp_evolution_instance,
+      generalData.purpose,
+    );
   };
 
   useEffect(() => {
