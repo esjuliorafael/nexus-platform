@@ -28,10 +28,25 @@ FROM nginx:alpine AS runner
 COPY <<EOF /etc/nginx/conf.d/default.conf
 server {
     listen 80;
+
+    location = /index.html {
+        root /usr/share/nginx/html;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header Pragma "no-cache" always;
+        add_header Expires "0" always;
+    }
+
+    location /assets/ {
+        root /usr/share/nginx/html;
+        add_header Cache-Control "public, max-age=31536000, immutable" always;
+        try_files \$uri =404;
+    }
+
     location / {
         root /usr/share/nginx/html;
         index index.html;
         try_files \$uri \$uri/ /index.html;
+        add_header Cache-Control "no-cache" always;
     }
 }
 EOF
