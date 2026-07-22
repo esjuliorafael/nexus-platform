@@ -108,6 +108,7 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
     }
 
     const messageId = firstValue(payload, [
+      "data.keyId",
       "data.key.id",
       "data.message.key.id",
       "data.messageId",
@@ -195,8 +196,10 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
       });
 
       let fallbackScheduled = false;
-      if (nextStatus === "failed" && String(failureCode) === "463" && existing.jobId) {
-        markWhatsappInstanceProviderRejected(existing.instanceName);
+      if (nextStatus === "failed" && existing.jobId) {
+        if (String(failureCode) === "463") {
+          markWhatsappInstanceProviderRejected(existing.instanceName);
+        }
         const [principalSetting, originalJob] = await Promise.all([
           server.storePrisma.setting.findUnique({
             where: { key: "whatsapp_evolution_instance" },
