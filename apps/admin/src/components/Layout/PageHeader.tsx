@@ -135,7 +135,9 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       if (raffleViewMode === "participation-detail")
         return <>Detalle de <span className="text-text-muted">Participación</span></>;
       if (raffleViewMode === "detail")
-        return <>Detalle de <span className="text-text-muted">Rifa</span></>;
+        return <>Resumen de <span className="text-text-muted">Rifa</span></>;
+      if (raffleViewMode === "tickets")
+        return <>Boletera de <span className="text-text-muted">Rifa</span></>;
       return <>Gestión de <span className="text-text-muted">Rifas</span></>;
     }
 
@@ -249,6 +251,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         return "Consulta los apartados, pagos y participantes de cada rifa.";
       if (raffleViewMode === "participation-detail")
         return "Revisa los boletos, el pago, el participante y las notificaciones asociadas.";
+      if (raffleViewMode === "detail")
+        return "Consulta ventas, ocupación, disponibilidad y actividad de esta rifa.";
+      if (raffleViewMode === "tickets")
+        return "Consulta el estado de cada boleto y accede a su participación asociada.";
       return "Administra los sorteos activos, boletos vendidos y ganadores.";
     }
     if (isSystemMode) {

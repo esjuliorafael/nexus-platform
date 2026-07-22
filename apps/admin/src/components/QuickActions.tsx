@@ -2,7 +2,6 @@ import React from "react";
 import {
   Archive,
   Image,
-  PlusCircle,
   Layers,
   ShoppingBag,
   PackagePlus,
@@ -14,7 +13,6 @@ import {
   Users,
   LayoutGrid,
   Tags,
-  FolderPlus,
   ArrowLeft,
   CreditCard,
   MessageCircle,
@@ -22,14 +20,12 @@ import {
   Bell,
   Receipt,
   Ticket,
-  TicketPlus,
   Brain,
   MonitorPlay,
   UserRound,
   KeyRound,
   Store,
   BadgePercent,
-  UploadCloud,
   Megaphone,
 } from "lucide-react";
 import { QuickActionGroup } from "../types";
@@ -56,14 +52,11 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
       group: "Medios",
       items: [
         { icon: <Image size={20} />, label: "Ver Medios" },
-        { icon: <PlusCircle size={20} />, label: "Nuevo Medio" },
         { icon: <Tags size={20} />, label: "Ver Categorías" },
-        { icon: <FolderPlus size={20} />, label: "Nueva Categoría" },
         { icon: <MonitorPlay size={20} />, label: "Slider Inicio" },
         ...(["admin", "superadmin"].includes(userRole?.toLowerCase())
           ? [
               { icon: <Archive size={20} />, label: "Bóveda de Medios" },
-              { icon: <UploadCloud size={20} />, label: "Subir a Bóveda" },
             ]
           : []),
       ],
@@ -89,7 +82,6 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
       group: "Rifas",
       items: [
         { icon: <Ticket size={20} />, label: "Ver Rifas" },
-        { icon: <TicketPlus size={20} />, label: "Nueva Rifa" },
         { icon: <BadgePercent size={20} />, label: "Cupones de Rifas" },
         { icon: <ClipboardList size={20} />, label: "Participaciones" },
       ],

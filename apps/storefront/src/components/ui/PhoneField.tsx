@@ -1,6 +1,6 @@
 "use client";
 
-import { ChangeEvent, useEffect, useState } from "react";
+import { ChangeEvent, KeyboardEvent, useEffect, useState } from "react";
 import { ChevronDown, Phone } from "lucide-react";
 import {
   buildCustomerPhone,
@@ -48,6 +48,12 @@ export function StorefrontPhoneField({
     onChange(buildCustomerPhone(country, event.target.value));
   };
 
+  const handleNumberKeyDown = (event: KeyboardEvent<HTMLInputElement>) => {
+    if (event.ctrlKey || event.metaKey || event.altKey) return;
+    if (["Backspace", "Delete", "Tab", "ArrowLeft", "ArrowRight", "Home", "End"].includes(event.key)) return;
+    if (!/^\d$/.test(event.key)) event.preventDefault();
+  };
+
   return (
     <label className="group flex min-w-0 flex-col" htmlFor={id} style={{ gap: "var(--sf-space-xs)" }}>
       <span className="sf-text-label text-[var(--sf-text-field-label)] group-focus-within:text-brand-500">
@@ -90,8 +96,10 @@ export function StorefrontPhoneField({
             autoComplete="tel-national"
             value={parsed.nationalNumber}
             onChange={handleNumberChange}
+            onKeyDown={handleNumberKeyDown}
             disabled={disabled}
             maxLength={config.nationalLength}
+            pattern="[0-9]*"
             placeholder={config.placeholder}
             aria-invalid={Boolean(error)}
             className="h-full min-w-0 flex-1 bg-transparent pl-12 pr-4 sf-text-body font-semibold text-[var(--sf-text-main)] outline-none placeholder:text-[var(--sf-text-field-label)] disabled:opacity-50"

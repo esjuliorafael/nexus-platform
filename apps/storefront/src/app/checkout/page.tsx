@@ -1088,6 +1088,9 @@ export default function CheckoutPage() {
                         </div>
                       )}
                     </div>
+                    <StorefrontNote icon={MessageCircle}>
+                      Selecciona el código de país correcto e ingresa únicamente los dígitos de tu número de WhatsApp. Enviaremos ahí las confirmaciones y actualizaciones de tu pedido.
+                    </StorefrontNote>
                   </StorefrontCheckoutSection>
                 </div>
 

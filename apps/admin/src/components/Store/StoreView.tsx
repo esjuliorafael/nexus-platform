@@ -7,7 +7,10 @@ import { StoreHeroView } from './Hero/StoreHeroView';
 import { StoreHeroForm } from './Hero/StoreHeroForm';
 import { CouponsView } from './Coupons/CouponsView';
 import { CouponForm } from './Coupons/CouponForm';
-import type { StoreProductAdvancedFilters } from './StoreProductFiltersModal';
+import {
+  DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS,
+  type StoreProductAdvancedFilters,
+} from './StoreProductFiltersModal';
 import { apiProducts } from '../../api';
 import { NexusSectionButton } from '../ui/NexusButton';
 import { EmptyState } from '../ui/EmptyState';
@@ -16,7 +19,6 @@ import { NexusPaginator } from '../ui/NexusPaginator';
 
 interface StoreViewProps {
   productSearchQuery?: string;
-  productFilter?: StoreProductFilter;
   advancedFilters?: StoreProductAdvancedFilters;
   viewMode?: 'list' | 'create' | 'edit' | 'hero_list' | 'hero_create' | 'hero_edit' | 'coupon_list' | 'coupon_create' | 'coupon_edit' | 'orders' | 'order-detail';
   onSetViewMode?: (mode: 'list' | 'create' | 'edit' | 'hero_list' | 'hero_create' | 'hero_edit' | 'coupon_list' | 'coupon_create' | 'coupon_edit' | 'orders' | 'order-detail') => void;
@@ -26,8 +28,6 @@ interface StoreViewProps {
 }
 
 const ITEMS_PER_PAGE = 8;
-
-export type StoreProductFilter = 'all' | 'bird' | 'item';
 
 const normalizeSearch = (value: string) =>
   value
@@ -66,8 +66,7 @@ export interface StoreViewRef {
 export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
   ({
     productSearchQuery = '',
-    productFilter = 'all',
-    advancedFilters = { publication: 'all', purpose: 'all', age: 'all' },
+    advancedFilters = DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS,
     viewMode = 'list',
     onSetViewMode,
     showToast,
@@ -146,9 +145,9 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
 
     return products.filter((product) => {
       const matchesFilter =
-        productFilter === 'all' ||
-        (productFilter === 'bird' && product.type === 'BIRD') ||
-        (productFilter === 'item' && product.type === 'ITEM');
+        advancedFilters.type === 'all' ||
+        (advancedFilters.type === 'bird' && product.type === 'BIRD') ||
+        (advancedFilters.type === 'item' && product.type === 'ITEM');
 
       if (!matchesFilter) return false;
 
@@ -195,16 +194,16 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
 
       return searchableText.includes(query);
     }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [products, productFilter, productSearchQuery, advancedFilters]);
+  }, [products, productSearchQuery, advancedFilters]);
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [advancedFilters, productFilter, productSearchQuery]);
+  }, [advancedFilters, productSearchQuery]);
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
   const hasActiveProductFilters = Boolean(
     productSearchQuery ||
-      productFilter !== 'all' ||
+      advancedFilters.type !== 'all' ||
       advancedFilters.publication !== 'all' ||
       advancedFilters.purpose !== 'all' ||
       advancedFilters.age !== 'all',

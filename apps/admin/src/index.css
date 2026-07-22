@@ -76,6 +76,7 @@
   --width-modal-compact: 28rem;
   --width-modal-standard: 32rem;
   --width-modal-wide: 42rem;
+  --width-drawer: 28rem;
   --modal-backdrop: rgb(12 10 9 / 0.72);
 
   /* Fluid UI Components Heights & Semantic Sizes */
@@ -378,6 +379,50 @@ body {
 
 .animate-card-enter {
   animation: card-enter 0.3s var(--ease-emil) both;
+}
+
+@keyframes raffle-actions-enter {
+  from {
+    opacity: 0;
+    transform: translateX(var(--space-sm));
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes raffle-summary-enter {
+  from {
+    opacity: 0;
+    transform: translateX(calc(var(--space-sm) * -1));
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.animate-raffle-actions-enter,
+.animate-raffle-summary-enter {
+  animation-duration: 0.2s;
+  animation-fill-mode: both;
+  animation-timing-function: var(--ease-emil);
+}
+
+.animate-raffle-actions-enter {
+  animation-name: raffle-actions-enter;
+}
+
+.animate-raffle-summary-enter {
+  animation-name: raffle-summary-enter;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-raffle-actions-enter,
+  .animate-raffle-summary-enter {
+    animation: none;
+  }
 }
 
 /* Animations and Stagger Effects */

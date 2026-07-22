@@ -99,7 +99,7 @@ export function NexusViewToolbar<T extends string = string>({
       )}
 
       <div
-        className="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-center lg:max-w-xl lg:justify-end"
+        className="flex min-w-0 flex-1 flex-col sm:flex-row sm:items-center lg:ml-auto lg:max-w-xl lg:justify-end"
         style={{ gap: "var(--space-sm)" }}
       >
         {onSearchChange && (

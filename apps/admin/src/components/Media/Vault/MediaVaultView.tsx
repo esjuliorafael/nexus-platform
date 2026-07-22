@@ -11,10 +11,13 @@ import { EmptyState } from "../../ui/EmptyState";
 import { NexusSectionButton } from "../../ui/NexusButton";
 import { NexusPaginator } from "../../ui/NexusPaginator";
 import { MediaVaultCard } from "./MediaVaultCard";
+import {
+  DEFAULT_MEDIA_VAULT_FILTER,
+  type MediaVaultFilter,
+} from "./MediaVaultFiltersModal";
 import { MediaVaultForm } from "./MediaVaultForm";
 
 export type MediaVaultViewMode = "vault_list" | "vault_upload";
-export type MediaVaultFilter = "ALL" | "PHOTO" | "VIDEO";
 
 interface MediaVaultViewProps {
   viewMode: MediaVaultViewMode;
@@ -37,7 +40,7 @@ export const MediaVaultView = forwardRef<
   (
     {
       viewMode,
-      filter = "ALL",
+      filter = DEFAULT_MEDIA_VAULT_FILTER,
       searchQuery = "",
       onSetViewMode,
       showToast,

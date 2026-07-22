@@ -5,17 +5,19 @@ import {
   Banknote,
   Briefcase,
   CreditCard,
+  Edit2,
   LayoutGrid,
   MessageCircle,
   PlusCircle,
   ShieldCheck,
   Sparkles,
+  Trash2,
   WalletCards,
 } from 'lucide-react';
 import { apiChannels } from '../../../api';
 import { ChannelsOverview } from '../../../types';
 import { NexusHero } from '../../ui/NexusHero';
-import { NexusSectionButton } from '../../ui/NexusButton';
+import { NexusCardButton, NexusSectionButton } from '../../ui/NexusButton';
 import { NexusSection } from '../../ui/NexusSection';
 import { NexusAutonomousCard, NexusSectionCard } from '../../ui/NexusCard';
 import { NexusHeader } from '../../ui/NexusHeader';
@@ -234,12 +236,29 @@ export const ChannelsHub: React.FC<ChannelsHubProps> = ({
                       <span className="text-label text-brand-500">{channel.usesPrincipalFallback ? 'Usa principal donde falte configuracion' : 'Ruta especializada completa'}</span>
                     </span>
                   }
-                  rightContent={
-                    <div className="flex items-center gap-2">
-                      <StatusPill ready={channel.bank.ready} label="Banco" />
-                      <StatusPill ready={channel.mercadoPago.ready} label="MP" />
-                      <StatusPill ready={channel.whatsapp.ready} label="WA" />
-                      <StatusPill ready={channel.templates.ready} label="Tpl" />
+                  actions={
+                    <div className="flex w-full justify-end sm:hidden" style={{ gap: 'var(--space-sm)' }}>
+                      <NexusCardButton
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onEditChannel(channel.id);
+                        }}
+                        icon={Edit2}
+                        variant="secondary"
+                        isIconOnly
+                        aria-label="Editar canal"
+                      />
+                      <NexusCardButton
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          handleDeleteChannel(channel.purpose, channel.name);
+                        }}
+                        icon={Trash2}
+                        variant="secondary"
+                        isIconOnly
+                        className="hover:border-rose-200 hover:bg-rose-50 hover:text-rose-500"
+                        aria-label="Eliminar canal"
+                      />
                     </div>
                   }
                   onEdit={() => onEditChannel(channel.id)}

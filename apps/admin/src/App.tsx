@@ -23,27 +23,41 @@ import { DashboardView } from "./components/Dashboard/DashboardView";
 import { BottomNav } from "./components/BottomNav";
 import { GalleryView, GalleryViewRef } from "./components/Media/GalleryView";
 import {
+  DEFAULT_GALLERY_ADVANCED_FILTERS,
+  GalleryFiltersModal,
+  type GalleryAdvancedFilters,
+} from "./components/Media/GalleryFiltersModal";
+import {
   HomeSliderView,
   HomeSliderViewMode,
   HomeSliderViewRef,
 } from "./components/Media/Slider/HomeSliderView";
 import {
   MediaVaultView,
-  MediaVaultFilter,
   MediaVaultViewMode,
   MediaVaultViewRef,
 } from "./components/Media/Vault/MediaVaultView";
 import {
+  DEFAULT_MEDIA_VAULT_FILTER,
+  MediaVaultFiltersModal,
+  type MediaVaultFilter,
+} from "./components/Media/Vault/MediaVaultFiltersModal";
+import {
   StoreView,
   StoreViewRef,
-  StoreProductFilter,
 } from "./components/Store/StoreView";
 import {
+  DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS,
   StoreProductAdvancedFilters,
   StoreProductFiltersModal,
 } from "./components/Store/StoreProductFiltersModal";
 import { OrdersView } from "./components/Store/Orders/OrdersView";
 import { OrderDetailView } from "./components/Store/Orders/OrderDetailView";
+import {
+  DEFAULT_ORDER_ADVANCED_FILTERS,
+  OrderFiltersModal,
+  type OrderAdvancedFilters,
+} from "./components/Store/Orders/OrderFiltersModal";
 import { PlatformSettingsView } from "./components/System/Config/PlatformSettingsView";
 import { ShippingView } from "./components/System/Shipping/ShippingView";
 import { UsersView, UsersViewRef } from "./components/System/Users/UsersView";
@@ -65,9 +79,16 @@ import {
 } from "./components/System/Billing/BillingView";
 import { RaffleView } from "./components/Raffle/RaffleView";
 import {
-  RaffleParticipationsView,
-  RaffleParticipationStatusFilter,
-} from "./components/Raffle/Participations/RaffleParticipationsView";
+  DEFAULT_RAFFLE_ADVANCED_FILTERS,
+  RaffleFiltersModal,
+  type RaffleAdvancedFilters,
+} from "./components/Raffle/RaffleFiltersModal";
+import { RaffleParticipationsView } from "./components/Raffle/Participations/RaffleParticipationsView";
+import {
+  DEFAULT_RAFFLE_PARTICIPATION_FILTERS,
+  RaffleParticipationFiltersModal,
+  type RaffleParticipationAdvancedFilters,
+} from "./components/Raffle/Participations/RaffleParticipationFiltersModal";
 import { RaffleParticipationDetailView } from "./components/Raffle/Participations/RaffleParticipationDetailView";
 import { RaffleSettingsView } from "./components/System/Raffle/RaffleSettingsView";
 import { RaffleIntelligenceView } from "./components/System/Intelligence/RaffleIntelligenceView";
@@ -98,10 +119,7 @@ import {
 import { NexusAutonomousCard } from "./components/ui/NexusCard";
 import { NexusAutonomousIcon } from "./components/ui/NexusIcon";
 import { NexusConfirmModal } from "./components/ui/NexusConfirmModal";
-import {
-  NexusViewToolbar,
-  NexusViewToolbarSegment,
-} from "./components/ui/NexusViewToolbar";
+import { NexusViewToolbar } from "./components/ui/NexusViewToolbar";
 import { UploadQueueProvider } from "./components/uploads/UploadQueueProvider";
 import { ProfileView, ProfileViewMode } from "./components/Profile/ProfileView";
 import type { OwnProfile } from "./types";
@@ -159,16 +177,10 @@ type StoreModeType =
   | "orders"
   | "order-detail";
 
-type OrderStatusFilter =
-  | "pending"
-  | "paid"
-  | "cancelled"
-  | "payment_review"
-  | "not_completed"
-  | "all";
-
 type RaffleModeType =
   | "list"
+  | "detail"
+  | "tickets"
   | "create"
   | "edit"
   | "coupon_list"
@@ -176,12 +188,6 @@ type RaffleModeType =
   | "coupon_edit"
   | "participations"
   | "participation-detail";
-
-const DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS: StoreProductAdvancedFilters = {
-  publication: "all",
-  purpose: "all",
-  age: "all",
-};
 
 const ACTIVE_TABS: ActiveTabType[] = [
   "Inicio",
@@ -223,6 +229,8 @@ const STORE_MODES: StoreModeType[] = [
 
 const RAFFLE_MODES: RaffleModeType[] = [
   "list",
+  "detail",
+  "tickets",
   "create",
   "edit",
   "coupon_list",
@@ -459,19 +467,28 @@ function App() {
   const mediaVaultRef = React.useRef<MediaVaultViewRef>(null);
 
   const [activeTab, setActiveTab] = useState<ActiveTabType>(getStoredActiveTab);
+  const [galleryAdvancedFilters, setGalleryAdvancedFilters] =
+    useState<GalleryAdvancedFilters>(DEFAULT_GALLERY_ADVANCED_FILTERS);
+  const [isGalleryFiltersOpen, setIsGalleryFiltersOpen] = useState(false);
   const [orderSearchQuery, setOrderSearchQuery] = useState("");
-  const [orderStatusFilter, setOrderStatusFilter] =
-    useState<OrderStatusFilter>("pending");
+  const [orderAdvancedFilters, setOrderAdvancedFilters] =
+    useState<OrderAdvancedFilters>(DEFAULT_ORDER_ADVANCED_FILTERS);
+  const [isOrderFiltersOpen, setIsOrderFiltersOpen] = useState(false);
   const [raffleParticipationSearchQuery, setRaffleParticipationSearchQuery] =
     useState("");
-  const [raffleParticipationStatusFilter, setRaffleParticipationStatusFilter] =
-    useState<RaffleParticipationStatusFilter>("PENDING");
+  const [raffleParticipationFilters, setRaffleParticipationFilters] =
+    useState<RaffleParticipationAdvancedFilters>(DEFAULT_RAFFLE_PARTICIPATION_FILTERS);
+  const [isRaffleParticipationFiltersOpen, setIsRaffleParticipationFiltersOpen] =
+    useState(false);
+  const [raffleSearchQuery, setRaffleSearchQuery] = useState("");
+  const [raffleAdvancedFilters, setRaffleAdvancedFilters] =
+    useState<RaffleAdvancedFilters>(DEFAULT_RAFFLE_ADVANCED_FILTERS);
+  const [isRaffleFiltersOpen, setIsRaffleFiltersOpen] = useState(false);
   const [storeProductSearchQuery, setStoreProductSearchQuery] = useState("");
-  const [storeProductFilter, setStoreProductFilter] =
-    useState<StoreProductFilter>("all");
   const [mediaVaultSearchQuery, setMediaVaultSearchQuery] = useState("");
   const [mediaVaultFilter, setMediaVaultFilter] =
-    useState<MediaVaultFilter>("ALL");
+    useState<MediaVaultFilter>(DEFAULT_MEDIA_VAULT_FILTER);
+  const [isMediaVaultFiltersOpen, setIsMediaVaultFiltersOpen] = useState(false);
   const [storeProductAdvancedFilters, setStoreProductAdvancedFilters] =
     useState<StoreProductAdvancedFilters>(
       DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS,
@@ -497,7 +514,8 @@ function App() {
       RAFFLE_MODES,
       "list",
     );
-    return saved === "participation-detail" ? "participations" : saved;
+    if (saved === "participation-detail") return "participations";
+    return saved === "detail" ? "list" : saved;
   });
   const [profileViewMode, setProfileViewMode] = useState<ProfileViewMode>(() =>
     getStoredEnum(
@@ -611,6 +629,8 @@ function App() {
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedRaffleParticipation, setSelectedRaffleParticipation] =
     useState<RaffleParticipation | null>(null);
+  const [raffleParticipationReturnMode, setRaffleParticipationReturnMode] =
+    useState<"participations" | "detail" | "tickets">("participations");
   const [orders, setOrders] = useState<Order[]>([]);
   const [pendingOrderIds, setPendingOrderIds] = useState<Set<string>>(new Set());
   const announcedUnreadOrderIdsRef = React.useRef<Set<string>>(new Set());
@@ -838,95 +858,41 @@ function App() {
   const isStoreProductListViewActive = isStoreMode && storeViewMode === "list";
   const isMediaVaultListViewActive =
     isMediaMode && mediaViewMode === "vault_list";
+  const isMediaPanelListViewActive =
+    isMediaMode && mediaViewMode === "list";
   const isSystemMode = activeTab === "Sistema";
   const isProfileMode = activeTab === "Mi Perfil";
   const isRafflesMode = activeTab === "Rifas";
+  const isRaffleListViewActive =
+    isRafflesMode && raffleViewMode === "list";
   const isRaffleParticipationsListViewActive =
     isRafflesMode && raffleViewMode === "participations";
   // The active raffle route reserves its navigation rail before remote config resolves.
   const showRaffleNavigation = raffleEnabled || isRafflesMode;
 
-  const orderToolbarSegments = React.useMemo<
-    NexusViewToolbarSegment<OrderStatusFilter>[]
-  >(
-    () => [
-      {
-        value: "all",
-        label: "Todas",
-      },
-      {
-        value: "payment_review",
-        label: "En revisión",
-      },
-      {
-        value: "pending",
-        label: "Apartadas",
-      },
-      {
-        value: "paid",
-        label: "Pagadas",
-      },
-      {
-        value: "not_completed",
-        label: "No concretadas",
-      },
-      {
-        value: "cancelled",
-        label: "Canceladas",
-      },
-    ],
-    [],
-  );
-
-  const raffleParticipationToolbarSegments = React.useMemo<
-    NexusViewToolbarSegment<RaffleParticipationStatusFilter>[]
-  >(
-    () => [
-      { value: "ALL", label: "Todas" },
-      { value: "PAYMENT_REVIEW", label: "En revisión" },
-      { value: "PENDING", label: "Apartadas" },
-      { value: "PAID", label: "Pagadas" },
-      { value: "NOT_COMPLETED", label: "No concretadas" },
-      { value: "CANCELLED", label: "Canceladas" },
-    ],
-    [],
-  );
-
-  const storeProductToolbarSegments = React.useMemo<
-    NexusViewToolbarSegment<StoreProductFilter>[]
-  >(
-    () => [
-      {
-        value: "all",
-        label: "Todos",
-      },
-      {
-        value: "bird",
-        label: "Aves",
-      },
-      {
-        value: "item",
-        label: "Artículos",
-      },
-    ],
-    [],
-  );
-
-  const mediaVaultToolbarSegments = React.useMemo<
-    NexusViewToolbarSegment<MediaVaultFilter>[]
-  >(
-    () => [
-      { value: "ALL", label: "Todos" },
-      { value: "PHOTO", label: "Fotografías" },
-      { value: "VIDEO", label: "Videos" },
-    ],
-    [],
-  );
-
   const hasStoreProductAdvancedFilters =
-    storeProductAdvancedFilters.publication !== "all" ||
-    storeProductAdvancedFilters.purpose !== "all" ||
-    storeProductAdvancedFilters.age !== "all";
+    storeProductAdvancedFilters.type !== DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS.type ||
+    storeProductAdvancedFilters.publication !== DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS.publication ||
+    storeProductAdvancedFilters.purpose !== DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS.purpose ||
+    storeProductAdvancedFilters.age !== DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS.age;
+  const hasMediaVaultFilters = mediaVaultFilter !== DEFAULT_MEDIA_VAULT_FILTER;
+  const hasGalleryAdvancedFilters =
+    galleryAdvancedFilters.type !== DEFAULT_GALLERY_ADVANCED_FILTERS.type ||
+    galleryAdvancedFilters.categoryId !== DEFAULT_GALLERY_ADVANCED_FILTERS.categoryId;
+  const hasRaffleParticipationFilters =
+    raffleParticipationFilters.status !== DEFAULT_RAFFLE_PARTICIPATION_FILTERS.status ||
+    raffleParticipationFilters.type !== DEFAULT_RAFFLE_PARTICIPATION_FILTERS.type ||
+    raffleParticipationFilters.paymentMethod !== DEFAULT_RAFFLE_PARTICIPATION_FILTERS.paymentMethod;
+  const hasOrderAdvancedFilters =
+    orderAdvancedFilters.status !== DEFAULT_ORDER_ADVANCED_FILTERS.status ||
+    orderAdvancedFilters.type !== DEFAULT_ORDER_ADVANCED_FILTERS.type ||
+    orderAdvancedFilters.paymentMethod !== DEFAULT_ORDER_ADVANCED_FILTERS.paymentMethod ||
+    orderAdvancedFilters.deliveryMethod !== DEFAULT_ORDER_ADVANCED_FILTERS.deliveryMethod;
+  const hasRaffleAdvancedFilters =
+    raffleAdvancedFilters.status !== DEFAULT_RAFFLE_ADVANCED_FILTERS.status ||
+    raffleAdvancedFilters.type !== DEFAULT_RAFFLE_ADVANCED_FILTERS.type ||
+    raffleAdvancedFilters.access !== DEFAULT_RAFFLE_ADVANCED_FILTERS.access ||
+    raffleAdvancedFilters.featured !== DEFAULT_RAFFLE_ADVANCED_FILTERS.featured;
 
   useEffect(() => {
     if (!token || !isOrdersViewActive) return;
@@ -1149,8 +1115,14 @@ function App() {
           setSelectedChannelId(null);
           window.scrollTo({ top: 0, behavior: "smooth" });
         } else if (isRafflesMode && raffleViewMode === "participation-detail") {
-          setRaffleViewMode("participations");
+          setRaffleViewMode(raffleParticipationReturnMode);
           setSelectedRaffleParticipation(null);
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } else if (isRafflesMode && raffleViewMode === "tickets") {
+          setRaffleViewMode("detail");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } else if (isRafflesMode && raffleViewMode === "detail") {
+          setRaffleViewMode("list");
           window.scrollTo({ top: 0, behavior: "smooth" });
         } else if (
           isOrdersTab ||
@@ -1750,6 +1722,7 @@ function App() {
               marginBottom: isOrdersListViewActive ||
                 isStoreProductListViewActive ||
                 isRaffleParticipationsListViewActive ||
+                isMediaPanelListViewActive ||
                 isMediaVaultListViewActive
                 ? "var(--space-md)"
                 : "var(--space-lg)",
@@ -1788,9 +1761,8 @@ function App() {
                 searchValue={orderSearchQuery}
                 onSearchChange={setOrderSearchQuery}
                 searchPlaceholder="Buscar orden, producto, cliente, teléfono o estado..."
-                segments={orderToolbarSegments}
-                activeSegment={orderStatusFilter}
-                onSegmentChange={setOrderStatusFilter}
+                filterActive={hasOrderAdvancedFilters}
+                onFilterClick={() => setIsOrderFiltersOpen(true)}
               />
             </div>
           )}
@@ -1801,12 +1773,21 @@ function App() {
                 searchValue={storeProductSearchQuery}
                 onSearchChange={setStoreProductSearchQuery}
                 searchPlaceholder="Buscar producto, anillo, precio o estado..."
-                segments={storeProductToolbarSegments}
-                activeSegment={storeProductFilter}
-                onSegmentChange={setStoreProductFilter}
-                filterLabel="Avanzados"
                 filterActive={hasStoreProductAdvancedFilters}
                 onFilterClick={() => setIsStoreProductFiltersOpen(true)}
+              />
+            </div>
+          )}
+
+          {isRaffleListViewActive && (
+            <div style={{ marginBottom: "var(--space-lg)" }}>
+              <NexusViewToolbar
+                searchValue={raffleSearchQuery}
+                onSearchChange={setRaffleSearchQuery}
+                searchPlaceholder="Buscar título o número de rifa..."
+                filterLabel="Filtros"
+                filterActive={hasRaffleAdvancedFilters}
+                onFilterClick={() => setIsRaffleFiltersOpen(true)}
               />
             </div>
           )}
@@ -1817,9 +1798,20 @@ function App() {
                 searchValue={raffleParticipationSearchQuery}
                 onSearchChange={setRaffleParticipationSearchQuery}
                 searchPlaceholder="Buscar rifa, participante, teléfono, estado o boleto..."
-                segments={raffleParticipationToolbarSegments}
-                activeSegment={raffleParticipationStatusFilter}
-                onSegmentChange={setRaffleParticipationStatusFilter}
+                filterActive={hasRaffleParticipationFilters}
+                onFilterClick={() => setIsRaffleParticipationFiltersOpen(true)}
+              />
+            </div>
+          )}
+
+          {isMediaPanelListViewActive && (
+            <div style={{ marginBottom: "var(--space-lg)" }}>
+              <NexusViewToolbar
+                searchValue={searchQuery}
+                onSearchChange={setSearchQuery}
+                searchPlaceholder="Buscar medio, categoría o subcategoría..."
+                filterActive={hasGalleryAdvancedFilters}
+                onFilterClick={() => setIsGalleryFiltersOpen(true)}
               />
             </div>
           )}
@@ -1830,9 +1822,8 @@ function App() {
                 searchValue={mediaVaultSearchQuery}
                 onSearchChange={setMediaVaultSearchQuery}
                 searchPlaceholder="Buscar archivo, formato o usuario..."
-                segments={mediaVaultToolbarSegments}
-                activeSegment={mediaVaultFilter}
-                onSegmentChange={setMediaVaultFilter}
+                filterActive={hasMediaVaultFilters}
+                onFilterClick={() => setIsMediaVaultFiltersOpen(true)}
               />
             </div>
           )}
@@ -1848,6 +1839,8 @@ function App() {
                 isDetail={
                   storeViewMode === "order-detail" ||
                   (isRafflesMode && raffleViewMode === "participation-detail") ||
+                  (isRafflesMode && raffleViewMode === "detail") ||
+                  (isRafflesMode && raffleViewMode === "tickets") ||
                   (isSystemMode &&
                     systemViewMode === "channels" &&
                     channelsViewMode === "principal")
@@ -1899,6 +1892,7 @@ function App() {
                   <GalleryView
                     ref={galleryRef}
                     searchQuery={searchQuery}
+                    advancedFilters={galleryAdvancedFilters}
                     viewMode={mediaViewMode}
                     onSetViewMode={setMediaViewMode}
                     showToast={showToast}
@@ -1912,7 +1906,7 @@ function App() {
                   <OrdersView
                     orders={orders}
                     isLoading={isLoadingDashboard}
-                    statusFilter={orderStatusFilter}
+                    advancedFilters={orderAdvancedFilters}
                     searchQuery={orderSearchQuery}
                     onOrdersChange={setOrders}
                     onViewDetail={handleViewOrderDetail}
@@ -1933,7 +1927,6 @@ function App() {
                   <StoreView
                     ref={storeRef}
                     productSearchQuery={storeProductSearchQuery}
-                    productFilter={storeProductFilter}
                     advancedFilters={storeProductAdvancedFilters}
                     viewMode={storeViewMode}
                     onSetViewMode={setStoreViewMode}
@@ -1945,9 +1938,10 @@ function App() {
               ) : isRafflesMode ? (
                 raffleViewMode === "participations" ? (
                   <RaffleParticipationsView
-                    statusFilter={raffleParticipationStatusFilter}
+                    advancedFilters={raffleParticipationFilters}
                     searchQuery={raffleParticipationSearchQuery}
                     onViewDetail={(participation) => {
+                      setRaffleParticipationReturnMode("participations");
                       setSelectedRaffleParticipation(participation);
                       setRaffleViewMode("participation-detail");
                       window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1968,9 +1962,16 @@ function App() {
                   />
                 ) : (
                   <RaffleView
-                    searchQuery={searchQuery}
+                    searchQuery={raffleSearchQuery}
+                    advancedFilters={raffleAdvancedFilters}
                     viewMode={raffleViewMode}
                     onSetViewMode={setRaffleViewMode}
+                    onViewParticipation={(participation, origin) => {
+                      setRaffleParticipationReturnMode(origin);
+                      setSelectedRaffleParticipation(participation);
+                      setRaffleViewMode("participation-detail");
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
                     showToast={showToast}
                     setConfirmDialog={setConfirmDialog}
                     onValidationChange={setIsFormValid}
@@ -2132,6 +2133,71 @@ function App() {
           onClear={() => {
             setStoreProductAdvancedFilters(DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS);
             setIsStoreProductFiltersOpen(false);
+          }}
+        />
+        <GalleryFiltersModal
+          isOpen={isGalleryFiltersOpen}
+          value={galleryAdvancedFilters}
+          onClose={() => setIsGalleryFiltersOpen(false)}
+          onApply={(filters) => {
+            setGalleryAdvancedFilters(filters);
+            setIsGalleryFiltersOpen(false);
+          }}
+          onClear={() => {
+            setGalleryAdvancedFilters(DEFAULT_GALLERY_ADVANCED_FILTERS);
+            setIsGalleryFiltersOpen(false);
+          }}
+        />
+        <MediaVaultFiltersModal
+          isOpen={isMediaVaultFiltersOpen}
+          value={mediaVaultFilter}
+          onClose={() => setIsMediaVaultFiltersOpen(false)}
+          onApply={(filter) => {
+            setMediaVaultFilter(filter);
+            setIsMediaVaultFiltersOpen(false);
+          }}
+          onClear={() => {
+            setMediaVaultFilter(DEFAULT_MEDIA_VAULT_FILTER);
+            setIsMediaVaultFiltersOpen(false);
+          }}
+        />
+        <OrderFiltersModal
+          isOpen={isOrderFiltersOpen}
+          value={orderAdvancedFilters}
+          onClose={() => setIsOrderFiltersOpen(false)}
+          onApply={(filters) => {
+            setOrderAdvancedFilters(filters);
+            setIsOrderFiltersOpen(false);
+          }}
+          onClear={() => {
+            setOrderAdvancedFilters(DEFAULT_ORDER_ADVANCED_FILTERS);
+            setIsOrderFiltersOpen(false);
+          }}
+        />
+        <RaffleParticipationFiltersModal
+          isOpen={isRaffleParticipationFiltersOpen}
+          value={raffleParticipationFilters}
+          onClose={() => setIsRaffleParticipationFiltersOpen(false)}
+          onApply={(filters) => {
+            setRaffleParticipationFilters(filters);
+            setIsRaffleParticipationFiltersOpen(false);
+          }}
+          onClear={() => {
+            setRaffleParticipationFilters(DEFAULT_RAFFLE_PARTICIPATION_FILTERS);
+            setIsRaffleParticipationFiltersOpen(false);
+          }}
+        />
+        <RaffleFiltersModal
+          isOpen={isRaffleFiltersOpen}
+          value={raffleAdvancedFilters}
+          onClose={() => setIsRaffleFiltersOpen(false)}
+          onApply={(filters) => {
+            setRaffleAdvancedFilters(filters);
+            setIsRaffleFiltersOpen(false);
+          }}
+          onClear={() => {
+            setRaffleAdvancedFilters(DEFAULT_RAFFLE_ADVANCED_FILTERS);
+            setIsRaffleFiltersOpen(false);
           }}
         />
         <ConfirmModal {...confirmDialog} onCancel={closeConfirm} />

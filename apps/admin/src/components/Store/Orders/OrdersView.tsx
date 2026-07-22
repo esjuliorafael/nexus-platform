@@ -6,11 +6,15 @@ import { EmptyState } from "../../ui/EmptyState";
 import { NexusPaginator } from "../../ui/NexusPaginator";
 import { NexusSpinner } from "../../ui/NexusSpinner";
 import { OrderCard } from "./OrderCard";
+import {
+  DEFAULT_ORDER_ADVANCED_FILTERS,
+  type OrderAdvancedFilters,
+} from "./OrderFiltersModal";
 
 interface OrdersViewProps {
   orders: Order[];
   isLoading: boolean;
-  statusFilter?: OrderStatusFilter;
+  advancedFilters?: OrderAdvancedFilters;
   searchQuery?: string;
   onOrdersChange: (orders: Order[]) => void;
   onViewDetail: (order: Order) => void;
@@ -19,14 +23,6 @@ interface OrdersViewProps {
 }
 
 const ITEMS_PER_PAGE = 8;
-
-export type OrderStatusFilter =
-  | "pending"
-  | "paid"
-  | "cancelled"
-  | "payment_review"
-  | "not_completed"
-  | "all";
 
 const normalizeSearch = (value: string) =>
   value
@@ -38,7 +34,7 @@ const normalizeSearch = (value: string) =>
 export const OrdersView: React.FC<OrdersViewProps> = ({
   orders,
   isLoading,
-  statusFilter = "pending",
+  advancedFilters = DEFAULT_ORDER_ADVANCED_FILTERS,
   searchQuery = "",
   onOrdersChange,
   onViewDetail,
@@ -50,15 +46,38 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
 
   useEffect(() => {
     setCurrentPage(1);
-  }, [statusFilter, searchQuery]);
+  }, [advancedFilters, searchQuery]);
 
   const filtered = useMemo(() => {
     const query = normalizeSearch(searchQuery);
 
     return [...orders]
       .filter((order) => {
-        if (statusFilter === "all") return true;
-        return order.status === statusFilter;
+        const itemTypes = order.items.map((item) => item.type?.toUpperCase());
+        const hasBirds = itemTypes.includes("BIRD");
+        const hasArticles = itemTypes.includes("ITEM");
+        const orderType = hasBirds && hasArticles
+          ? "mixed"
+          : hasBirds
+            ? "birds"
+            : hasArticles
+              ? "articles"
+              : null;
+        const paymentMethod = order.paymentMethod?.toUpperCase();
+        const deliveryMethod = order.deliveryMethod?.toUpperCase();
+
+        const matchesStatus = advancedFilters.status === "all"
+          || order.status === advancedFilters.status;
+        const matchesType = advancedFilters.type === "all"
+          || orderType === advancedFilters.type;
+        const matchesPayment = advancedFilters.paymentMethod === "all"
+          || (advancedFilters.paymentMethod === "card"
+            ? paymentMethod === "MERCADOPAGO"
+            : paymentMethod !== "MERCADOPAGO");
+        const matchesDelivery = advancedFilters.deliveryMethod === "all"
+          || deliveryMethod === advancedFilters.deliveryMethod.toUpperCase();
+
+        return matchesStatus && matchesType && matchesPayment && matchesDelivery;
       })
       .filter((order) => {
         if (!query) return true;
@@ -79,7 +98,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
         return content.includes(query);
       })
       .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-  }, [orders, searchQuery, statusFilter]);
+  }, [advancedFilters, orders, searchQuery]);
 
   const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
   const paginatedOrders = useMemo(() => {

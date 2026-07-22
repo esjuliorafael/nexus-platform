@@ -1,21 +1,30 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { Loader2, PlusCircle, Ticket } from "lucide-react";
 import { apiRaffles, type RaffleCouponRecord } from "../../api";
-import { Raffle } from "../../types";
+import { Raffle, RaffleParticipation } from "../../types";
 import { EmptyState } from "../ui/EmptyState";
 import { NexusSectionButton } from "../ui/NexusButton";
 import { NexusPaginator } from "../ui/NexusPaginator";
 import { RaffleCard } from "./RaffleCard";
 import { RaffleForm } from "./RaffleForm";
+import { RaffleOverviewView } from "./RaffleOverviewView";
+import { RaffleTicketBoardView } from "./RaffleTicketBoardView";
 import { RaffleCouponForm } from "./Coupons/RaffleCouponForm";
 import { RaffleCouponsView } from "./Coupons/RaffleCouponsView";
+import {
+  DEFAULT_RAFFLE_ADVANCED_FILTERS,
+  type RaffleAdvancedFilters,
+  type RaffleStatusFilter,
+} from "./RaffleFiltersModal";
 
 const ITEMS_PER_PAGE = 8;
 
 interface RaffleViewProps {
   searchQuery: string;
-  viewMode?: "list" | "create" | "edit" | "coupon_list" | "coupon_create" | "coupon_edit";
-  onSetViewMode?: (mode: "list" | "create" | "edit" | "coupon_list" | "coupon_create" | "coupon_edit") => void;
+  advancedFilters?: RaffleAdvancedFilters;
+  viewMode?: "list" | "detail" | "tickets" | "create" | "edit" | "coupon_list" | "coupon_create" | "coupon_edit";
+  onSetViewMode?: (mode: "list" | "detail" | "tickets" | "create" | "edit" | "coupon_list" | "coupon_create" | "coupon_edit") => void;
+  onViewParticipation?: (participation: RaffleParticipation, origin: "detail" | "tickets") => void;
   showToast: (message: string, type?: "success" | "error") => void;
   setConfirmDialog: (dialog: any) => void;
   onValidationChange?: (isValid: boolean) => void;
@@ -23,8 +32,10 @@ interface RaffleViewProps {
 
 export const RaffleView: React.FC<RaffleViewProps> = ({
   searchQuery,
+  advancedFilters = DEFAULT_RAFFLE_ADVANCED_FILTERS,
   viewMode = "list",
   onSetViewMode,
+  onViewParticipation,
   showToast,
   setConfirmDialog,
   onValidationChange,
@@ -59,10 +70,51 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
     if (viewMode === "create") setSelectedRaffle(null);
   }, [viewMode]);
 
+  useEffect(() => {
+    if (!["detail", "tickets"].includes(viewMode) || selectedRaffle || raffles.length === 0) return;
+    const selectedId = sessionStorage.getItem("admin_selected_raffle_id");
+    const restoredRaffle = raffles.find((raffle) => raffle.id === selectedId);
+    if (restoredRaffle) setSelectedRaffle(restoredRaffle);
+    else onSetViewMode?.("list");
+  }, [onSetViewMode, raffles, selectedRaffle, viewMode]);
+
   const filteredRaffles = useMemo(() => {
     const query = searchQuery.trim().toLocaleLowerCase("es-MX");
+    const normalizedIdQuery = query.replace(/^#/, "");
+    const now = Date.now();
+
+    const getOperationalState = (raffle: Raffle): RaffleStatusFilter => {
+      if (raffle.status === "FINISHED") return "finished";
+      if (raffle.status === "CANCELLED") return "cancelled";
+      if (!raffle.published) return "paused";
+
+      const startsAt = raffle.participationStartsAt
+        ? new Date(raffle.participationStartsAt).getTime()
+        : null;
+      const endsAt = raffle.participationEndsAt
+        ? new Date(raffle.participationEndsAt).getTime()
+        : null;
+
+      if (startsAt && now < startsAt) return "upcoming";
+      if (endsAt && now >= endsAt) return "closed";
+      return "open";
+    };
+
     return [...raffles]
-      .filter((raffle) => !query || raffle.title.toLocaleLowerCase("es-MX").includes(query))
+      .filter((raffle) => {
+        const matchesSearch = !query
+          || raffle.title.toLocaleLowerCase("es-MX").includes(query)
+          || raffle.id.toLocaleLowerCase("es-MX").includes(normalizedIdQuery);
+        const matchesStatus = advancedFilters.status === "all"
+          || getOperationalState(raffle) === advancedFilters.status;
+        const matchesType = advancedFilters.type === "all"
+          || (advancedFilters.type === "simple" ? raffle.opportunities <= 1 : raffle.opportunities > 1);
+        const matchesAccess = advancedFilters.access === "all"
+          || (advancedFilters.access === "early_access" ? raffle.earlyAccessEnabled : !raffle.earlyAccessEnabled);
+        const matchesFeatured = advancedFilters.featured === "all"
+          || (advancedFilters.featured === "featured" ? raffle.featured : !raffle.featured);
+        return matchesSearch && matchesStatus && matchesType && matchesAccess && matchesFeatured;
+      })
       .sort((left, right) => {
         if (left.featured !== right.featured) return left.featured ? -1 : 1;
         if (left.featured && right.featured) {
@@ -70,7 +122,7 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
         }
         return new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime();
       });
-  }, [raffles, searchQuery]);
+  }, [advancedFilters, raffles, searchQuery]);
   const featuredRaffles = useMemo(
     () =>
       raffles
@@ -92,9 +144,20 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
     if (currentPage > totalPages) setCurrentPage(totalPages);
   }, [currentPage, totalPages]);
 
+  useEffect(() => {
+    setCurrentPage(1);
+  }, [advancedFilters, searchQuery]);
+
   const handleEdit = (raffle: Raffle) => {
     setSelectedRaffle(raffle);
     onSetViewMode?.("edit");
+  };
+
+  const handleOpenOverview = (raffle: Raffle) => {
+    setSelectedRaffle(raffle);
+    sessionStorage.setItem("admin_selected_raffle_id", raffle.id);
+    onSetViewMode?.("detail");
+    window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
   const handleDelete = (id: string) => {
@@ -313,6 +376,27 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
     );
   }
 
+  if (viewMode === "detail" && selectedRaffle) {
+    return (
+      <RaffleOverviewView
+        raffle={selectedRaffle}
+        showToast={showToast}
+        onOpenTicketBoard={() => onSetViewMode?.("tickets")}
+        onOpenParticipation={(participation) => onViewParticipation?.(participation, "detail")}
+      />
+    );
+  }
+
+  if (viewMode === "tickets" && selectedRaffle) {
+    return (
+      <RaffleTicketBoardView
+        raffle={selectedRaffle}
+        showToast={showToast}
+        onOpenParticipation={(participation) => onViewParticipation?.(participation, "tickets")}
+      />
+    );
+  }
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center" style={{ gap: "var(--space-md)", paddingBlock: "var(--space-2xl)" }}>
@@ -343,37 +427,37 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
         level={2}
         icon={Ticket}
         title="Sin resultados"
-        description="No encontramos rifas que coincidan con tu búsqueda."
+        description="No encontramos rifas que coincidan con tu búsqueda y filtros."
       />
     );
   }
 
   return (
-    <div
-      className="mx-auto flex w-full max-w-6xl flex-col pb-[var(--space-2xl)] sm:pb-[var(--space-lg)]"
-      style={{ gap: "var(--space-md)" }}
-    >
-      {paginatedRaffles.map((raffle, index) => (
-        <div key={raffle.id} className="animate-card-enter" style={{ animationDelay: `${index * 60}ms` }}>
-          <RaffleCard
-            raffle={raffle}
-            onEdit={() => handleEdit(raffle)}
-            onDelete={() => handleDelete(raffle.id)}
-            onTogglePublished={() => void handleTogglePublished(raffle)}
-            onToggleFeatured={() => void handleToggleFeatured(raffle)}
-            onMoveFeaturedUp={() => void handleMoveFeatured(raffle.id, -1)}
-            onMoveFeaturedDown={() => void handleMoveFeatured(raffle.id, 1)}
-            canMoveFeaturedUp={featuredRaffles.findIndex((item) => item.id === raffle.id) > 0}
-            canMoveFeaturedDown={
-              featuredRaffles.findIndex((item) => item.id === raffle.id) >= 0
-              && featuredRaffles.findIndex((item) => item.id === raffle.id) < featuredRaffles.length - 1
-            }
-            isTogglingPublished={togglingPublishedIds.has(raffle.id)}
-            isTogglingFeatured={togglingFeaturedIds.has(raffle.id)}
-            isReorderingFeatured={isReorderingFeatured}
-          />
-        </div>
-      ))}
+    <div className="mx-auto flex w-full max-w-6xl flex-col pb-[var(--space-2xl)] sm:pb-[var(--space-lg)]" style={{ gap: "var(--space-md)" }}>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3" style={{ gap: "var(--space-md)" }}>
+        {paginatedRaffles.map((raffle, index) => (
+          <div key={raffle.id} className="animate-card-enter h-full" style={{ animationDelay: `${index * 48}ms` }}>
+            <RaffleCard
+              raffle={raffle}
+              onOpen={() => handleOpenOverview(raffle)}
+              onEdit={() => handleEdit(raffle)}
+              onDelete={() => handleDelete(raffle.id)}
+              onTogglePublished={() => void handleTogglePublished(raffle)}
+              onToggleFeatured={() => void handleToggleFeatured(raffle)}
+              onMoveFeaturedUp={() => void handleMoveFeatured(raffle.id, -1)}
+              onMoveFeaturedDown={() => void handleMoveFeatured(raffle.id, 1)}
+              canMoveFeaturedUp={featuredRaffles.findIndex((item) => item.id === raffle.id) > 0}
+              canMoveFeaturedDown={
+                featuredRaffles.findIndex((item) => item.id === raffle.id) >= 0
+                && featuredRaffles.findIndex((item) => item.id === raffle.id) < featuredRaffles.length - 1
+              }
+              isTogglingPublished={togglingPublishedIds.has(raffle.id)}
+              isTogglingFeatured={togglingFeaturedIds.has(raffle.id)}
+              isReorderingFeatured={isReorderingFeatured}
+            />
+          </div>
+        ))}
+      </div>
 
       <NexusPaginator currentPage={currentPage} totalPages={totalPages} onPageChange={setCurrentPage} />
     </div>

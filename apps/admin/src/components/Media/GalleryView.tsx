@@ -7,9 +7,14 @@ import { CategoryView } from './CategoryView';
 import { apiGallery } from '../../api';
 import { EmptyState } from '../ui/EmptyState';
 import { NexusPaginator } from '../ui/NexusPaginator';
+import {
+  DEFAULT_GALLERY_ADVANCED_FILTERS,
+  type GalleryAdvancedFilters,
+} from './GalleryFiltersModal';
 
 interface GalleryViewProps {
   searchQuery: string;
+  advancedFilters?: GalleryAdvancedFilters;
   viewMode?: 'list' | 'create' | 'media_edit' | 'category_create' | 'categories_list' | 'category_edit';
   onSetViewMode?: (mode: 'list' | 'create' | 'media_edit' | 'category_create' | 'categories_list' | 'category_edit') => void;
   showToast: (message: string, type?: 'success' | 'error') => void;
@@ -24,7 +29,15 @@ export interface GalleryViewRef {
 }
 
 export const GalleryView = React.forwardRef<GalleryViewRef, GalleryViewProps>(
-  ({ searchQuery, viewMode = 'list', onSetViewMode, showToast, setConfirmDialog, onValidationChange }, ref) => {
+  ({
+    searchQuery,
+    advancedFilters = DEFAULT_GALLERY_ADVANCED_FILTERS,
+    viewMode = 'list',
+    onSetViewMode,
+    showToast,
+    setConfirmDialog,
+    onValidationChange,
+  }, ref) => {
     const [mediaItems, setMediaItems] = useState<Media[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     
@@ -80,6 +93,12 @@ export const GalleryView = React.forwardRef<GalleryViewRef, GalleryViewProps>(
       return [...mediaItems]
         .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
         .filter(item => {
+          const matchesType = advancedFilters.type === 'all'
+            || item.mediaType === advancedFilters.type;
+          const matchesCategory = advancedFilters.categoryId === 'all'
+            || String(item.categoryId) === advancedFilters.categoryId;
+          if (!matchesType || !matchesCategory) return false;
+
           const query = searchQuery.toLowerCase();
           return (
             item.title.toLowerCase().includes(query) ||
@@ -89,11 +108,11 @@ export const GalleryView = React.forwardRef<GalleryViewRef, GalleryViewProps>(
             item.subcategory.toLowerCase().includes(query)
           );
         });
-    }, [mediaItems, searchQuery]);
+    }, [advancedFilters, mediaItems, searchQuery]);
 
     useEffect(() => {
       setCurrentPage(1);
-    }, [searchQuery]);
+    }, [advancedFilters, searchQuery]);
 
     const totalPages = Math.ceil(filteredMedia.length / ITEMS_PER_PAGE);
     

@@ -6,17 +6,13 @@ import { EmptyState } from "../../ui/EmptyState";
 import { NexusPaginator } from "../../ui/NexusPaginator";
 import { NexusSpinner } from "../../ui/NexusSpinner";
 import { RaffleParticipationCard } from "./RaffleParticipationCard";
-
-export type RaffleParticipationStatusFilter =
-  | "PENDING"
-  | "PAID"
-  | "CANCELLED"
-  | "PAYMENT_REVIEW"
-  | "NOT_COMPLETED"
-  | "ALL";
+import {
+  DEFAULT_RAFFLE_PARTICIPATION_FILTERS,
+  type RaffleParticipationAdvancedFilters,
+} from "./RaffleParticipationFiltersModal";
 
 interface RaffleParticipationsViewProps {
-  statusFilter: RaffleParticipationStatusFilter;
+  advancedFilters?: RaffleParticipationAdvancedFilters;
   searchQuery: string;
   onViewDetail: (participation: RaffleParticipation) => void;
   onParticipationChange: (participation: RaffleParticipation) => void;
@@ -29,7 +25,7 @@ const normalize = (value: string) =>
   value.toLocaleLowerCase("es-MX").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
 export const RaffleParticipationsView: React.FC<RaffleParticipationsViewProps> = ({
-  statusFilter,
+  advancedFilters = DEFAULT_RAFFLE_PARTICIPATION_FILTERS,
   searchQuery,
   onViewDetail,
   onParticipationChange,
@@ -48,12 +44,22 @@ export const RaffleParticipationsView: React.FC<RaffleParticipationsViewProps> =
       .finally(() => setIsLoading(false));
   }, [showToast]);
 
-  useEffect(() => setCurrentPage(1), [searchQuery, statusFilter]);
+  useEffect(() => setCurrentPage(1), [advancedFilters, searchQuery]);
 
   const filtered = useMemo(() => {
     const query = normalize(searchQuery);
     return participations.filter((participation) => {
-      if (statusFilter !== "ALL" && participation.status !== statusFilter) return false;
+      const matchesStatus = advancedFilters.status === "ALL"
+        || participation.status === advancedFilters.status;
+      const matchesType = advancedFilters.type === "all"
+        || (advancedFilters.type === "simple"
+          ? participation.raffleOpportunities <= 1
+          : participation.raffleOpportunities > 1);
+      const matchesPayment = advancedFilters.paymentMethod === "all"
+        || (advancedFilters.paymentMethod === "card"
+          ? participation.paymentMethod === "MERCADOPAGO"
+          : participation.paymentMethod !== "MERCADOPAGO");
+      if (!matchesStatus || !matchesType || !matchesPayment) return false;
       if (!query) return true;
       return normalize([
         participation.customerName,
@@ -71,7 +77,7 @@ export const RaffleParticipationsView: React.FC<RaffleParticipationsViewProps> =
         ]),
       ].filter(Boolean).join(" ")).includes(query);
     });
-  }, [participations, searchQuery, statusFilter]);
+  }, [advancedFilters, participations, searchQuery]);
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
   const visibleParticipations = filtered.slice(

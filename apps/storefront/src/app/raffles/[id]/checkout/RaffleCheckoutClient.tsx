@@ -28,6 +28,7 @@ import { StorefrontCheckoutTopBar } from '../../../../components/ui/CheckoutTopB
 import { BottomSheet } from '../../../../components/ui/BottomSheet';
 import { StorefrontField } from '../../../../components/ui/Field';
 import { StorefrontPhoneField } from '../../../../components/ui/PhoneField';
+import { StorefrontNote } from '../../../../components/ui/Note';
 import { StorefrontPurchaseBar } from '../../../../components/ui/PurchaseBar';
 import { RaffleSelectionSummaryCard } from '../../../../components/raffle/RaffleSelectionSummaryCard';
 import { RaffleTicketSelectionExplorer } from '../../../../components/raffle/RaffleTicketSelectionExplorer';
@@ -59,7 +60,7 @@ type CompletionDetails = {
 };
 
 const raffleCheckoutSteps = [
-  { label: 'Datos del participante' },
+  { label: 'Información del participante' },
   { label: 'Método de pago' },
 ] as const;
 
@@ -472,7 +473,7 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
 
           <div className={checkoutStep === 0 ? 'sf-checkout-step-raffle-active block' : 'hidden md:block'}>
             <StorefrontCheckoutSection
-              title="Datos del participante"
+              title="Información del participante"
               icon={User}
               motionKey={`raffle-checkout-${checkoutStep}-participant`}
               motionReady={checkoutMotionReady}
@@ -505,6 +506,9 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
                   />
                 </div>
               </div>
+              <StorefrontNote icon={MessageCircle}>
+                Selecciona el código de país correcto e ingresa únicamente los dígitos de tu número de WhatsApp. Enviaremos ahí las confirmaciones y actualizaciones de tu participación.
+              </StorefrontNote>
             </StorefrontCheckoutSection>
           </div>
 

@@ -52,7 +52,7 @@ export const NexusConfirmModal: React.FC<NexusConfirmModalProps> = ({
     <div
       role="alertdialog"
       aria-modal="true"
-      className="fixed inset-0 flex items-end justify-center p-0 animate-in fade-in duration-300 sm:items-center sm:p-[var(--space-lg)]"
+      className="fixed inset-0 flex w-full max-w-[100dvw] items-end justify-center overflow-x-hidden p-0 animate-in fade-in duration-300 sm:items-center sm:p-[var(--space-lg)]"
       style={{ zIndex }}
     >
       <div
@@ -61,11 +61,11 @@ export const NexusConfirmModal: React.FC<NexusConfirmModalProps> = ({
         onClick={onCancel}
       />
       <div
-        className="relative w-full overflow-hidden rounded-b-none rounded-t-[var(--radius-outer)] bg-bg-card shadow-2xl animate-in slide-in-from-bottom-10 duration-300 sm:rounded-[var(--radius-outer)] sm:zoom-in-95"
-        style={{ maxWidth: "var(--width-modal-compact)" }}
+        className="relative box-border w-full min-w-0 max-w-full overflow-hidden rounded-b-none rounded-t-[var(--radius-outer)] bg-bg-card shadow-2xl animate-in slide-in-from-bottom-10 duration-300 sm:rounded-[var(--radius-outer)] sm:zoom-in-95"
+        style={{ maxWidth: "min(100dvw, var(--width-modal-compact))" }}
       >
         <div
-          className="flex flex-col items-center text-center"
+          className="box-border flex w-full min-w-0 max-w-full flex-col items-center overflow-x-hidden text-center"
           style={{
             padding: "var(--padding-inner)",
             paddingBottom:
@@ -89,7 +89,7 @@ export const NexusConfirmModal: React.FC<NexusConfirmModalProps> = ({
             style={{ gap: "var(--space-xs)" }}
           >
             <h3 className="text-h2 text-text-main">{title}</h3>
-            <p className="text-secondary text-text-muted">{message}</p>
+            <p className="max-w-full break-words text-secondary text-text-muted">{message}</p>
           </div>
 
           <NexusModalActions

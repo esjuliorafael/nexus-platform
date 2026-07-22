@@ -142,7 +142,7 @@ export const MediaVaultForm = forwardRef<
   useImperativeHandle(ref, () => ({ handleSave: uploadAll }));
 
   return (
-    <div className="mx-auto w-full max-w-5xl">
+    <div className="w-full">
       <NexusSection
         title="Archivos Originales"
         subtitle="Fotografías y videos sin compresión ni pérdida de calidad."
