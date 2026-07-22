@@ -80,15 +80,18 @@ export const evolutionClient = {
       "POST",
       `/webhook/set/${instance.instanceName}`,
       {
-        enabled: payload.enabled,
-        url: payload.url,
-        webhook_by_events: payload.webhookByEvents ?? false,
-        events: payload.events ?? [
-          "SEND_MESSAGE_UPDATE",
-          "MESSAGES_UPDATE",
-          "CONNECTION_UPDATE",
-        ],
-        headers: payload.headers,
+        webhook: {
+          enabled: payload.enabled,
+          url: payload.url,
+          webhookByEvents: payload.webhookByEvents ?? false,
+          webhookBase64: false,
+          events: payload.events ?? [
+            "SEND_MESSAGE_UPDATE",
+            "MESSAGES_UPDATE",
+            "CONNECTION_UPDATE",
+          ],
+          headers: payload.headers,
+        },
       },
     );
   },
