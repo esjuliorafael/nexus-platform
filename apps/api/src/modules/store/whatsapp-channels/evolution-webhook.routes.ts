@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+import { recoverFailedWhatsappJobsForInstance } from "../../../services/whatsapp-recovery.service";
 
 const STATUS_PRIORITY: Record<string, number> = {
   failed: 0,
@@ -64,6 +65,30 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
 
     const payload = request.body as any;
     const data = payload?.data ?? payload;
+    const instanceName =
+      firstValue(payload, ["instance", "data.instance", "data.instanceName"]) ||
+      "webhook";
+    const eventName = String(firstValue(payload, ["event", "type"]) || "").toLowerCase();
+    const connectionState = String(
+      firstValue(payload, ["data.state", "data.status", "state", "status"]) || "",
+    ).toLowerCase();
+
+    if (eventName.includes("connection") || connectionState === "open") {
+      if (instanceName !== "webhook" && connectionState === "open") {
+        void recoverFailedWhatsappJobsForInstance(String(instanceName)).catch((error) => {
+          request.log.error(
+            `[WhatsApp recovery] Could not recover ${instanceName}: ${error?.message || error}`,
+          );
+        });
+      }
+
+      return reply.send({
+        ok: true,
+        connectionUpdate: true,
+        recoveryScheduled: instanceName !== "webhook" && connectionState === "open",
+      });
+    }
+
     const messageId = firstValue(payload, [
       "data.key.id",
       "data.message.key.id",
@@ -90,9 +115,6 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
       "event",
     ]);
     const nextStatus = normalizeStatus(providerStatus);
-    const instanceName =
-      firstValue(payload, ["instance", "data.instance", "data.instanceName"]) ||
-      "webhook";
     const recipientPhone = cleanRemotePhone(
       firstValue(payload, [
         "data.key.remoteJid",

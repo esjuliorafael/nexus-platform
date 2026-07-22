@@ -78,7 +78,8 @@ export const whatsappQueue = new Queue<WhatsappJobData>(
       attempts: 3,
       backoff: { type: "exponential", delay: 5000 },
       removeOnComplete: 100,
-      removeOnFail: 200,
+      // Disconnected instances are recovered after Evolution reports them open again.
+      removeOnFail: 5000,
     },
   }
 );

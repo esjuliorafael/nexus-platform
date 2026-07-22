@@ -478,12 +478,12 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       };
       if (whatsappObj) await apiWhatsApp.update(whatsappObj.id, payload);
       else await apiWhatsApp.create(payload);
+      await loadChannelData();
       if (close) {
         showToast("Mensajeria actualizada");
         setModal(null);
+        onSave();
       }
-      await loadChannelData();
-      onSave();
       return true;
     } catch (error) {
       showToast("No se pudo guardar la mensajeria", "error");
@@ -542,6 +542,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
         } catch (error: any) {
           showToast(
             error?.response?.data?.error ||
+              error?.message ||
               (method === "qr" ? "Error al generar QR" : "Error al generar el código"),
             "error",
           );

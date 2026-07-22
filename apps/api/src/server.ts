@@ -28,6 +28,7 @@ import { mediaProcessingWorker } from "./workers/media-processing.worker";
 import { expireOverduePendingOrders } from "./services/order-expiration.service";
 import { reconcileRaffleOpeningNotifications } from "./services/raffle-opening-notification.service";
 import { mediaVaultService } from "./modules/store/media-vault/media-vault.service";
+import { reconcileRecoverableWhatsappJobs } from "./services/whatsapp-recovery.service";
 
 const server = fastify({
   logger: true,
@@ -160,6 +161,23 @@ async function bootstrap() {
     whatsappWorker.on("failed", (job, err) => {
       server.log.error(`WhatsApp notification job ${job?.id} failed: ${err.message}`);
     });
+
+    const reconcileWhatsappRecovery = async () => {
+      try {
+        const result = await reconcileRecoverableWhatsappJobs();
+        if (result.recovered > 0 || result.discarded > 0) {
+          server.log.info(
+            `WhatsApp recovery: ${result.recovered} recovered, ${result.discarded} stale jobs discarded.`,
+          );
+        }
+      } catch (error: any) {
+        server.log.error(`WhatsApp recovery reconciliation failed: ${error.message}`);
+      }
+    };
+
+    await reconcileWhatsappRecovery();
+    const whatsappRecoveryTimer = setInterval(reconcileWhatsappRecovery, 60 * 1000);
+    whatsappRecoveryTimer.unref?.();
 
     mediaProcessingWorker.on("failed", (job, err) => {
       server.log.error(`Media processing job ${job?.id} failed: ${err.message}`);
