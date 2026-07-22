@@ -884,6 +884,11 @@ export const apiRaffleParticipations = {
     );
     return response.data;
   },
+  resendWhatsApp: async (id: string): Promise<void> => {
+    await api.post(
+      `/ticket-sales/admin/participations/${encodeURIComponent(id)}/resend-whatsapp`,
+    );
+  },
   refundMercadoPago: async (id: string): Promise<RaffleParticipation> => {
     const response = await api.post(
       `/ticket-sales/admin/participations/${encodeURIComponent(id)}/refund`,

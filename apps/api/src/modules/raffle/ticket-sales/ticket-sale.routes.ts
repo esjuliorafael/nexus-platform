@@ -85,6 +85,22 @@ export async function ticketSaleRoutes(server: FastifyInstance) {
     }
   });
 
+  server.post("/admin/participations/:participationId/resend-whatsapp", { preHandler: [server.authenticate] }, async (request, reply) => {
+    try {
+      const { participationId } = request.params as { participationId: string };
+      return await ticketSaleService.resendParticipationNotification(
+        rafflePrisma,
+        storePrisma,
+        participationId,
+      );
+    } catch (error: any) {
+      if (error?.statusCode) {
+        return reply.status(error.statusCode).send({ message: error.message });
+      }
+      throw error;
+    }
+  });
+
   server.post("/admin/participations/:participationId/refund", { preHandler: [server.authenticate] }, async (request, reply) => {
     const { participationId } = request.params as { participationId: string };
     try {

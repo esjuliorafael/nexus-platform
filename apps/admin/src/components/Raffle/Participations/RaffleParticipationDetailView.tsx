@@ -63,6 +63,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
   const [isRefunding, setIsRefunding] = useState(false);
   const [isParticipantModalOpen, setIsParticipantModalOpen] = useState(false);
   const [isSavingParticipant, setIsSavingParticipant] = useState(false);
+  const [isResendingWhatsApp, setIsResendingWhatsApp] = useState(false);
   const [participantForm, setParticipantForm] = useState({
     customerName: participation.customerName || "",
     customerPhone: participation.customerPhone || "",
@@ -160,6 +161,28 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
       );
     } finally {
       setIsSavingParticipant(false);
+    }
+  };
+
+  const handleResendWhatsApp = async () => {
+    if (isResendingWhatsApp || isPaymentHold) return;
+    setIsResendingWhatsApp(true);
+    try {
+      await apiRaffleParticipations.resendWhatsApp(detail.id);
+      showToast("Notificación enviada a la cola", "success");
+      window.setTimeout(() => {
+        void apiRaffleParticipations.getById(detail.id).then((updated) => {
+          setDetail(updated);
+          onLoaded(updated);
+        });
+      }, 1500);
+    } catch (error: any) {
+      showToast(
+        error?.response?.data?.message || "No se pudo reenviar la notificación",
+        "error",
+      );
+    } finally {
+      setIsResendingWhatsApp(false);
     }
   };
 
@@ -496,7 +519,22 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
           </NexusSection>
         )}
 
-        {!isPaymentHold && <NexusSection title="WhatsApp" subtitle="Historial de notificaciones" icon={MessageCircle} iconVariant="emerald">
+        {!isPaymentHold && <NexusSection
+          title="WhatsApp"
+          subtitle="Historial de notificaciones"
+          icon={MessageCircle}
+          iconVariant="emerald"
+          actionPlacement="below"
+          action={
+            <NexusSectionButton
+              onClick={handleResendWhatsApp}
+              isLoading={isResendingWhatsApp}
+              icon={MessageCircle}
+            >
+              Reenviar WhatsApp
+            </NexusSectionButton>
+          }
+        >
           {detail.whatsappLogs?.length ? (
             <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
               {detail.whatsappLogs.map((log) => (

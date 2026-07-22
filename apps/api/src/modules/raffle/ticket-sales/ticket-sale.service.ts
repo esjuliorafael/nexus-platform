@@ -352,6 +352,53 @@ export const ticketSaleService = {
     return this.getParticipationAdmin(prisma, participationKey);
   },
 
+  async resendParticipationNotification(
+    prisma: PrismaClient,
+    storePrisma: StorePrismaClient,
+    participationKey: string,
+  ) {
+    const legacyMatch = /^sale-(\d+)$/.exec(participationKey);
+    const sales = await prisma.ticketSale.findMany({
+      where: legacyMatch
+        ? { id: Number(legacyMatch[1]) }
+        : { reservationId: participationKey },
+      orderBy: { ticketNumber: "asc" },
+    });
+
+    if (sales.length === 0) {
+      throw Object.assign(new Error("Raffle participation not found"), { statusCode: 404 });
+    }
+
+    const statuses = new Set(sales.map((sale) => sale.paymentStatus));
+    if (statuses.size !== 1) {
+      throw Object.assign(
+        new Error("No se puede reenviar una notificación para una participación con estados mixtos."),
+        { statusCode: 409 },
+      );
+    }
+
+    const status = sales[0].paymentStatus;
+    const setting = await storePrisma.setting.findUnique({
+      where: { key: "raffle_release_hours" },
+      select: { value: true },
+    });
+    const releaseHours = Number(setting?.value || 24);
+    const jobKind = status === TicketStatus.PAID
+      ? "reservation-paid"
+      : status === TicketStatus.CANCELLED
+        ? "reservation-cancelled"
+        : "reservation";
+
+    await whatsappQueue.add("reservation-notification", {
+      kind: jobKind,
+      ticketSaleIds: sales.map((sale) => sale.id),
+      recipientPhone: sales[0].customerPhone,
+      ...(jobKind === "reservation" ? { timeLimit: `${releaseHours} horas` } : {}),
+    });
+
+    return { success: true };
+  },
+
   async reserveTickets(
     prisma: PrismaClient,
     storePrisma: StorePrismaClient,
