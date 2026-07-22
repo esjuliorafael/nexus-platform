@@ -5,6 +5,7 @@ import { paymentHoldReleaseQueue } from "../../../queues/payment-hold-release.qu
 import { getReminderDelayMs, reservationReminderQueue } from "../../../queues/reservation-reminder.queue";
 import { ticketReleaseQueue } from "../../../queues/ticket-release.queue";
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
+import { customerPhoneIdentity } from "../../../utils/customer-phone";
 import { canParticipateInRaffle } from "../raffles/raffle-access";
 import { raffleCouponService } from "../coupons/raffle-coupon.service";
 import { ticketService } from "../tickets/ticket.service";
@@ -32,8 +33,7 @@ const scheduleRaffleReconciliation = async (prisma: PrismaClient, holdId: string
 const holdError = (message: string, statusCode = 400, code?: string) =>
   Object.assign(new Error(message), { statusCode, code });
 
-const normalizePhone = (phone: string | null | undefined) =>
-  String(phone || "").replace(/\D/g, "");
+const normalizePhone = customerPhoneIdentity;
 
 const ensureRaffleHoldCanConvert = async (
   prisma: PrismaClient,

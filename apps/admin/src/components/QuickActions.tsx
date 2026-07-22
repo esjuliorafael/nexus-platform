@@ -30,6 +30,7 @@ import {
   Store,
   BadgePercent,
   UploadCloud,
+  Megaphone,
 } from "lucide-react";
 import { QuickActionGroup } from "../types";
 
@@ -98,6 +99,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
       items: [
         { icon: <Receipt size={20} />, label: "Estado de Cuenta" },
         { icon: <Store size={20} />, label: "Estado Storefront" },
+        { icon: <Megaphone size={20} />, label: "Avisos Storefront" },
         ...(userRole?.toLowerCase() === "superadmin"
           ? [{ icon: <Settings size={20} />, label: "Plataforma" }]
           : []),

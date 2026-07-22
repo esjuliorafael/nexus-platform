@@ -19,6 +19,7 @@ interface PageHeaderProps {
   isCreatingRaffle: boolean;
   isEditingRaffle: boolean;
   systemViewMode: string;
+  announcementViewMode?: string;
   profileViewMode: string;
   shippingSubView: string;
   channelsViewMode: string;
@@ -44,6 +45,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   isCreatingRaffle,
   isEditingRaffle,
   systemViewMode,
+  announcementViewMode = "list",
   profileViewMode,
   shippingSubView,
   channelsViewMode,
@@ -162,6 +164,13 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         return <>Estado de <span className="text-text-muted">Cuenta</span></>;
       if (systemViewMode === "storefront")
         return <>Estado del <span className="text-text-muted">Storefront</span></>;
+      if (systemViewMode === "announcements") {
+        if (announcementViewMode === "create")
+          return <>Nuevo <span className="text-text-muted">Aviso</span></>;
+        if (announcementViewMode === "edit")
+          return <>Editar <span className="text-text-muted">Aviso</span></>;
+        return <>Avisos del <span className="text-text-muted">Storefront</span></>;
+      }
       if (systemViewMode === "intelligence")
         return <>Inteligencia de <span className="text-text-muted">Audiencias</span></>;
       if (systemViewMode === "config")
@@ -188,6 +197,11 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   };
 
   const getDescription = () => {
+    if (isSystemMode && systemViewMode === "announcements") {
+      if (announcementViewMode === "create" || announcementViewMode === "edit")
+        return "Configura el contenido, destino, vigencia y frecuencia del mensaje.";
+      return "Publica avisos globales o específicos sin modificar el contenido principal.";
+    }
     if (isCreatingProduct || isEditingProduct)
       return "Administra el inventario del rancho. Priorizamos la venta de aves de combate y cría.";
     if (isCreatingStoreHero || isEditingStoreHero)

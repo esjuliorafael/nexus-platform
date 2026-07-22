@@ -1,3 +1,5 @@
+import { customerPhoneIdentity } from "../../../utils/customer-phone";
+
 type RafflePrisma = any;
 
 export type RaffleParticipantSegment =
@@ -51,11 +53,7 @@ export interface RaffleParticipantIntelligence {
   score: number;
 }
 
-const normalizePhone = (phone: string | null | undefined) => {
-  const digits = (phone || "").replace(/\D/g, "");
-  if (digits.length === 10) return `521${digits}`;
-  return digits;
-};
+const normalizePhone = customerPhoneIdentity;
 
 const daysSince = (date: Date) => {
   const diff = Date.now() - date.getTime();

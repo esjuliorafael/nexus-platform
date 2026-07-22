@@ -3,10 +3,22 @@ import { ticketSaleService } from "./ticket-sale.service";
 import { TicketStatus } from "@prisma/client-raffle";
 import { z } from "zod";
 import { mpService } from "../../store/payments/mercadopago.service";
+import { customerPhoneSchema } from "../../../utils/customer-phone";
 
 export async function ticketSaleRoutes(server: FastifyInstance) {
   const rafflePrisma = server.rafflePrisma;
   const storePrisma = server.storePrisma;
+
+  const attachWhatsappLogs = async (
+    participation: NonNullable<Awaited<ReturnType<typeof ticketSaleService.getParticipationAdmin>>>,
+  ) => {
+    const whatsappLogs = await storePrisma.whatsappMessageLog.findMany({
+      where: { ticketSaleId: { in: participation.ticketSaleIds } },
+      orderBy: { sentAt: "desc" },
+    });
+
+    return { ...participation, whatsappLogs };
+  };
 
   // Admin Routes
   server.get("/admin/participations", { preHandler: [server.authenticate] }, async () => {
@@ -18,12 +30,7 @@ export async function ticketSaleRoutes(server: FastifyInstance) {
     const participation = await ticketSaleService.getParticipationAdmin(rafflePrisma, participationId);
     if (!participation) return reply.status(404).send({ message: "Raffle participation not found" });
 
-    const whatsappLogs = await storePrisma.whatsappMessageLog.findMany({
-      where: { ticketSaleId: { in: participation.ticketSaleIds } },
-      orderBy: { sentAt: "desc" },
-    });
-
-    return { ...participation, whatsappLogs };
+    return attachWhatsappLogs(participation);
   });
 
   server.patch("/admin/participations/:participationId/status", { preHandler: [server.authenticate] }, async (request, reply) => {
@@ -37,7 +44,7 @@ export async function ticketSaleRoutes(server: FastifyInstance) {
         paymentStatus,
       );
       if (!participation) return reply.status(409).send({ message: "La participación ya no está pendiente." });
-      return participation;
+      return attachWhatsappLogs(participation);
     } catch (error: any) {
       if (error?.issues) {
         return reply.status(400).send({ message: "Validation error", errors: error.issues });
@@ -54,7 +61,7 @@ export async function ticketSaleRoutes(server: FastifyInstance) {
   server.patch("/admin/participations/:participationId/participant", { preHandler: [server.authenticate] }, async (request, reply) => {
     const schema = z.object({
       customerName: z.string().trim().min(2).max(120),
-      customerPhone: z.string().trim().min(7).max(30),
+      customerPhone: customerPhoneSchema,
       customerState: z.string().trim().max(80).nullable().optional(),
     });
 
@@ -69,7 +76,7 @@ export async function ticketSaleRoutes(server: FastifyInstance) {
       if (!participation) {
         return reply.status(404).send({ message: "Raffle participation not found" });
       }
-      return participation;
+      return attachWhatsappLogs(participation);
     } catch (error: any) {
       if (error?.issues) {
         return reply.status(400).send({ message: "Validation error", errors: error.issues });

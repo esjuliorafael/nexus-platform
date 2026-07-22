@@ -7,6 +7,7 @@ import { whatsappQueue } from "../../../queues/whatsapp.queue";
 import type { OrderItemPurpose } from "../../../services/evolution/channel.resolver";
 import { getTenantId, signGatewayPayload } from "./mercadopago-gateway.security";
 import { resolvePaymentHoldMinutes } from "./payment-hold-policy";
+import { customerPhoneIdentity } from "../../../utils/customer-phone";
 
 const getRedirectUri = () => `${process.env.API_URL}/api/v1/mp/callback`;
 const getGatewayUrl = () => process.env.MP_GATEWAY_URL?.replace(/\/$/, "");
@@ -69,7 +70,7 @@ const cardPaymentMessage = (statusDetail?: string | null) => {
 const isRetryableCardRejection = (statusDetail?: string | null) =>
   statusDetail !== "cc_rejected_duplicated_payment";
 
-const normalizePhone = (value: string | null | undefined) => String(value || "").replace(/\D/g, "").slice(-10);
+const normalizePhone = customerPhoneIdentity;
 
 const isTokenExpiring = (value?: Date | string | null) => {
   if (!value) return true;

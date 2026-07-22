@@ -4,13 +4,10 @@ import type { Job } from "bullmq";
 import { whatsappQueue, type WhatsappJobData } from "../queues/whatsapp.queue";
 import { evolutionClient } from "./evolution/evolution.client";
 import { getEvolutionConfigFromSettings } from "./evolution/evolution.config";
-
-const RECOVERABLE_ERROR_MARKERS = [
-  "connection closed",
-  "device_removed",
-  "not connected",
-  "connection close",
-];
+import {
+  isRecoverableWhatsappConnectionError,
+  normalizePrincipalInstanceName,
+} from "./evolution/whatsapp-delivery.service";
 
 let reconciliationRun: Promise<WhatsappRecoveryResult> | null = null;
 const instanceRecoveryRuns = new Map<string, Promise<{ recovered: number; discarded: number }>>();
@@ -21,11 +18,6 @@ export type WhatsappRecoveryResult = {
   recovered: number;
   discarded: number;
 };
-
-function isRecoverableConnectionError(message: string | null | undefined) {
-  const normalized = String(message || "").toLowerCase();
-  return RECOVERABLE_ERROR_MARKERS.some((marker) => normalized.includes(marker));
-}
 
 async function isJobStillRelevant(data: WhatsappJobData) {
   if (
@@ -102,7 +94,7 @@ async function runFailedWhatsappJobsRecovery(instanceName: string) {
   for (const log of failedLogs) {
     if (!log.jobId || inspectedJobIds.has(log.jobId)) continue;
     inspectedJobIds.add(log.jobId);
-    if (isRecoverableConnectionError(log.errorMessage)) {
+    if (isRecoverableWhatsappConnectionError(log.errorMessage)) {
       latestRecoverableByJob.set(log.jobId, log);
     }
   }
@@ -157,7 +149,7 @@ async function runWhatsappRecoveryReconciliation(): Promise<WhatsappRecoveryResu
   });
   const instanceNames = Array.from(new Set(
     failedLogs
-      .filter((log) => isRecoverableConnectionError(log.errorMessage))
+      .filter((log) => isRecoverableWhatsappConnectionError(log.errorMessage))
       .map((log) => log.instanceName)
       .filter((name) => name && name !== "missing"),
   ));
@@ -166,8 +158,12 @@ async function runWhatsappRecoveryReconciliation(): Promise<WhatsappRecoveryResu
     return { instancesChecked: 0, instancesOpen: 0, recovered: 0, discarded: 0 };
   }
 
-  const [globalConfig, channels] = await Promise.all([
+  const [globalConfig, principalSetting, channels] = await Promise.all([
     getEvolutionConfigFromSettings(),
+    storePrisma.setting.findUnique({
+      where: { key: "whatsapp_evolution_instance" },
+      select: { value: true },
+    }),
     storePrisma.whatsappChannel.findMany({
       where: { active: true, instanceName: { in: instanceNames } },
       select: { instanceName: true, evolutionUrl: true, evolutionKey: true },
@@ -177,6 +173,23 @@ async function runWhatsappRecoveryReconciliation(): Promise<WhatsappRecoveryResu
   let instancesOpen = 0;
   let recovered = 0;
   let discarded = 0;
+  const principalInstanceName = normalizePrincipalInstanceName(principalSetting?.value);
+  let principalOpen = false;
+
+  if (principalInstanceName && globalConfig.baseUrl && globalConfig.apiKey) {
+    try {
+      const connection = await evolutionClient.getConnectionState({
+        instanceName: principalInstanceName,
+        baseUrl: globalConfig.baseUrl,
+        apiKey: globalConfig.apiKey,
+      });
+      principalOpen = connection.instance.state === "open";
+    } catch (error: any) {
+      console.warn(
+        `[WhatsApp recovery] Could not inspect principal ${principalInstanceName}: ${error?.message || error}`,
+      );
+    }
+  }
 
   for (const instanceName of instanceNames) {
     const channel = channels.find((item) => item.instanceName === instanceName);
@@ -184,17 +197,22 @@ async function runWhatsappRecoveryReconciliation(): Promise<WhatsappRecoveryResu
     const apiKey = channel?.evolutionKey || globalConfig.apiKey;
     if (!baseUrl || !apiKey) continue;
 
-    try {
-      const connection = await evolutionClient.getConnectionState({ instanceName, baseUrl, apiKey });
-      if (connection.instance.state !== "open") continue;
-
-      instancesOpen += 1;
-      const result = await recoverFailedWhatsappJobsForInstance(instanceName);
-      recovered += result.recovered;
-      discarded += result.discarded;
-    } catch (error: any) {
-      console.warn(`[WhatsApp recovery] Could not inspect ${instanceName}: ${error?.message || error}`);
+    let preferredOpen = instanceName === principalInstanceName && principalOpen;
+    if (!preferredOpen) {
+      try {
+        const connection = await evolutionClient.getConnectionState({ instanceName, baseUrl, apiKey });
+        preferredOpen = connection.instance.state === "open";
+      } catch (error: any) {
+        console.warn(`[WhatsApp recovery] Could not inspect ${instanceName}: ${error?.message || error}`);
+      }
     }
+
+    if (!preferredOpen && !principalOpen) continue;
+
+    instancesOpen += 1;
+    const result = await recoverFailedWhatsappJobsForInstance(instanceName);
+    recovered += result.recovered;
+    discarded += result.discarded;
   }
 
   return {

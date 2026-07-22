@@ -24,11 +24,12 @@ import {
   reconcileRaffleOpeningNotifications,
   scheduleRaffleOpeningSubscription,
 } from "../../../services/raffle-opening-notification.service";
+import { customerPhoneCandidates, customerPhoneSchema } from "../../../utils/customer-phone";
 
 const reserveTicketsBodySchema = z.object({
   tickets: z.array(z.string().regex(/^\d+$/, "Ticket numbers must be numeric")).min(1, "At least one ticket is required"),
   customerName: z.string().min(1),
-  customerPhone: z.string().min(1),
+  customerPhone: customerPhoneSchema,
   customerState: z.string().optional(),
   paymentMethod: z.enum(["TRANSFER", "MERCADOPAGO"]).optional().default("TRANSFER"),
   couponCode: z.string().trim().min(1).max(40).optional(),
@@ -40,19 +41,12 @@ const earlyAccessBodySchema = z.object({
 });
 
 const openingReminderBodySchema = z.object({
-  phone: z.string().trim().min(10).max(24),
+  phone: customerPhoneSchema,
 });
 
 const convertPaymentHoldSchema = z.object({
-  customerPhone: z.string().trim().min(1),
+  customerPhone: customerPhoneSchema,
 });
-
-const normalizeReminderPhone = (phone: string) => {
-  const digits = phone.replace(/\D/g, "");
-  if (digits.startsWith("521") && digits.length === 13) return digits.slice(3);
-  if (digits.startsWith("52") && digits.length === 12) return digits.slice(2);
-  return digits;
-};
 
 const normalizeWinningNumber = (
   value: string,
@@ -194,13 +188,7 @@ export async function raffleRoutes(server: FastifyInstance) {
       throw error;
     }
 
-    const phone = normalizeReminderPhone(body.phone);
-    if (phone.length < 10 || phone.length > 15) {
-      return reply.status(400).send({
-        message: "Ingresa un número de WhatsApp válido",
-        code: "INVALID_PHONE",
-      });
-    }
+    const phone = body.phone;
 
     const raffle = await getPrisma().raffle.findFirst({
       where: { id: raffleId, status: "ACTIVE", published: true },
@@ -228,28 +216,27 @@ export async function raffleRoutes(server: FastifyInstance) {
       });
     }
 
-    const existing = await getPrisma().raffleOpeningSubscription.findUnique({
-      where: { raffleId_phone: { raffleId, phone } },
+    const existing = await getPrisma().raffleOpeningSubscription.findFirst({
+      where: { raffleId, phone: { in: customerPhoneCandidates(phone) } },
     });
     const alreadyRegistered = Boolean(
       existing && ["PENDING", "PROCESSING", "SENT"].includes(existing.status),
     );
 
-    const subscription = await getPrisma().raffleOpeningSubscription.upsert({
-      where: { raffleId_phone: { raffleId, phone } },
-      create: {
+    const subscription = existing
+      ? await getPrisma().raffleOpeningSubscription.update({
+          where: { id: existing.id },
+          data: alreadyRegistered
+            ? { consentAt: new Date() }
+            : { status: "PENDING", consentAt: new Date(), lastError: null },
+        })
+      : await getPrisma().raffleOpeningSubscription.create({
+        data: {
         raffleId,
         phone,
         status: "PENDING",
-      },
-      update: alreadyRegistered
-        ? { consentAt: new Date() }
-        : {
-            status: "PENDING",
-            consentAt: new Date(),
-            lastError: null,
-          },
-    });
+        },
+      });
 
     await scheduleRaffleOpeningSubscription(subscription.id);
 

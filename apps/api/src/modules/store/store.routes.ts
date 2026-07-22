@@ -32,6 +32,10 @@ import {
 } from "./store-heroes/store-hero.routes";
 import { publicContactRoutes } from "./profile/profile.routes";
 import { mediaVaultRoutes } from "./media-vault/media-vault.routes";
+import {
+  storefrontAnnouncementAdminRoutes,
+  storefrontAnnouncementPublicRoutes,
+} from "./storefront-announcements/storefront-announcement.routes";
 
 export async function storeRoutes(server: FastifyInstance) {
   // Public Storefront Routes
@@ -50,6 +54,7 @@ export async function storeRoutes(server: FastifyInstance) {
     prefix: "/store/payment-options",
   });
   await server.register(publicSettingRoutes, { prefix: "/store/settings" });
+  await server.register(storefrontAnnouncementPublicRoutes, { prefix: "/store/announcements" });
   await server.register(mpRoutes, { prefix: "/mp" });
   await server.register(evolutionWebhookRoutes, { prefix: "/webhooks" });
 
@@ -78,6 +83,7 @@ export async function storeRoutes(server: FastifyInstance) {
   await server.register(mediaVaultRoutes, { prefix: "/admin/media-vault" });
   await server.register(channelsOverviewRoutes, { prefix: "/admin/channels" });
   await server.register(couponAdminRoutes, { prefix: "/admin/coupons" });
+  await server.register(storefrontAnnouncementAdminRoutes, { prefix: "/admin/storefront-announcements" });
 
   // Settings Logo Upload
   server.post(

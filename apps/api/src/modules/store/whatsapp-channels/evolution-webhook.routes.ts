@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify";
-import { recoverFailedWhatsappJobsForInstance } from "../../../services/whatsapp-recovery.service";
+import { reconcileRecoverableWhatsappJobs } from "../../../services/whatsapp-recovery.service";
+import { invalidateWhatsappConnectionState } from "../../../services/evolution/whatsapp-delivery.service";
 
 const STATUS_PRIORITY: Record<string, number> = {
   failed: 0,
@@ -75,7 +76,8 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
 
     if (eventName.includes("connection") || connectionState === "open") {
       if (instanceName !== "webhook" && connectionState === "open") {
-        void recoverFailedWhatsappJobsForInstance(String(instanceName)).catch((error) => {
+        invalidateWhatsappConnectionState(String(instanceName));
+        void reconcileRecoverableWhatsappJobs().catch((error) => {
           request.log.error(
             `[WhatsApp recovery] Could not recover ${instanceName}: ${error?.message || error}`,
           );
@@ -136,7 +138,16 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
         data: {
           status: shouldUpdateStatus(existing.status, nextStatus) ? nextStatus : existing.status,
           providerStatus: providerStatus ? String(providerStatus) : existing.providerStatus,
-          responsePayload: payload,
+          responsePayload: {
+            ...(payload && typeof payload === "object" ? payload : {}),
+            ...(
+              existing.responsePayload &&
+              typeof existing.responsePayload === "object" &&
+              (existing.responsePayload as any).nexusRouting
+                ? { nexusRouting: (existing.responsePayload as any).nexusRouting }
+                : {}
+            ),
+          },
           lastStatusAt: new Date(),
           errorMessage: nextStatus === "failed"
             ? String(firstValue(payload, ["data.error", "error", "message"]) || existing.errorMessage || "Evolution reportó fallo.")

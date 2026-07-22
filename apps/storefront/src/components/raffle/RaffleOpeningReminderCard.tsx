@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, HTMLAttributes, useEffect, useState } from "react";
-import { BellRing, CheckCircle2, Phone } from "lucide-react";
+import { BellRing, CheckCircle2 } from "lucide-react";
 import { raffleApi } from "../../api/raffles";
 import {
   hasRegisteredRaffleOpeningReminder,
@@ -10,9 +10,11 @@ import {
 } from "../../lib/raffle-opening-reminder";
 import { Button } from "../ui/Button";
 import { StorefrontAutonomousCard } from "../ui/Card";
-import { StorefrontField } from "../ui/Field";
+import { StorefrontPhoneField } from "../ui/PhoneField";
+import { isCustomerPhoneComplete } from "../../lib/customer-phone";
 
 export interface RaffleOpeningReminderController {
+  fieldId: string;
   phone: string;
   error: string;
   isSubmitting: boolean;
@@ -37,8 +39,7 @@ export function useRaffleOpeningReminder(
 
   const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault();
-    const digits = phone.replace(/\D/g, "");
-    if (digits.length < 10 || isSubmitting) {
+    if (!isCustomerPhoneComplete(phone) || isSubmitting) {
       setError("Ingresa un número de WhatsApp válido.");
       return;
     }
@@ -60,6 +61,7 @@ export function useRaffleOpeningReminder(
   };
 
   return {
+    fieldId: `raffle-opening-phone-${raffleId}`,
     phone,
     error,
     isSubmitting,
@@ -179,19 +181,14 @@ export function RaffleOpeningReminderContent({
             className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto]"
             style={{ gap: "var(--sf-space-sm)" }}
           >
-            <StorefrontField
+            <StorefrontPhoneField
+              id={reminder.fieldId}
               label="WhatsApp"
-              aria-label="Número de WhatsApp para el aviso de apertura"
-              icon={Phone}
-              type="tel"
-              inputMode="tel"
-              autoComplete="tel"
               value={phone}
-              onChange={(event) => {
-                setPhone(event.target.value);
+              onChange={(value) => {
+                setPhone(value);
                 clearError();
               }}
-              placeholder="Ej. 246 123 4567"
               error={error || undefined}
             />
             <Button

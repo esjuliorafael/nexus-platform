@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify";
 import { mpService } from "./mercadopago.service";
 import { z } from "zod";
+import { customerPhoneSchema } from "../../../utils/customer-phone";
 import { verifyGatewayPayload } from "./mercadopago-gateway.security";
 
 export async function mpRoutes(server: FastifyInstance) {
@@ -161,7 +162,7 @@ export async function mpRoutes(server: FastifyInstance) {
       paymentAttemptId: z.string().uuid(),
       storePaymentHoldId: z.string().uuid().optional(),
       rafflePaymentHoldId: z.string().uuid().optional(),
-      customerPhone: z.string().min(10).max(24),
+      customerPhone: customerPhoneSchema,
       token: z.string().min(1),
       issuerId: z.string().optional(),
       paymentMethodId: z.string().min(1),
@@ -203,7 +204,7 @@ export async function mpRoutes(server: FastifyInstance) {
     const schema = z.object({
       storePaymentHoldId: z.string().uuid().optional(),
       rafflePaymentHoldId: z.string().uuid().optional(),
-      customerPhone: z.string().min(10).max(24),
+      customerPhone: customerPhoneSchema,
     }).superRefine((value, context) => {
       if (Boolean(value.storePaymentHoldId) === Boolean(value.rafflePaymentHoldId)) {
         context.addIssue({

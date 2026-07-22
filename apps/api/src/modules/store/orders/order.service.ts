@@ -7,6 +7,7 @@ import {
   reservationReminderQueue,
 } from "../../../queues/reservation-reminder.queue";
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
+import { customerPhoneIdentity } from "../../../utils/customer-phone";
 import type { OrderKind, OrderItemPurpose } from "../../../services/evolution/channel.resolver";
 import { validateCouponForItems } from "../coupons/coupon.service";
 import { resolvePaymentHoldMinutes } from "../payments/payment-hold-policy";
@@ -17,7 +18,7 @@ const createOrderError = (message: string, statusCode = 400) => {
   return error;
 };
 
-const normalizePhone = (phone: string | null | undefined) => String(phone || "").replace(/\D/g, "");
+const normalizePhone = customerPhoneIdentity;
 
 const toStorePaymentHoldAdminStatus = (hold: any) => {
   const latestAttempt = hold.paymentAttempts?.[0];

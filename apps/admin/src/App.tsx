@@ -75,6 +75,11 @@ import {
   StorefrontStatusView,
   StorefrontStatusViewRef,
 } from "./components/System/StorefrontStatus/StorefrontStatusView";
+import {
+  StorefrontAnnouncementView,
+  StorefrontAnnouncementViewMode,
+  StorefrontAnnouncementViewRef,
+} from "./components/System/StorefrontAnnouncements/StorefrontAnnouncementView";
 import { LoginView } from "./components/Auth/LoginView";
 import { SetupAccountView } from "./components/Auth/SetupAccountView";
 import {
@@ -118,6 +123,7 @@ type SystemViewType =
   | "inventory"
   | "billing"
   | "storefront"
+  | "announcements"
   | "raffle"
   | "intelligence";
 
@@ -511,6 +517,7 @@ function App() {
       "inventory",
       "billing",
       "storefront",
+      "announcements",
       "raffle",
       "intelligence",
     ];
@@ -580,6 +587,8 @@ function App() {
     "empty" | "preview" | "editing"
   >("preview");
   const [hasTempLogo, setHasTempLogo] = useState(false);
+  const [announcementViewMode, setAnnouncementViewMode] =
+    useState<StorefrontAnnouncementViewMode>("list");
   const [isFormValid, setIsFormValid] = useState(false);
   const [raffleEnabled, setRaffleEnabled] = useState(
     () => localStorage.getItem("admin_raffle_enabled") === "1",
@@ -597,6 +606,7 @@ function App() {
   const raffleSettingsRef = React.useRef<{ handleSave: () => void }>(null);
   const platformSettingsRef = React.useRef<{ handleSave: () => void }>(null);
   const storefrontStatusRef = React.useRef<StorefrontStatusViewRef>(null);
+  const storefrontAnnouncementRef = React.useRef<StorefrontAnnouncementViewRef>(null);
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const [selectedRaffleParticipation, setSelectedRaffleParticipation] =
@@ -1071,6 +1081,10 @@ function App() {
         break;
       case "Estado Storefront":
         navigateToSystem("storefront");
+        break;
+      case "Avisos Storefront":
+        navigateToSystem("announcements");
+        setAnnouncementViewMode("list");
         break;
       case "Plataforma":
         navigateToSystem("config");
@@ -1605,6 +1619,38 @@ function App() {
           </NexusSectionButton>
         );
       }
+      if (systemViewMode === "announcements") {
+        if (announcementViewMode === "list") {
+          return (
+            <NexusSectionButton
+              onClick={() => setAnnouncementViewMode("create")}
+              variant="brand"
+              icon={Plus}
+            >
+              Nuevo Aviso
+            </NexusSectionButton>
+          );
+        }
+        return (
+          <>
+            <NexusSectionButton
+              onClick={() => setAnnouncementViewMode("list")}
+              variant="secondary"
+              className="text-text-muted hover:text-text-main"
+            >
+              Cancelar
+            </NexusSectionButton>
+            <NexusSectionButton
+              onClick={() => storefrontAnnouncementRef.current?.handleSave()}
+              variant="brand"
+              icon={Save}
+              disabled={!isFormValid}
+            >
+              Guardar Aviso
+            </NexusSectionButton>
+          </>
+        );
+      }
       if (systemViewMode === "raffle") {
         return (
           <NexusSectionButton
@@ -1727,6 +1773,7 @@ function App() {
               isCreatingRaffle={isCreatingRaffle}
               isEditingRaffle={isEditingRaffle}
               systemViewMode={systemViewMode}
+              announcementViewMode={announcementViewMode}
               profileViewMode={profileViewMode}
               shippingSubView={shippingSubView}
               channelsViewMode={channelsViewMode}
@@ -2013,6 +2060,15 @@ function App() {
                     <StorefrontStatusView
                       ref={storefrontStatusRef}
                       showToast={showToast}
+                    />
+                  ) : systemViewMode === "announcements" ? (
+                    <StorefrontAnnouncementView
+                      ref={storefrontAnnouncementRef}
+                      viewMode={announcementViewMode}
+                      onSetViewMode={setAnnouncementViewMode}
+                      onValidationChange={setIsFormValid}
+                      showToast={showToast}
+                      setConfirmDialog={setConfirmDialog}
                     />
                   ) : systemViewMode === "raffle" ? (
                     <RaffleSettingsView

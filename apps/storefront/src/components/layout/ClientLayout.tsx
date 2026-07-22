@@ -15,6 +15,7 @@ import { AnimatePresence } from "framer-motion";
 import { RaffleSelectionDrawerHost } from "../raffle/RaffleSelectionDrawerHost";
 import { StorefrontRouteTransition } from "./StorefrontRouteTransition";
 import { StorefrontRouteRevealProvider } from "./StorefrontRouteMotionContext";
+import { StorefrontAnnouncementHost } from "../announcements/StorefrontAnnouncementHost";
 
 interface ClientLayoutProps {
   children: React.ReactNode;
@@ -158,6 +159,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
 
         <CartDrawer isOpen={isCartOpen} onClose={closeCart} />
         <RaffleSelectionDrawerHost />
+        <StorefrontAnnouncementHost />
 
         <div className="hidden md:block">
           <Footer />

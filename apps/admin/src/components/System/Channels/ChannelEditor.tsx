@@ -39,6 +39,7 @@ import {
   WhatsAppPairingData,
   WhatsAppPairingMethod,
   WhatsAppPairingModal,
+  WHATSAPP_PAIRING_WINDOW_SECONDS,
 } from "./WhatsAppPairingModal";
 import { resolveChannelInstanceName } from "./channelInstance";
 
@@ -259,6 +260,8 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
     "open" | "close" | "connecting" | "loading"
   >("loading");
   const [pairingData, setPairingData] = useState<WhatsAppPairingData | null>(null);
+  const [connectingMethod, setConnectingMethod] = useState<WhatsAppPairingMethod | null>(null);
+  const [instanceExists, setInstanceExists] = useState(false);
   const [templateDraft, setTemplateDraft] = useState<{
     type: string;
     label: string;
@@ -286,6 +289,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
 
   const checkInstanceStatus = async (name: string) => {
     if (!name) {
+      setInstanceExists(false);
       setInstanceStatus("close");
       return "close";
     }
@@ -293,9 +297,11 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
     try {
       const res = await apiWhatsApp.getStatus(name);
       const state = res.data.instance.state;
+      setInstanceExists(res.data.exists !== false);
       setInstanceStatus(state);
       return state;
     } catch (error) {
+      setInstanceExists(false);
       setInstanceStatus("close");
       return "close";
     }
@@ -476,9 +482,16 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
         active: whatsappData.active,
         instanceName,
       };
-      if (whatsappObj) await apiWhatsApp.update(whatsappObj.id, payload);
-      else await apiWhatsApp.create(payload);
-      await loadChannelData();
+      const response = whatsappObj
+        ? await apiWhatsApp.update(whatsappObj.id, payload)
+        : await apiWhatsApp.create(payload);
+      const savedChannel = response.data;
+      setWhatsappObj((current) => ({
+        ...(current || {}),
+        ...savedChannel,
+        id: String(savedChannel.id),
+        templates: savedChannel.templates || current?.templates || whatsappData.templates,
+      } as WhatsAppChannel));
       if (close) {
         showToast("Mensajeria actualizada");
         setModal(null);
@@ -506,6 +519,35 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
     }
   };
 
+  const generateWhatsAppPairing = async (method: WhatsAppPairingMethod) => {
+    setConnectingMethod(method);
+    try {
+      const saved = await saveWhatsApp(false);
+      if (!saved) return;
+
+      const res = await apiWhatsApp.connect(instanceName, method, whatsappData.phone);
+      const value = method === "qr" ? res.data?.base64 : res.data?.pairingCode;
+      if (!value) throw new Error("Evolution API no devolvió un código");
+      setInstanceExists(true);
+      setPairingData({
+        method,
+        base64: res.data?.base64,
+        pairingCode: res.data?.pairingCode,
+        instanceName,
+        timeLeft: WHATSAPP_PAIRING_WINDOW_SECONDS,
+      });
+    } catch (error: any) {
+      showToast(
+        error?.response?.data?.error ||
+          error?.message ||
+          (method === "qr" ? "Error al generar QR" : "Error al generar el código"),
+        "error",
+      );
+    } finally {
+      setConnectingMethod(null);
+    }
+  };
+
   const openWhatsAppFlow = async (method: WhatsAppPairingMethod) => {
     if (!instanceName) {
       showToast("Este canal no tiene instancia asignada", "error");
@@ -526,27 +568,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       variant: "warning",
       onConfirm: async () => {
         setConfirmDialog({ isOpen: false });
-        const saved = await saveWhatsApp(false);
-        if (!saved) return;
-        try {
-          const res = await apiWhatsApp.connect(instanceName, method, whatsappData.phone);
-          const value = method === "qr" ? res.data?.base64 : res.data?.pairingCode;
-          if (!value) throw new Error("Evolution API no devolvió un código");
-          setPairingData({
-            method,
-            base64: res.data?.base64,
-            pairingCode: res.data?.pairingCode,
-            instanceName,
-            timeLeft: 40,
-          });
-        } catch (error: any) {
-          showToast(
-            error?.response?.data?.error ||
-              error?.message ||
-              (method === "qr" ? "Error al generar QR" : "Error al generar el código"),
-            "error",
-          );
-        }
+        await generateWhatsAppPairing(method);
       },
     });
   };
@@ -563,6 +585,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
         try {
           await apiWhatsApp.disconnect(instanceName);
           setInstanceStatus("close");
+          setInstanceExists(false);
           showToast("WhatsApp desvinculado");
         } catch (error) {
           showToast("No se pudo desvincular WhatsApp", "error");
@@ -1152,6 +1175,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
                 variant="success"
                 className="w-full min-w-0 sm:col-span-1"
                 disabled={instanceStatus === "open"}
+                isLoading={connectingMethod === "qr"}
               >
                 Vincular QR
               </NexusAutonomousButton>
@@ -1162,6 +1186,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
                 variant="success"
                 className="w-full min-w-0 sm:col-span-1"
                 disabled={instanceStatus === "open"}
+                isLoading={connectingMethod === "pairing_code"}
               >
                 Usar código
               </NexusAutonomousButton>
@@ -1175,7 +1200,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
                 Revisar
               </NexusAutonomousButton>
             </div>
-            {instanceStatus === "open" && (
+            {instanceExists && (
               <NexusAutonomousButton
                 onClick={disconnectWhatsApp}
                 icon={LogOut}
@@ -1192,7 +1217,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       <WhatsAppPairingModal
         data={pairingData}
         onClose={() => setPairingData(null)}
-        onRegenerate={openWhatsAppFlow}
+        onRegenerate={generateWhatsAppPairing}
       />
     </div>
   );

@@ -4,7 +4,10 @@ import { storePrisma } from "@nexus/db/store";
 import { rafflePrisma } from "@nexus/db/raffle";
 import { resolveChannels } from "../services/evolution/channel.resolver";
 import { getEvolutionConfigFromSettings } from "../services/evolution/evolution.config";
-import { sendAndLog } from "../services/evolution/evolution.service";
+import {
+  normalizePrincipalInstanceName,
+  sendWhatsappWithFailover,
+} from "../services/evolution/whatsapp-delivery.service";
 import type { WhatsappJobData } from "../queues/whatsapp.queue";
 import type { OrderKind } from "../services/evolution/channel.resolver";
 import { queueName } from "../queues/queue-name";
@@ -59,18 +62,19 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
     const envEvolutionConfig = await getEvolutionConfigFromSettings();
     const globalUrl = getSetting("whatsapp_evolution_url") || envEvolutionConfig.baseUrl;
     const globalKey = getSetting("whatsapp_evolution_key") || envEvolutionConfig.apiKey;
+    const principalInstanceName = normalizePrincipalInstanceName(
+      getSetting("whatsapp_evolution_instance"),
+    );
+    const principalInstance = principalInstanceName && globalUrl && globalKey
+      ? { instanceName: principalInstanceName, baseUrl: globalUrl, apiKey: globalKey }
+      : null;
 
     if (data.kind === "order" || data.kind === "order-cancelled" || data.kind === "order-paid" || data.kind === "order-restored" || data.kind === "order-reminder") {
       const resolved = resolveChannels(data.orderKind, waChannels);
       const wa = resolved.whatsappChannel;
 
       // Determine instance details: Channel specific -> Global Settings
-      let instanceName = wa?.instanceName || getSetting("whatsapp_evolution_instance");
-      
-      // If using global fallback, append _main suffix if not present
-      if (!wa && instanceName && !instanceName.endsWith('_main')) {
-        instanceName = `${instanceName}_main`;
-      }
+      const instanceName = wa?.instanceName || principalInstanceName;
 
       const baseUrl = wa?.evolutionUrl || globalUrl;
       const apiKey = wa?.evolutionKey || globalKey;
@@ -197,8 +201,9 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         'timeRemaining' in data && typeof data.timeRemaining === "string" ? data.timeRemaining : undefined,
       );
 
-      await sendAndLog({
+      await sendWhatsappWithFailover({
         instance: { instanceName, baseUrl, apiKey },
+        principalFallback: wa ? principalInstance : null,
         recipientPhone: data.recipientPhone,
         message,
         templateName:
@@ -263,7 +268,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       const raffleChannel = waChannels.find(
         (channel) => channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
       );
-      const instanceName = raffleChannel?.instanceName || getSetting("whatsapp_evolution_instance");
+      const instanceName = raffleChannel?.instanceName || principalInstanceName;
       const baseUrl = raffleChannel?.evolutionUrl || globalUrl;
       const apiKey = raffleChannel?.evolutionKey || globalKey;
       const template =
@@ -312,8 +317,9 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         .replace(/\{\{opening_date\}\}/g, openingDate);
 
       try {
-        await sendAndLog({
+        await sendWhatsappWithFailover({
           instance: { instanceName, baseUrl, apiKey },
+          principalFallback: raffleChannel ? principalInstance : null,
           recipientPhone: subscription.phone,
           message,
           templateName: "raffle_opening",
@@ -348,9 +354,9 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       );
 
       // FALLBACK: Use specific raffle channel OR global principal instance
-      const instanceName = raffleChannel?.instanceName || getSetting("whatsapp_evolution_instance");
-      const baseUrl = globalUrl || raffleChannel?.evolutionUrl;
-      const apiKey = globalKey || raffleChannel?.evolutionKey;
+      const instanceName = raffleChannel?.instanceName || principalInstanceName;
+      const baseUrl = raffleChannel?.evolutionUrl || globalUrl;
+      const apiKey = raffleChannel?.evolutionKey || globalKey;
 
       if (!instanceName || !baseUrl || !apiKey) {
         console.warn(
@@ -440,8 +446,9 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         'timeRemaining' in data && typeof data.timeRemaining === "string" ? data.timeRemaining : undefined,
       );
 
-      await sendAndLog({
+      await sendWhatsappWithFailover({
         instance: { instanceName, baseUrl, apiKey },
+        principalFallback: raffleChannel ? principalInstance : null,
         recipientPhone: data.recipientPhone,
         message,
         templateName:

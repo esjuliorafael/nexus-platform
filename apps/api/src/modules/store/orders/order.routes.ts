@@ -10,9 +10,10 @@ import {
 import { OrderStatus } from "@prisma/client-store";
 import { storePaymentHoldService } from "./store-payment-hold.service";
 import { z } from "zod";
+import { customerPhoneSchema } from "../../../utils/customer-phone";
 
 const convertPaymentHoldSchema = z.object({
-  customerPhone: z.string().trim().min(1),
+  customerPhone: customerPhoneSchema,
 });
 
 export async function orderRoutes(server: FastifyInstance) {

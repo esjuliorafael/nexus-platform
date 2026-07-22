@@ -80,6 +80,7 @@ export interface WhatsAppMessageLog {
   lastStatusAt?: string | null;
   messageId?: string | null;
   providerStatus?: string | null;
+  responsePayload?: unknown;
 }
 
 export interface Product {
@@ -203,6 +204,49 @@ export interface StoreHero {
   description?: string | null;
   sortOrder: number;
   active: boolean;
+  startsAt?: string | null;
+  endsAt?: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type StorefrontAnnouncementScope =
+  | "GLOBAL"
+  | "STORE"
+  | "RAFFLES"
+  | "RAFFLE"
+  | "PRODUCT"
+  | "STORE_CHECKOUT"
+  | "RAFFLE_CHECKOUT";
+
+export type StorefrontAnnouncementVariant =
+  | "INFO"
+  | "SUCCESS"
+  | "WARNING"
+  | "CRITICAL"
+  | "PROMO";
+
+export type StorefrontAnnouncementFrequency =
+  | "ONCE_VISITOR"
+  | "ONCE_SESSION"
+  | "ALWAYS";
+
+export interface StorefrontAnnouncement {
+  id: string;
+  scope: StorefrontAnnouncementScope;
+  targetId?: number | null;
+  presentation: "POPUP";
+  variant: StorefrontAnnouncementVariant;
+  frequency: StorefrontAnnouncementFrequency;
+  eyebrow?: string | null;
+  title: string;
+  message: string;
+  ctaLabel?: string | null;
+  ctaHref?: string | null;
+  dismissible: boolean;
+  active: boolean;
+  priority: number;
+  version: number;
   startsAt?: string | null;
   endsAt?: string | null;
   createdAt: string;

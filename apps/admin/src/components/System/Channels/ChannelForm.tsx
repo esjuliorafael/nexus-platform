@@ -15,6 +15,7 @@ import {
   WhatsAppPairingData,
   WhatsAppPairingMethod,
   WhatsAppPairingModal,
+  WHATSAPP_PAIRING_WINDOW_SECONDS,
 } from './WhatsAppPairingModal';
 import { resolveChannelInstanceName } from './channelInstance';
 
@@ -110,7 +111,7 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
             base64: res.data?.base64,
             pairingCode: res.data?.pairingCode,
             instanceName,
-            timeLeft: 40,
+            timeLeft: WHATSAPP_PAIRING_WINDOW_SECONDS,
           });
         } catch (error: any) {
           showToast(

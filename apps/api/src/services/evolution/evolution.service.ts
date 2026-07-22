@@ -1,29 +1,15 @@
 import { evolutionClient } from "./evolution.client";
 import type { EvolutionInstance } from "./evolution.types";
 import { storePrisma } from "@nexus/db/store";
+import { toEvolutionPhoneNumber } from "../../utils/customer-phone";
 
 /**
  * Normalizes phone numbers to a format Evolution API expects.
  * Especially handles Mexican numbers (10 digits -> 521 + number)
  */
-function formatPhoneNumber(phone: string): string {
-  // Remove any non-numeric characters
-  let cleaned = phone.replace(/\D/g, "");
+const formatPhoneNumber = toEvolutionPhoneNumber;
 
-  // Handle Mexican numbers (Common case)
-  if (cleaned.length === 10) {
-    return `521${cleaned}`;
-  }
-
-  // If it starts with 52 and has 12 digits, it's missing the '1'
-  if (cleaned.startsWith("52") && cleaned.length === 12) {
-    return `521${cleaned.substring(2)}`;
-  }
-
-  return cleaned;
-}
-
-export async function sendAndLog(params: {
+export type SendAndLogParams = {
   instance: EvolutionInstance;
   recipientPhone: string;
   message: string;
@@ -32,7 +18,22 @@ export async function sendAndLog(params: {
   ticketSaleId?: number;
   jobId?: string;
   attempt?: number;
-}): Promise<void> {
+  routing?: {
+    route: "DIRECT" | "PRINCIPAL_FALLBACK";
+    preferredInstanceName?: string;
+    fallbackReason?: string;
+  };
+};
+
+function buildResponsePayload(result: unknown, routing: SendAndLogParams["routing"]) {
+  const providerPayload = result && typeof result === "object" ? result : {};
+  return {
+    ...providerPayload,
+    nexusRouting: routing || { route: "DIRECT" },
+  };
+}
+
+export async function sendAndLog(params: SendAndLogParams): Promise<void> {
   const attempt = params.attempt ?? 1;
   const formattedPhone = formatPhoneNumber(params.recipientPhone);
 
@@ -52,7 +53,7 @@ export async function sendAndLog(params: {
         jobId: params.jobId ?? null,
         messageId: result.key?.id ?? null,
         providerStatus: result.status ?? null,
-        responsePayload: result as any,
+        responsePayload: buildResponsePayload(result, params.routing) as any,
         templateUsed: params.templateName,
         status: "sent",
       },
@@ -71,6 +72,7 @@ export async function sendAndLog(params: {
         templateUsed: params.templateName,
         status: "failed",
         errorMessage: err?.message ?? "Unknown error",
+        responsePayload: buildResponsePayload(null, params.routing) as any,
       },
     }).catch(() => {}); // never throw
     console.error("[WhatsApp] sendAndLog failed:", err?.message);

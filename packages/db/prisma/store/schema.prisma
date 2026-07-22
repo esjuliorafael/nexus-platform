@@ -147,6 +147,32 @@ model StoreHero {
   @@map("store_heroes")
 }
 
+model StorefrontAnnouncement {
+  id           Int                             @id @default(autoincrement())
+  scope        StorefrontAnnouncementScope
+  targetId     Int?                            @map("target_id")
+  presentation StorefrontAnnouncementDisplay  @default(POPUP)
+  variant      StorefrontAnnouncementVariant  @default(INFO)
+  frequency    StorefrontAnnouncementFrequency @default(ONCE_VISITOR)
+  eyebrow      String?
+  title        String
+  message      String
+  ctaLabel     String?                         @map("cta_label")
+  ctaHref      String?                         @map("cta_href")
+  dismissible  Boolean                         @default(true)
+  active       Boolean                         @default(true)
+  priority     Int                             @default(0)
+  version      Int                             @default(1)
+  startsAt     DateTime?                       @map("starts_at")
+  endsAt       DateTime?                       @map("ends_at")
+  createdAt    DateTime                        @default(now()) @map("created_at")
+  updatedAt    DateTime                        @updatedAt @map("updated_at")
+
+  @@index([active, startsAt, endsAt])
+  @@index([scope, targetId, priority])
+  @@map("storefront_announcements")
+}
+
 model ProductGallery {
   id        Int        @id @default(autoincrement())
   assetId   String     @map("asset_id") @db.Uuid
@@ -577,6 +603,34 @@ enum StoreHeroScope {
   ALL  @map("all")
   ITEM @map("item")
   BIRD @map("bird")
+}
+
+enum StorefrontAnnouncementScope {
+  GLOBAL
+  STORE
+  RAFFLES
+  RAFFLE
+  PRODUCT
+  STORE_CHECKOUT
+  RAFFLE_CHECKOUT
+}
+
+enum StorefrontAnnouncementDisplay {
+  POPUP
+}
+
+enum StorefrontAnnouncementVariant {
+  INFO
+  SUCCESS
+  WARNING
+  CRITICAL
+  PROMO
+}
+
+enum StorefrontAnnouncementFrequency {
+  ONCE_VISITOR
+  ONCE_SESSION
+  ALWAYS
 }
 
 enum CouponDiscountType {

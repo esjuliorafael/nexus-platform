@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { customerPhoneSchema } from "../../../utils/customer-phone";
 
 export const deliveryTypeEnum = z.enum(["SHIPPING", "PICKUP"]);
 export const orderStatusEnum = z.enum(["PENDING", "PAID", "SHIPPED", "DELIVERED", "CANCELLED"]);
@@ -7,7 +8,7 @@ export const paymentMethodEnum = z.enum(["TRANSFER", "MERCADOPAGO"]);
 export const createOrderSchema = z.object({
   customerName: z.string().min(1),
   customerEmail: z.string().email().optional().or(z.literal("")),
-  customerPhone: z.string().min(1),
+  customerPhone: customerPhoneSchema,
   receiverName: z.string().optional(),
   shippingAddress: z.string().optional(),
   shippingStreet: z.string().optional(),
@@ -34,12 +35,12 @@ export const updateOrderStatusSchema = z.object({
 
 export const updateOrderCustomerSchema = z.object({
   customerName: z.string().trim().min(1),
-  customerPhone: z.string().trim().min(1),
+  customerPhone: customerPhoneSchema,
   shippingState: z.string().trim().optional().nullable(),
 });
 
 export const cancelPaymentAttemptSchema = z.object({
-  customerPhone: z.string().trim().min(1),
+  customerPhone: customerPhoneSchema,
 });
 
 export const markOrdersReadSchema = z.object({

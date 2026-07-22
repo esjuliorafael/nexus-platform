@@ -16,6 +16,7 @@ Servicio compartido que recibe el callback OAuth y los webhooks de Mercado Pago 
 
 Cada API tenant que use Mercado Pago debe configurar:
 
+- `MP_PUBLIC_KEY`: clave pública de producción de la aplicación integradora. Es necesaria para montar el Card Payment Brick en el Storefront.
 - `MP_GATEWAY_URL=https://api.link-nex.us`
 - `MP_GATEWAY_SHARED_SECRET`: el mismo secreto del gateway.
 - `MP_TENANT_ID`: identificador estable, por ejemplo `trojes`.

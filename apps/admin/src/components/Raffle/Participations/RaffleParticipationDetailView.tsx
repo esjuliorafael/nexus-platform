@@ -12,6 +12,9 @@ import { NexusAutonomousButton, NexusSectionButton } from "../../ui/NexusButton"
 import { NexusConfirmModal } from "../../ui/NexusConfirmModal";
 import { NexusInput, NexusSelect } from "../../ui/NexusInputs";
 import { NexusModal, NexusModalActions } from "../../ui/NexusModal";
+import { NexusPhoneField } from "../../ui/NexusPhoneField";
+import { isCustomerPhoneComplete } from "../../../utils/customer-phone";
+import { getWhatsappDeliveryRouteLabel } from "../../../utils/whatsapp-routing";
 
 interface RaffleParticipationDetailViewProps {
   participation: RaffleParticipation;
@@ -334,13 +337,12 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
                 icon={UserRound}
                 required
               />
-              <NexusInput
-                label="Teléfono / WhatsApp *"
-                value={participantForm.customerPhone}
-                onChange={(event) => setParticipantForm({ ...participantForm, customerPhone: event.target.value })}
-                placeholder="Ej. 2225251930"
-                icon={Phone}
+              <NexusPhoneField
+                id="raffle-participant-phone"
+                label="Teléfono / WhatsApp"
                 required
+                value={participantForm.customerPhone}
+                onChange={(customerPhone) => setParticipantForm({ ...participantForm, customerPhone })}
               />
               <NexusSelect
                 label="Estado"
@@ -369,7 +371,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
                 variant="brand"
                 icon={Save}
                 isLoading={isSavingParticipant}
-                disabled={!participantForm.customerName.trim() || !participantForm.customerPhone.trim()}
+                disabled={!participantForm.customerName.trim() || !isCustomerPhoneComplete(participantForm.customerPhone)}
                 className="flex-[2]"
               >
                 Guardar Cambios
@@ -501,7 +503,9 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
                 <div key={log.id} className="flex items-center justify-between border-b border-border-main pb-[var(--space-md)] last:border-0 last:pb-0" style={{ gap: "var(--space-md)" }}>
                   <div className="min-w-0">
                     <p className="text-secondary font-bold text-text-main">{log.templateUsed}</p>
-                    <p className="truncate text-secondary text-text-muted">{log.errorMessage || log.providerStatus || "Notificación procesada"}</p>
+                    <p className="truncate text-secondary text-text-muted">
+                      {log.errorMessage || getWhatsappDeliveryRouteLabel(log.responsePayload) || log.providerStatus || "Notificación procesada"}
+                    </p>
                   </div>
                   <div className="shrink-0 text-right">
                     <NexusBadge variant={log.status === "failed" ? "danger" : "success"}>{log.status === "failed" ? "Fallida" : "Enviada"}</NexusBadge>

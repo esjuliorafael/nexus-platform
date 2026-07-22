@@ -31,6 +31,7 @@ import {
   WhatsAppPairingData,
   WhatsAppPairingMethod,
   WhatsAppPairingModal,
+  WHATSAPP_PAIRING_WINDOW_SECONDS,
 } from './WhatsAppPairingModal';
 
 interface PrincipalChannelViewProps {
@@ -185,7 +186,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({ show
         base64: res.data?.base64,
         pairingCode: res.data?.pairingCode,
         instanceName,
-        timeLeft: 40,
+        timeLeft: WHATSAPP_PAIRING_WINDOW_SECONDS,
       });
     } catch (error: any) {
       showToast(

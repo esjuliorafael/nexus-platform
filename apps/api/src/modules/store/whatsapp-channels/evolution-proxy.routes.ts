@@ -52,11 +52,11 @@ export async function evolutionProxyRoutes(server: FastifyInstance) {
     try {
       // 1. Try to get state
       const state = await evolutionClient.getConnectionState({ ...config, instanceName });
-      return state;
+      return { ...state, exists: true };
     } catch (error: any) {
       // Status checks must not create instances or start a connection flow.
       if (isMissingInstanceError(error)) {
-        return { instance: { instanceName, state: "close" } };
+        return { instance: { instanceName, state: "close" }, exists: false };
       }
       return reply.status(500).send({ error: error.message });
     }

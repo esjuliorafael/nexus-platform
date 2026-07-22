@@ -20,12 +20,25 @@ interface BottomSheetProps {
   isOpen: boolean;
   onClose: () => void;
   title?: string;
+  eyebrow?: string;
   icon?: LucideIcon;
+  iconVariant?: 'brand' | 'muted' | 'dark' | 'success' | 'warning' | 'error';
   children: React.ReactNode;
   footer?: React.ReactNode;
+  dismissible?: boolean;
 }
 
-export function BottomSheet({ isOpen, onClose, title, icon, children, footer }: BottomSheetProps) {
+export function BottomSheet({
+  isOpen,
+  onClose,
+  title,
+  eyebrow,
+  icon,
+  iconVariant = 'brand',
+  children,
+  footer,
+  dismissible = true,
+}: BottomSheetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
   useBodyScrollLock(isOpen);
@@ -102,7 +115,7 @@ export function BottomSheet({ isOpen, onClose, title, icon, children, footer }: 
             initial="closed"
             animate="open"
             exit="exit"
-            onClick={onClose}
+            onClick={dismissible ? onClose : undefined}
             className="fixed inset-0 z-50 backdrop-blur-sm"
             style={{ background: 'var(--sf-bottom-sheet-backdrop)' }}
           />
@@ -137,24 +150,30 @@ export function BottomSheet({ isOpen, onClose, title, icon, children, footer }: 
                     className="flex min-w-0 items-center"
                     style={{ gap: 'var(--sf-space-md)' }}
                   >
-                    {icon && <StorefrontIcon icon={icon} context="section" variant="brand" />}
-                    <h3 className="sf-text-h2 text-stone-950">{title}</h3>
+                    {icon && <StorefrontIcon icon={icon} context="section" variant={iconVariant} />}
+                    <div className="flex min-w-0 flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
+                      {eyebrow && <p className="sf-text-label text-brand-600">{eyebrow}</p>}
+                      <h3 className="sf-text-h2 text-stone-950">{title}</h3>
+                    </div>
                   </StorefrontTemporarySurfaceHeaderItem>
                 ) : (
                   <div />
                 )}
-                <StorefrontTemporarySurfaceHeaderItem part="close" className="shrink-0">
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    context="section"
-                    icon={X}
-                    isIconOnly
-                    onClick={onClose}
-                    aria-label="Cerrar"
-                  />
-                </StorefrontTemporarySurfaceHeaderItem>
+                {dismissible && (
+                  <StorefrontTemporarySurfaceHeaderItem part="close" className="shrink-0">
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="icon"
+                      context="section"
+                      icon={X}
+                      isIconOnly
+                      onClick={onClose}
+                      aria-label="Cerrar"
+                      className="border-stone-200 bg-stone-50 text-stone-600 shadow-none hover:bg-stone-100"
+                    />
+                  </StorefrontTemporarySurfaceHeaderItem>
+                )}
               </div>
             </div>
 

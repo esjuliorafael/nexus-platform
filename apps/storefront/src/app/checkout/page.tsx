@@ -40,6 +40,7 @@ import { useToastStore } from "../../store/toast.store";
 import { Button } from "../../components/ui/Button";
 import { StorefrontAutonomousCard, StorefrontCard, StorefrontSectionCard } from "../../components/ui/Card";
 import { StorefrontField, StorefrontSelect } from "../../components/ui/Field";
+import { StorefrontPhoneField } from "../../components/ui/PhoneField";
 import { StorefrontIcon } from "../../components/ui/Icon";
 import { Spinner } from "../../components/ui/Spinner";
 import { StorefrontConfirmModal } from "../../components/ui/ConfirmModal";
@@ -65,6 +66,7 @@ import {
   toMotionSeconds,
 } from "../../lib/motion";
 import { useFeedbackSound } from "../../hooks/useFeedbackSound";
+import { isCustomerPhoneComplete } from "../../lib/customer-phone";
 
 type DeliveryType = "SHIPPING" | "PICKUP";
 type DeliveryMethod = "BUS_STATION" | "AIRPORT" | "PARCEL";
@@ -655,7 +657,7 @@ export default function CheckoutPage() {
     }
 
     if (step === 1) {
-      if (!formData.customerName.trim() || !formData.customerPhone.trim()) {
+      if (!formData.customerName.trim() || !isCustomerPhoneComplete(formData.customerPhone)) {
         showToast("Completa tus datos de contacto para continuar.", "info");
         return false;
       }
@@ -1032,13 +1034,11 @@ export default function CheckoutPage() {
                         value={formData.customerName}
                         onChange={(event) => setFormData({ ...formData, customerName: event.target.value })}
                       />
-                      <StorefrontField
+                      <StorefrontPhoneField
                         required
                         label="Teléfono (WhatsApp)"
-                        type="tel"
-                        placeholder="10 dígitos"
                         value={formData.customerPhone}
-                        onChange={(event) => setFormData({ ...formData, customerPhone: event.target.value })}
+                        onChange={(customerPhone) => setFormData({ ...formData, customerPhone })}
                       />
                       <label
                         className="group md:col-span-2 flex items-center justify-between border border-stone-200 bg-white transition-all duration-300 focus-within:border-brand-500/50 focus-within:ring-4 focus-within:ring-brand-500/10"

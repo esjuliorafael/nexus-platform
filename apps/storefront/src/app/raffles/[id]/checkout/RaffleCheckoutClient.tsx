@@ -27,6 +27,7 @@ import { StorefrontCheckoutSection } from '../../../../components/ui/CheckoutSec
 import { StorefrontCheckoutTopBar } from '../../../../components/ui/CheckoutTopBar';
 import { BottomSheet } from '../../../../components/ui/BottomSheet';
 import { StorefrontField } from '../../../../components/ui/Field';
+import { StorefrontPhoneField } from '../../../../components/ui/PhoneField';
 import { StorefrontPurchaseBar } from '../../../../components/ui/PurchaseBar';
 import { RaffleSelectionSummaryCard } from '../../../../components/raffle/RaffleSelectionSummaryCard';
 import { RaffleTicketSelectionExplorer } from '../../../../components/raffle/RaffleTicketSelectionExplorer';
@@ -48,6 +49,7 @@ import {
 } from '../../../../lib/motion';
 import { useFeedbackSound } from '../../../../hooks/useFeedbackSound';
 import { StorefrontIcon } from '../../../../components/ui/Icon';
+import { isCustomerPhoneComplete } from '../../../../lib/customer-phone';
 
 type RaffleCheckoutStep = 0 | 1;
 type CompletionState = 'reserved' | 'approved' | 'pending' | null;
@@ -193,7 +195,7 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
   );
   const discount = draft?.coupon?.discountTotal || 0;
   const total = Math.max(0, subtotal - discount);
-  const participantComplete = Boolean(customerName.trim() && customerPhone.trim());
+  const participantComplete = Boolean(customerName.trim() && isCustomerPhoneComplete(customerPhone));
   const canContinue = Boolean(draft?.tickets.length && participantComplete);
   const isEmbeddedMP = paymentOptions?.mercadoPago.available
     && mpCheckoutConfig?.mode === 'embedded'
@@ -488,14 +490,11 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
                   onChange={(event) => setCustomerName(event.target.value)}
                   placeholder="Tu nombre"
                 />
-                <StorefrontField
+                <StorefrontPhoneField
                   label="WhatsApp o teléfono"
                   required
-                  type="tel"
-                  icon={User}
                   value={customerPhone}
-                  onChange={(event) => setCustomerPhone(event.target.value)}
-                  placeholder="10 dígitos"
+                  onChange={setCustomerPhone}
                 />
                 <div className="sm:col-span-2">
                   <StorefrontField

@@ -4,6 +4,7 @@ import { NexusAutonomousButton } from "../../ui/NexusButton";
 import { NexusModal } from "../../ui/NexusModal";
 
 export type WhatsAppPairingMethod = "qr" | "pairing_code";
+export const WHATSAPP_PAIRING_WINDOW_SECONDS = 120;
 
 export interface WhatsAppPairingData {
   method: WhatsAppPairingMethod;

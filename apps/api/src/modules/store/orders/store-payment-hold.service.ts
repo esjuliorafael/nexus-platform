@@ -8,6 +8,7 @@ import {
   reservationReminderQueue,
 } from "../../../queues/reservation-reminder.queue";
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
+import { customerPhoneIdentity } from "../../../utils/customer-phone";
 import type { OrderItemPurpose, OrderKind } from "../../../services/evolution/channel.resolver";
 import { validateCouponForItems } from "../coupons/coupon.service";
 import {
@@ -21,8 +22,7 @@ import {
 const holdError = (message: string, statusCode = 400, code?: string) =>
   Object.assign(new Error(message), { statusCode, code });
 
-const normalizePhone = (phone: string | null | undefined) =>
-  String(phone || "").replace(/\D/g, "");
+const normalizePhone = customerPhoneIdentity;
 
 const ensureStoreHoldCanConvert = async (holdId: string, customerPhone: string) => {
   let hold = await storePrisma.storePaymentHold.findUnique({ where: { id: holdId } });

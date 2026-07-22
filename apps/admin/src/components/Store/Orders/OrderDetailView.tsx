@@ -10,9 +10,12 @@ import { NexusSection } from '../../ui/NexusSection';
 import { NexusModal, NexusModalActions } from '../../ui/NexusModal';
 import { NexusConfirmModal } from '../../ui/NexusConfirmModal';
 import { NexusInput, NexusSelect } from '../../ui/NexusInputs';
+import { NexusPhoneField } from '../../ui/NexusPhoneField';
 import { NexusBadge } from '../../ui/NexusBadge';
 import { ASSET_BASE_URL, apiOrders } from '../../../api';
 import { MEXICO_STATES } from '../../../constants';
+import { isCustomerPhoneComplete } from '../../../utils/customer-phone';
+import { getWhatsappDeliveryRouteLabel } from '../../../utils/whatsapp-routing';
 
 // --- SUB-COMPONENTES ---
 
@@ -603,13 +606,12 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                   required
                 />
 
-                <NexusInput
-                  label="Teléfono / WhatsApp *"
-                  value={customerForm.customerPhone}
-                  onChange={(event) => setCustomerForm({ ...customerForm, customerPhone: event.target.value })}
-                  placeholder="Ej. 2225251930"
-                  icon={Phone}
+                <NexusPhoneField
+                  id="order-customer-phone"
+                  label="Teléfono / WhatsApp"
                   required
+                  value={customerForm.customerPhone}
+                  onChange={(customerPhone) => setCustomerForm({ ...customerForm, customerPhone })}
                 />
 
                 <NexusSelect
@@ -641,7 +643,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                   variant="brand"
                   icon={Save}
                   isLoading={isSavingCustomer}
-                  disabled={!customerForm.customerName.trim() || !customerForm.customerPhone.trim()}
+                  disabled={!customerForm.customerName.trim() || !isCustomerPhoneComplete(customerForm.customerPhone)}
                   className="flex-[2]"
                 >
                   Guardar Cambios
@@ -883,6 +885,11 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                     value={selectedWhatsappLog.lastStatusAt ? formatDateTime(selectedWhatsappLog.lastStatusAt) : 'Sin actualización'}
                   />
                   <DetailField label="Instancia" value={selectedWhatsappLog.instanceName} wide />
+                  <DetailField
+                    label="Ruta de envío"
+                    value={getWhatsappDeliveryRouteLabel(selectedWhatsappLog.responsePayload) || 'Canal configurado'}
+                    wide
+                  />
                   <DetailField label="Message ID" value={selectedWhatsappLog.messageId || 'No disponible'} wide />
                   {selectedWhatsappLog.jobId && (
                     <DetailField label="Job ID" value={selectedWhatsappLog.jobId} wide />

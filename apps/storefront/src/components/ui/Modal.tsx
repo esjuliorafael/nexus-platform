@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, LucideIcon, AlertCircle } from 'lucide-react';
@@ -12,6 +12,7 @@ interface StorefrontModalProps {
   onClose: () => void;
   title: string;
   description?: string;
+  eyebrow?: string;
   icon?: LucideIcon;
   variant?: 'brand' | 'danger' | 'success';
   width?: 'compact' | 'standard' | 'wide';
@@ -20,6 +21,7 @@ interface StorefrontModalProps {
   onConfirm?: () => void;
   showDefaultActions?: boolean;
   children?: React.ReactNode;
+  dismissible?: boolean;
 }
 
 export function StorefrontModal({
@@ -27,6 +29,7 @@ export function StorefrontModal({
   onClose,
   title,
   description,
+  eyebrow,
   icon = AlertCircle,
   variant = 'brand',
   width = 'standard',
@@ -34,19 +37,37 @@ export function StorefrontModal({
   cancelLabel = 'Cancelar',
   onConfirm,
   showDefaultActions = true,
-  children
+  children,
+  dismissible = true,
 }: StorefrontModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const previousFocusRef = useRef<HTMLElement | null>(null);
   // Prevent body scroll when open
   useEffect(() => {
     if (isOpen) {
+      previousFocusRef.current = document.activeElement as HTMLElement | null;
+      const previousOverflow = document.body.style.overflow;
       document.body.style.overflow = 'hidden';
-    } else {
-      document.body.style.overflow = 'unset';
+      const frame = requestAnimationFrame(() => {
+        (dismissible ? closeButtonRef.current : dialogRef.current)?.focus();
+      });
+      return () => {
+        cancelAnimationFrame(frame);
+        document.body.style.overflow = previousOverflow;
+        previousFocusRef.current?.focus();
+      };
     }
-    return () => {
-      document.body.style.overflow = 'unset';
+  }, [dismissible, isOpen]);
+
+  useEffect(() => {
+    if (!isOpen || !dismissible) return;
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') onClose();
     };
-  }, [isOpen]);
+    document.addEventListener('keydown', onKeyDown);
+    return () => document.removeEventListener('keydown', onKeyDown);
+  }, [dismissible, isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -58,13 +79,18 @@ export function StorefrontModal({
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          onClick={onClose}
+          onClick={dismissible ? onClose : undefined}
           className="absolute inset-0 backdrop-blur-md"
           style={{ background: 'var(--sf-modal-backdrop)' }}
         />
 
         {/* Modal Card */}
         <motion.div
+          ref={dialogRef}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="storefront-modal-title"
+          tabIndex={-1}
           initial={{ opacity: 0, scale: 0.95, y: 32 }}
           animate={{ opacity: 1, scale: 1, y: 0 }}
           exit={{ opacity: 0, scale: 0.95, y: 32 }}
@@ -97,18 +123,27 @@ export function StorefrontModal({
                   className={variant === 'danger' ? 'bg-red-50 text-red-500 border-red-100 shadow-none' : ''}
                 />
                 <div className="space-y-2">
-                  <h2 className="sf-text-h1 tracking-tight text-stone-850 leading-none">{title}</h2>
+                  {eyebrow && <p className="sf-text-label uppercase text-brand-600">{eyebrow}</p>}
+                  <h2 id="storefront-modal-title" className="sf-text-h1 tracking-tight text-stone-850 leading-none">{title}</h2>
                   {description && (
                     <p className="sf-text-body text-stone-500 font-medium">{description}</p>
                   )}
                 </div>
               </div>
-              <button 
-                onClick={onClose}
-                className="w-10 h-10 flex items-center justify-center rounded-full hover:bg-stone-100 text-stone-400 transition-colors"
-              >
-                <X size={20} />
-              </button>
+              {dismissible && (
+                <Button
+                  ref={closeButtonRef}
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  context="section"
+                  icon={X}
+                  isIconOnly
+                  onClick={onClose}
+                  aria-label="Cerrar"
+                  className="shrink-0 border-stone-200 bg-stone-50 text-stone-600 shadow-none hover:bg-stone-100"
+                />
+              )}
             </div>
           </div>
 

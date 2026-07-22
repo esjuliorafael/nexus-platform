@@ -22,6 +22,7 @@ import {
   HomeSlide,
   StoreHero,
   StoreHeroScope,
+  StorefrontAnnouncement,
   Coupon,
   OwnProfile,
   WhatsAppMessageLog,
@@ -405,6 +406,34 @@ export const apiStoreHeroes = {
   delete: async (id: string) => {
     return api.delete(`/admin/store-heroes/${id}`);
   },
+};
+
+const mapStorefrontAnnouncement = (item: any): StorefrontAnnouncement => ({
+  ...item,
+  id: String(item.id),
+  targetId: item.targetId == null ? null : Number(item.targetId),
+  priority: Number(item.priority || 0),
+  version: Number(item.version || 1),
+});
+
+export const apiStorefrontAnnouncements = {
+  getAll: async (): Promise<StorefrontAnnouncement[]> => {
+    const res = await api.get("/admin/storefront-announcements");
+    return res.data.map(mapStorefrontAnnouncement);
+  },
+  create: async (data: Omit<StorefrontAnnouncement, "id" | "version" | "createdAt" | "updatedAt">) => {
+    const res = await api.post("/admin/storefront-announcements", data);
+    return mapStorefrontAnnouncement(res.data);
+  },
+  update: async (id: string, data: Partial<StorefrontAnnouncement>) => {
+    const res = await api.put(`/admin/storefront-announcements/${id}`, data);
+    return mapStorefrontAnnouncement(res.data);
+  },
+  updateStatus: async (id: string, active: boolean) => {
+    const res = await api.patch(`/admin/storefront-announcements/${id}/status`, { active });
+    return mapStorefrontAnnouncement(res.data);
+  },
+  delete: async (id: string) => api.delete(`/admin/storefront-announcements/${id}`),
 };
 
 const mapNullableNumber = (value: any) =>
