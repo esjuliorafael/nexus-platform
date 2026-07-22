@@ -3,6 +3,7 @@ import { whatsappQueue } from "../../../queues/whatsapp.queue";
 import { reconcileRecoverableWhatsappJobs } from "../../../services/whatsapp-recovery.service";
 import {
   invalidateWhatsappConnectionState,
+  markWhatsappInstanceProviderRejected,
   normalizePrincipalInstanceName,
 } from "../../../services/evolution/whatsapp-delivery.service";
 
@@ -195,6 +196,7 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
 
       let fallbackScheduled = false;
       if (nextStatus === "failed" && String(failureCode) === "463" && existing.jobId) {
+        markWhatsappInstanceProviderRejected(existing.instanceName);
         const [principalSetting, originalJob] = await Promise.all([
           server.storePrisma.setting.findUnique({
             where: { key: "whatsapp_evolution_instance" },

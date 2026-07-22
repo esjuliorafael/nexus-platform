@@ -3,6 +3,7 @@ import { sendAndLog, type SendAndLogParams } from "./evolution.service";
 import type { EvolutionInstance } from "./evolution.types";
 
 const CONNECTION_STATE_TTL_MS = 30_000;
+const PROVIDER_REJECTION_COOLDOWN_MS = 10 * 60_000;
 const RECOVERABLE_CONNECTION_MARKERS = [
   "connection closed",
   "connection close",
@@ -17,6 +18,7 @@ type CachedConnectionState = {
 };
 
 const connectionStateCache = new Map<string, CachedConnectionState>();
+const providerRejectedUntil = new Map<string, number>();
 
 export type WhatsappDeliveryRoute = {
   route: "DIRECT" | "PRINCIPAL_FALLBACK";
@@ -66,6 +68,19 @@ export function invalidateWhatsappConnectionState(instanceName: string) {
   }
 }
 
+export function markWhatsappInstanceProviderRejected(instanceName: string) {
+  providerRejectedUntil.set(instanceName, Date.now() + PROVIDER_REJECTION_COOLDOWN_MS);
+}
+
+function isWhatsappInstanceProviderRejected(instanceName: string) {
+  const rejectedUntil = providerRejectedUntil.get(instanceName) || 0;
+  if (rejectedUntil <= Date.now()) {
+    providerRejectedUntil.delete(instanceName);
+    return false;
+  }
+  return true;
+}
+
 function withRouting(
   params: SendAndLogParams,
   instance: EvolutionInstance,
@@ -85,6 +100,14 @@ export async function sendWhatsappWithFailover(params: SendAndLogParams & {
 
   if (!principal) {
     return withRouting(messageParams, preferred, { route: "DIRECT" });
+  }
+
+  if (isWhatsappInstanceProviderRejected(preferred.instanceName)) {
+    return withRouting(messageParams, principal, {
+      route: "PRINCIPAL_FALLBACK",
+      preferredInstanceName: preferred.instanceName,
+      fallbackReason: "WhatsApp rechazó recientemente los envíos de la instancia especializada.",
+    });
   }
 
   try {
