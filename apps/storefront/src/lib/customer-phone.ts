@@ -33,6 +33,16 @@ export function parseCustomerPhone(
   if (digits.startsWith("1") && digits.length === 11) {
     return { country: "US" as const, nationalNumber: digits.slice(1) };
   }
+  if (raw.startsWith("+")) {
+    const fallbackConfig = CUSTOMER_PHONE_COUNTRIES[fallbackCountry];
+    const maxInternationalLength = fallbackConfig.callingCode.length + fallbackConfig.nationalLength;
+    if (digits.startsWith(fallbackConfig.callingCode) && digits.length <= maxInternationalLength) {
+      return {
+        country: fallbackCountry,
+        nationalNumber: digits.slice(fallbackConfig.callingCode.length),
+      };
+    }
+  }
   if (!raw.startsWith("+") && digits.length <= CUSTOMER_PHONE_COUNTRIES[fallbackCountry].nationalLength) {
     return { country: fallbackCountry, nationalNumber: digits };
   }
