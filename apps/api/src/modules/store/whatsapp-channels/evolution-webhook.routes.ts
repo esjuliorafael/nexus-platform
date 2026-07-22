@@ -41,11 +41,6 @@ const firstValue = (source: any, paths: string[]) => {
   return null;
 };
 
-const cleanRemotePhone = (value?: unknown) => {
-  if (!value) return "";
-  return String(value).replace(/@s\.whatsapp\.net|@c\.us|@g\.us/g, "");
-};
-
 const shouldUpdateStatus = (currentStatus: string | null, nextStatus: string) => {
   if (nextStatus === "failed") {
     return currentStatus !== "delivered" && currentStatus !== "read";
@@ -142,16 +137,6 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
       "error.code",
     ]);
     const nextStatus = normalizeStatus(providerStatus, failureCode);
-    const recipientPhone = cleanRemotePhone(
-      firstValue(payload, [
-        "data.key.remoteJid",
-        "data.remoteJid",
-        "data.message.key.remoteJid",
-        "key.remoteJid",
-        "remoteJid",
-      ]),
-    );
-
     let existing = await server.storePrisma.whatsappMessageLog.findFirst({
       where: { messageId: String(messageId) },
       orderBy: { sentAt: "desc" },
@@ -226,24 +211,6 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
       return reply.send({ ok: true, updated: true, fallbackScheduled });
     }
 
-    await server.storePrisma.whatsappMessageLog.create({
-      data: {
-        status: nextStatus,
-        providerStatus: providerStatus ? String(providerStatus) : null,
-        responsePayload: payload,
-        lastStatusAt: new Date(),
-        instanceName: String(instanceName),
-        messageId: String(messageId),
-        recipientPhone: recipientPhone || "unknown",
-        templateUsed: "webhook",
-        errorMessage: nextStatus === "failed"
-          ? (failureCode
-            ? `WhatsApp rechazó el mensaje (código ${String(failureCode)}).`
-            : String(firstValue(payload, ["data.error", "error", "message"]) || "Evolution reportó fallo."))
-          : null,
-      },
-    });
-
-    return reply.send({ ok: true, created: true });
+    return reply.send({ ok: true, ignored: "unknown_message_id" });
   });
 }
