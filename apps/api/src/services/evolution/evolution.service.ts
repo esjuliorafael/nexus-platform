@@ -55,7 +55,7 @@ export async function sendAndLog(params: SendAndLogParams): Promise<void> {
         providerStatus: result.status ?? null,
         responsePayload: buildResponsePayload(result, params.routing) as any,
         templateUsed: params.templateName,
-        status: "sent",
+        status: String(result.status || "").toLowerCase() === "pending" ? "pending" : "sent",
       },
     }).catch((logError) => {
       console.error("[WhatsApp] Message sent but log creation failed:", logError?.message);

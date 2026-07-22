@@ -56,6 +56,15 @@ const getMercadoPagoStatusLabel = (
   return "Pendiente";
 };
 
+const getWhatsappLogBadge = (status: string) => {
+  if (status === "failed") return { label: "Fallida", variant: "danger" as const };
+  if (status === "pending") return { label: "Pendiente", variant: "warning" as const };
+  if (status === "server_ack") return { label: "Aceptada", variant: "info" as const };
+  if (status === "delivered") return { label: "Entregada", variant: "success" as const };
+  if (status === "read") return { label: "Leída", variant: "success" as const };
+  return { label: "Enviada", variant: "success" as const };
+};
+
 export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailViewProps> = ({ participation, onLoaded, showToast }) => {
   const [detail, setDetail] = useState<RaffleParticipation>(participation);
   const [isLoading, setIsLoading] = useState(true);
@@ -537,7 +546,9 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
         >
           {detail.whatsappLogs?.length ? (
             <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
-              {detail.whatsappLogs.map((log) => (
+              {detail.whatsappLogs.map((log) => {
+                const badge = getWhatsappLogBadge(log.status);
+                return (
                 <div key={log.id} className="flex items-center justify-between border-b border-border-main pb-[var(--space-md)] last:border-0 last:pb-0" style={{ gap: "var(--space-md)" }}>
                   <div className="min-w-0">
                     <p className="text-secondary font-bold text-text-main">{log.templateUsed}</p>
@@ -546,11 +557,11 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <NexusBadge variant={log.status === "failed" ? "danger" : "success"}>{log.status === "failed" ? "Fallida" : "Enviada"}</NexusBadge>
+                    <NexusBadge variant={badge.variant}>{badge.label}</NexusBadge>
                     <p className="text-label text-text-muted" style={{ marginTop: "var(--space-xs)" }}><Clock size={11} className="inline" /> {formatDateTime(log.sentAt)}</p>
                   </div>
                 </div>
-              ))}
+              );})}
             </div>
           ) : (
             <p className="text-secondary text-text-muted">Aún no hay notificaciones registradas para esta participación.</p>

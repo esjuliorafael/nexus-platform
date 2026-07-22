@@ -189,6 +189,7 @@ const getWhatsAppStatusLabel = (status: string) => {
   if (status === 'read') return 'Leído';
   if (status === 'delivered') return 'Entregado';
   if (status === 'server_ack') return 'Aceptado';
+  if (status === 'pending') return 'Pendiente';
   if (status === 'sent') return 'Enviado';
   if (status === 'failed') return 'Fallido';
   return status;
@@ -797,6 +798,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
 
               {whatsappLogs.map((log) => {
                 const isFailed = log.status === 'failed';
+                const isPending = log.status === 'pending';
                 const statusLabel = getWhatsAppStatusLabel(log.status);
 
                 return (
@@ -814,13 +816,19 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                     <div className="flex min-w-0 items-center" style={{ gap: 'var(--space-md)' }}>
                       <div
                         className={`flex h-11 w-11 shrink-0 items-center justify-center border ${
-                          !isFailed
-                            ? 'border-emerald-100 bg-emerald-50 text-emerald-600'
-                            : 'border-rose-100 bg-rose-50 text-rose-500'
+                          isFailed
+                            ? 'border-rose-100 bg-rose-50 text-rose-500'
+                            : isPending
+                              ? 'border-amber-100 bg-amber-50 text-amber-600'
+                              : 'border-emerald-100 bg-emerald-50 text-emerald-600'
                         }`}
                         style={{ borderRadius: 'var(--radius-nested-simple)' }}
                       >
-                        {!isFailed ? <CheckCircle2 size={20} /> : <CircleX size={20} />}
+                        {isFailed
+                          ? <CircleX size={20} />
+                          : isPending
+                            ? <Clock size={20} />
+                            : <CheckCircle2 size={20} />}
                       </div>
 
                       <div className="flex min-w-0 flex-col" style={{ gap: 'var(--space-xs)' }}>

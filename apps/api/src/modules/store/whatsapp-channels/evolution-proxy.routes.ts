@@ -29,6 +29,7 @@ export async function evolutionProxyRoutes(server: FastifyInstance) {
       process.env.API_PUBLIC_URL ||
       process.env.PUBLIC_API_URL ||
       process.env.WEBHOOK_BASE_URL ||
+      process.env.MP_TENANT_PUBLIC_API_URL ||
       "";
 
     if (configuredBaseUrl) {
@@ -38,6 +39,27 @@ export async function evolutionProxyRoutes(server: FastifyInstance) {
     const protocol = request.headers["x-forwarded-proto"] || request.protocol || "http";
     const host = request.headers["x-forwarded-host"] || request.headers.host;
     return `${protocol}://${host}/api/v1/webhooks/evolution`;
+  }
+
+  async function configureInstanceWebhook(request: any, instanceName: string) {
+    const config = await getEvolutionConfigFromSettings();
+    const webhookToken =
+      process.env.EVOLUTION_WEBHOOK_TOKEN ||
+      process.env.WHATSAPP_WEBHOOK_TOKEN ||
+      "";
+
+    await evolutionClient.setWebhook(
+      { ...config, instanceName },
+      {
+        enabled: true,
+        url: getWebhookUrl(request),
+        webhookByEvents: false,
+        events: ["SEND_MESSAGE_UPDATE", "MESSAGES_UPDATE", "CONNECTION_UPDATE"],
+        headers: webhookToken
+          ? { "x-nexus-webhook-token": webhookToken }
+          : undefined,
+      },
+    );
   }
 
   // GET /admin/whatsapp/status/:instanceName
@@ -87,6 +109,7 @@ export async function evolutionProxyRoutes(server: FastifyInstance) {
 
     try {
       const connection = await evolutionClient.getConnectionCode({ ...config, instanceName }, number);
+      await configureInstanceWebhook(request, instanceName);
       if (body.method === "pairing_code" && !connection.pairingCode) {
         return reply.status(409).send({
           error: "La instancia ya esta generando un QR. Espera a que expire antes de solicitar un codigo.",
@@ -103,6 +126,8 @@ export async function evolutionProxyRoutes(server: FastifyInstance) {
           const connection = created.qrcode?.base64 || created.qrcode?.pairingCode
             ? created.qrcode
             : await evolutionClient.getConnectionCode({ ...config, instanceName }, number);
+
+          await configureInstanceWebhook(request, instanceName);
 
           if (body.method === "pairing_code" && !connection?.pairingCode) {
             return reply.status(502).send({ error: "Evolution API no genero el codigo de emparejamiento" });
@@ -162,7 +187,7 @@ export async function evolutionProxyRoutes(server: FastifyInstance) {
         {
           enabled: true,
           url: webhookUrl,
-          webhookByEvents: true,
+          webhookByEvents: false,
           events: [
             "SEND_MESSAGE_UPDATE",
             "MESSAGES_UPDATE",

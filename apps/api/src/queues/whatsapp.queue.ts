@@ -6,7 +6,12 @@ import { queueName } from "./queue-name";
 const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
 const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
 
-export type WhatsappJobData =
+type WhatsappJobRouting = {
+  forcePrincipal?: boolean;
+  fallbackOfMessageId?: string;
+};
+
+export type WhatsappJobData = (
   | {
       kind: "order";
       orderId: string;
@@ -68,7 +73,8 @@ export type WhatsappJobData =
       kind: "raffle-opening";
       subscriptionId: string;
       recipientPhone: string;
-    };
+    }
+) & WhatsappJobRouting;
 
 export const whatsappQueue = new Queue<WhatsappJobData>(
   queueName("whatsapp-notifications"),

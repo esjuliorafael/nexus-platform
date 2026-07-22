@@ -1,24 +1,30 @@
 import { FastifyInstance } from "fastify";
+import { whatsappQueue } from "../../../queues/whatsapp.queue";
 import { reconcileRecoverableWhatsappJobs } from "../../../services/whatsapp-recovery.service";
-import { invalidateWhatsappConnectionState } from "../../../services/evolution/whatsapp-delivery.service";
+import {
+  invalidateWhatsappConnectionState,
+  normalizePrincipalInstanceName,
+} from "../../../services/evolution/whatsapp-delivery.service";
 
 const STATUS_PRIORITY: Record<string, number> = {
   failed: 0,
-  sent: 1,
-  server_ack: 2,
-  delivered: 3,
-  read: 4,
+  pending: 1,
+  sent: 2,
+  server_ack: 3,
+  delivered: 4,
+  read: 5,
 };
 
-const normalizeStatus = (value?: unknown) => {
+const normalizeStatus = (value?: unknown, failureCode?: unknown) => {
   const raw = String(value ?? "").toLowerCase();
+  const code = String(failureCode ?? "").trim();
 
-  if (!raw) return "sent";
-  if (raw.includes("read") || raw === "4") return "read";
-  if (raw.includes("delivery") || raw.includes("delivered") || raw === "3") return "delivered";
-  if (raw.includes("server") || raw.includes("ack") || raw === "2") return "server_ack";
-  if (raw.includes("error") || raw.includes("fail") || raw === "-1") return "failed";
-  if (raw.includes("sent") || raw === "1") return "sent";
+  if (code || raw.includes("error") || raw.includes("fail") || raw === "-1") return "failed";
+  if (!raw || raw.includes("pending") || raw === "0") return "pending";
+  if (raw.includes("read") || raw.includes("played") || raw === "3" || raw === "4") return "read";
+  if (raw.includes("delivery") || raw.includes("delivered") || raw === "2") return "delivered";
+  if (raw.includes("server") || raw.includes("ack") || raw === "1") return "server_ack";
+  if (raw.includes("sent")) return "sent";
 
   return raw;
 };
@@ -40,10 +46,16 @@ const cleanRemotePhone = (value?: unknown) => {
 };
 
 const shouldUpdateStatus = (currentStatus: string | null, nextStatus: string) => {
+  if (nextStatus === "failed") {
+    return currentStatus !== "delivered" && currentStatus !== "read";
+  }
   const currentPriority = STATUS_PRIORITY[currentStatus || "sent"] ?? 1;
   const nextPriority = STATUS_PRIORITY[nextStatus] ?? currentPriority;
   return nextPriority >= currentPriority;
 };
+
+const wait = (milliseconds: number) =>
+  new Promise((resolve) => setTimeout(resolve, milliseconds));
 
 export async function evolutionWebhookRoutes(server: FastifyInstance) {
   server.post("/evolution", async (request, reply) => {
@@ -64,7 +76,10 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
       return reply.status(401).send({ message: "Unauthorized webhook" });
     }
 
-    const payload = request.body as any;
+    const rawPayload = request.body as any;
+    const payload = Array.isArray(rawPayload?.data)
+      ? { ...rawPayload, data: rawPayload.data[0] }
+      : rawPayload;
     const data = payload?.data ?? payload;
     const instanceName =
       firstValue(payload, ["instance", "data.instance", "data.instanceName"]) ||
@@ -116,7 +131,15 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
       "ack",
       "event",
     ]);
-    const nextStatus = normalizeStatus(providerStatus);
+    const failureCode = firstValue(payload, [
+      "data.update.messageStubParameters.0",
+      "data.messageStubParameters.0",
+      "update.messageStubParameters.0",
+      "messageStubParameters.0",
+      "data.error.code",
+      "error.code",
+    ]);
+    const nextStatus = normalizeStatus(providerStatus, failureCode);
     const recipientPhone = cleanRemotePhone(
       firstValue(payload, [
         "data.key.remoteJid",
@@ -127,12 +150,29 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
       ]),
     );
 
-    const existing = await server.storePrisma.whatsappMessageLog.findFirst({
+    let existing = await server.storePrisma.whatsappMessageLog.findFirst({
       where: { messageId: String(messageId) },
       orderBy: { sentAt: "desc" },
     });
 
+    // Evolution can emit an ACK before the send request has finished writing its log.
+    if (!existing) {
+      await wait(500);
+      existing = await server.storePrisma.whatsappMessageLog.findFirst({
+        where: { messageId: String(messageId) },
+        orderBy: { sentAt: "desc" },
+      });
+    }
+
     if (existing) {
+      const failureMessage = failureCode
+        ? `WhatsApp rechazó el mensaje (código ${String(failureCode)}).`
+        : String(
+          firstValue(payload, ["data.error", "error", "message"]) ||
+          existing.errorMessage ||
+          "Evolution reportó fallo.",
+        );
+
       await server.storePrisma.whatsappMessageLog.update({
         where: { id: existing.id },
         data: {
@@ -149,13 +189,36 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
             ),
           },
           lastStatusAt: new Date(),
-          errorMessage: nextStatus === "failed"
-            ? String(firstValue(payload, ["data.error", "error", "message"]) || existing.errorMessage || "Evolution reportó fallo.")
-            : existing.errorMessage,
+          errorMessage: nextStatus === "failed" ? failureMessage : existing.errorMessage,
         },
       });
 
-      return reply.send({ ok: true, updated: true });
+      let fallbackScheduled = false;
+      if (nextStatus === "failed" && String(failureCode) === "463" && existing.jobId) {
+        const [principalSetting, originalJob] = await Promise.all([
+          server.storePrisma.setting.findUnique({
+            where: { key: "whatsapp_evolution_instance" },
+            select: { value: true },
+          }),
+          whatsappQueue.getJob(existing.jobId),
+        ]);
+        const principalInstanceName = normalizePrincipalInstanceName(principalSetting?.value);
+
+        if (originalJob && principalInstanceName && existing.instanceName !== principalInstanceName) {
+          await whatsappQueue.add(
+            `${originalJob.name}-principal-fallback`,
+            {
+              ...originalJob.data,
+              forcePrincipal: true,
+              fallbackOfMessageId: String(messageId),
+            },
+            { jobId: `provider-fallback-${String(messageId)}` },
+          );
+          fallbackScheduled = true;
+        }
+      }
+
+      return reply.send({ ok: true, updated: true, fallbackScheduled });
     }
 
     await server.storePrisma.whatsappMessageLog.create({
@@ -169,7 +232,9 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
         recipientPhone: recipientPhone || "unknown",
         templateUsed: "webhook",
         errorMessage: nextStatus === "failed"
-          ? String(firstValue(payload, ["data.error", "error", "message"]) || "Evolution reportó fallo.")
+          ? (failureCode
+            ? `WhatsApp rechazó el mensaje (código ${String(failureCode)}).`
+            : String(firstValue(payload, ["data.error", "error", "message"]) || "Evolution reportó fallo."))
           : null,
       },
     });

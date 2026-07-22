@@ -20,6 +20,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
   queueName("whatsapp-notifications"),
   async (job: Job<WhatsappJobData>) => {
     const { data } = job;
+    const forcePrincipal = data.forcePrincipal === true;
 
     // Load global Evolution settings, all active WhatsApp channels, and payment channels
     const [settings, waChannels, payChannels] = await Promise.all([
@@ -74,10 +75,12 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       const wa = resolved.whatsappChannel;
 
       // Determine instance details: Channel specific -> Global Settings
-      const instanceName = wa?.instanceName || principalInstanceName;
+      const instanceName = forcePrincipal
+        ? principalInstanceName
+        : wa?.instanceName || principalInstanceName;
 
-      const baseUrl = wa?.evolutionUrl || globalUrl;
-      const apiKey = wa?.evolutionKey || globalKey;
+      const baseUrl = forcePrincipal ? globalUrl : wa?.evolutionUrl || globalUrl;
+      const apiKey = forcePrincipal ? globalKey : wa?.evolutionKey || globalKey;
       
       if (!instanceName || !baseUrl || !apiKey) {
         console.warn(
@@ -203,7 +206,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
 
       await sendWhatsappWithFailover({
         instance: { instanceName, baseUrl, apiKey },
-        principalFallback: wa ? principalInstance : null,
+        principalFallback: !forcePrincipal && wa ? principalInstance : null,
         recipientPhone: data.recipientPhone,
         message,
         templateName:
@@ -227,21 +230,27 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         where: { id: data.subscriptionId },
         include: { raffle: true },
       });
-      if (!subscription || subscription.status === "SENT" || subscription.status === "CANCELLED") {
+      if (
+        !subscription ||
+        subscription.status === "CANCELLED" ||
+        (subscription.status === "SENT" && !forcePrincipal)
+      ) {
         return;
       }
 
-      const claimed = await rafflePrisma.raffleOpeningSubscription.updateMany({
-        where: {
-          id: subscription.id,
-          status: { in: ["PENDING", "FAILED"] },
-        },
-        data: {
-          status: "PROCESSING",
-          lastError: null,
-        },
-      });
-      if (claimed.count === 0) return;
+      if (!forcePrincipal) {
+        const claimed = await rafflePrisma.raffleOpeningSubscription.updateMany({
+          where: {
+            id: subscription.id,
+            status: { in: ["PENDING", "FAILED"] },
+          },
+          data: {
+            status: "PROCESSING",
+            lastError: null,
+          },
+        });
+        if (claimed.count === 0) return;
+      }
 
       const now = new Date();
       const raffle = subscription.raffle;
@@ -268,9 +277,11 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       const raffleChannel = waChannels.find(
         (channel) => channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
       );
-      const instanceName = raffleChannel?.instanceName || principalInstanceName;
-      const baseUrl = raffleChannel?.evolutionUrl || globalUrl;
-      const apiKey = raffleChannel?.evolutionKey || globalKey;
+      const instanceName = forcePrincipal
+        ? principalInstanceName
+        : raffleChannel?.instanceName || principalInstanceName;
+      const baseUrl = forcePrincipal ? globalUrl : raffleChannel?.evolutionUrl || globalUrl;
+      const apiKey = forcePrincipal ? globalKey : raffleChannel?.evolutionKey || globalKey;
       const template =
         raffleChannel?.templates?.find(
           (item: any) => item.active && item.type.toLowerCase() === "opening",
@@ -319,7 +330,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       try {
         await sendWhatsappWithFailover({
           instance: { instanceName, baseUrl, apiKey },
-          principalFallback: raffleChannel ? principalInstance : null,
+          principalFallback: !forcePrincipal && raffleChannel ? principalInstance : null,
           recipientPhone: subscription.phone,
           message,
           templateName: "raffle_opening",
@@ -354,9 +365,11 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       );
 
       // FALLBACK: Use specific raffle channel OR global principal instance
-      const instanceName = raffleChannel?.instanceName || principalInstanceName;
-      const baseUrl = raffleChannel?.evolutionUrl || globalUrl;
-      const apiKey = raffleChannel?.evolutionKey || globalKey;
+      const instanceName = forcePrincipal
+        ? principalInstanceName
+        : raffleChannel?.instanceName || principalInstanceName;
+      const baseUrl = forcePrincipal ? globalUrl : raffleChannel?.evolutionUrl || globalUrl;
+      const apiKey = forcePrincipal ? globalKey : raffleChannel?.evolutionKey || globalKey;
 
       if (!instanceName || !baseUrl || !apiKey) {
         console.warn(
@@ -448,7 +461,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
 
       await sendWhatsappWithFailover({
         instance: { instanceName, baseUrl, apiKey },
-        principalFallback: raffleChannel ? principalInstance : null,
+        principalFallback: !forcePrincipal && raffleChannel ? principalInstance : null,
         recipientPhone: data.recipientPhone,
         message,
         templateName:
