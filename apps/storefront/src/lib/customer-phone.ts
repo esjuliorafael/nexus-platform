@@ -55,6 +55,32 @@ export function buildCustomerPhone(country: CustomerPhoneCountry, nationalNumber
   return digits ? `+${config.callingCode}${digits}` : "";
 }
 
+export function normalizeCustomerPhoneInput(
+  country: CustomerPhoneCountry,
+  value: string,
+) {
+  const config = CUSTOMER_PHONE_COUNTRIES[country];
+  const digits = value.replace(/\D/g, "");
+
+  // Accept the legacy +521 mobile format when it is pasted in full.
+  if (country === "MX" && digits.startsWith("521") && digits.length === 13) {
+    return digits.slice(3);
+  }
+
+  // Keep ordinary national numbers intact. Once the input exceeds the national
+  // length, a matching calling code is unambiguously a duplicated prefix.
+  if (
+    digits.length > config.nationalLength &&
+    digits.startsWith(config.callingCode)
+  ) {
+    return digits
+      .slice(config.callingCode.length)
+      .slice(0, config.nationalLength);
+  }
+
+  return digits.slice(0, config.nationalLength);
+}
+
 export function isCustomerPhoneComplete(value: string | null | undefined) {
   const parsed = parseCustomerPhone(value);
   return parsed.nationalNumber.length === CUSTOMER_PHONE_COUNTRIES[parsed.country].nationalLength;

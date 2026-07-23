@@ -7,6 +7,7 @@ import {
   CUSTOMER_PHONE_COUNTRIES,
   CUSTOMER_PHONE_COUNTRY_ORDER,
   CustomerPhoneCountry,
+  normalizeCustomerPhoneInput,
   parseCustomerPhone,
 } from "../../lib/customer-phone";
 
@@ -45,7 +46,8 @@ export function StorefrontPhoneField({
   };
 
   const handleNumberChange = (event: ChangeEvent<HTMLInputElement>) => {
-    onChange(buildCustomerPhone(country, event.target.value));
+    const nationalNumber = normalizeCustomerPhoneInput(country, event.target.value);
+    onChange(buildCustomerPhone(country, nationalNumber));
   };
 
   return (
@@ -91,7 +93,6 @@ export function StorefrontPhoneField({
             value={parsed.nationalNumber}
             onChange={handleNumberChange}
             disabled={disabled}
-            maxLength={config.nationalLength}
             pattern="[0-9]*"
             placeholder={config.placeholder}
             aria-invalid={Boolean(error)}
