@@ -159,29 +159,39 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
           existing.errorMessage ||
           "Evolution reportó fallo.",
         );
+      const shouldAdvanceStatus = shouldUpdateStatus(existing.status, nextStatus);
 
       await server.storePrisma.whatsappMessageLog.update({
         where: { id: existing.id },
         data: {
-          status: shouldUpdateStatus(existing.status, nextStatus) ? nextStatus : existing.status,
-          providerStatus: providerStatus ? String(providerStatus) : existing.providerStatus,
-          responsePayload: {
-            ...(payload && typeof payload === "object" ? payload : {}),
-            ...(
-              existing.responsePayload &&
-              typeof existing.responsePayload === "object" &&
-              (existing.responsePayload as any).nexusRouting
-                ? { nexusRouting: (existing.responsePayload as any).nexusRouting }
-                : {}
-            ),
-          },
-          lastStatusAt: new Date(),
-          errorMessage: nextStatus === "failed" ? failureMessage : existing.errorMessage,
+          status: shouldAdvanceStatus ? nextStatus : existing.status,
+          providerStatus:
+            shouldAdvanceStatus && providerStatus
+              ? String(providerStatus)
+              : existing.providerStatus,
+          responsePayload: shouldAdvanceStatus
+            ? {
+                ...(payload && typeof payload === "object" ? payload : {}),
+                ...(
+                  existing.responsePayload &&
+                  typeof existing.responsePayload === "object" &&
+                  (existing.responsePayload as any).nexusRouting
+                    ? { nexusRouting: (existing.responsePayload as any).nexusRouting }
+                    : {}
+                ),
+              }
+            : existing.responsePayload,
+          lastStatusAt: shouldAdvanceStatus ? new Date() : existing.lastStatusAt,
+          errorMessage: shouldAdvanceStatus
+            ? nextStatus === "failed"
+              ? failureMessage
+              : null
+            : existing.errorMessage,
         },
       });
 
       let fallbackScheduled = false;
-      if (nextStatus === "failed" && existing.jobId) {
+      if (shouldAdvanceStatus && nextStatus === "failed" && existing.jobId) {
         if (String(failureCode) === "463") {
           markWhatsappInstanceProviderRejected(existing.instanceName);
         }
