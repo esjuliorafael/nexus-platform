@@ -722,8 +722,12 @@ export const mpService = {
   },
 
   async recordStoreHoldPayment(holdId: string, payment: any, sellerUserId?: string | null) {
-    await storePrisma.storePaymentHold.update({
-      where: { id: holdId },
+    await storePrisma.storePaymentHold.updateMany({
+      where: {
+        id: holdId,
+        status: { in: ["ACTIVE", "PROCESSING"] },
+        promotedOrderId: null,
+      },
       data: {
         status: ["approved", "processing"].includes(cardPaymentStatus(payment.status)) ? "PROCESSING" : "ACTIVE",
         mpPaymentId: payment.id ? String(payment.id) : null,
@@ -735,8 +739,12 @@ export const mpService = {
   },
 
   async recordRaffleHoldPayment(holdId: string, payment: any, sellerUserId?: string | null) {
-    await rafflePrisma.rafflePaymentHold.update({
-      where: { id: holdId },
+    await rafflePrisma.rafflePaymentHold.updateMany({
+      where: {
+        id: holdId,
+        status: { in: ["ACTIVE", "PROCESSING"] },
+        promotedReservationId: null,
+      },
       data: {
         status: ["approved", "processing"].includes(cardPaymentStatus(payment.status)) ? "PROCESSING" : "ACTIVE",
         mpPaymentId: payment.id ? String(payment.id) : null,

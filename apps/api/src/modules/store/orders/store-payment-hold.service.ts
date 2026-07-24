@@ -14,6 +14,7 @@ import { validateCouponForItems } from "../coupons/coupon.service";
 import {
   hasReachedPaymentProcessingLimit,
   canConvertPaymentHoldToTransfer,
+  isPaymentHoldInventoryProtected,
   isPaymentHoldAmbiguous,
   PAYMENT_RECONCILIATION_INTERVAL_MS,
   resolvePaymentHoldMinutes,
@@ -343,7 +344,15 @@ export const storePaymentHoldService = {
       await tx.$queryRaw(Prisma.sql`SELECT id FROM store_payment_holds WHERE id = ${holdId}::uuid FOR UPDATE`);
       const hold = await tx.storePaymentHold.findUnique({ where: { id: holdId }, include: { items: true } });
       if (!hold) throw holdError("La retención de inventario no existe.", 404);
-      if (hold.promotedOrderId) return { orderId: hold.promotedOrderId, customerPhone: hold.customerPhone, products: [] as any[] };
+      if (hold.promotedOrderId) {
+        if (hold.status !== "CONSUMED") {
+          await tx.storePaymentHold.update({
+            where: { id: holdId },
+            data: { status: "CONSUMED" },
+          });
+        }
+        return { orderId: hold.promotedOrderId, customerPhone: hold.customerPhone, products: [] as any[] };
+      }
       if (!['ACTIVE', 'PROCESSING'].includes(hold.status)) throw holdError("La retención ya no está disponible.", 409);
 
       const order = await tx.order.create({
@@ -413,7 +422,15 @@ export const storePaymentHoldService = {
 
   async expire(holdId: string) {
     const hold = await storePrisma.storePaymentHold.findUnique({ where: { id: holdId }, include: { items: true } });
-    if (!hold || !['ACTIVE', 'PROCESSING'].includes(hold.status) || hold.expiresAt.getTime() > Date.now()) return null;
+    if (!hold) return null;
+    if (hold.promotedOrderId) {
+      await storePrisma.storePaymentHold.updateMany({
+        where: { id: holdId, status: { not: "CONSUMED" } },
+        data: { status: "CONSUMED" },
+      });
+      return null;
+    }
+    if (!['ACTIVE', 'PROCESSING'].includes(hold.status) || hold.expiresAt.getTime() > Date.now()) return null;
     const requiresReconciliation =
       hold.status === "PROCESSING" ||
       !hold.mpPaymentStatus ||
@@ -432,6 +449,25 @@ export const storePaymentHoldService = {
       return null;
     }
     let reconciled = await storePrisma.storePaymentHold.findUnique({ where: { id: holdId } });
+    if (reconciled?.promotedOrderId) {
+      await storePrisma.storePaymentHold.updateMany({
+        where: { id: holdId, status: { not: "CONSUMED" } },
+        data: { status: "CONSUMED" },
+      });
+      return null;
+    }
+    if (reconciled?.status === "CONSUMED") return null;
+    if (
+      reconciled
+      && isPaymentHoldInventoryProtected({
+        status: reconciled.status,
+        mpPaymentStatus: reconciled.mpPaymentStatus,
+        promotedReferenceId: reconciled.promotedOrderId,
+      })
+    ) {
+      await scheduleStoreReconciliation(holdId);
+      return null;
+    }
     if (
       reconciled &&
       reconciled.mpPaymentId &&
@@ -465,11 +501,15 @@ export const storePaymentHoldService = {
       }
     }
 
-    if (reconciled?.status === "CONSUMED") return null;
     return storePrisma.$transaction(async (tx) => {
       await tx.$queryRaw(Prisma.sql`SELECT id FROM store_payment_holds WHERE id = ${holdId}::uuid FOR UPDATE`);
       const current = await tx.storePaymentHold.findUnique({ where: { id: holdId }, include: { items: true } });
       if (!current || !['ACTIVE', 'PROCESSING'].includes(current.status) || current.expiresAt.getTime() > Date.now()) return null;
+      if (isPaymentHoldInventoryProtected({
+        status: current.status,
+        mpPaymentStatus: current.mpPaymentStatus,
+        promotedReferenceId: current.promotedOrderId,
+      })) return null;
       for (const item of current.items) {
         if (item.productType === "BIRD") await tx.product.update({ where: { id: item.productId }, data: { saleStatus: "AVAILABLE" } });
         else await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });

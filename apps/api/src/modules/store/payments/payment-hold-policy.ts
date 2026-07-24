@@ -38,6 +38,10 @@ type PaymentHoldConversionSnapshot = {
   mpPaymentStatus?: string | null;
 };
 
+type PaymentHoldInventorySnapshot = PaymentHoldConversionSnapshot & {
+  promotedReferenceId?: string | number | null;
+};
+
 const TERMINAL_NON_APPROVED_PAYMENT_STATUSES = new Set([
   "rejected",
   "cancelled",
@@ -53,3 +57,8 @@ export const isPaymentHoldAmbiguous = (hold: PaymentHoldConversionSnapshot) => {
 
 export const canConvertPaymentHoldToTransfer = (hold: PaymentHoldConversionSnapshot) =>
   hold.status === "ACTIVE" && !isPaymentHoldAmbiguous(hold);
+
+export const isPaymentHoldInventoryProtected = (hold: PaymentHoldInventorySnapshot) =>
+  hold.status === "CONSUMED"
+  || Boolean(hold.promotedReferenceId)
+  || hold.mpPaymentStatus === "approved";

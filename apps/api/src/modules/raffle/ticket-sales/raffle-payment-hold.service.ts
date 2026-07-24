@@ -15,6 +15,7 @@ import { raffleNotificationService } from "../notifications/raffle-notification.
 import {
   hasReachedPaymentProcessingLimit,
   canConvertPaymentHoldToTransfer,
+  isPaymentHoldInventoryProtected,
   isPaymentHoldAmbiguous,
   PAYMENT_RECONCILIATION_INTERVAL_MS,
   resolvePaymentHoldMinutes,
@@ -346,6 +347,12 @@ export const rafflePaymentHoldService = {
       const hold = await tx.rafflePaymentHold.findUnique({ where: { id: holdId }, include: { tickets: true } });
       if (!hold) throw Object.assign(new Error("La retención de boletos no existe."), { statusCode: 404 });
       if (hold.promotedReservationId) {
+        if (hold.status !== "CONSUMED") {
+          await tx.rafflePaymentHold.update({
+            where: { id: holdId },
+            data: { status: "CONSUMED" },
+          });
+        }
         const existing = await tx.ticketSale.findMany({ where: { reservationId: hold.promotedReservationId } });
         return { reservationId: hold.promotedReservationId, sales: existing, created: false };
       }
@@ -395,7 +402,15 @@ export const rafflePaymentHoldService = {
 
   async expire(prisma: PrismaClient, holdId: string) {
     const hold = await prisma.rafflePaymentHold.findUnique({ where: { id: holdId } });
-    if (!hold || !['ACTIVE', 'PROCESSING'].includes(hold.status) || hold.expiresAt.getTime() > Date.now()) return null;
+    if (!hold) return null;
+    if (hold.promotedReservationId) {
+      await prisma.rafflePaymentHold.updateMany({
+        where: { id: holdId, status: { not: "CONSUMED" } },
+        data: { status: "CONSUMED" },
+      });
+      return null;
+    }
+    if (!['ACTIVE', 'PROCESSING'].includes(hold.status) || hold.expiresAt.getTime() > Date.now()) return null;
     const requiresReconciliation =
       hold.status === "PROCESSING" ||
       !hold.mpPaymentStatus ||
@@ -414,6 +429,25 @@ export const rafflePaymentHoldService = {
       return null;
     }
     let reconciled = await prisma.rafflePaymentHold.findUnique({ where: { id: holdId } });
+    if (reconciled?.promotedReservationId) {
+      await prisma.rafflePaymentHold.updateMany({
+        where: { id: holdId, status: { not: "CONSUMED" } },
+        data: { status: "CONSUMED" },
+      });
+      return null;
+    }
+    if (reconciled?.status === "CONSUMED") return null;
+    if (
+      reconciled
+      && isPaymentHoldInventoryProtected({
+        status: reconciled.status,
+        mpPaymentStatus: reconciled.mpPaymentStatus,
+        promotedReferenceId: reconciled.promotedReservationId,
+      })
+    ) {
+      await scheduleRaffleReconciliation(prisma, holdId);
+      return null;
+    }
     if (
       reconciled &&
       reconciled.mpPaymentId &&
@@ -446,11 +480,15 @@ export const rafflePaymentHoldService = {
         return null;
       }
     }
-    if (reconciled?.status === "CONSUMED") return null;
     const expired = await prisma.$transaction(async (tx) => {
       await tx.$queryRaw(Prisma.sql`SELECT id FROM raffle_payment_holds WHERE id = ${holdId}::uuid FOR UPDATE`);
       const current = await tx.rafflePaymentHold.findUnique({ where: { id: holdId } });
       if (!current || !['ACTIVE', 'PROCESSING'].includes(current.status) || current.expiresAt.getTime() > Date.now()) return null;
+      if (isPaymentHoldInventoryProtected({
+        status: current.status,
+        mpPaymentStatus: current.mpPaymentStatus,
+        promotedReferenceId: current.promotedReservationId,
+      })) return null;
       await tx.rafflePaymentHoldTicket.deleteMany({ where: { holdId } });
       if (current.couponId) await tx.raffleCoupon.update({ where: { id: current.couponId }, data: { usedCount: { decrement: 1 } } });
       return tx.rafflePaymentHold.update({ where: { id: holdId }, data: { status: "EXPIRED" } });
