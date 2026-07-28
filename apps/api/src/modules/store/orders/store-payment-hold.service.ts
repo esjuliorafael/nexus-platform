@@ -1,4 +1,8 @@
-import { Prisma, ProductType } from "@prisma/client-store";
+import {
+  Prisma,
+  ProductType,
+  WhatsappMarketingConsentSource,
+} from "@prisma/client-store";
 import { storePrisma } from "@nexus/db/store";
 import { paymentHoldReleaseQueue } from "../../../queues/payment-hold-release.queue";
 import { orderReleaseQueue } from "../../../queues/order-release.queue";
@@ -19,6 +23,8 @@ import {
   PAYMENT_RECONCILIATION_INTERVAL_MS,
   resolvePaymentHoldMinutes,
 } from "../payments/payment-hold-policy";
+import { whatsappMarketingConsentService } from "../../../services/whatsapp-marketing-consent.service";
+import { synchronizeItemAvailability } from "../products/product-inventory";
 
 const holdError = (message: string, statusCode = 400, code?: string) =>
   Object.assign(new Error(message), { statusCode, code });
@@ -192,6 +198,7 @@ export const storePaymentHoldService = {
             data: { stock: { decrement: item.quantity } },
           });
           if (result.count !== 1) throw holdError(`No hay existencias suficientes de "${item.productName}".`, 409);
+          await synchronizeItemAvailability(tx, item.productId);
         }
       }
       if (couponResult) {
@@ -199,6 +206,22 @@ export const storePaymentHoldService = {
       }
       return created;
     });
+
+    if (data.marketingConsent === true) {
+      await whatsappMarketingConsentService
+        .grant(storePrisma, {
+          phone: hold.customerPhone,
+          displayName: hold.customerName,
+          source: WhatsappMarketingConsentSource.STORE_CHECKOUT,
+          metadata: {
+            storePaymentHoldId: hold.id,
+            paymentMethod: "MERCADOPAGO",
+          },
+        })
+        .catch((error) => {
+          console.error("[Marketing consent] Store payment consent could not be recorded:", error);
+        });
+    }
 
     await paymentHoldReleaseQueue.add("store-hold", { kind: "store", holdId: hold.id }, { delay: holdMinutes * 60_000 });
     return { paymentHoldId: hold.id, expiresAt: hold.expiresAt.toISOString(), total: Number(hold.total) };
@@ -283,6 +306,11 @@ export const storePaymentHoldService = {
             create: {
               eventType: "PAYMENT_METHOD_CHANGED",
               message: "El cliente cambió el intento con tarjeta a depósito o transferencia.",
+              actorType: "CUSTOMER",
+              actorName: "Cliente",
+              origin: "STOREFRONT",
+              previousState: { paymentMethod: "MERCADOPAGO" },
+              nextState: { paymentMethod: "TRANSFER", paymentStatus: "PENDING" },
             },
           },
         },
@@ -392,7 +420,17 @@ export const storePaymentHoldService = {
             quantity: item.quantity,
             unitPrice: item.unitPrice,
           })) },
-          events: { create: { eventType: "PAYMENT_CONFIRMED", message: "Pago con tarjeta confirmado por Mercado Pago." } },
+          events: {
+            create: {
+              eventType: "PAYMENT_CONFIRMED",
+              message: "Pago con tarjeta confirmado por Mercado Pago.",
+              actorType: "MERCADO_PAGO",
+              actorName: "Mercado Pago",
+              origin: "MERCADO_PAGO",
+              nextState: { status: "PAID", paymentStatus: "APPROVED" },
+              metadata: { paymentId: String(payment.id) },
+            },
+          },
         },
         include: { items: true },
       });
@@ -512,7 +550,10 @@ export const storePaymentHoldService = {
       })) return null;
       for (const item of current.items) {
         if (item.productType === "BIRD") await tx.product.update({ where: { id: item.productId }, data: { saleStatus: "AVAILABLE" } });
-        else await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
+        else {
+          await tx.product.update({ where: { id: item.productId }, data: { stock: { increment: item.quantity } } });
+          await synchronizeItemAvailability(tx, item.productId);
+        }
       }
       if (current.couponId) await tx.coupon.update({ where: { id: current.couponId }, data: { usedCount: { decrement: 1 } } });
       return tx.storePaymentHold.update({ where: { id: holdId }, data: { status: "EXPIRED" } });

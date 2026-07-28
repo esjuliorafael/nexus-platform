@@ -16,7 +16,6 @@ import {
   PlusCircle,
   Ticket,
   Trash2,
-  Trophy,
   Upload,
   X,
 } from "lucide-react";
@@ -43,13 +42,29 @@ interface RaffleFormProps {
 type RaffleType = "SIMPLE" | "OPPORTUNITIES";
 type PrizeShippingPolicy = "" | "INCLUDED" | "WINNER_PAYS";
 type GalleryItem = Pick<RaffleGalleryItem, "filePath" | "fileType" | "posterPath">;
-type PrizeItem = Pick<RafflePrize, "title" | "description" | "winnerRule">;
+type PrizeItem = Pick<
+  RafflePrize,
+  "title" | "description" | "winnerRule" | "resultSource" | "resultSourceLabel"
+>;
 type SuggestedThumbnail = { blob: Blob; url: string };
 
 const MAX_GALLERY_ITEMS = 10;
 const MAX_PRIZES = 10;
 
-const createEmptyPrize = (): PrizeItem => ({ title: "", description: "", winnerRule: "" });
+const defaultResultSource = (index: number): PrizeItem["resultSource"] => {
+  if (index === 0) return "MAJOR_PRIZE";
+  if (index === 1) return "SECOND_PRIZE";
+  if (index === 2) return "THIRD_PRIZE";
+  return "CUSTOM";
+};
+
+const createEmptyPrize = (index = 0): PrizeItem => ({
+  title: "",
+  description: "",
+  winnerRule: "",
+  resultSource: defaultResultSource(index),
+  resultSourceLabel: "",
+});
 
 const formatPrizePosition = (index: number) => index === 0 ? "1.er lugar" : `${index + 1}.º lugar`;
 
@@ -87,7 +102,6 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
     initialData?.drawDate ? new Date(initialData.drawDate).toISOString().split("T")[0] : "",
   );
   const [status, setStatus] = useState<Raffle["status"]>(initialData?.status ?? "ACTIVE");
-  const [winningNumber, setWinningNumber] = useState(initialData?.winningNumber ?? "");
   const [participationStartsAt, setParticipationStartsAt] = useState(
     toDateTimeLocalValue(initialData?.participationStartsAt),
   );
@@ -108,11 +122,22 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
   const [gallery, setGallery] = useState<GalleryItem[]>(initialData?.gallery ?? []);
   const [prizes, setPrizes] = useState<PrizeItem[]>(() => {
     if (initialData?.prizes?.length) {
-      return initialData.prizes.map((prize) => ({
-        title: prize.title,
-        description: prize.description,
-        winnerRule: prize.winnerRule ?? "",
-      }));
+      return initialData.prizes.map((prize) => {
+        const resultSource =
+          prize.resultSource ??
+          defaultResultSource((prize.position ?? 1) - 1);
+        return {
+          title: prize.title,
+          description: prize.description,
+          winnerRule: prize.winnerRule ?? "",
+          resultSource,
+          resultSourceLabel:
+            prize.resultSourceLabel ??
+            (resultSource === "CUSTOM"
+              ? `Premio del Lugar ${prize.position ?? 4}`
+              : ""),
+        };
+      });
     }
     return [createEmptyPrize()];
   });
@@ -351,7 +376,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
 
   const addPrize = () => {
     if (prizes.length >= MAX_PRIZES) return;
-    setPrizes((current) => [...current, createEmptyPrize()]);
+    setPrizes((current) => [...current, createEmptyPrize(current.length)]);
   };
 
   const removePrize = (index: number) => {
@@ -413,10 +438,14 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
           title: prize.title.trim(),
           description: prize.description.trim(),
           winnerRule: prize.winnerRule?.trim() || null,
+          resultSource: prize.resultSource,
+          resultSourceLabel:
+            prize.resultSource === "CUSTOM"
+              ? prize.resultSourceLabel?.trim() || null
+              : null,
         })),
         gallery,
         status,
-        winningNumber: status === "FINISHED" ? winningNumber.trim() || null : null,
       };
 
       if (initialData?.id) {
@@ -793,7 +822,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                 rows={6}
                 value={description}
                 onChange={(event) => setDescription(event.target.value)}
-                placeholder="Describe el premio, las bases del sorteo y cualquier información importante."
+                placeholder="Describe el premio, las bases de la rifa y cualquier información importante."
               />
               <div className="flex flex-col" style={{ gap: "var(--space-xs)" }}>
                 <span className="text-label uppercase tracking-[0.15em] text-text-muted">
@@ -828,21 +857,11 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
               />
               <NexusSelect label="Estado Actual" value={status} onChange={(event) => setStatus(event.target.value as Raffle["status"])}>
                 <option value="ACTIVE">Activa</option>
-                <option value="FINISHED">Finalizada</option>
                 <option value="CANCELLED">Cancelada</option>
+                {initialData?.status === "FINISHED" && (
+                  <option value="FINISHED">Finalizada</option>
+                )}
               </NexusSelect>
-              {status === "FINISHED" && (
-                <NexusInput
-                  label="Número Ganador"
-                  icon={Trophy}
-                  inputMode="numeric"
-                  value={winningNumber}
-                  onChange={(event) => setWinningNumber(event.target.value.replace(/\D/g, ""))}
-                  placeholder={`Ej. ${"0".repeat(Math.max(1, universePreview?.digits ?? 3))}`}
-                  maxLength={universePreview?.digits}
-                  helperText="Al guardar un número válido, el resultado se publicará en el Storefront."
-                />
-              )}
 
               {hasActiveSales && (
                 <div
@@ -936,6 +955,46 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                       onChange={(event) => updatePrize(index, { description: event.target.value })}
                       placeholder="Detalla exactamente qué recibe el ganador de este lugar."
                     />
+                    <div
+                      className={
+                        prize.resultSource === "CUSTOM"
+                          ? "grid grid-cols-1 sm:grid-cols-2"
+                          : "grid grid-cols-1"
+                      }
+                      style={{ gap: "var(--space-md)" }}
+                    >
+                      <NexusSelect
+                        label="Referencia del Resultado"
+                        value={prize.resultSource}
+                        onChange={(event) =>
+                          updatePrize(index, {
+                            resultSource: event.target.value as PrizeItem["resultSource"],
+                            resultSourceLabel:
+                              event.target.value === "CUSTOM"
+                                ? prize.resultSourceLabel
+                                : "",
+                          })
+                        }
+                      >
+                        <option value="MAJOR_PRIZE">Premio Mayor</option>
+                        <option value="SECOND_PRIZE">Segundo Premio</option>
+                        <option value="THIRD_PRIZE">Tercer Premio</option>
+                        <option value="CUSTOM">Otra Referencia</option>
+                      </NexusSelect>
+                      {prize.resultSource === "CUSTOM" && (
+                        <NexusInput
+                          label="Nombre de la Referencia"
+                          value={prize.resultSourceLabel ?? ""}
+                          maxLength={120}
+                          onChange={(event) =>
+                            updatePrize(index, {
+                              resultSourceLabel: event.target.value,
+                            })
+                          }
+                          placeholder="Ej. Premio especial"
+                        />
+                      )}
+                    </div>
                     <NexusTextarea
                       label="Criterio de Asignación"
                       rows={3}

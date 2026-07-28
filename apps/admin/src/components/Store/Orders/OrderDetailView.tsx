@@ -2,7 +2,7 @@ import React, { useRef } from 'react';
 import {
   Package, Clock, CheckCircle2, Phone, MapPin, User,
   Calendar, DollarSign, Plane, Truck, CircleX, ChevronLeft, Layers, MessageCircle, Edit2, Save,
-  CreditCard, RotateCcw
+  CreditCard, RotateCcw, History
 } from 'lucide-react';
 import { Order, WhatsAppMessageLog } from '../../../types';
 import { NexusAutonomousButton, NexusSectionButton } from '../../ui/NexusButton';
@@ -16,6 +16,7 @@ import { ASSET_BASE_URL, apiOrders } from '../../../api';
 import { MEXICO_STATES } from '../../../constants';
 import { isCustomerPhoneComplete } from '../../../utils/customer-phone';
 import { getWhatsappDeliveryRouteLabel } from '../../../utils/whatsapp-routing';
+import { NexusActivityHistory } from '../../ui/NexusActivityHistory';
 
 // --- SUB-COMPONENTES ---
 
@@ -112,6 +113,7 @@ interface OrderDetailViewProps {
   order: Order;
   onBack: () => void;
   showToast: (message: string, type?: 'success' | 'error') => void;
+  canManageOperations: boolean;
 }
 
 // Utilidad para formatear fecha (YYYY-MM-DD... -> DD/MM/YYYY)
@@ -185,10 +187,23 @@ const formatShortTime = (dateStr: string) => {
   });
 };
 
-const getWhatsAppStatusLabel = (status: string) => {
+const isWhatsappAcceptedForDelivery = (
+  status: string,
+  providerStatus?: string | null,
+) =>
+  status === 'pending' &&
+  ['accepted', 'pending', 'server_ack'].includes(
+    String(providerStatus || '').toLowerCase(),
+  );
+
+const getWhatsAppStatusLabel = (
+  status: string,
+  providerStatus?: string | null,
+) => {
   if (status === 'read') return 'Leído';
   if (status === 'delivered') return 'Entregado';
   if (status === 'server_ack') return 'Aceptado';
+  if (isWhatsappAcceptedForDelivery(status, providerStatus)) return 'Enviado';
   if (status === 'pending') return 'Pendiente';
   if (status === 'sent') return 'Enviado';
   if (status === 'failed') return 'Fallido';
@@ -197,12 +212,14 @@ const getWhatsAppStatusLabel = (status: string) => {
 
 const getWhatsAppPurposeLabel = (template: string) => {
   if (template === 'order-paid' || template === 'order_paid') return 'Pago';
+  if (template === 'order-refunded' || template === 'order_refunded') return 'Devolución';
   if (template === 'order-reminder' || template === 'order_reminder') return 'Recordatorio';
   if (template === 'order-restored' || template === 'order_restored') return 'Restauración';
   if (template === 'order-cancelled' || template === 'order_cancelled') return 'Liberación';
   if (template === 'order' || template === 'order_principal' || template.startsWith('order_')) return 'Apartado';
   if (template === 'reservation') return 'Apartado de rifa';
   if (template === 'reservation-paid' || template === 'reservation_paid_rifas') return 'Pago de rifa';
+  if (template === 'reservation-refunded' || template === 'reservation_refunded_rifas') return 'Devolución de rifa';
   if (template === 'reservation-reminder' || template === 'reservation_reminder_rifas') return 'Recordatorio de rifa';
   if (template === 'reservation-cancelled') return 'Liberación de rifa';
   if (template === 'configuration') return 'Configuración';
@@ -221,7 +238,8 @@ const truncateProductName = (name: string) => {
 export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
   order,
   onBack,
-  showToast
+  showToast,
+  canManageOperations,
   }) => {
   const [currentOrder, setCurrentOrder] = React.useState(order);
   const [isResending, setIsResending] = React.useState(false);
@@ -247,14 +265,37 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
     });
   }, [order]);
 
+  const loadOrderDetail = React.useCallback(async () => {
+    const detailedOrder = await apiOrders.getById(String(order.id));
+    setCurrentOrder(detailedOrder);
+    return detailedOrder;
+  }, [order.id]);
+
+  React.useEffect(() => {
+    let isActive = true;
+    void apiOrders.getById(String(order.id))
+      .then((detailedOrder) => {
+        if (isActive) setCurrentOrder(detailedOrder);
+      })
+      .catch(() => {
+        if (isActive) {
+          showToast('No se pudo cargar el historial de la orden', 'error');
+        }
+      });
+    return () => {
+      isActive = false;
+    };
+  }, [order.id, order.paymentStatus, order.status, showToast]);
+
   const itemsList = currentOrder?.items || [];
   const hasBirds = itemsList.some(item => item?.type?.toUpperCase() === 'BIRD');
   const hasItems = itemsList.some(item => item?.type?.toUpperCase() === 'ITEM');
   const isPaymentHold = currentOrder.recordType === 'PAYMENT_HOLD';
   const isMercadoPagoOrder = currentOrder.paymentMethod === 'MERCADOPAGO';
   const canRefundMercadoPago =
+    canManageOperations &&
     isMercadoPagoOrder &&
-    currentOrder.status === 'paid' &&
+    String(currentOrder.status || '').toLowerCase() === 'paid' &&
     currentOrder.paymentStatus === 'APPROVED' &&
     Boolean(currentOrder.mpPaymentId) &&
     Number(currentOrder.mpRefundedAmount || 0) <= 0;
@@ -290,6 +331,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
     try {
       await apiOrders.resendWhatsApp(String(currentOrder.id));
       await loadWhatsappLogs();
+      await loadOrderDetail();
       showToast('Notificación enviada a la cola', 'success');
     } catch (error) {
       showToast('No se pudo re-enviar la notificación', 'error');
@@ -312,12 +354,12 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
     if (!currentOrder?.id) return;
     setIsSavingCustomer(true);
     try {
-      const updatedOrder = await apiOrders.updateCustomer(currentOrder.id, {
+      await apiOrders.updateCustomer(currentOrder.id, {
         customerName: customerForm.customerName,
         customerPhone: customerForm.customerPhone,
         shippingState: customerForm.shippingState || null,
       });
-      setCurrentOrder(updatedOrder);
+      await loadOrderDetail();
       setIsCustomerModalOpen(false);
       showToast('Información del cliente actualizada', 'success');
     } catch (error) {
@@ -331,12 +373,13 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
     if (!currentOrder?.id || isRefunding) return;
     setIsRefunding(true);
     try {
-      const updatedOrder = await apiOrders.refundMercadoPago(currentOrder.id);
-      setCurrentOrder(updatedOrder);
+      await apiOrders.refundMercadoPago(currentOrder.id);
+      await loadOrderDetail();
       setIsRefundModalOpen(false);
       showToast('Pago devuelto correctamente', 'success');
     } catch (error: any) {
       showToast(error?.response?.data?.message || 'No se pudo devolver el pago', 'error');
+      await loadOrderDetail();
     } finally {
       setIsRefunding(false);
     }
@@ -534,7 +577,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
             iconVariant="brand"
             actionPlacement="below"
             action={
-              !isPaymentHold ? (
+              !isPaymentHold && canManageOperations ? (
                 <NexusSectionButton
                   onClick={handleOpenCustomerModal}
                   icon={Edit2}
@@ -769,7 +812,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
             icon={MessageCircle}
             iconVariant="emerald"
             actionPlacement="below"
-            action={
+            action={canManageOperations ? (
               <NexusSectionButton
                 onClick={handleResendWhatsApp}
                 isLoading={isResending}
@@ -777,7 +820,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
               >
                 Reenviar WhatsApp
               </NexusSectionButton>
-            }
+            ) : undefined}
           >
             <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
               {isLoadingWhatsappLogs && (
@@ -798,8 +841,13 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
 
               {whatsappLogs.map((log) => {
                 const isFailed = log.status === 'failed';
-                const isPending = log.status === 'pending';
-                const statusLabel = getWhatsAppStatusLabel(log.status);
+                const isPending =
+                  log.status === 'pending' &&
+                  !isWhatsappAcceptedForDelivery(log.status, log.providerStatus);
+                const statusLabel = getWhatsAppStatusLabel(
+                  log.status,
+                  log.providerStatus,
+                );
 
                 return (
                   <button
@@ -870,10 +918,28 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
             </div>
           </NexusSection>}
 
+          {!isPaymentHold && (
+            <NexusSection
+              title="Historial de Actividad"
+              subtitle="Acciones y responsables"
+              icon={History}
+              iconVariant="muted"
+            >
+              <NexusActivityHistory events={currentOrder.activityEvents} />
+            </NexusSection>
+          )}
+
           <NexusModal
             isOpen={Boolean(selectedWhatsappLog)}
             onClose={() => setSelectedWhatsappLog(null)}
-            title={selectedWhatsappLog ? getWhatsAppStatusLabel(selectedWhatsappLog.status) : 'WhatsApp'}
+            title={
+              selectedWhatsappLog
+                ? getWhatsAppStatusLabel(
+                    selectedWhatsappLog.status,
+                    selectedWhatsappLog.providerStatus,
+                  )
+                : 'WhatsApp'
+            }
             eyebrow="Detalle de notificación"
             icon={MessageCircle}
             iconTone={selectedWhatsappLog?.status === 'failed' ? 'danger' : 'brand'}
@@ -887,7 +953,18 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                   <DetailField label="Fecha del intento" value={formatDateTime(selectedWhatsappLog.sentAt)} />
                   <DetailField label="Teléfono" value={selectedWhatsappLog.recipientPhone} />
                   <DetailField label="Intento" value={String(selectedWhatsappLog.attempt)} />
-                  <DetailField label="Evolution" value={selectedWhatsappLog.providerStatus || 'Sin estado'} />
+                  <DetailField
+                    label="Proveedor"
+                    value={
+                      selectedWhatsappLog.provider === "KAPSO"
+                        ? "WhatsApp Cloud API"
+                        : "Evolution API"
+                    }
+                  />
+                  <DetailField
+                    label="Estado del proveedor"
+                    value={selectedWhatsappLog.providerStatus || "Sin estado"}
+                  />
                   <DetailField
                     label="Último estado"
                     value={selectedWhatsappLog.lastStatusAt ? formatDateTime(selectedWhatsappLog.lastStatusAt) : 'Sin actualización'}

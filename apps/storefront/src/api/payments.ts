@@ -49,6 +49,60 @@ export interface MercadoPagoCardPaymentStatus {
   message?: string | null;
 }
 
+export type PaymentRecoveryResponse =
+  | {
+      status: 'active';
+      kind: 'store';
+      paymentHoldId: string;
+      expiresAt: string;
+      customer: {
+        name: string;
+        phone: string;
+        email?: string | null;
+        receiverName?: string | null;
+      };
+      delivery: {
+        type: 'SHIPPING' | 'PICKUP';
+        method?: string | null;
+        address?: string | null;
+        street?: string | null;
+        neighborhood?: string | null;
+        postalCode?: string | null;
+        city?: string | null;
+        state?: string | null;
+      };
+      totals: {
+        subtotal: number;
+        discountTotal: number;
+        shippingCost: number;
+        total: number;
+      };
+      coupon: any | null;
+      items: Array<{
+        productId: number;
+        name: string;
+        price: number;
+        quantity: number;
+        type: 'bird' | 'item';
+        thumbnail: string | null;
+      }>;
+    }
+  | {
+      status: 'active';
+      kind: 'raffle';
+      raffleId: number;
+      paymentHoldId: string;
+      expiresAt: string;
+      customer: {
+        name: string;
+        phone: string;
+        state?: string | null;
+      };
+      totals: { discountTotal: number };
+      coupon: any | null;
+      tickets: string[];
+    };
+
 export interface PublicBankInfo {
   source: 'SPECIALIZED' | 'MAIN';
   label: string;
@@ -132,6 +186,13 @@ export const paymentApi = {
     customerPhone: string;
   }) => {
     const res = await client.get<MercadoPagoCardPaymentStatus>('/mp/card-payment/status', { params: reference });
+    return res.data;
+  },
+  getPaymentRecovery: async (token: string) => {
+    const res = await client.post<PaymentRecoveryResponse>(
+      '/mp/payment-recovery',
+      { token },
+    );
     return res.data;
   },
 };

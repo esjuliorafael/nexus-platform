@@ -65,3 +65,13 @@ export function toEvolutionPhoneNumber(value: string): string {
   if (digits.startsWith("52") && digits.length === 12) return `521${digits.slice(2)}`;
   return digits;
 }
+
+export function toWhatsAppCloudPhoneNumber(value: string): string {
+  const normalized = normalizeCustomerPhone(value);
+  if (!normalized) {
+    throw Object.assign(new Error("The WhatsApp number is not valid E.164."), {
+      code: "INVALID_RECIPIENT_PHONE",
+    });
+  }
+  return normalized.slice(1);
+}

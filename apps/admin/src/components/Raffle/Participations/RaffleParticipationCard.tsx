@@ -19,6 +19,7 @@ import { NexusAutonomousIcon } from "../../ui/NexusIcon";
 
 interface RaffleParticipationCardProps {
   participation: RaffleParticipation;
+  canManageOperations: boolean;
   onViewDetail: () => void;
   onMarkAsPaid: () => void;
   onCancel: () => void;
@@ -36,6 +37,7 @@ const formatCurrency = (value: number) =>
 
 export const RaffleParticipationCard: React.FC<RaffleParticipationCardProps> = ({
   participation,
+  canManageOperations,
   onViewDetail,
   onMarkAsPaid,
   onCancel,
@@ -65,11 +67,12 @@ export const RaffleParticipationCard: React.FC<RaffleParticipationCardProps> = (
   }, [participation.status]);
 
   const isPendingTransfer = participation.status === "PENDING" && participation.paymentMethod !== "MERCADOPAGO";
+  const canManagePendingTransfer = canManageOperations && isPendingTransfer;
   const methodLabel = participation.paymentMethod === "MERCADOPAGO" ? "Tarjeta" : "Transferencia";
 
   return (
     <NexusAutonomousCard
-      swipeable={isPendingTransfer}
+      swipeable={canManagePendingTransfer}
       isMuted={["CANCELLED", "NOT_COMPLETED"].includes(participation.status)}
       className={["CANCELLED", "NOT_COMPLETED"].includes(participation.status) ? "opacity-70 grayscale-[0.5]" : ""}
       customSwipeLeft={
@@ -141,7 +144,7 @@ export const RaffleParticipationCard: React.FC<RaffleParticipationCardProps> = (
           </div>
 
           <div className="hidden items-center sm:flex" style={{ gap: "var(--space-sm)" }}>
-            {isPendingTransfer && (
+            {canManagePendingTransfer && (
               <>
                 <NexusAutonomousButton
                   density="compact"

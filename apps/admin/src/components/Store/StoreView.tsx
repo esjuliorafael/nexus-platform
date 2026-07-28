@@ -3,6 +3,7 @@ import { ShoppingBag, Plus } from 'lucide-react';
 import { Coupon, Product, StoreHero } from '../../types';
 import { ProductForm } from './ProductForm';
 import { ProductCard } from './ProductCard';
+import { ProductOverviewView } from './ProductOverviewView';
 import { StoreHeroView } from './Hero/StoreHeroView';
 import { StoreHeroForm } from './Hero/StoreHeroForm';
 import { CouponsView } from './Coupons/CouponsView';
@@ -20,11 +21,12 @@ import { NexusPaginator } from '../ui/NexusPaginator';
 interface StoreViewProps {
   productSearchQuery?: string;
   advancedFilters?: StoreProductAdvancedFilters;
-  viewMode?: 'list' | 'create' | 'edit' | 'hero_list' | 'hero_create' | 'hero_edit' | 'coupon_list' | 'coupon_create' | 'coupon_edit' | 'orders' | 'order-detail';
-  onSetViewMode?: (mode: 'list' | 'create' | 'edit' | 'hero_list' | 'hero_create' | 'hero_edit' | 'coupon_list' | 'coupon_create' | 'coupon_edit' | 'orders' | 'order-detail') => void;
+  viewMode?: 'list' | 'overview' | 'create' | 'edit' | 'hero_list' | 'hero_create' | 'hero_edit' | 'coupon_list' | 'coupon_create' | 'coupon_edit' | 'orders' | 'order-detail';
+  onSetViewMode?: (mode: 'list' | 'overview' | 'create' | 'edit' | 'hero_list' | 'hero_create' | 'hero_edit' | 'coupon_list' | 'coupon_create' | 'coupon_edit' | 'orders' | 'order-detail') => void;
   showToast: (message: string, type?: 'success' | 'error') => void;
   setConfirmDialog: (dialog: any) => void;
   onValidationChange?: (isValid: boolean) => void;
+  onOpenOrder?: (orderId: string) => void;
 }
 
 const ITEMS_PER_PAGE = 8;
@@ -61,6 +63,7 @@ const productAgeLabel = (product: Product) => {
 
 export interface StoreViewRef {
   handleSave: () => void;
+  handleEditSelected: () => void;
 }
 
 export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
@@ -72,6 +75,7 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
     showToast,
     setConfirmDialog,
     onValidationChange,
+    onOpenOrder,
   }, ref) => {
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -96,7 +100,17 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
         if (couponFormRef.current) {
           couponFormRef.current.handleSave();
         }
-      }
+      },
+      handleEditSelected: async () => {
+        if (!editingProduct) return;
+        try {
+          const currentProduct = await apiProducts.getById(editingProduct.id);
+          setEditingProduct(currentProduct);
+          onSetViewMode?.('edit');
+        } catch (error) {
+          showToast('No se pudo cargar el inventario actual del producto', 'error');
+        }
+      },
     }));
 
   useEffect(() => {
@@ -223,9 +237,14 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
     storeTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
   };
 
-  const handleEdit = (product: Product) => {
-    setEditingProduct(product);
-    onSetViewMode?.('edit');
+  const handleEdit = async (product: Product) => {
+    try {
+      const currentProduct = await apiProducts.getById(product.id);
+      setEditingProduct(currentProduct);
+      onSetViewMode?.('edit');
+    } catch (error) {
+      showToast('No se pudo cargar el inventario actual del producto', 'error');
+    }
   };
 
   const handleDelete = (id: string) => {
@@ -246,6 +265,12 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
         setConfirmDialog({ isOpen: false });
       }
     });
+  };
+
+  const handleOpen = (product: Product) => {
+    setEditingProduct(product);
+    onSetViewMode?.('overview');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   const handleToggleFeatured = async (product: Product) => {
@@ -330,6 +355,16 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
     );
   }
 
+  if (viewMode === 'overview' && editingProduct) {
+    return (
+      <ProductOverviewView
+        productId={editingProduct.id}
+        showToast={showToast}
+        onOpenOrder={(orderId) => onOpenOrder?.(orderId)}
+      />
+    );
+  }
+
   if (viewMode === 'hero_create' || viewMode === 'hero_edit') {
     return (
       <StoreHeroForm
@@ -409,6 +444,7 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
             >
               <ProductCard 
                 product={product} 
+                onOpen={() => handleOpen(product)}
                 onEdit={() => handleEdit(product)}
                 onDelete={() => handleDelete(product.id)}
                 onToggleFeatured={() => handleToggleFeatured(product)}

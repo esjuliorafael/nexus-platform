@@ -4,10 +4,20 @@ import { MercadoPagoConfig, Preference, PaymentRefund } from 'mercadopago';
 import axios from "axios";
 import crypto from "crypto";
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
-import type { OrderItemPurpose } from "../../../services/evolution/channel.resolver";
+import type {
+  OrderItemPurpose,
+  OrderKind,
+} from "../../../services/evolution/channel.resolver";
 import { getTenantId, signGatewayPayload } from "./mercadopago-gateway.security";
 import { resolvePaymentHoldMinutes } from "./payment-hold-policy";
 import { customerPhoneIdentity } from "../../../utils/customer-phone";
+import { paymentRecoveryService } from "../../../services/payment-recovery.service";
+import {
+  auditActorData,
+  systemAuditActor,
+  type AuditActor,
+} from "../../../utils/admin-authorization";
+import { synchronizeItemAvailability } from "../products/product-inventory";
 
 const getRedirectUri = () => `${process.env.API_URL}/api/v1/mp/callback`;
 const getGatewayUrl = () => process.env.MP_GATEWAY_URL?.replace(/\/$/, "");
@@ -36,6 +46,57 @@ type CardPaymentInput = {
     };
   };
 };
+
+const createMercadoPagoRefund = async (
+  refundClient: PaymentRefund,
+  paymentId: string,
+) => {
+  try {
+    return await refundClient.create({ payment_id: paymentId });
+  } catch (error: any) {
+    const providerMessage = [
+      error?.message,
+      error?.cause?.message,
+      error?.response?.data?.message,
+      error?.response?.data?.error,
+    ]
+      .filter(Boolean)
+      .join(" ")
+      .toLowerCase();
+
+    if (
+      providerMessage.includes("collector hasn't enough available money") ||
+      providerMessage.includes("insufficient_money_for_refund")
+    ) {
+      throw Object.assign(
+        new Error(
+          "Saldo insuficiente en una de las cuentas de Mercado Pago para devolver el pago.",
+        ),
+        { statusCode: 409, code: "INSUFFICIENT_REFUND_BALANCE" },
+      );
+    }
+    throw error;
+  }
+};
+
+function resolveRefundOrderKind(
+  products: Array<{ type: string; purpose: string | null }>,
+): OrderKind {
+  const birds = products.filter((product) => product.type === "BIRD");
+  const hasItems = products.some((product) => product.type === "ITEM");
+  if (birds.length > 0 && !hasItems) {
+    const firstPurpose = birds[0].purpose as OrderItemPurpose;
+    return {
+      type: "birds_only",
+      purpose: birds.every((bird) => bird.purpose === firstPurpose)
+        ? firstPurpose
+        : null,
+    };
+  }
+  return birds.length === 0 && hasItems
+    ? { type: "articles_only" }
+    : { type: "mixed" };
+}
 
 type CardPaymentAttemptOutcome = "approved" | "processing" | "rejected";
 
@@ -501,12 +562,20 @@ export const mpService = {
 
     let claimedHold = false;
     if (isRaffle && input.rafflePaymentHoldId) {
+      await paymentRecoveryService.cancelUnsentSchedule(
+        "raffle",
+        input.rafflePaymentHoldId,
+      );
       const claimed = await rafflePrisma.rafflePaymentHold.updateMany({
         where: { id: input.rafflePaymentHoldId, status: "ACTIVE" },
         data: { status: "PROCESSING", mpPaymentId: null, mpSellerUserId: sellerUserId, mpPaymentStatus: "processing", mpPaymentStatusDetail: null },
       });
       claimedHold = claimed.count === 1;
     } else if (input.storePaymentHoldId) {
+      await paymentRecoveryService.cancelUnsentSchedule(
+        "store",
+        input.storePaymentHoldId,
+      );
       const claimed = await storePrisma.storePaymentHold.updateMany({
         where: { id: input.storePaymentHoldId, status: "ACTIVE" },
         data: { status: "PROCESSING", mpPaymentId: null, mpSellerUserId: sellerUserId, mpPaymentStatus: "processing", mpPaymentStatusDetail: null },
@@ -606,6 +675,21 @@ export const mpService = {
       } else if (!isRaffle && input.storePaymentHoldId) {
         await this.recordStoreHoldPayment(input.storePaymentHoldId, payment, sellerUserId || payment.collector_id?.toString() || null);
       }
+      if (outcome === "rejected") {
+        const recoveryHoldId = isRaffle
+          ? input.rafflePaymentHoldId
+          : input.storePaymentHoldId;
+        if (recoveryHoldId) {
+          await paymentRecoveryService
+            .schedule(isRaffle ? "raffle" : "store", recoveryHoldId)
+            .catch((recoveryError) =>
+              console.error(
+                "[Payment recovery] Could not schedule notification:",
+                recoveryError,
+              ),
+            );
+        }
+      }
 
       return {
         attemptId: input.paymentAttemptId,
@@ -664,6 +748,21 @@ export const mpService = {
         await rafflePrisma.rafflePaymentHold.update({ where: { id: input.rafflePaymentHoldId }, data: holdState });
       } else if (input.storePaymentHoldId) {
         await storePrisma.storePaymentHold.update({ where: { id: input.storePaymentHoldId }, data: holdState });
+      }
+      if (!uncertain) {
+        const recoveryHoldId = isRaffle
+          ? input.rafflePaymentHoldId
+          : input.storePaymentHoldId;
+        if (recoveryHoldId) {
+          await paymentRecoveryService
+            .schedule(isRaffle ? "raffle" : "store", recoveryHoldId)
+            .catch((recoveryError) =>
+              console.error(
+                "[Payment recovery] Could not schedule notification:",
+                recoveryError,
+              ),
+            );
+        }
       }
 
       if (uncertain) {
@@ -929,7 +1028,11 @@ export const mpService = {
       if (order?.status === "PENDING" && order.paymentStatus === "PENDING") {
         const { orderService } = await import("../orders/order.service");
         await this.recordOrderPayment(orderId, payment, sellerUserId);
-        await orderService.updateStatus(orderId, "PAID");
+        await orderService.updateStatus(
+          orderId,
+          "PAID",
+          systemAuditActor("Mercado Pago", "MERCADO_PAGO"),
+        );
       }
       return;
     }
@@ -1129,7 +1232,7 @@ export const mpService = {
     return order;
   },
 
-  async refundOrder(orderId: number) {
+  async refundOrder(orderId: number, actor: AuditActor) {
     const order = await storePrisma.order.findUnique({
       where: { id: orderId },
       include: { items: true },
@@ -1174,10 +1277,10 @@ export const mpService = {
 
     const client = new MercadoPagoConfig({ accessToken: sellerToken });
     const refundClient = new PaymentRefund(client);
-    const refund = await refundClient.create({ payment_id: order.mpPaymentId });
+    const refund = await createMercadoPagoRefund(refundClient, order.mpPaymentId);
     const refundAmount = Number((refund as any).amount || order.mpPaidAmount || order.total);
 
-    return storePrisma.$transaction(async (tx) => {
+    const refundedOrder = await storePrisma.$transaction(async (tx) => {
       const refundedOrder = await tx.order.update({
         where: { id: orderId },
         data: {
@@ -1204,6 +1307,7 @@ export const mpService = {
             where: { id: item.productId },
             data: { stock: { increment: item.quantity } },
           });
+          await synchronizeItemAvailability(tx, item.productId);
         }
       }
 
@@ -1212,14 +1316,62 @@ export const mpService = {
           orderId,
           eventType: "PAYMENT_REFUNDED",
           message: "Pago devuelto en Mercado Pago. Orden cancelada e inventario liberado.",
+          ...auditActorData(actor),
+          previousState: {
+            status: order.status,
+            paymentStatus: order.paymentStatus,
+            refundedAmount: Number(order.mpRefundedAmount),
+          },
+          nextState: {
+            status: "CANCELLED",
+            paymentStatus: "REFUNDED",
+            refundedAmount: Number.isFinite(refundAmount)
+              ? refundAmount
+              : Number(order.total),
+          },
+          metadata: {
+            paymentId: order.mpPaymentId,
+            refundId: (refund as any).id ? String((refund as any).id) : null,
+          },
         },
       });
 
       return refundedOrder;
     });
+
+    const products = await storePrisma.product.findMany({
+      where: { id: { in: order.items.map((item) => item.productId) } },
+      select: { type: true, purpose: true },
+    });
+    try {
+      await whatsappQueue.add("order-refunded", {
+        kind: "order-refunded",
+        orderId: refundedOrder.id.toString(),
+        recipientPhone: refundedOrder.customerPhone,
+        orderKind: resolveRefundOrderKind(products),
+      });
+    } catch (error: any) {
+      await storePrisma.whatsappMessageLog.create({
+        data: {
+          orderId: refundedOrder.id.toString(),
+          recipientPhone: refundedOrder.customerPhone,
+          instanceName: "queue",
+          templateUsed: "order-refunded",
+          status: "failed",
+          errorMessage:
+            error?.message ||
+            "La devolución se completó, pero no pudo encolarse su notificación.",
+        },
+      });
+    }
+
+    return refundedOrder;
   },
 
-  async refundRaffleParticipation(participationId: string) {
+  async refundRaffleParticipation(
+    participationId: string,
+    actor: AuditActor,
+  ) {
     const legacyMatch = /^sale-(\d+)$/.exec(participationId);
     const sales = await rafflePrisma.ticketSale.findMany({
       where: legacyMatch
@@ -1269,7 +1421,7 @@ export const mpService = {
 
     const client = new MercadoPagoConfig({ accessToken: sellerToken });
     const refundClient = new PaymentRefund(client);
-    const refund = await refundClient.create({ payment_id: first.mpPaymentId });
+    const refund = await createMercadoPagoRefund(refundClient, first.mpPaymentId);
     const paidAmount = Number(first.mpPaidAmount || 0);
     const refundAmount = Number((refund as any).amount || paidAmount);
     const refundedAt = new Date();
@@ -1292,17 +1444,58 @@ export const mpService = {
           data: { usedCount: { decrement: 1 } },
         });
       }
+
+      await tx.raffleParticipationEvent.create({
+        data: {
+          participationId,
+          raffleId: first.raffleId,
+          eventType: "PAYMENT_REFUNDED",
+          message: "Pago devuelto en Mercado Pago y boletos liberados.",
+          ...auditActorData(actor),
+          previousState: {
+            paymentStatus: first.paymentStatus,
+            mpPaymentStatus: first.mpPaymentStatus,
+          },
+          nextState: {
+            paymentStatus: "CANCELLED",
+            mpPaymentStatus: "refunded",
+          },
+          metadata: {
+            paymentId: first.mpPaymentId,
+            refundId: (refund as any).id ? String((refund as any).id) : null,
+            refundedAmount: Number.isFinite(refundAmount)
+              ? refundAmount
+              : paidAmount,
+            ticketNumbers: sales.map((sale) => sale.ticketNumber),
+          },
+        },
+      });
     });
 
     const { publishTicketAvailabilityChanged } = await import(
       "../../raffle/ticket-sales/ticket-availability.events"
     );
     void publishTicketAvailabilityChanged(first.raffleId).catch(() => undefined);
-    await whatsappQueue.add("reservation-cancelled", {
-      kind: "reservation-cancelled",
-      ticketSaleIds: sales.map((sale) => sale.id),
-      recipientPhone: first.customerPhone,
-    });
+    try {
+      await whatsappQueue.add("reservation-refunded", {
+        kind: "reservation-refunded",
+        ticketSaleIds: sales.map((sale) => sale.id),
+        recipientPhone: first.customerPhone,
+      });
+    } catch (error: any) {
+      await storePrisma.whatsappMessageLog.create({
+        data: {
+          ticketSaleId: sales[0].id,
+          recipientPhone: first.customerPhone,
+          instanceName: "queue",
+          templateUsed: "reservation-refunded",
+          status: "failed",
+          errorMessage:
+            error?.message ||
+            "La devolución se completó, pero no pudo encolarse su notificación.",
+        },
+      });
+    }
 
     const { ticketSaleService } = await import(
       "../../raffle/ticket-sales/ticket-sale.service"

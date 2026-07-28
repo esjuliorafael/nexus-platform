@@ -77,22 +77,30 @@ export default function RafflesPage() {
   const [recentResults, setRecentResults] = useState<RaffleRecentResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [raffleType, setRaffleType] = useState<RaffleCatalogType>(DEFAULT_RAFFLE_TYPE);
-  const [draftRaffleType, setDraftRaffleType] = useState<RaffleCatalogType>(DEFAULT_RAFFLE_TYPE);
+  const [raffleType, setRaffleType] =
+    useState<RaffleCatalogType>(DEFAULT_RAFFLE_TYPE);
+  const [draftRaffleType, setDraftRaffleType] =
+    useState<RaffleCatalogType>(DEFAULT_RAFFLE_TYPE);
   const [isFilterPanelOpen, setIsFilterPanelOpen] = useState(false);
   const [page, setPage] = useState(1);
   const [featuredIndex, setFeaturedIndex] = useState(0);
-  const [participationClock, setParticipationClock] = useState(() => Date.now());
+  const [participationClock, setParticipationClock] = useState(() =>
+    Date.now(),
+  );
   const showToast = useToastStore((state) => state.showToast);
   useStorefrontRouteReadiness("/raffles", !loading);
 
   useEffect(() => {
-    const timer = window.setInterval(() => setParticipationClock(Date.now()), 60_000);
+    const timer = window.setInterval(
+      () => setParticipationClock(Date.now()),
+      60_000,
+    );
     return () => window.clearInterval(timer);
   }, []);
 
   const isRaffleEnabled =
-    isModuleEnabled("raffle_enabled") || process.env.NEXT_PUBLIC_RAFFLE_ENABLED === "true";
+    isModuleEnabled("raffle_enabled") ||
+    process.env.NEXT_PUBLIC_RAFFLE_ENABLED === "true";
 
   useEffect(() => {
     const loadRaffles = async () => {
@@ -135,7 +143,9 @@ export default function RafflesPage() {
       }, 240);
     };
 
-    const eventSource = new EventSource(raffleApi.getCatalogAvailabilityEventsUrl());
+    const eventSource = new EventSource(
+      raffleApi.getCatalogAvailabilityEventsUrl(),
+    );
     eventSource.addEventListener("availability-changed", refreshCatalog);
 
     return () => {
@@ -175,7 +185,8 @@ export default function RafflesPage() {
   );
 
   const normalizedQuery = normalizeSearch(searchTerm);
-  const isExploringCatalog = normalizedQuery.length > 0 || raffleType !== DEFAULT_RAFFLE_TYPE;
+  const isExploringCatalog =
+    normalizedQuery.length > 0 || raffleType !== DEFAULT_RAFFLE_TYPE;
   const filteredRaffles = useMemo(() => {
     return raffles.filter((raffle) => {
       const isOpportunityRaffle = raffle.opportunities > 1;
@@ -185,15 +196,24 @@ export default function RafflesPage() {
         (raffleType === "OPPORTUNITIES" && isOpportunityRaffle);
       const matchesSearch =
         normalizedQuery.length === 0 ||
-        normalizeSearch(`${raffle.title} ${raffle.description ?? ""}`).includes(normalizedQuery);
+        normalizeSearch(`${raffle.title} ${raffle.description ?? ""}`).includes(
+          normalizedQuery,
+        );
 
       return matchesType && matchesSearch;
     });
   }, [normalizedQuery, raffleType, raffles]);
 
-  const totalPages = Math.max(1, Math.ceil(filteredRaffles.length / RAFFLES_PER_PAGE));
+  const totalPages = Math.max(
+    1,
+    Math.ceil(filteredRaffles.length / RAFFLES_PER_PAGE),
+  );
   const visibleRaffles = useMemo(
-    () => filteredRaffles.slice((page - 1) * RAFFLES_PER_PAGE, page * RAFFLES_PER_PAGE),
+    () =>
+      filteredRaffles.slice(
+        (page - 1) * RAFFLES_PER_PAGE,
+        page * RAFFLES_PER_PAGE,
+      ),
     [filteredRaffles, page],
   );
   const hasActiveFilters = raffleType !== DEFAULT_RAFFLE_TYPE;
@@ -210,7 +230,8 @@ export default function RafflesPage() {
   useEffect(() => {
     if (!showFeaturedStage || featuredRaffles.length < 2) return;
     const timer = window.setInterval(
-      () => setFeaturedIndex((current) => (current + 1) % featuredRaffles.length),
+      () =>
+        setFeaturedIndex((current) => (current + 1) % featuredRaffles.length),
       FEATURED_ROTATION_MS,
     );
     return () => window.clearInterval(timer);
@@ -282,12 +303,17 @@ export default function RafflesPage() {
         }}
       >
         <div className="mx-auto max-w-2xl text-center">
-          <div className="flex flex-col items-center" style={{ gap: "var(--sf-space-md)" }}>
+          <div
+            className="flex flex-col items-center"
+            style={{ gap: "var(--sf-space-md)" }}
+          >
             <StorefrontIcon icon={Ticket} context="section" variant="muted" />
-            <h1 className="sf-text-display text-stone-850">Módulo desactivado</h1>
+            <h1 className="sf-text-display text-stone-850">
+              Módulo desactivado
+            </h1>
             <p className="sf-text-body max-w-md text-stone-500">
-              El módulo de rifas no está activo en este momento. Vuelve pronto para conocer
-              nuestras próximas rifas.
+              El módulo de rifas no está activo en este momento. Vuelve pronto
+              para conocer nuestras próximas rifas.
             </p>
             <Button asChild variant="outline" context="section">
               <Link href="/">Volver al inicio</Link>
@@ -333,7 +359,10 @@ export default function RafflesPage() {
             />
           ) : (
             <StorefrontReveal cadence="editorial">
-              <header className="flex max-w-2xl flex-col" style={{ gap: "var(--sf-space-sm)" }}>
+              <header
+                className="flex max-w-2xl flex-col"
+                style={{ gap: "var(--sf-space-sm)" }}
+              >
                 <h1 className="sf-text-display text-stone-950">Rifas</h1>
                 <p className="sf-text-body text-stone-500">
                   Consulta las participaciones disponibles y elige tus números.
@@ -343,10 +372,16 @@ export default function RafflesPage() {
           )}
 
           {upcomingRaffles.length > 0 && !isExploringCatalog && (
-            <UpcomingRafflesShelf raffles={upcomingRaffles} now={participationClock} />
+            <UpcomingRafflesShelf
+              raffles={upcomingRaffles}
+              now={participationClock}
+            />
           )}
 
-          <section className="flex flex-col" style={{ gap: "var(--sf-space-md)" }}>
+          <section
+            className="flex flex-col"
+            style={{ gap: "var(--sf-space-md)" }}
+          >
             <RaffleSectionHeading
               icon={Compass}
               title="Explorar rifas"
@@ -377,7 +412,10 @@ export default function RafflesPage() {
               />
             ) : (
               <div className="flex flex-col">
-                <div className="grid grid-cols-1 lg:grid-cols-2" style={{ gap: "var(--sf-space-md)" }}>
+                <div
+                  className="grid grid-cols-1 lg:grid-cols-2"
+                  style={{ gap: "var(--sf-space-md)" }}
+                >
                   {visibleRaffles.map((raffle, index) => (
                     <RaffleCatalogCard
                       key={raffle.id}
@@ -405,7 +443,9 @@ export default function RafflesPage() {
 
           <HowRafflesWork />
 
-          {recentResults.length > 0 && <RecentRaffleResults results={recentResults} />}
+          {recentResults.length > 0 && (
+            <RecentRaffleResults results={recentResults} />
+          )}
         </div>
       )}
 
@@ -434,9 +474,15 @@ function RaffleSectionHeading({
   description: string;
 }) {
   return (
-    <div className="flex max-w-2xl flex-col" style={{ gap: "var(--sf-space-sm)" }}>
+    <div
+      className="flex max-w-2xl flex-col"
+      style={{ gap: "var(--sf-space-sm)" }}
+    >
       <StorefrontReveal cadence="editorial" amount={0.6}>
-        <div className="flex items-center" style={{ gap: "var(--sf-space-sm)" }}>
+        <div
+          className="flex items-center"
+          style={{ gap: "var(--sf-space-sm)" }}
+        >
           <Icon
             className="text-brand-500"
             aria-hidden="true"
@@ -500,7 +546,9 @@ function FeaturedRaffleStage({
           <motion.div
             key={raffle.id}
             className="absolute inset-0"
-            initial={prefersReducedMotion ? false : { opacity: 0, scale: 1.015 }}
+            initial={
+              prefersReducedMotion ? false : { opacity: 0, scale: 1.015 }
+            }
             animate={{ opacity: 1, scale: 1 }}
             exit={{ opacity: 0 }}
             transition={{
@@ -511,7 +559,11 @@ function FeaturedRaffleStage({
             }}
           >
             {raffle.imagePoster || raffle.image ? (
-              <img src={raffle.imagePoster || raffle.image || ""} alt="" className="h-full w-full object-cover" />
+              <img
+                src={raffle.imagePoster || raffle.image || ""}
+                alt=""
+                className="h-full w-full object-cover"
+              />
             ) : (
               <div className="flex h-full w-full items-center justify-center bg-stone-900 text-white/30">
                 <Ticket size={72} strokeWidth={1.25} />
@@ -529,7 +581,10 @@ function FeaturedRaffleStage({
 
         <div
           className="relative z-10 flex min-h-[72svh] flex-col justify-end md:min-h-[32rem]"
-          style={{ padding: "var(--sf-padding-outer)", gap: "var(--sf-space-md)" }}
+          style={{
+            padding: "var(--sf-padding-outer)",
+            gap: "var(--sf-space-md)",
+          }}
         >
           <AnimatePresence mode="wait">
             <motion.div
@@ -546,7 +601,10 @@ function FeaturedRaffleStage({
               }}
               style={{ gap: "var(--sf-space-md)" }}
             >
-              <div className="flex flex-col" style={{ gap: "var(--sf-space-base)" }}>
+              <div
+                className="flex flex-col"
+                style={{ gap: "var(--sf-space-base)" }}
+              >
                 <motion.div
                   className="flex flex-wrap items-center"
                   style={{ gap: "var(--sf-space-sm)" }}
@@ -558,7 +616,9 @@ function FeaturedRaffleStage({
                       : toMotionSeconds(choreography.badgeDelayMs),
                     duration: prefersReducedMotion
                       ? 0
-                      : toMotionSeconds(STOREFRONT_MOTION_MS.duration.deliberate),
+                      : toMotionSeconds(
+                          STOREFRONT_MOTION_MS.duration.deliberate,
+                        ),
                     ease: STOREFRONT_EASING.standard,
                   }}
                 >
@@ -574,10 +634,15 @@ function FeaturedRaffleStage({
                   </Badge>
                 </motion.div>
 
-                <div className="flex flex-col" style={{ gap: "var(--sf-space-sm)" }}>
+                <div
+                  className="flex flex-col"
+                  style={{ gap: "var(--sf-space-sm)" }}
+                >
                   <motion.h1
                     className="sf-text-hero max-w-3xl text-white"
-                    initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+                    initial={
+                      prefersReducedMotion ? false : { opacity: 0, y: 12 }
+                    }
                     animate={{ opacity: 1, y: 0 }}
                     transition={{
                       delay: prefersReducedMotion
@@ -594,7 +659,9 @@ function FeaturedRaffleStage({
                   {raffle.description && (
                     <motion.p
                       className="sf-text-body line-clamp-2 max-w-2xl text-white/80"
-                      initial={prefersReducedMotion ? false : { opacity: 0, y: 8 }}
+                      initial={
+                        prefersReducedMotion ? false : { opacity: 0, y: 8 }
+                      }
                       animate={{ opacity: 1, y: 0 }}
                       transition={{
                         delay: prefersReducedMotion
@@ -602,7 +669,9 @@ function FeaturedRaffleStage({
                           : toMotionSeconds(choreography.descriptionDelayMs),
                         duration: prefersReducedMotion
                           ? 0
-                          : toMotionSeconds(STOREFRONT_MOTION_MS.duration.deliberate),
+                          : toMotionSeconds(
+                              STOREFRONT_MOTION_MS.duration.deliberate,
+                            ),
                         ease: STOREFRONT_EASING.standard,
                       }}
                     >
@@ -627,14 +696,26 @@ function FeaturedRaffleStage({
                   ease: STOREFRONT_EASING.standard,
                 }}
               >
-                <div className="flex flex-col" style={{ gap: "var(--sf-space-xs)" }}>
+                <div
+                  className="flex flex-col"
+                  style={{ gap: "var(--sf-space-xs)" }}
+                >
                   <p className="sf-text-label text-white/60">Precio</p>
-                  <p className="sf-text-h1 font-black text-white">${formatPrice(raffle.ticketPrice)}</p>
+                  <p className="sf-text-h1 font-black text-white">
+                    ${formatPrice(raffle.ticketPrice)}
+                  </p>
                 </div>
                 {countdown && (
-                  <div className="flex flex-col" style={{ gap: "var(--sf-space-xs)" }}>
-                    <p className="sf-text-label text-white/60">{countdown.label}</p>
-                    <p className="sf-text-h2 font-black tabular-nums text-white">{countdown.value}</p>
+                  <div
+                    className="flex flex-col"
+                    style={{ gap: "var(--sf-space-xs)" }}
+                  >
+                    <p className="sf-text-label text-white/60">
+                      {countdown.label}
+                    </p>
+                    <p className="sf-text-h2 font-black tabular-nums text-white">
+                      {countdown.value}
+                    </p>
                   </div>
                 )}
               </motion.div>
@@ -654,7 +735,12 @@ function FeaturedRaffleStage({
                   ease: STOREFRONT_EASING.standard,
                 }}
               >
-                <Button asChild context="section" variant="primary" className="w-full sm:w-fit">
+                <Button
+                  asChild
+                  context="section"
+                  variant="primary"
+                  className="w-full sm:w-fit"
+                >
                   <Link href={`/raffles/${raffle.id}`}>
                     {availability.cta}
                     <ArrowRight size={18} />
@@ -690,7 +776,10 @@ function FeaturedRaffleStage({
                 ease: STOREFRONT_EASING.standard,
               }}
             >
-              <div className="flex items-center" style={{ gap: "var(--sf-space-xs)" }}>
+              <div
+                className="flex items-center"
+                style={{ gap: "var(--sf-space-xs)" }}
+              >
                 {raffles.map((item, index) => (
                   <button
                     key={item.id}
@@ -698,9 +787,15 @@ function FeaturedRaffleStage({
                     onClick={() => onChange(index)}
                     className="h-2 transition-all"
                     style={{
-                      width: index === activeIndex ? "var(--sf-space-xl)" : "var(--sf-space-sm)",
+                      width:
+                        index === activeIndex
+                          ? "var(--sf-space-xl)"
+                          : "var(--sf-space-sm)",
                       borderRadius: "var(--sf-radius-card-nested)",
-                      background: index === activeIndex ? "white" : "rgba(255,255,255,.4)",
+                      background:
+                        index === activeIndex
+                          ? "white"
+                          : "rgba(255,255,255,.4)",
                       transitionDuration: "var(--sf-motion-duration-standard)",
                     }}
                     aria-label={`Mostrar rifa destacada ${index + 1}`}
@@ -708,11 +803,18 @@ function FeaturedRaffleStage({
                   />
                 ))}
               </div>
-              <div className="hidden items-center sm:flex" style={{ gap: "var(--sf-space-sm)" }}>
+              <div
+                className="hidden items-center sm:flex"
+                style={{ gap: "var(--sf-space-sm)" }}
+              >
                 <FeaturedControl
                   icon={ChevronLeft}
                   label="Rifa anterior"
-                  onClick={() => onChange((activeIndex - 1 + raffles.length) % raffles.length)}
+                  onClick={() =>
+                    onChange(
+                      (activeIndex - 1 + raffles.length) % raffles.length,
+                    )
+                  }
                 />
                 <FeaturedControl
                   icon={ChevronRight}
@@ -744,7 +846,10 @@ function FeaturedRaffleStage({
             {
               icon: Calendar,
               label: "Fecha",
-              value: formatCalendarDate(raffle.drawDate, { day: "numeric", month: "short" }),
+              value: formatCalendarDate(raffle.drawDate, {
+                day: "numeric",
+                month: "short",
+              }),
             },
             {
               icon: Layers3,
@@ -766,17 +871,20 @@ function FeaturedRaffleStage({
           <RaffleOpportunityPreview opportunities={raffle.opportunities} />
         )}
         {raffle.ticketStats && (
-          <RaffleAvailabilityProgress
-            stats={raffle.ticketStats}
-            now={now}
-          />
+          <RaffleAvailabilityProgress stats={raffle.ticketStats} now={now} />
         )}
       </div>
     </section>
   );
 }
 
-function UpcomingRafflesShelf({ raffles, now }: { raffles: Raffle[]; now: number }) {
+function UpcomingRafflesShelf({
+  raffles,
+  now,
+}: {
+  raffles: Raffle[];
+  now: number;
+}) {
   return (
     <section className="flex flex-col" style={{ gap: "var(--sf-space-md)" }}>
       <RaffleSectionHeading
@@ -843,7 +951,9 @@ function UpcomingRaffleCard({ raffle, now }: { raffle: Raffle; now: number }) {
               src={raffle.imagePoster || raffle.image || ""}
               alt=""
               className="h-full w-full object-cover transition-transform ease-out group-hover:scale-[1.04]"
-              style={{ transitionDuration: "var(--sf-motion-duration-editorial)" }}
+              style={{
+                transitionDuration: "var(--sf-motion-duration-editorial)",
+              }}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-stone-300">
@@ -878,11 +988,22 @@ function UpcomingRaffleCard({ raffle, now }: { raffle: Raffle; now: number }) {
 
         <div
           className="flex flex-1 flex-col"
-          style={{ padding: "var(--sf-padding-inner)", gap: "var(--sf-space-md)" }}
+          style={{
+            padding: "var(--sf-padding-inner)",
+            gap: "var(--sf-space-md)",
+          }}
         >
-          <div className="flex flex-1 flex-col" style={{ gap: "var(--sf-space-sm)" }}>
-            <Link href={`/raffles/${raffle.id}`} className="hover:text-brand-600">
-              <h3 className="sf-text-h2 line-clamp-2 text-stone-950">{raffle.title}</h3>
+          <div
+            className="flex flex-1 flex-col"
+            style={{ gap: "var(--sf-space-sm)" }}
+          >
+            <Link
+              href={`/raffles/${raffle.id}`}
+              className="hover:text-brand-600"
+            >
+              <h3 className="sf-text-h2 line-clamp-2 text-stone-950">
+                {raffle.title}
+              </h3>
             </Link>
             <p className="sf-text-secondary text-stone-500">
               {formatOpeningDate(raffle.participationStartsAt)}
@@ -893,7 +1014,10 @@ function UpcomingRaffleCard({ raffle, now }: { raffle: Raffle; now: number }) {
             className="flex items-end justify-between border-t border-stone-100 pt-[var(--sf-space-md)]"
             style={{ gap: "var(--sf-space-md)" }}
           >
-            <div className="flex flex-col" style={{ gap: "var(--sf-space-xs)" }}>
+            <div
+              className="flex flex-col"
+              style={{ gap: "var(--sf-space-xs)" }}
+            >
               <p className="sf-text-label text-stone-400">Precio por boleto</p>
               <p className="sf-text-h2 font-black text-stone-950">
                 ${formatPrice(raffle.ticketPrice)}
@@ -904,7 +1028,9 @@ function UpcomingRaffleCard({ raffle, now }: { raffle: Raffle; now: number }) {
                 className="flex flex-col text-right"
                 style={{ gap: "var(--sf-space-xs)" }}
               >
-                <p className="sf-text-label text-stone-400">{countdown.label}</p>
+                <p className="sf-text-label text-stone-400">
+                  {countdown.label}
+                </p>
                 <p className="sf-text-secondary-strong tabular-nums text-brand-600">
                   {countdown.value}
                 </p>
@@ -951,7 +1077,11 @@ function UpcomingRaffleCard({ raffle, now }: { raffle: Raffle; now: number }) {
   );
 }
 
-function RaffleOpportunityPreview({ opportunities }: { opportunities: number }) {
+function RaffleOpportunityPreview({
+  opportunities,
+}: {
+  opportunities: number;
+}) {
   const visibleNumbers = Math.min(opportunities, 5);
   const remainingNumbers = Math.max(0, opportunities - visibleNumbers);
   const prefersReducedMotion = useReducedMotion();
@@ -975,10 +1105,18 @@ function RaffleOpportunityPreview({ opportunities }: { opportunities: number }) 
         ease: STOREFRONT_EASING.reveal,
       }}
     >
-      <div className="flex min-w-0 items-center" style={{ gap: "var(--sf-space-md)" }}>
+      <div
+        className="flex min-w-0 items-center"
+        style={{ gap: "var(--sf-space-md)" }}
+      >
         <StorefrontIcon icon={TicketCheck} context="card" variant="brand" />
-        <div className="flex min-w-0 flex-col" style={{ gap: "var(--sf-space-xs)" }}>
-          <p className="sf-text-label text-brand-600">Cómo participa tu boleto</p>
+        <div
+          className="flex min-w-0 flex-col"
+          style={{ gap: "var(--sf-space-xs)" }}
+        >
+          <p className="sf-text-label text-brand-600">
+            Cómo participa tu boleto
+          </p>
           <p className="sf-text-secondary-strong text-stone-850">
             1 boleto participa con {opportunities} números
           </p>
@@ -1031,9 +1169,19 @@ function RaffleOpportunityPreview({ opportunities }: { opportunities: number }) 
   );
 }
 
-function RaffleCatalogCard({ raffle, now, index }: { raffle: Raffle; now: number; index: number }) {
+function RaffleCatalogCard({
+  raffle,
+  now,
+  index,
+}: {
+  raffle: Raffle;
+  now: number;
+  index: number;
+}) {
   const availability = getRaffleAvailability(raffle, now);
-  const inventorySignal = raffle.ticketStats ? getInventorySignal(raffle.ticketStats) : null;
+  const inventorySignal = raffle.ticketStats
+    ? getInventorySignal(raffle.ticketStats)
+    : null;
   const prefersReducedMotion = useReducedMotion();
 
   return (
@@ -1066,9 +1214,15 @@ function RaffleCatalogCard({ raffle, now, index }: { raffle: Raffle; now: number
           level={1}
           density="none"
           className="group flex h-full flex-col"
-          style={{ padding: "var(--sf-padding-inner)", gap: "var(--sf-space-base)" }}
+          style={{
+            padding: "var(--sf-padding-inner)",
+            gap: "var(--sf-space-base)",
+          }}
         >
-          <div className="flex min-w-0 items-center" style={{ gap: "var(--sf-space-md)" }}>
+          <div
+            className="flex min-w-0 items-center"
+            style={{ gap: "var(--sf-space-md)" }}
+          >
             <div
               className="relative shrink-0 overflow-hidden bg-stone-50"
               style={{
@@ -1081,7 +1235,9 @@ function RaffleCatalogCard({ raffle, now, index }: { raffle: Raffle; now: number
                 <img
                   src={raffle.imagePoster || raffle.image || ""}
                   className="h-full w-full object-cover transition-transform ease-out group-hover:scale-[1.05]"
-                  style={{ transitionDuration: "var(--sf-motion-duration-editorial)" }}
+                  style={{
+                    transitionDuration: "var(--sf-motion-duration-editorial)",
+                  }}
                   alt={raffle.title}
                 />
               ) : (
@@ -1098,8 +1254,14 @@ function RaffleCatalogCard({ raffle, now, index }: { raffle: Raffle; now: number
               )}
             </div>
 
-            <div className="flex min-w-0 flex-1 flex-col" style={{ gap: "var(--sf-space-sm)" }}>
-              <div className="flex flex-wrap items-center" style={{ gap: "var(--sf-space-xs)" }}>
+            <div
+              className="flex min-w-0 flex-1 flex-col"
+              style={{ gap: "var(--sf-space-sm)" }}
+            >
+              <div
+                className="flex flex-wrap items-center"
+                style={{ gap: "var(--sf-space-xs)" }}
+              >
                 <Badge variant={availability.variant} context="card">
                   {availability.label}
                 </Badge>
@@ -1112,7 +1274,9 @@ function RaffleCatalogCard({ raffle, now, index }: { raffle: Raffle; now: number
 
               <h3
                 className="sf-text-h2 line-clamp-2 text-stone-950 transition-colors group-hover:text-brand-600"
-                style={{ transitionDuration: "var(--sf-motion-duration-standard)" }}
+                style={{
+                  transitionDuration: "var(--sf-motion-duration-standard)",
+                }}
               >
                 {raffle.title}
               </h3>
@@ -1163,11 +1327,19 @@ function RaffleCatalogFact({
   value: string;
 }) {
   return (
-    <div className="flex min-w-0 items-center" style={{ gap: "var(--sf-space-base)" }}>
+    <div
+      className="flex min-w-0 items-center"
+      style={{ gap: "var(--sf-space-base)" }}
+    >
       <StorefrontIcon icon={icon} context="card" variant="brand" />
-      <div className="flex min-w-0 flex-col" style={{ gap: "var(--sf-space-xs)" }}>
+      <div
+        className="flex min-w-0 flex-col"
+        style={{ gap: "var(--sf-space-xs)" }}
+      >
         <p className="sf-text-label text-stone-400">{label}</p>
-        <p className="sf-text-secondary-strong truncate text-stone-950">{value}</p>
+        <p className="sf-text-secondary-strong truncate text-stone-950">
+          {value}
+        </p>
       </div>
     </div>
   );
@@ -1215,9 +1387,14 @@ function FeaturedFact({
       style={{ gap: "var(--sf-space-md)" }}
     >
       <StorefrontIcon icon={icon} context="card" variant="brand" />
-      <div className="flex min-w-0 flex-col" style={{ gap: "var(--sf-space-xs)" }}>
+      <div
+        className="flex min-w-0 flex-col"
+        style={{ gap: "var(--sf-space-xs)" }}
+      >
         <p className="sf-text-label text-stone-400">{label}</p>
-        <p className="sf-text-secondary-strong truncate text-stone-850">{value}</p>
+        <p className="sf-text-secondary-strong truncate text-stone-850">
+          {value}
+        </p>
       </div>
     </div>
   );
@@ -1234,12 +1411,18 @@ function RaffleAvailabilityProgress({
 }) {
   const prefersReducedMotion = useReducedMotion();
   const occupied = Math.max(0, stats.total - stats.available);
-  const progress = stats.total > 0 ? Math.min(100, Math.max(0, (occupied / stats.total) * 100)) : 0;
-  const relativeActivity = formatRelativeActivity(stats.lastParticipationAt, now);
+  const progress =
+    stats.total > 0
+      ? Math.min(100, Math.max(0, (occupied / stats.total) * 100))
+      : 0;
+  const relativeActivity = formatRelativeActivity(
+    stats.lastParticipationAt,
+    now,
+  );
   const activityCopy =
     stats.recentActivityCount > 0
       ? `${stats.recentActivityCount} ${
-            stats.recentActivityCount === 1
+          stats.recentActivityCount === 1
             ? "boleto se apartó recientemente"
             : "boletos se apartaron recientemente"
         }`
@@ -1266,7 +1449,10 @@ function RaffleAvailabilityProgress({
           className="flex items-end justify-between"
           style={{ gap: "var(--sf-space-md)" }}
         >
-          <div className="flex min-w-0 flex-col" style={{ gap: "var(--sf-space-xs)" }}>
+          <div
+            className="flex min-w-0 flex-col"
+            style={{ gap: "var(--sf-space-xs)" }}
+          >
             <p className="sf-text-label text-stone-400">Disponibilidad</p>
             <p className="sf-text-secondary-strong text-stone-850">
               {stats.available} de {stats.total} boletos disponibles
@@ -1340,7 +1526,8 @@ function getInventorySignal(stats: NonNullable<Raffle["ticketStats"]>) {
   }
   if (stats.available <= 10) {
     return {
-      label: stats.available === 1 ? "Último boleto" : `Últimos ${stats.available}`,
+      label:
+        stats.available === 1 ? "Último boleto" : `Últimos ${stats.available}`,
       variant: "warning" as const,
     };
   }
@@ -1357,19 +1544,22 @@ function HowRafflesWork() {
       icon: TicketCheck,
       number: "01",
       title: "Elige tus boletos",
-      description: "Consulta la disponibilidad en tiempo real y selecciona tus números.",
+      description:
+        "Consulta la disponibilidad en tiempo real y selecciona tus números.",
     },
     {
       icon: CreditCard,
       number: "02",
       title: "Aparta o paga",
-      description: "Confirma tu participación mediante transferencia o tarjeta.",
+      description:
+        "Confirma tu participación mediante transferencia o tarjeta.",
     },
     {
       icon: Trophy,
       number: "03",
       title: "Consulta el resultado",
-      description: "El número ganador se publica con referencia al Premio Mayor.",
+      description:
+        "El número ganador se publica con referencia al Premio Mayor.",
     },
   ];
   const revealDuration = prefersReducedMotion
@@ -1379,7 +1569,10 @@ function HowRafflesWork() {
 
   return (
     <section className="flex flex-col border-y border-stone-200 py-[var(--sf-space-lg)] md:py-[var(--sf-space-xl)]">
-      <div className="flex max-w-2xl flex-col" style={{ gap: "var(--sf-space-sm)" }}>
+      <div
+        className="flex max-w-2xl flex-col"
+        style={{ gap: "var(--sf-space-sm)" }}
+      >
         <motion.div
           className="flex items-center"
           style={{ gap: "var(--sf-space-sm)" }}
@@ -1436,13 +1629,25 @@ function HowRafflesWork() {
               ease: STOREFRONT_EASING.reveal,
             }}
           >
-            <StorefrontIcon icon={step.icon} context="section" variant="brand" />
-            <div className="flex min-w-0 flex-col" style={{ gap: "var(--sf-space-sm)" }}>
-              <div className="flex min-w-0 flex-col" style={{ gap: "var(--sf-space-xs)" }}>
+            <StorefrontIcon
+              icon={step.icon}
+              context="section"
+              variant="brand"
+            />
+            <div
+              className="flex min-w-0 flex-col"
+              style={{ gap: "var(--sf-space-sm)" }}
+            >
+              <div
+                className="flex min-w-0 flex-col"
+                style={{ gap: "var(--sf-space-xs)" }}
+              >
                 <p className="sf-text-label text-brand-600">{step.number}</p>
                 <h3 className="sf-text-h2 text-stone-950">{step.title}</h3>
               </div>
-              <p className="sf-text-secondary max-w-sm text-stone-500">{step.description}</p>
+              <p className="sf-text-secondary max-w-sm text-stone-500">
+                {step.description}
+              </p>
             </div>
           </motion.li>
         ))}
@@ -1460,7 +1665,10 @@ function RecentRaffleResults({ results }: { results: RaffleRecentResult[] }) {
         description="Consulta los números ganadores publicados de las rifas más recientes."
       />
 
-      <div className="grid grid-cols-1 lg:grid-cols-3" style={{ gap: "var(--sf-space-md)" }}>
+      <div
+        className="grid grid-cols-1 lg:grid-cols-3"
+        style={{ gap: "var(--sf-space-md)" }}
+      >
         {results.map((result, index) => (
           <StorefrontReveal
             key={result.id}
@@ -1493,7 +1701,10 @@ function RecentRaffleResults({ results }: { results: RaffleRecentResult[] }) {
                       src={result.imagePoster || result.image || ""}
                       alt=""
                       className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                      style={{ transitionDuration: "var(--sf-motion-duration-standard)" }}
+                      style={{
+                        transitionDuration:
+                          "var(--sf-motion-duration-standard)",
+                      }}
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center text-stone-400">
@@ -1503,10 +1714,41 @@ function RecentRaffleResults({ results }: { results: RaffleRecentResult[] }) {
                 </div>
 
                 <div className="min-w-0 flex-1">
-                  <p className="sf-text-label text-brand-600">Número ganador</p>
-                  <p className="sf-text-h1 font-black tabular-nums text-stone-950">
-                    {result.winningNumber}
+                  <p className="sf-text-label text-brand-600">
+                    {(result.prizes || []).length > 1
+                      ? `${result.prizes.length} resultados publicados`
+                      : "Número ganador"}
                   </p>
+                  <div
+                    className="flex flex-col"
+                    style={{ gap: "var(--sf-space-xs)" }}
+                  >
+                    {((result.prizes || []).length
+                      ? result.prizes
+                      : [
+                          {
+                            id: result.id,
+                            position: 1,
+                            winningNumber: result.winningNumber,
+                          },
+                        ]
+                    )
+                      .slice(0, 3)
+                      .map((prize) => (
+                        <div
+                          key={prize.id}
+                          className="flex items-baseline justify-between"
+                          style={{ gap: "var(--sf-space-sm)" }}
+                        >
+                          <span className="sf-text-caption text-stone-500">
+                            {rafflePlaceLabel(prize.position)}
+                          </span>
+                          <strong className="sf-text-secondary-strong tabular-nums text-stone-950">
+                            {prize.winningNumber}
+                          </strong>
+                        </div>
+                      ))}
+                  </div>
                   <p className="sf-text-secondary-strong truncate text-stone-850">
                     {result.title}
                   </p>
@@ -1517,15 +1759,17 @@ function RecentRaffleResults({ results }: { results: RaffleRecentResult[] }) {
                       year: "numeric",
                     })}
                   </p>
-                  <p className="sf-text-caption mt-[var(--sf-space-xs)] text-stone-500">
-                    Referencia: Premio Mayor
+                  <p className="sf-text-caption text-stone-500">
+                    Resultados oficiales publicados
                   </p>
                 </div>
 
                 <ArrowRight
                   className="shrink-0 text-stone-400 transition-transform group-hover:translate-x-1 group-hover:text-brand-500"
                   size={18}
-                  style={{ transitionDuration: "var(--sf-motion-duration-standard)" }}
+                  style={{
+                    transitionDuration: "var(--sf-motion-duration-standard)",
+                  }}
                   aria-hidden="true"
                 />
               </StorefrontCard>
@@ -1535,6 +1779,13 @@ function RecentRaffleResults({ results }: { results: RaffleRecentResult[] }) {
       </div>
     </section>
   );
+}
+
+function rafflePlaceLabel(position: number) {
+  if (position === 1) return "Primer lugar";
+  if (position === 2) return "Segundo lugar";
+  if (position === 3) return "Tercer lugar";
+  return `Lugar ${position}`;
 }
 
 function normalizeSearch(value: string) {
@@ -1610,7 +1861,9 @@ function getRaffleAvailability(raffle: Raffle, now: number) {
   const startsAt = raffle.participationStartsAt
     ? new Date(raffle.participationStartsAt).getTime()
     : null;
-  const endsAt = raffle.participationEndsAt ? new Date(raffle.participationEndsAt).getTime() : null;
+  const endsAt = raffle.participationEndsAt
+    ? new Date(raffle.participationEndsAt).getTime()
+    : null;
   const isClosed = Boolean(endsAt && now >= endsAt);
   const isUpcoming = Boolean(startsAt && now < startsAt);
 
@@ -1650,7 +1903,9 @@ function getRaffleCountdown(raffle: Raffle, now: number) {
   const startsAt = raffle.participationStartsAt
     ? new Date(raffle.participationStartsAt).getTime()
     : null;
-  const endsAt = raffle.participationEndsAt ? new Date(raffle.participationEndsAt).getTime() : null;
+  const endsAt = raffle.participationEndsAt
+    ? new Date(raffle.participationEndsAt).getTime()
+    : null;
   const drawAt = raffle.drawDate ? new Date(raffle.drawDate).getTime() : null;
 
   if (startsAt && now < startsAt) {
@@ -1663,7 +1918,10 @@ function getRaffleCountdown(raffle: Raffle, now: number) {
     return { label: "Cierra en", value: formatRemainingTime(endsAt - now) };
   }
   if (drawAt && now < drawAt) {
-    return { label: "La rifa inicia en", value: formatRemainingTime(drawAt - now) };
+    return {
+      label: "La rifa inicia en",
+      value: formatRemainingTime(drawAt - now),
+    };
   }
   return null;
 }

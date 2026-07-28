@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify";
 import { productService } from "./product.service";
 import { createProductSchema, updateProductSchema, updateProductStatusSchema } from "./product.schema";
 import { ProductType, SaleStatus } from "@prisma/client-store";
+import { requireAuthenticatedActor } from "../../../utils/admin-authorization";
 
 export async function productRoutes(server: FastifyInstance) {
   // Public Routes (Pre-fixed with /store/products in store.routes.ts)
@@ -48,10 +49,34 @@ export async function productAdminRoutes(server: FastifyInstance) {
     });
   });
 
+  server.get("/:id/overview", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const productId = Number(id);
+    if (!Number.isInteger(productId) || productId < 1) {
+      return reply.status(400).send({ message: "Invalid product id" });
+    }
+    const overview = await productService.getOverview(productId);
+    if (!overview) return reply.status(404).send({ message: "Product not found" });
+    return overview;
+  });
+
+  server.get("/:id", async (request, reply) => {
+    const { id } = request.params as { id: string };
+    const productId = Number(id);
+    if (!Number.isInteger(productId) || productId < 1) {
+      return reply.status(400).send({ message: "Invalid product id" });
+    }
+    const product = await productService.getById(productId, { onlyActive: true });
+    if (!product) return reply.status(404).send({ message: "Product not found" });
+    return product;
+  });
+
   server.post("/", async (request, reply) => {
     try {
+      const actor = await requireAuthenticatedActor(server, request, reply);
+      if (!actor) return;
       const validated = createProductSchema.parse(request.body);
-      return await productService.create(validated);
+      return await productService.create(validated, actor);
     } catch (err: any) {
       server.log.error(err);
       if (err?.issues) {
@@ -68,9 +93,11 @@ export async function productAdminRoutes(server: FastifyInstance) {
 
   server.put("/:id", async (request, reply) => {
     try {
+      const actor = await requireAuthenticatedActor(server, request, reply);
+      if (!actor) return;
       const { id } = request.params as { id: string };
       const validated = updateProductSchema.parse(request.body);
-      return await productService.update(parseInt(id), validated);
+      return await productService.update(parseInt(id), validated, actor);
     } catch (err: any) {
       server.log.error(err);
       if (err?.issues) {
@@ -87,9 +114,11 @@ export async function productAdminRoutes(server: FastifyInstance) {
 
   server.patch("/:id/status", async (request, reply) => {
     try {
+      const actor = await requireAuthenticatedActor(server, request, reply);
+      if (!actor) return;
       const { id } = request.params as { id: string };
       const validated = updateProductStatusSchema.parse(request.body);
-      return await productService.update(parseInt(id), validated);
+      return await productService.update(parseInt(id), validated, actor);
     } catch (err: any) {
       server.log.error(err);
       if (err?.issues) {
@@ -105,8 +134,10 @@ export async function productAdminRoutes(server: FastifyInstance) {
   });
 
   server.delete("/:id", async (request, reply) => {
+    const actor = await requireAuthenticatedActor(server, request, reply);
+    if (!actor) return;
     const { id } = request.params as { id: string };
-    await productService.softDelete(parseInt(id));
+    await productService.softDelete(parseInt(id), actor);
     return { success: true };
   });
 }

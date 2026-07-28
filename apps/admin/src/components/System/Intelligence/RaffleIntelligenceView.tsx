@@ -2,17 +2,22 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   Brain,
   Download,
+  Edit2,
   Filter,
   Phone,
+  Plus,
   Search,
   ShieldAlert,
   Sparkles,
   Ticket,
+  Trash2,
   TrendingUp,
+  UserRoundSearch,
   Users,
   Wallet,
 } from 'lucide-react';
 import {
+  RaffleAudience,
   RaffleIntelligenceOverview,
   RaffleIntelligenceSegment,
   RaffleParticipantIntelligence,
@@ -28,6 +33,9 @@ import { NexusSectionButton } from '../../ui/NexusButton';
 import { NexusPaginator } from '../../ui/NexusPaginator';
 import { NexusSpinner } from '../../ui/NexusSpinner';
 import { EmptyState } from '../../ui/EmptyState';
+import { NexusSwitch } from '../../ui/NexusSwitch';
+import { NexusConfirmModal } from '../../ui/NexusConfirmModal';
+import { RaffleAudienceModal } from './RaffleAudienceModal';
 
 interface RaffleIntelligenceViewProps {
   showToast: (message: string, type?: 'success' | 'error') => void;
@@ -68,6 +76,24 @@ const formatDate = (value?: string | null) => {
   });
 };
 
+const describeAudience = (audience: RaffleAudience) => {
+  const rules = audience.rules;
+  const parts: string[] = [];
+  if (rules.minPaidParticipations !== undefined) parts.push(`${rules.minPaidParticipations}+ participaciones pagadas`);
+  if (rules.minPaidTickets !== undefined) parts.push(`${rules.minPaidTickets}+ boletos pagados`);
+  if (rules.minNetRevenue !== undefined) parts.push(`desde ${formatMoney(rules.minNetRevenue)}`);
+  if (rules.maxDaysSinceLastPaid !== undefined) parts.push(`actividad en ${rules.maxDaysSinceLastPaid} días`);
+  if (rules.maxPaymentSpeedPercentile !== undefined) parts.push(`percentil ${rules.maxPaymentSpeedPercentile} de rapidez`);
+  if (rules.paymentMethods?.length === 2) parts.push("tarjeta o transferencia");
+  else if (rules.paymentMethods?.includes("MERCADOPAGO")) parts.push("pago con tarjeta");
+  else if (rules.paymentMethods?.includes("TRANSFER")) parts.push("depósito / transferencia");
+  if (rules.states?.length) parts.push(rules.states.join(", "));
+  if (rules.countries?.length) parts.push(rules.countries.join(", "));
+  if (rules.winnerOnly) parts.push("ganadores anteriores");
+  if (rules.openingSubscriberOnly) parts.push("interés previo");
+  return parts.length ? parts.join(" · ") : "Todos los perfiles, sujetos a consentimiento y exclusiones.";
+};
+
 const getSegmentVariant = (segment: RaffleParticipantSegment) => {
   if (segment === 'VIP_PAYERS') return 'emerald';
   if (segment === 'NON_PAYER') return 'muted';
@@ -91,6 +117,14 @@ export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ 
   const [overview, setOverview] = useState<RaffleIntelligenceOverview | null>(null);
   const [segments, setSegments] = useState<RaffleIntelligenceSegment[]>([]);
   const [participants, setParticipants] = useState<RaffleParticipantIntelligence[]>([]);
+  const [audiences, setAudiences] = useState<RaffleAudience[]>([]);
+  const [audienceOptions, setAudienceOptions] = useState<{
+    raffles: Array<{ id: number; title: string; status: string }>;
+    states: string[];
+  }>({ raffles: [], states: [] });
+  const [audienceModalOpen, setAudienceModalOpen] = useState(false);
+  const [editingAudience, setEditingAudience] = useState<RaffleAudience | null>(null);
+  const [audienceToDelete, setAudienceToDelete] = useState<RaffleAudience | null>(null);
   const [meta, setMeta] = useState({ total: 0, page: 1, pageSize: 10, totalPages: 1 });
   const [isLoading, setIsLoading] = useState(true);
   const [isExporting, setIsExporting] = useState(false);
@@ -109,15 +143,19 @@ export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ 
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [overviewData, segmentData, participantData] = await Promise.all([
+      const [overviewData, segmentData, participantData, audienceData, optionsData] = await Promise.all([
         apiRaffleIntelligence.getOverview(),
         apiRaffleIntelligence.getSegments(),
         apiRaffleIntelligence.getParticipants(query),
+        apiRaffleIntelligence.getAudiences(),
+        apiRaffleIntelligence.getAudienceOptions(),
       ]);
       setOverview(overviewData);
       setSegments(segmentData);
       setParticipants(participantData.data);
       setMeta(participantData.meta);
+      setAudiences(audienceData);
+      setAudienceOptions(optionsData);
     } catch (error: any) {
       if (error.response?.status === 403) {
         showToast('Solo Superadmin puede consultar inteligencia de rifas', 'error');
@@ -157,6 +195,39 @@ export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ 
       showToast('No se pudo exportar la audiencia', 'error');
     } finally {
       setIsExporting(false);
+    }
+  };
+
+  const handleAudienceSaved = (saved: RaffleAudience) => {
+    setAudiences((current) => {
+      const exists = current.some((item) => item.id === saved.id);
+      const next = exists
+        ? current.map((item) => item.id === saved.id ? saved : item)
+        : [saved, ...current];
+      return next.sort((a, b) => Number(b.active) - Number(a.active)
+        || new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
+    });
+  };
+
+  const handleAudienceStatus = async (audience: RaffleAudience, active: boolean) => {
+    try {
+      const updated = await apiRaffleIntelligence.updateAudience(audience.id, { active });
+      handleAudienceSaved(updated);
+      showToast(active ? "Audiencia activada" : "Audiencia pausada");
+    } catch {
+      showToast("No se pudo actualizar la audiencia", "error");
+    }
+  };
+
+  const handleDeleteAudience = async () => {
+    if (!audienceToDelete) return;
+    try {
+      await apiRaffleIntelligence.deleteAudience(audienceToDelete.id);
+      setAudiences((current) => current.filter((item) => item.id !== audienceToDelete.id));
+      showToast("Audiencia eliminada");
+      setAudienceToDelete(null);
+    } catch {
+      showToast("No se pudo eliminar la audiencia", "error");
     }
   };
 
@@ -211,6 +282,81 @@ export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ 
           icon={ShieldAlert}
         />
       </div>
+
+      <NexusSection
+        title="Audiencias Guardadas"
+        subtitle="Define perfiles reutilizables; la promoción se ejecuta después desde una rifa"
+        icon={UserRoundSearch}
+        iconVariant="brand"
+        action={
+          <NexusSectionButton
+            icon={Plus}
+            onClick={() => {
+              setEditingAudience(null);
+              setAudienceModalOpen(true);
+            }}
+          >
+            Nueva Audiencia
+          </NexusSectionButton>
+        }
+      >
+        {audiences.length === 0 ? (
+          <EmptyState
+            icon={UserRoundSearch}
+            title="Sin audiencias guardadas"
+            description="Combina comportamiento, valor, recurrencia y consentimiento antes de preparar una campaña."
+          />
+        ) : (
+          <div className="grid grid-cols-1 xl:grid-cols-2" style={{ gap: "var(--space-md)" }}>
+            {audiences.map((audience, index) => (
+              <NexusSectionCard
+                key={audience.id}
+                delay={`${index * 40}ms`}
+                icon={Users}
+                iconVariant={audience.active ? "brand" : "muted"}
+                isMuted={!audience.active}
+                title={audience.name}
+                subtitle={
+                  <div className="flex flex-col" style={{ gap: "var(--space-xs)" }}>
+                    {audience.description && <span>{audience.description}</span>}
+                    <span>{describeAudience(audience)}</span>
+                  </div>
+                }
+                rightContent={
+                  <div className="flex items-center" style={{ gap: "var(--space-sm)" }}>
+                    <NexusSwitch
+                      checked={audience.active}
+                      onChange={(active) => handleAudienceStatus(audience, active)}
+                      aria-label={audience.active ? "Pausar audiencia" : "Activar audiencia"}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingAudience(audience);
+                        setAudienceModalOpen(true);
+                      }}
+                      className="flex h-[var(--h-button-card)] aspect-square items-center justify-center border border-border-main bg-bg-muted text-text-muted hover:text-text-main"
+                      style={{ borderRadius: "var(--radius-nested-simple)" }}
+                      aria-label={`Editar ${audience.name}`}
+                    >
+                      <Edit2 size={18} />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setAudienceToDelete(audience)}
+                      className="flex h-[var(--h-button-card)] aspect-square items-center justify-center border border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100"
+                      style={{ borderRadius: "var(--radius-nested-simple)" }}
+                      aria-label={`Eliminar ${audience.name}`}
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </div>
+                }
+              />
+            ))}
+          </div>
+        )}
+      </NexusSection>
 
       <NexusSection
         title="Segmentos de Audiencia"
@@ -356,6 +502,23 @@ export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ 
           onPageChange={(page) => setMeta((current) => ({ ...current, page }))}
         />
       </NexusSection>
+
+      <RaffleAudienceModal
+        isOpen={audienceModalOpen}
+        audience={editingAudience}
+        options={audienceOptions}
+        onClose={() => setAudienceModalOpen(false)}
+        onSaved={handleAudienceSaved}
+        showToast={showToast}
+      />
+      <NexusConfirmModal
+        isOpen={Boolean(audienceToDelete)}
+        title="Eliminar Audiencia"
+        message={`Se eliminará “${audienceToDelete?.name || ""}”. Esto no afecta participantes ni mensajes anteriores.`}
+        confirmLabel="Eliminar"
+        onConfirm={handleDeleteAudience}
+        onCancel={() => setAudienceToDelete(null)}
+      />
     </div>
   );
 };

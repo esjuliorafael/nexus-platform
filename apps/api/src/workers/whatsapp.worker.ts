@@ -4,14 +4,16 @@ import { storePrisma } from "@nexus/db/store";
 import { rafflePrisma } from "@nexus/db/raffle";
 import { resolveChannels } from "../services/evolution/channel.resolver";
 import { getEvolutionConfigFromSettings } from "../services/evolution/evolution.config";
-import {
-  normalizePrincipalInstanceName,
-  sendWhatsappWithFailover,
-} from "../services/evolution/whatsapp-delivery.service";
+import { normalizePrincipalInstanceName } from "../services/evolution/whatsapp-delivery.service";
+import { sendBusinessWhatsappNotification } from "../services/whatsapp/whatsapp-business-delivery.service";
 import type { WhatsappJobData } from "../queues/whatsapp.queue";
 import type { OrderKind } from "../services/evolution/channel.resolver";
 import { queueName } from "../queues/queue-name";
 import { formatRaffleTicketList } from "../utils/raffle-ticket-list";
+import { refreshRaffleResultCampaign } from "../modules/raffle/raffles/raffle-result-communication.service";
+import { refreshRaffleInvitationCampaign } from "../modules/raffle/raffles/raffle-invitation-campaign.service";
+import { paymentRecoveryService } from "../services/payment-recovery.service";
+import { isKapsoTenantDeliveryEnabled } from "../services/whatsapp/whatsapp-delivery-policy";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
 const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
@@ -21,6 +23,10 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
   async (job: Job<WhatsappJobData>) => {
     const { data } = job;
     const forcePrincipal = data.forcePrincipal === true;
+    const forceEvolution = data.forceEvolution === true;
+    const forceProvider =
+      data.forceProvider ||
+      (forceEvolution ? ("EVOLUTION" as const) : undefined);
 
     // Load global Evolution settings, all active WhatsApp channels, and payment channels
     const [settings, waChannels, payChannels] = await Promise.all([
@@ -31,16 +37,28 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
               "whatsapp_evolution_url",
               "whatsapp_evolution_key",
               "whatsapp_evolution_instance",
+              "whatsapp_main_provider",
+              "whatsapp_kapso_delivery_enabled",
+              "whatsapp_main_kapso_phone_number_id",
+              "whatsapp_main_kapso_business_account_id",
               "whatsapp_global_store_res",
               "whatsapp_global_store_rel",
               "whatsapp_global_store_pay",
+              "whatsapp_global_store_refunded",
+              "whatsapp_global_store_payment_recovery",
               "whatsapp_global_store_restored",
               "whatsapp_global_store_reminder",
               "whatsapp_global_raffle_res",
+              "whatsapp_global_raffle_restored",
               "whatsapp_global_raffle_rel",
               "whatsapp_global_raffle_pay",
+              "whatsapp_global_raffle_refunded",
+              "whatsapp_global_raffle_payment_recovery",
               "whatsapp_global_raffle_reminder",
               "whatsapp_global_raffle_opening",
+              "whatsapp_global_raffle_invitation",
+              "whatsapp_global_raffle_winner",
+              "whatsapp_global_raffle_results",
               "bank_main_name",
               "bank_main_beneficiary",
               "bank_main_account",
@@ -52,7 +70,6 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       }),
       storePrisma.whatsappChannel.findMany({
         where: { active: true },
-        include: { templates: true }
       }),
       storePrisma.paymentChannel.findMany(),
     ]);
@@ -61,73 +78,389 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       settings.find((s) => s.key === k)?.value ?? null;
 
     const envEvolutionConfig = await getEvolutionConfigFromSettings();
-    const globalUrl = getSetting("whatsapp_evolution_url") || envEvolutionConfig.baseUrl;
-    const globalKey = getSetting("whatsapp_evolution_key") || envEvolutionConfig.apiKey;
+    const globalUrl =
+      getSetting("whatsapp_evolution_url") || envEvolutionConfig.baseUrl;
+    const globalKey =
+      getSetting("whatsapp_evolution_key") || envEvolutionConfig.apiKey;
     const principalInstanceName = normalizePrincipalInstanceName(
       getSetting("whatsapp_evolution_instance"),
     );
-    const principalInstance = principalInstanceName && globalUrl && globalKey
-      ? { instanceName: principalInstanceName, baseUrl: globalUrl, apiKey: globalKey }
-      : null;
+    const principalInstance =
+      principalInstanceName && globalUrl && globalKey
+        ? {
+            instanceName: principalInstanceName,
+            baseUrl: globalUrl,
+            apiKey: globalKey,
+          }
+        : null;
+    const principalWhatsapp = {
+      provider:
+        !forceEvolution && getSetting("whatsapp_main_provider") === "KAPSO"
+          ? ("KAPSO" as const)
+          : ("EVOLUTION" as const),
+      evolution: principalInstance,
+      kapsoPhoneNumberId:
+        getSetting("whatsapp_main_kapso_phone_number_id") || "",
+      kapsoBusinessAccountId:
+        getSetting("whatsapp_main_kapso_business_account_id") || "",
+    };
+    const kapsoEnabled = isKapsoTenantDeliveryEnabled(
+      getSetting("whatsapp_kapso_delivery_enabled"),
+    );
 
-    if (data.kind === "order" || data.kind === "order-cancelled" || data.kind === "order-paid" || data.kind === "order-restored" || data.kind === "order-reminder") {
-      const resolved = resolveChannels(data.orderKind, waChannels);
-      const wa = resolved.whatsappChannel;
+    if (
+      data.kind === "store-payment-recovery" ||
+      data.kind === "raffle-payment-recovery"
+    ) {
+      const recoveryKind =
+        data.kind === "store-payment-recovery" ? "store" : "raffle";
+      const hold = await paymentRecoveryService.getForDelivery(
+        recoveryKind,
+        data.holdId,
+        data.recoveryToken,
+      );
+      if (!hold) return;
 
-      // Determine instance details: Channel specific -> Global Settings
-      const instanceName = forcePrincipal
-        ? principalInstanceName
-        : wa?.instanceName || principalInstanceName;
+      const isStore = recoveryKind === "store";
+      const principalTemplate =
+        getSetting(
+          isStore
+            ? "whatsapp_global_store_payment_recovery"
+            : "whatsapp_global_raffle_payment_recovery",
+        ) || "";
+      const preferredChannel = isStore
+        ? resolveChannels(
+            resolvePaymentRecoveryOrderKind((hold as any).items),
+            waChannels,
+          ).whatsappChannel
+        : waChannels.find(
+            (channel) =>
+              channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
+          ) || null;
+      const template = principalTemplate;
 
-      const baseUrl = forcePrincipal ? globalUrl : wa?.evolutionUrl || globalUrl;
-      const apiKey = forcePrincipal ? globalKey : wa?.evolutionKey || globalKey;
-      
-      if (!instanceName || !baseUrl || !apiKey) {
-        console.warn(
-          `[WhatsApp] No configuration found for order ${data.orderId}. ` +
-          `Channel: ${wa?.name || "None"}, Instance: ${instanceName || "Missing"}, URL: ${baseUrl || "Missing"}`
-        );
+      if (!template) {
         await storePrisma.whatsappMessageLog.create({
           data: {
             attempt: job.attemptsMade + 1,
-            orderId: data.orderId,
             recipientPhone: data.recipientPhone,
-            instanceName: instanceName || "missing",
+            instanceName: preferredChannel?.instanceName || "missing",
             jobId: String(job.id ?? ""),
-            templateUsed: "configuration",
+            templateUsed: isStore
+              ? "store_payment_recovery"
+              : "raffle_payment_recovery",
             status: "failed",
-            errorMessage: "No hay configuración de Evolution API para esta orden.",
+            errorMessage:
+              "No hay plantilla de recuperacion de pago configurada.",
           },
         });
         return;
       }
 
-      // Dynamic template resolution
-      let template = "";
-      if (data.kind === "order") {
-        template = wa?.templates?.find((t: any) => t.active && t.type.toLowerCase() === "reservation")?.content
-                   || getSetting("whatsapp_global_store_res") 
-                   || "";
-      } else if (data.kind === "order-paid") {
-        template = wa?.templates?.find((t: any) => t.active && t.type.toLowerCase() === "payment_confirmed")?.content
-                   || getSetting("whatsapp_global_store_pay")
-                   || "";
-      } else if (data.kind === "order-restored") {
-        template = wa?.templates?.find((t: any) => t.active && t.type.toLowerCase() === "restored")?.content
-                   || getSetting("whatsapp_global_store_restored")
-                   || "";
-      } else if (data.kind === "order-reminder") {
-        template = wa?.templates?.find((t: any) => t.active && t.type.toLowerCase() === "reminder")?.content
-                   || getSetting("whatsapp_global_store_reminder")
-                   || "";
-      } else {
-        template = wa?.templates?.find((t: any) => t.active && t.type.toLowerCase() === "release")?.content
-                   || getSetting("whatsapp_global_store_rel")
-                   || "";
+      const recoveryUrl = paymentRecoveryService.buildRecoveryUrl(
+        recoveryKind,
+        hold,
+        data.recoveryToken,
+      );
+      const values = isStore
+        ? buildStorePaymentRecoveryValues(hold as any, recoveryUrl)
+        : buildRafflePaymentRecoveryValues(hold as any, recoveryUrl);
+      const sent = await sendBusinessWhatsappNotification({
+        preferredChannel,
+        principal: principalWhatsapp,
+        scope: isStore ? "STORE" : "RAFFLES",
+        type: "PAYMENT_RECOVERY",
+        sourceContent: template,
+        principalSourceContent: principalTemplate,
+        recipientPhone: data.recipientPhone,
+        renderedText: renderTemplate(template, values),
+        principalRenderedText: renderTemplate(
+          principalTemplate || template,
+          values,
+        ),
+        values,
+        templateName: isStore
+          ? "store_payment_recovery"
+          : "raffle_payment_recovery",
+        jobId: String(job.id ?? ""),
+        attempt: job.attemptsMade + 1,
+        forceProvider,
+        kapsoEnabled,
+      });
+      if (sent) {
+        await paymentRecoveryService.markSent(recoveryKind, data.holdId);
       }
+      return;
+    }
+
+    if (data.kind === "raffle-result") {
+      const claimed = await rafflePrisma.raffleResultRecipient.updateMany({
+        where: {
+          id: data.campaignRecipientId,
+          status: {
+            in: data.fallbackOfMessageId
+              ? ["PENDING", "FAILED", "PROCESSING"]
+              : ["PENDING", "FAILED"],
+          },
+        },
+        data: {
+          status: "PROCESSING",
+          attempts: { increment: 1 },
+          lastError: null,
+        },
+      });
+      if (claimed.count === 0) return;
+
+      const recipient = await rafflePrisma.raffleResultRecipient.findUnique({
+        where: { id: data.campaignRecipientId },
+        include: {
+          campaign: {
+            include: { raffle: true },
+          },
+        },
+      });
+      if (!recipient) return;
+
+      const raffleChannel = waChannels.find(
+        (channel) =>
+          channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
+      );
+      const values = recipient.payload as Record<string, string>;
+      const templateType =
+        recipient.campaign.audience === "WINNERS"
+          ? ("RESULT_WINNER" as const)
+          : ("RESULT_PARTICIPANTS" as const);
+      const templateName =
+        recipient.campaign.audience === "WINNERS"
+          ? "raffle_result_winner"
+          : "raffle_result_participants";
+      const renderedText = renderTemplate(
+        recipient.campaign.templateContent,
+        values,
+      );
+      const principalRenderedText = renderTemplate(
+        recipient.campaign.principalTemplateContent,
+        values,
+      );
+
+      try {
+        const sent = await sendBusinessWhatsappNotification({
+          preferredChannel: forcePrincipal ? null : raffleChannel,
+          principal: principalWhatsapp,
+          scope: "RAFFLES",
+          type: templateType,
+          sourceContent: recipient.campaign.templateContent,
+          principalSourceContent: recipient.campaign.principalTemplateContent,
+          recipientPhone: recipient.phone,
+          renderedText,
+          principalRenderedText,
+          values,
+          templateName,
+          jobId: String(job.id ?? ""),
+          attempt: recipient.attempts,
+          forceProvider,
+          kapsoEnabled,
+        });
+        if (!sent) {
+          throw new Error(
+            "No existe un proveedor de WhatsApp preparado para esta notificación.",
+          );
+        }
+        const messageLog = await storePrisma.whatsappMessageLog.findFirst({
+          where: { jobId: String(job.id ?? "") },
+          orderBy: { id: "desc" },
+        });
+        const waitsForProviderResolution =
+          messageLog?.provider === "KAPSO" &&
+          ["accepted", "pending"].includes(
+            String(
+              messageLog.providerStatus || messageLog.status,
+            ).toLowerCase(),
+          );
+        await rafflePrisma.raffleResultRecipient.update({
+          where: { id: recipient.id },
+          data: {
+            status: waitsForProviderResolution ? "PROCESSING" : "SENT",
+            sentAt: waitsForProviderResolution ? null : new Date(),
+            messageLogId: messageLog?.id ?? null,
+            lastError: null,
+          },
+        });
+        await refreshRaffleResultCampaign(rafflePrisma, recipient.campaignId);
+        return;
+      } catch (error: any) {
+        const message =
+          error?.message || "No se pudo enviar la notificación de resultados.";
+        const messageLog = await storePrisma.whatsappMessageLog.findFirst({
+          where: { jobId: String(job.id ?? "") },
+          orderBy: { id: "desc" },
+        });
+        await rafflePrisma.raffleResultRecipient.update({
+          where: { id: recipient.id },
+          data: {
+            status: "FAILED",
+            lastError: message,
+            messageLogId: messageLog?.id ?? null,
+          },
+        });
+        await refreshRaffleResultCampaign(rafflePrisma, recipient.campaignId);
+        throw error;
+      }
+    }
+
+    if (data.kind === "raffle-invitation") {
+      const claimed = await rafflePrisma.raffleInvitationRecipient.updateMany({
+        where: {
+          id: data.campaignRecipientId,
+          status: {
+            in: data.fallbackOfMessageId
+              ? ["PENDING", "FAILED", "PROCESSING"]
+              : ["PENDING", "FAILED"],
+          },
+        },
+        data: {
+          status: "PROCESSING",
+          attempts: { increment: 1 },
+          lastError: null,
+        },
+      });
+      if (claimed.count === 0) return;
+
+      const recipient =
+        await rafflePrisma.raffleInvitationRecipient.findUnique({
+          where: { id: data.campaignRecipientId },
+          include: { campaign: true },
+        });
+      if (!recipient) return;
+
+      const raffleChannel = waChannels.find(
+        (channel) =>
+          channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
+      );
+      const values = recipient.payload as Record<string, string>;
+      const renderedText = renderTemplate(
+        recipient.campaign.templateContent,
+        values,
+      );
+      const principalRenderedText = renderTemplate(
+        recipient.campaign.principalTemplateContent,
+        values,
+      );
+
+      try {
+        const sent = await sendBusinessWhatsappNotification({
+          preferredChannel: forcePrincipal ? null : raffleChannel,
+          principal: principalWhatsapp,
+          scope: "RAFFLES",
+          type: "RAFFLE_INVITATION",
+          sourceContent: recipient.campaign.templateContent,
+          principalSourceContent:
+            recipient.campaign.principalTemplateContent,
+          recipientPhone: recipient.phone,
+          renderedText,
+          principalRenderedText,
+          values,
+          mediaHeaderUrl: values.media_header_url || undefined,
+          templateName: "raffle_invitation",
+          jobId: String(job.id ?? ""),
+          attempt: recipient.attempts,
+          forceProvider,
+          kapsoEnabled,
+        });
+        if (!sent) {
+          throw new Error(
+            "No existe un proveedor de WhatsApp preparado para esta invitación.",
+          );
+        }
+        const messageLog = await storePrisma.whatsappMessageLog.findFirst({
+          where: { jobId: String(job.id ?? "") },
+          orderBy: { id: "desc" },
+        });
+        const waitsForProviderResolution =
+          messageLog?.provider === "KAPSO" &&
+          ["accepted", "pending"].includes(
+            String(
+              messageLog.providerStatus || messageLog.status,
+            ).toLowerCase(),
+          );
+        await rafflePrisma.raffleInvitationRecipient.update({
+          where: { id: recipient.id },
+          data: {
+            status: waitsForProviderResolution ? "PROCESSING" : "SENT",
+            sentAt: waitsForProviderResolution ? null : new Date(),
+            messageLogId: messageLog?.id ?? null,
+            lastError: null,
+          },
+        });
+        if (messageLog) {
+          await storePrisma.whatsappMarketingPreference.updateMany({
+            where: { phone: recipient.phone, status: "GRANTED" },
+            data: { lastMarketingAt: new Date() },
+          });
+        }
+        await refreshRaffleInvitationCampaign(
+          rafflePrisma,
+          recipient.campaignId,
+        );
+        return;
+      } catch (error: any) {
+        const message =
+          error?.message || "No se pudo enviar la invitación de la rifa.";
+        const messageLog = await storePrisma.whatsappMessageLog.findFirst({
+          where: { jobId: String(job.id ?? "") },
+          orderBy: { id: "desc" },
+        });
+        await rafflePrisma.raffleInvitationRecipient.update({
+          where: { id: recipient.id },
+          data: {
+            status: "FAILED",
+            lastError: message,
+            messageLogId: messageLog?.id ?? null,
+          },
+        });
+        await refreshRaffleInvitationCampaign(
+          rafflePrisma,
+          recipient.campaignId,
+        );
+        throw error;
+      }
+    }
+
+    if (
+      data.kind === "order" ||
+      data.kind === "order-cancelled" ||
+      data.kind === "order-paid" ||
+      data.kind === "order-refunded" ||
+      data.kind === "order-restored" ||
+      data.kind === "order-reminder"
+    ) {
+      const resolved = resolveChannels(data.orderKind, waChannels);
+      const wa = resolved.whatsappChannel;
+
+      // Preserve the intended identity in configuration-error logs.
+      const instanceName = forcePrincipal
+        ? principalInstanceName
+        : wa?.instanceName || principalInstanceName;
+
+      const principalTemplate =
+        data.kind === "order"
+          ? getSetting("whatsapp_global_store_res") || ""
+          : data.kind === "order-paid"
+            ? getSetting("whatsapp_global_store_pay") || ""
+            : data.kind === "order-refunded"
+              ? getSetting("whatsapp_global_store_refunded") || ""
+            : data.kind === "order-restored"
+              ? getSetting("whatsapp_global_store_restored") || ""
+              : data.kind === "order-reminder"
+                ? getSetting("whatsapp_global_store_reminder") || ""
+                : getSetting("whatsapp_global_store_rel") || "";
+
+      const template = principalTemplate;
 
       if (!template) {
-        console.warn(`[WhatsApp] No template found for order ${data.orderId}, kind: ${data.kind}`);
+        console.warn(
+          `[WhatsApp] No template found for order ${data.orderId}, kind: ${data.kind}`,
+        );
         await storePrisma.whatsappMessageLog.create({
           data: {
             attempt: job.attemptsMade + 1,
@@ -137,7 +470,8 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
             jobId: String(job.id ?? ""),
             templateUsed: data.kind,
             status: "failed",
-            errorMessage: "No hay plantilla de WhatsApp configurada para este tipo de notificación.",
+            errorMessage:
+              "No hay plantilla de WhatsApp configurada para este tipo de notificación.",
           },
         });
         return;
@@ -146,11 +480,13 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       // Fetch full order data to inject variables
       const order = await storePrisma.order.findUnique({
         where: { id: parseInt(data.orderId) },
-        include: { items: true }
+        include: { items: true },
       });
 
       if (!order) {
-        console.error(`[WhatsApp] Order ${data.orderId} not found for notification`);
+        console.error(
+          `[WhatsApp] Order ${data.orderId} not found for notification`,
+        );
         await storePrisma.whatsappMessageLog.create({
           data: {
             attempt: job.attemptsMade + 1,
@@ -169,18 +505,21 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       let paymentChannel = null;
       if (data.orderKind.type === "birds_only" && data.orderKind.purpose) {
         const orderPurpose = data.orderKind.purpose;
-        paymentChannel = payChannels.find((channel) => channel.purpose.toUpperCase() === orderPurpose) ?? null;
+        paymentChannel =
+          payChannels.find(
+            (channel) => channel.purpose.toUpperCase() === orderPurpose,
+          ) ?? null;
       }
 
       const bankInfo = resolveBankInfo(
         paymentChannel
           ? {
-            bank: paymentChannel.bank,
-            beneficiary: paymentChannel.beneficiary,
-            account: paymentChannel.accountNumber ?? undefined,
-            clabe: paymentChannel.clabe ?? undefined,
-            card: paymentChannel.card ?? undefined,
-          }
+              bank: paymentChannel.bank,
+              beneficiary: paymentChannel.beneficiary,
+              account: paymentChannel.accountNumber ?? undefined,
+              clabe: paymentChannel.clabe ?? undefined,
+              card: paymentChannel.card ?? undefined,
+            }
           : null,
         {
           bank: getSetting("bank_main_name") ?? "",
@@ -192,28 +531,54 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       );
 
       const itemList = order.items
-        .map(i => `${i.quantity}x ${i.productName}`)
-        .join(", ");
+        .map((i) => `${i.quantity}x ${i.productName}`)
+        .join("\n");
 
-      let message = buildOrderMessage(
+      const notification = buildOrderNotification(
         template,
         order,
         bankInfo,
-        'timeLimit' in data ? data.timeLimit : undefined,
+        "timeLimit" in data ? data.timeLimit : undefined,
         itemList,
-        'timeRemaining' in data && typeof data.timeRemaining === "string" ? data.timeRemaining : undefined,
+        "timeRemaining" in data && typeof data.timeRemaining === "string"
+          ? data.timeRemaining
+          : undefined,
       );
 
-      await sendWhatsappWithFailover({
-        instance: { instanceName, baseUrl, apiKey },
-        principalFallback: !forcePrincipal && wa ? principalInstance : null,
+      await sendBusinessWhatsappNotification({
+        preferredChannel: forcePrincipal ? null : wa,
+        principal: principalWhatsapp,
+        scope: "STORE",
+        type:
+          data.kind === "order"
+            ? "RESERVATION"
+            : data.kind === "order-paid"
+              ? "PAYMENT_CONFIRMED"
+              : data.kind === "order-refunded"
+                ? "PAYMENT_REFUNDED"
+              : data.kind === "order-restored"
+                ? "RESTORED"
+                : data.kind === "order-reminder"
+                  ? "REMINDER"
+                  : "RELEASE",
+        sourceContent: template,
+        principalSourceContent: principalTemplate,
         recipientPhone: data.recipientPhone,
-        message,
+        renderedText: notification.message,
+        principalRenderedText: renderTemplate(
+          principalTemplate || template,
+          notification.values,
+        ),
+        values: notification.values,
         templateName:
           data.kind === "order"
-            ? (wa ? `order_${wa.purpose}` : "order_principal")
+            ? wa
+              ? `order_${wa.purpose}`
+              : "order_principal"
             : data.kind === "order-paid"
               ? "order_paid"
+              : data.kind === "order-refunded"
+                ? "order_refunded"
               : data.kind === "order-restored"
                 ? "order_restored"
                 : data.kind === "order-reminder"
@@ -222,14 +587,17 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         orderId: data.orderId,
         jobId: String(job.id ?? ""),
         attempt: job.attemptsMade + 1,
+        forceProvider,
+        kapsoEnabled,
       });
     }
 
     if (data.kind === "raffle-opening") {
-      const subscription = await rafflePrisma.raffleOpeningSubscription.findUnique({
-        where: { id: data.subscriptionId },
-        include: { raffle: true },
-      });
+      const subscription =
+        await rafflePrisma.raffleOpeningSubscription.findUnique({
+          where: { id: data.subscriptionId },
+          include: { raffle: true },
+        });
       if (
         !subscription ||
         subscription.status === "CANCELLED" ||
@@ -239,16 +607,18 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       }
 
       if (!forcePrincipal) {
-        const claimed = await rafflePrisma.raffleOpeningSubscription.updateMany({
-          where: {
-            id: subscription.id,
-            status: { in: ["PENDING", "FAILED"] },
+        const claimed = await rafflePrisma.raffleOpeningSubscription.updateMany(
+          {
+            where: {
+              id: subscription.id,
+              status: { in: ["PENDING", "FAILED"] },
+            },
+            data: {
+              status: "PROCESSING",
+              lastError: null,
+            },
           },
-          data: {
-            status: "PROCESSING",
-            lastError: null,
-          },
-        });
+        );
         if (claimed.count === 0) return;
       }
 
@@ -275,21 +645,17 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       }
 
       const raffleChannel = waChannels.find(
-        (channel) => channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
+        (channel) =>
+          channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
       );
       const instanceName = forcePrincipal
         ? principalInstanceName
         : raffleChannel?.instanceName || principalInstanceName;
-      const baseUrl = forcePrincipal ? globalUrl : raffleChannel?.evolutionUrl || globalUrl;
-      const apiKey = forcePrincipal ? globalKey : raffleChannel?.evolutionKey || globalKey;
-      const template =
-        raffleChannel?.templates?.find(
-          (item: any) => item.active && item.type.toLowerCase() === "opening",
-        )?.content ||
-        getSetting("whatsapp_global_raffle_opening") ||
-        "";
+      const principalTemplate =
+        getSetting("whatsapp_global_raffle_opening") || "";
+      const template = principalTemplate;
 
-      if (!instanceName || !baseUrl || !apiKey || !template) {
+      if (!template) {
         const errorMessage = !template
           ? "No hay plantilla de aviso de apertura configurada."
           : "No hay configuración de Evolution API para enviar el aviso de apertura.";
@@ -322,21 +688,46 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       ).replace(/\/+$/, "");
       const raffleUrl = `${storefrontUrl}/raffles/${raffle.id}`;
       const openingDate = formatOpeningDate(raffle.participationStartsAt);
-      const message = template
-        .replace(/\{\{raffle_name\}\}/g, raffle.title)
-        .replace(/\{\{raffle_url\}\}/g, raffleUrl)
-        .replace(/\{\{opening_date\}\}/g, openingDate);
+      const openingValues = {
+        raffle_name: raffle.title,
+        raffle_url: raffleUrl,
+        opening_date: openingDate,
+      };
+      const message = renderTemplate(template, openingValues);
 
       try {
-        await sendWhatsappWithFailover({
-          instance: { instanceName, baseUrl, apiKey },
-          principalFallback: !forcePrincipal && raffleChannel ? principalInstance : null,
+        const sent = await sendBusinessWhatsappNotification({
+          preferredChannel: forcePrincipal ? null : raffleChannel,
+          principal: principalWhatsapp,
+          scope: "RAFFLES",
+          type: "OPENING",
+          sourceContent: template,
+          principalSourceContent: principalTemplate,
           recipientPhone: subscription.phone,
-          message,
+          renderedText: message,
+          principalRenderedText: renderTemplate(
+            principalTemplate || template,
+            openingValues,
+          ),
+          values: openingValues,
           templateName: "raffle_opening",
           jobId: String(job.id ?? ""),
           attempt: subscription.attempts + 1,
+          forceProvider,
+          kapsoEnabled,
         });
+        if (!sent) {
+          await rafflePrisma.raffleOpeningSubscription.update({
+            where: { id: subscription.id },
+            data: {
+              status: "FAILED",
+              attempts: { increment: 1 },
+              lastError:
+                "No existe un proveedor preparado para enviar el aviso.",
+            },
+          });
+          return;
+        }
         await rafflePrisma.raffleOpeningSubscription.update({
           where: { id: subscription.id },
           data: {
@@ -352,32 +743,30 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           data: {
             status: "FAILED",
             attempts: { increment: 1 },
-            lastError: error?.message || "No se pudo enviar el aviso de apertura.",
+            lastError:
+              error?.message || "No se pudo enviar el aviso de apertura.",
           },
         });
         throw error;
       }
     }
 
-    if (data.kind === "reservation" || data.kind === "reservation-cancelled" || data.kind === "reservation-paid" || data.kind === "reservation-reminder") {
+    if (
+      data.kind === "reservation" ||
+      data.kind === "reservation-restored" ||
+      data.kind === "reservation-cancelled" ||
+      data.kind === "reservation-paid" ||
+      data.kind === "reservation-refunded" ||
+      data.kind === "reservation-reminder"
+    ) {
       const raffleChannel = waChannels.find(
-        (c) => c.purpose.toUpperCase() === "RAFFLES" && c.active
+        (c) => c.purpose.toUpperCase() === "RAFFLES" && c.active,
       );
 
-      // FALLBACK: Use specific raffle channel OR global principal instance
+      // Preserve the intended identity in configuration-error logs.
       const instanceName = forcePrincipal
         ? principalInstanceName
         : raffleChannel?.instanceName || principalInstanceName;
-      const baseUrl = forcePrincipal ? globalUrl : raffleChannel?.evolutionUrl || globalUrl;
-      const apiKey = forcePrincipal ? globalKey : raffleChannel?.evolutionKey || globalKey;
-
-      if (!instanceName || !baseUrl || !apiKey) {
-        console.warn(
-          "[WhatsApp] No WhatsApp configuration found (Riffles channel or principal), skipping reservation",
-          data.ticketSaleIds
-        );
-        return;
-      }
 
       const sales = await rafflePrisma.ticketSale.findMany({
         where: { id: { in: data.ticketSaleIds } },
@@ -390,24 +779,20 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       });
       if (sales.length === 0) return;
 
-      let template = "";
-      if (data.kind === "reservation") {
-        template = raffleChannel?.templates?.find((t: any) => t.active && t.type.toLowerCase() === "reservation")?.content
-                   || getSetting("whatsapp_global_raffle_res")
-                   || "";
-      } else if (data.kind === "reservation-paid") {
-        template = raffleChannel?.templates?.find((t: any) => t.active && t.type.toLowerCase() === "payment_confirmed")?.content
-                   || getSetting("whatsapp_global_raffle_pay")
-                   || "";
-      } else if (data.kind === "reservation-reminder") {
-        template = raffleChannel?.templates?.find((t: any) => t.active && t.type.toLowerCase() === "reminder")?.content
-                   || getSetting("whatsapp_global_raffle_reminder")
-                   || "";
-      } else {
-        template = raffleChannel?.templates?.find((t: any) => t.active && t.type.toLowerCase() === "release")?.content
-                   || getSetting("whatsapp_global_raffle_rel")
-                   || "";
-      }
+      const principalTemplate =
+        data.kind === "reservation"
+          ? getSetting("whatsapp_global_raffle_res") || ""
+          : data.kind === "reservation-restored"
+            ? getSetting("whatsapp_global_raffle_restored") || ""
+          : data.kind === "reservation-paid"
+            ? getSetting("whatsapp_global_raffle_pay") || ""
+            : data.kind === "reservation-refunded"
+              ? getSetting("whatsapp_global_raffle_refunded") || ""
+            : data.kind === "reservation-reminder"
+              ? getSetting("whatsapp_global_raffle_reminder") || ""
+              : getSetting("whatsapp_global_raffle_rel") || "";
+
+      const template = principalTemplate;
 
       if (!template) {
         await storePrisma.whatsappMessageLog.create({
@@ -419,27 +804,32 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
             templateUsed: data.kind,
             status: "failed",
             ticketSaleId: sales[0].id,
-            errorMessage: "No hay plantilla de WhatsApp configurada para este tipo de notificación.",
+            errorMessage:
+              "No hay plantilla de WhatsApp configurada para este tipo de notificación.",
           },
         });
         return;
       }
 
       let raffleBankInfo = "";
-      if (data.kind === "reservation" || data.kind === "reservation-reminder") {
+      if (
+        data.kind === "reservation" ||
+        data.kind === "reservation-restored" ||
+        data.kind === "reservation-reminder"
+      ) {
         const payChannel = payChannels.find(
-          (c) => c.purpose.toUpperCase() === "RAFFLES"
+          (c) => c.purpose.toUpperCase() === "RAFFLES",
         );
 
         raffleBankInfo = resolveBankInfo(
           payChannel
             ? {
-              bank: payChannel.bank,
-              beneficiary: payChannel.beneficiary,
-              account: payChannel.accountNumber ?? undefined,
-              clabe: payChannel.clabe ?? undefined,
-              card: payChannel.card ?? undefined,
-            }
+                bank: payChannel.bank,
+                beneficiary: payChannel.beneficiary,
+                account: payChannel.accountNumber ?? undefined,
+                clabe: payChannel.clabe ?? undefined,
+                card: payChannel.card ?? undefined,
+              }
             : null,
           {
             bank: getSetting("bank_main_name") ?? "",
@@ -451,57 +841,192 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         );
       }
 
-      const message = buildReservationMessage(
+      const notification = buildReservationNotification(
         template,
         sales,
         raffleBankInfo,
-        'timeLimit' in data ? data.timeLimit : undefined,
-        'timeRemaining' in data && typeof data.timeRemaining === "string" ? data.timeRemaining : undefined,
+        "timeLimit" in data ? data.timeLimit : undefined,
+        "timeRemaining" in data && typeof data.timeRemaining === "string"
+          ? data.timeRemaining
+          : undefined,
       );
 
-      await sendWhatsappWithFailover({
-        instance: { instanceName, baseUrl, apiKey },
-        principalFallback: !forcePrincipal && raffleChannel ? principalInstance : null,
+      await sendBusinessWhatsappNotification({
+        preferredChannel: forcePrincipal ? null : raffleChannel,
+        principal: principalWhatsapp,
+        scope: "RAFFLES",
+        type:
+          data.kind === "reservation"
+            ? "RESERVATION"
+            : data.kind === "reservation-restored"
+              ? "RESTORED"
+            : data.kind === "reservation-paid"
+              ? "PAYMENT_CONFIRMED"
+              : data.kind === "reservation-refunded"
+                ? "PAYMENT_REFUNDED"
+              : data.kind === "reservation-reminder"
+                ? "REMINDER"
+                : "RELEASE",
+        sourceContent: template,
+        principalSourceContent: principalTemplate,
         recipientPhone: data.recipientPhone,
-        message,
+        renderedText: notification.message,
+        principalRenderedText: renderTemplate(
+          principalTemplate || template,
+          notification.values,
+        ),
+        values: notification.values,
         templateName:
           data.kind === "reservation"
             ? "reservation_rifas"
+            : data.kind === "reservation-restored"
+              ? "reservation_restored_rifas"
             : data.kind === "reservation-paid"
               ? "reservation_paid_rifas"
+              : data.kind === "reservation-refunded"
+                ? "reservation_refunded_rifas"
               : data.kind === "reservation-reminder"
                 ? "reservation_reminder_rifas"
                 : "reservation_cancelled_rifas",
         ticketSaleId: sales[0].id,
         jobId: String(job.id ?? ""),
         attempt: job.attemptsMade + 1,
+        forceProvider,
+        kapsoEnabled,
       });
     }
   },
-  { connection, concurrency: 5 }
+  { connection, concurrency: 5 },
 );
 
 whatsappWorker.on("failed", (job, err) => {
   console.error(`[WhatsApp Worker] Job ${job?.id} failed:`, err.message);
 });
 
-function buildOrderMessage(template: string, order: any, bankInfo: string, timeLimit?: string, itemList?: string, timeRemaining?: string): string {
+function renderTemplate(
+  template: string,
+  values: Record<string, string>,
+): string {
+  return Object.entries(values).reduce(
+    (message, [key, value]) =>
+      message.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value),
+    template,
+  );
+}
+
+function formatRecoveryExpiration(value: Date) {
+  return new Intl.DateTimeFormat("es-MX", {
+    dateStyle: "medium",
+    timeStyle: "short",
+    timeZone: process.env.TZ || "America/Mexico_City",
+  }).format(value);
+}
+
+function formatRecoveryAmount(value: number) {
+  return value.toLocaleString("en-US", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+}
+
+function formatNotificationDate(value: Date | string | null | undefined) {
+  if (!value) return "";
+  return new Intl.DateTimeFormat("es-MX", {
+    dateStyle: "long",
+    timeStyle: "short",
+    timeZone: process.env.TZ || "America/Mexico_City",
+  }).format(new Date(value));
+}
+
+function resolvePaymentRecoveryOrderKind(
+  items: Array<{
+    productType: string;
+    product?: { purpose?: string | null } | null;
+  }>,
+): OrderKind {
+  const birds = items.filter((item) => item.productType === "BIRD");
+  const hasItems = items.some((item) => item.productType === "ITEM");
+  if (birds.length > 0 && !hasItems) {
+    const purposes = Array.from(
+      new Set(birds.map((item) => item.product?.purpose || null)),
+    );
+    const purpose =
+      purposes.length === 1 &&
+      (purposes[0] === "COMBAT" || purposes[0] === "BREEDING")
+        ? purposes[0]
+        : null;
+    return { type: "birds_only", purpose };
+  }
+  return birds.length === 0 && hasItems
+    ? { type: "articles_only" }
+    : { type: "mixed" };
+}
+
+function buildStorePaymentRecoveryValues(hold: any, recoveryUrl: string) {
+  return {
+    customer_name: hold.customerName || "",
+    item_list: hold.items
+      .map((item: any) => `${item.quantity}x ${item.productName}`)
+      .join("\n"),
+    amount: formatRecoveryAmount(Number(hold.total)),
+    expires_at: formatRecoveryExpiration(hold.expiresAt),
+    recovery_url: recoveryUrl,
+  };
+}
+
+function buildRafflePaymentRecoveryValues(hold: any, recoveryUrl: string) {
+  const ticketList = formatRaffleTicketList(
+    hold.tickets.map((ticket: any) => ({
+      ticketNumber: ticket.ticketNumber,
+      raffle: hold.raffle,
+    })),
+  );
+  const total =
+    Number(hold.raffle.ticketPrice) * hold.tickets.length -
+    Number(hold.discountTotal);
+  return {
+    customer_name: hold.customerName || "",
+    raffle_name: hold.raffle.title || "",
+    ticket_list: ticketList,
+    amount: formatRecoveryAmount(Math.max(0, total)),
+    expires_at: formatRecoveryExpiration(hold.expiresAt),
+    recovery_url: recoveryUrl,
+  };
+}
+
+function buildOrderNotification(
+  template: string,
+  order: any,
+  bankInfo: string,
+  timeLimit?: string,
+  itemList?: string,
+  timeRemaining?: string,
+) {
   const hour = new Date().getHours();
   let greeting = "Buen día";
   if (hour >= 12 && hour < 19) greeting = "Buena tarde";
   else if (hour >= 19 || hour < 6) greeting = "Buena noche";
 
-  let msg = template
-    .replace(/\{\{greeting\}\}/g, greeting)
-    .replace(/\{\{order_id\}\}/g, order.id.toString())
-    .replace(/\{\{customer_name\}\}/g, order.customerName ?? "")
-    .replace(/\{\{item_list\}\}/g, itemList || "")
-    .replace(/\{\{amount\}\}/g, Number(order.total).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
-    .replace(/\{\{bank_info\}\}/g, bankInfo);
-
-  return msg
-    .replace(/\{\{time_store\}\}/g, timeLimit || "")
-    .replace(/\{\{time_remaining\}\}/g, timeRemaining || "");
+  const values = {
+    greeting,
+    order_id: order.id.toString(),
+    customer_name: order.customerName ?? "",
+    item_list: itemList || "",
+    amount: Number(order.total).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }),
+    refund_amount: Number(order.mpRefundedAmount || 0).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }),
+    refund_id: order.mpRefundId || "",
+    refunded_at: formatNotificationDate(order.mpRefundedAt),
+    bank_info: bankInfo,
+    time_store: timeLimit || "",
+    time_remaining: timeRemaining || "",
+  };
+  return { message: renderTemplate(template, values), values };
 }
 
 interface BankData {
@@ -526,7 +1051,7 @@ function hasCompleteBankInfo(data: BankData | null): data is BankData {
 
 function formatBankInfo(data: BankData): string {
   if (!data.bank || !data.beneficiary) return "";
-  
+
   let info = `Banco: ${data.bank}\nBeneficiario: ${data.beneficiary}`;
   if (data.account && data.account.trim()) {
     info += `\nNo. Cuenta: ${data.account.trim()}`;
@@ -540,27 +1065,45 @@ function formatBankInfo(data: BankData): string {
   return info;
 }
 
-function buildReservationMessage(template: string, sales: any[], bankInfo: string, timeLimit?: string, timeRemaining?: string): string {
+function buildReservationNotification(
+  template: string,
+  sales: any[],
+  bankInfo: string,
+  timeLimit?: string,
+  timeRemaining?: string,
+) {
   const firstSale = sales[0];
   const ticketList = formatRaffleTicketList(sales);
   const subtotal = sales.reduce(
     (sum, s) => sum + parseFloat(s.raffle.ticketPrice.toString()),
-    0
+    0,
   );
   const discountTotal = parseFloat(firstSale.discountTotal?.toString() || "0");
   const totalAmount = Math.max(0, subtotal - discountTotal);
 
-  let msg = template
-    .replace(/\{\{customer_name\}\}/g, firstSale.customerName ?? "")
-    .replace(/\{\{ticket_list\}\}/g, ticketList)
-    .replace(/\{\{raffle_name\}\}/g, firstSale.raffle?.title ?? "")
-    .replace(/\{\{amount\}\}/g, totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }))
-    .replace(/\{\{customer_phone\}\}/g, firstSale.customerPhone ?? "")
-    .replace(/\{\{bank_info\}\}/g, bankInfo);
-
-  return msg
-    .replace(/\{\{time_raffle\}\}/g, timeLimit || "")
-    .replace(/\{\{time_remaining\}\}/g, timeRemaining || "");
+  const values = {
+    customer_name: firstSale.customerName ?? "",
+    ticket_list: ticketList,
+    raffle_name: firstSale.raffle?.title ?? "",
+    amount: totalAmount.toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }),
+    refund_amount: Number(firstSale.mpRefundedAmount || 0).toLocaleString(
+      "en-US",
+      {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      },
+    ),
+    refund_id: firstSale.mpRefundId || "",
+    refunded_at: formatNotificationDate(firstSale.mpRefundedAt),
+    customer_phone: firstSale.customerPhone ?? "",
+    bank_info: bankInfo,
+    time_raffle: timeLimit || "",
+    time_remaining: timeRemaining || "",
+  };
+  return { message: renderTemplate(template, values), values };
 }
 
 function formatOpeningDate(value: Date): string {

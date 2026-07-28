@@ -1,6 +1,9 @@
 import { Prisma, PrismaClient, RaffleStatus, TicketStatus } from "@prisma/client-raffle";
 import { randomUUID } from "crypto";
-import { PrismaClient as StorePrismaClient } from "@prisma/client-store";
+import {
+  PrismaClient as StorePrismaClient,
+  WhatsappMarketingConsentSource,
+} from "@prisma/client-store";
 import { getReminderDelayMs, reservationReminderQueue } from "../../../queues/reservation-reminder.queue";
 import { ticketReleaseQueue } from "../../../queues/ticket-release.queue";
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
@@ -10,6 +13,12 @@ import { canParticipateInRaffle } from "../raffles/raffle-access";
 import { publishTicketAvailabilityChanged } from "./ticket-availability.events";
 import { raffleCouponService } from "../coupons/raffle-coupon.service";
 import { resolvePaymentHoldMinutes } from "../../store/payments/payment-hold-policy";
+import {
+  auditActorData,
+  type AuditActor,
+} from "../../../utils/admin-authorization";
+import { buildRaffleOperationalOverview } from "./raffle-overview";
+import { whatsappMarketingConsentService } from "../../../services/whatsapp-marketing-consent.service";
 
 export class TicketAvailabilityConflictError extends Error {
   constructor(readonly ticketNumbers: string[]) {
@@ -129,6 +138,11 @@ export const ticketSaleService = {
       expiresAt: hold.expiresAt,
       createdAt: hold.createdAt,
       updatedAt: hold.updatedAt,
+      paymentRecovery: {
+        scheduledAt: hold.recoveryScheduledAt,
+        sentAt: hold.recoverySentAt,
+        openedAt: hold.recoveryOpenedAt,
+      },
       ticketSaleIds: [],
       paymentAttempts: (hold.paymentAttempts || []).map((attempt: any) => ({
         id: attempt.id,
@@ -196,6 +210,72 @@ export const ticketSaleService = {
       );
   },
 
+  async getRaffleOverviewAdmin(prisma: PrismaClient, raffleId: number) {
+    const raffle = await prisma.raffle.findUnique({
+      where: { id: raffleId },
+      select: {
+        id: true,
+        ticketQuantity: true,
+      },
+    });
+    if (!raffle) return null;
+
+    const [sales, paymentHolds] = await Promise.all([
+      prisma.ticketSale.findMany({
+        where: { raffleId },
+        include: {
+          raffle: {
+            select: {
+              id: true,
+              title: true,
+              image: true,
+              ticketPrice: true,
+              opportunities: true,
+            },
+          },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+      prisma.rafflePaymentHold.findMany({
+        where: {
+          raffleId,
+          promotedReservationId: null,
+        },
+        include: {
+          raffle: {
+            select: {
+              id: true,
+              title: true,
+              image: true,
+              ticketPrice: true,
+              opportunities: true,
+            },
+          },
+          tickets: { select: { ticketNumber: true } },
+          paymentAttempts: { orderBy: { createdAt: "desc" } },
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+
+    const saleGroups = new Map<string, any[]>();
+    for (const sale of sales) {
+      const key = sale.reservationId || `sale-${sale.id}`;
+      saleGroups.set(key, [...(saleGroups.get(key) || []), sale]);
+    }
+
+    const participations = Array.from(saleGroups.values())
+      .map((group) => this.toParticipationSummary(group))
+      .filter(Boolean) as any[];
+    const holds = paymentHolds.map((hold) => this.toPaymentHoldSummary(hold));
+    return buildRaffleOperationalOverview({
+      raffleId,
+      ticketQuantity: raffle.ticketQuantity,
+      participations,
+      holds,
+    });
+  },
+
   async getParticipationAdmin(prisma: PrismaClient, participationKey: string) {
     const holdMatch = /^hold-([0-9a-f-]{36})$/i.exec(participationKey);
     if (holdMatch) {
@@ -218,6 +298,10 @@ export const ticketSaleService = {
       );
       return {
         ...summary,
+        activityEvents: await prisma.raffleParticipationEvent.findMany({
+          where: { participationId: participationKey },
+          orderBy: { createdAt: "desc" },
+        }),
         tickets: summary.ticketNumbers.map((number: string, index: number) => ({
           id: -(index + 1),
           number,
@@ -251,6 +335,10 @@ export const ticketSaleService = {
 
     return {
       ...summary,
+      activityEvents: await prisma.raffleParticipationEvent.findMany({
+        where: { participationId: participationKey },
+        orderBy: { createdAt: "desc" },
+      }),
       tickets: sales.map((sale) => ({
         id: sale.id,
         number: sale.ticketNumber,
@@ -263,6 +351,7 @@ export const ticketSaleService = {
     prisma: PrismaClient,
     participationKey: string,
     paymentStatus: "PAID" | "CANCELLED",
+    actor: AuditActor,
   ) {
     const legacyMatch = /^sale-(\d+)$/.exec(participationKey);
     const where = legacyMatch
@@ -270,6 +359,16 @@ export const ticketSaleService = {
       : { reservationId: participationKey, paymentStatus: TicketStatus.PENDING };
     const sales = await prisma.ticketSale.findMany({ where });
     if (sales.length === 0) return null;
+
+    if (paymentStatus === "PAID") {
+      const raffle = await prisma.raffle.findUnique({
+        where: { id: sales[0].raffleId },
+        select: { resultPublishedAt: true },
+      });
+      if (raffle?.resultPublishedAt) {
+        throw new Error("RAFFLE_RESULT_ALREADY_PUBLISHED");
+      }
+    }
 
     if (paymentStatus === "PAID" && sales[0].paymentMethod === "MERCADOPAGO") {
       throw new Error("MERCADOPAGO_PAYMENT_REQUIRES_WEBHOOK");
@@ -287,6 +386,25 @@ export const ticketSaleService = {
           data: { usedCount: { decrement: 1 } },
         });
       }
+
+      await tx.raffleParticipationEvent.create({
+        data: {
+          participationId: participationKey,
+          raffleId: sales[0].raffleId,
+          eventType:
+            paymentStatus === "PAID" ? "PAYMENT_CONFIRMED" : "CANCELLED",
+          message:
+            paymentStatus === "PAID"
+              ? "Pago confirmado desde Admin."
+              : "Participación cancelada y boletos liberados.",
+          ...auditActorData(actor),
+          previousState: { paymentStatus: sales[0].paymentStatus },
+          nextState: { paymentStatus },
+          metadata: {
+            ticketNumbers: sales.map((sale) => sale.ticketNumber),
+          },
+        },
+      });
     });
 
     void publishTicketAvailabilityChanged(sales[0].raffleId).catch((error) => {
@@ -310,6 +428,182 @@ export const ticketSaleService = {
     return this.getParticipationAdmin(prisma, participationKey);
   },
 
+  async restoreParticipation(
+    prisma: PrismaClient,
+    storePrisma: StorePrismaClient,
+    participationKey: string,
+    actor: AuditActor,
+    confirmPayment = false,
+  ) {
+    const settings = await storePrisma.setting.findMany({
+      where: {
+        key: {
+          in: [
+            "raffle_release_active",
+            "raffle_release_hours",
+            "raffle_reminder_active",
+            "raffle_reminder_hours_before",
+          ],
+        },
+      },
+      select: { key: true, value: true },
+    });
+    const settingsMap = new Map(
+      settings.map((setting) => [setting.key, setting.value || ""]),
+    );
+    const isReleaseActive = settingsMap.get("raffle_release_active") === "1";
+    const releaseHours = Number(settingsMap.get("raffle_release_hours") || 24);
+    const isReminderActive = settingsMap.get("raffle_reminder_active") === "1";
+    const reminderHoursBefore = Number(
+      settingsMap.get("raffle_reminder_hours_before") || 4,
+    );
+    const targetStatus = confirmPayment ? TicketStatus.PAID : TicketStatus.PENDING;
+    const expectedReleaseAt = isReleaseActive && !confirmPayment
+      ? new Date(Date.now() + releaseHours * 3600 * 1000)
+      : null;
+
+    const legacyMatch = /^sale-(\d+)$/.exec(participationKey);
+    const where = legacyMatch
+      ? { id: Number(legacyMatch[1]) }
+      : { reservationId: participationKey };
+    const sales = await prisma.ticketSale.findMany({
+      where,
+      orderBy: { ticketNumber: "asc" },
+    });
+    if (
+      sales.length === 0 ||
+      sales.some((sale) => sale.paymentStatus !== TicketStatus.CANCELLED)
+    ) {
+      return null;
+    }
+    if (sales[0].paymentMethod === "MERCADOPAGO") {
+      throw new Error("MERCADOPAGO_PARTICIPATION_CANNOT_BE_RESTORED");
+    }
+
+    const raffleId = sales[0].raffleId;
+    const saleIds = sales.map((sale) => sale.id);
+    const ticketNumbers = sales.map((sale) => sale.ticketNumber);
+
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw(
+        Prisma.sql`SELECT pg_advisory_xact_lock(7421, ${raffleId}::integer)`,
+      );
+
+      const raffle = await tx.raffle.findUnique({
+        where: { id: raffleId },
+        select: { resultPublishedAt: true },
+      });
+      if (raffle?.resultPublishedAt) {
+        throw new Error("RAFFLE_RESULT_ALREADY_PUBLISHED");
+      }
+
+      const conflictingSales = await tx.ticketSale.findMany({
+        where: {
+          raffleId,
+          ticketNumber: { in: ticketNumbers },
+          id: { notIn: saleIds },
+          paymentStatus: { in: [TicketStatus.PENDING, TicketStatus.PAID] },
+        },
+        select: { ticketNumber: true },
+      });
+      const conflictingHolds = await tx.rafflePaymentHoldTicket.findMany({
+        where: { raffleId, ticketNumber: { in: ticketNumbers } },
+        select: { ticketNumber: true },
+      });
+      const unavailable = Array.from(new Set([
+        ...conflictingSales.map((sale) => sale.ticketNumber),
+        ...conflictingHolds.map((hold) => hold.ticketNumber),
+      ])).sort((left, right) => left.localeCompare(right, "es-MX", { numeric: true }));
+      if (unavailable.length > 0) {
+        throw new TicketAvailabilityConflictError(unavailable);
+      }
+
+      const restored = await tx.ticketSale.updateMany({
+        where: { id: { in: saleIds }, paymentStatus: TicketStatus.CANCELLED },
+        data: {
+          paymentStatus: targetStatus,
+          paymentMethod: "TRANSFER",
+        },
+      });
+      if (restored.count !== saleIds.length) {
+        throw new Error("PARTICIPATION_RESTORE_CONFLICT");
+      }
+
+      if (sales[0].couponId) {
+        await tx.raffleCoupon.update({
+          where: { id: sales[0].couponId },
+          data: { usedCount: { increment: 1 } },
+        });
+      }
+
+      await tx.raffleParticipationEvent.create({
+        data: {
+          participationId: participationKey,
+          raffleId,
+          eventType: confirmPayment ? "RESTORED_AND_PAID" : "RESTORED",
+          message: confirmPayment
+            ? "Participación restaurada y pago confirmado desde Admin."
+            : isReleaseActive
+              ? `Participación restaurada desde Admin con nuevo límite de ${releaseHours} horas.`
+              : "Participación restaurada desde Admin sin liberación automática activa.",
+          ...auditActorData(actor),
+          previousState: { paymentStatus: TicketStatus.CANCELLED },
+          nextState: {
+            paymentStatus: targetStatus,
+            paymentMethod: "TRANSFER",
+          },
+          metadata: {
+            ticketNumbers,
+            releaseHours: expectedReleaseAt ? releaseHours : null,
+            expectedReleaseAt: expectedReleaseAt?.toISOString() || null,
+          },
+        },
+      });
+    });
+
+    void publishTicketAvailabilityChanged(raffleId).catch((error) => {
+      console.error("[Raffle availability] Could not publish restored participation:", error);
+    });
+
+    if (expectedReleaseAt) {
+      await ticketReleaseQueue.add(
+        "release",
+        { ticketSaleIds: saleIds },
+        { delay: releaseHours * 3600 * 1000 },
+      );
+
+      const reminderDelay = getReminderDelayMs(releaseHours, reminderHoursBefore);
+      if (isReminderActive && reminderDelay) {
+        await reservationReminderQueue.add(
+          "raffle-reminder",
+          {
+            kind: "raffle",
+            ticketSaleIds: saleIds,
+            expectedReleaseAt: expectedReleaseAt.toISOString(),
+          },
+          { delay: reminderDelay },
+        );
+      }
+    }
+
+    if (confirmPayment) {
+      await whatsappQueue.add("reservation-restored-paid", {
+        kind: "reservation-paid",
+        ticketSaleIds: saleIds,
+        recipientPhone: sales[0].customerPhone,
+      });
+    } else {
+      await whatsappQueue.add("reservation-restored", {
+        kind: "reservation-restored",
+        ticketSaleIds: saleIds,
+        recipientPhone: sales[0].customerPhone,
+        timeLimit: `${releaseHours} horas`,
+      });
+    }
+
+    return this.getParticipationAdmin(prisma, participationKey);
+  },
+
   async updateParticipationParticipant(
     prisma: PrismaClient,
     participationKey: string,
@@ -318,6 +612,7 @@ export const ticketSaleService = {
       customerPhone: string;
       customerState?: string | null;
     },
+    actor: AuditActor,
   ) {
     const participant = {
       customerName: data.customerName.trim(),
@@ -333,21 +628,61 @@ export const ticketSaleService = {
       });
       if (!hold || hold.promotedReservationId) return null;
 
-      await prisma.rafflePaymentHold.update({
+      const currentHold = await prisma.rafflePaymentHold.findUnique({
         where: { id: hold.id },
-        data: participant,
+      });
+      if (!currentHold) return null;
+      await prisma.$transaction(async (tx) => {
+        await tx.rafflePaymentHold.update({
+          where: { id: hold.id },
+          data: participant,
+        });
+        await tx.raffleParticipationEvent.create({
+          data: {
+            participationId: participationKey,
+            raffleId: currentHold.raffleId,
+            eventType: "PARTICIPANT_UPDATED",
+            message: "Información del participante actualizada desde Admin.",
+            ...auditActorData(actor),
+            previousState: {
+              customerName: currentHold.customerName,
+              customerPhone: currentHold.customerPhone,
+              customerState: currentHold.customerState,
+            },
+            nextState: participant,
+          },
+        });
       });
       return this.getParticipationAdmin(prisma, participationKey);
     }
 
     const legacyMatch = /^sale-(\d+)$/.exec(participationKey);
-    const result = await prisma.ticketSale.updateMany({
-      where: legacyMatch
-        ? { id: Number(legacyMatch[1]) }
-        : { reservationId: participationKey },
-      data: participant,
+    const where = legacyMatch
+      ? { id: Number(legacyMatch[1]) }
+      : { reservationId: participationKey };
+    const currentSales = await prisma.ticketSale.findMany({ where });
+    if (currentSales.length === 0) return null;
+    await prisma.$transaction(async (tx) => {
+      await tx.ticketSale.updateMany({
+        where,
+        data: participant,
+      });
+      await tx.raffleParticipationEvent.create({
+        data: {
+          participationId: participationKey,
+          raffleId: currentSales[0].raffleId,
+          eventType: "PARTICIPANT_UPDATED",
+          message: "Información del participante actualizada desde Admin.",
+          ...auditActorData(actor),
+          previousState: {
+            customerName: currentSales[0].customerName,
+            customerPhone: currentSales[0].customerPhone,
+            customerState: currentSales[0].customerState,
+          },
+          nextState: participant,
+        },
+      });
     });
-    if (result.count === 0) return null;
 
     return this.getParticipationAdmin(prisma, participationKey);
   },
@@ -356,6 +691,7 @@ export const ticketSaleService = {
     prisma: PrismaClient,
     storePrisma: StorePrismaClient,
     participationKey: string,
+    actor: AuditActor,
   ) {
     const legacyMatch = /^sale-(\d+)$/.exec(participationKey);
     const sales = await prisma.ticketSale.findMany({
@@ -378,22 +714,79 @@ export const ticketSaleService = {
     }
 
     const status = sales[0].paymentStatus;
+    const latestRestoration = status === TicketStatus.PENDING
+      ? await prisma.raffleParticipationEvent.findFirst({
+          where: {
+            participationId: participationKey,
+            eventType: "RESTORED",
+          },
+          orderBy: { createdAt: "desc" },
+          select: { id: true },
+        })
+      : null;
     const setting = await storePrisma.setting.findUnique({
       where: { key: "raffle_release_hours" },
       select: { value: true },
     });
     const releaseHours = Number(setting?.value || 24);
-    const jobKind = status === TicketStatus.PAID
-      ? "reservation-paid"
-      : status === TicketStatus.CANCELLED
-        ? "reservation-cancelled"
-        : "reservation";
+    const jobKind = sales[0].mpRefundedAt
+      ? "reservation-refunded"
+      : status === TicketStatus.PAID
+        ? "reservation-paid"
+        : status === TicketStatus.CANCELLED
+          ? "reservation-cancelled"
+          : latestRestoration
+            ? "reservation-restored"
+            : "reservation";
 
-    await whatsappQueue.add("reservation-notification", {
-      kind: jobKind,
-      ticketSaleIds: sales.map((sale) => sale.id),
-      recipientPhone: sales[0].customerPhone,
-      ...(jobKind === "reservation" ? { timeLimit: `${releaseHours} horas` } : {}),
+    const ticketSaleIds = sales.map((sale) => sale.id);
+    const recipientPhone = sales[0].customerPhone;
+    if (jobKind === "reservation-restored") {
+      await whatsappQueue.add("reservation-notification", {
+        kind: "reservation-restored",
+        ticketSaleIds,
+        recipientPhone,
+        timeLimit: `${releaseHours} horas`,
+      });
+    } else if (jobKind === "reservation") {
+      await whatsappQueue.add("reservation-notification", {
+        kind: "reservation",
+        ticketSaleIds,
+        recipientPhone,
+        timeLimit: `${releaseHours} horas`,
+      });
+    } else if (jobKind === "reservation-paid") {
+      await whatsappQueue.add("reservation-notification", {
+        kind: "reservation-paid",
+        ticketSaleIds,
+        recipientPhone,
+      });
+    } else if (jobKind === "reservation-refunded") {
+      await whatsappQueue.add("reservation-notification", {
+        kind: "reservation-refunded",
+        ticketSaleIds,
+        recipientPhone,
+      });
+    } else {
+      await whatsappQueue.add("reservation-notification", {
+        kind: "reservation-cancelled",
+        ticketSaleIds,
+        recipientPhone,
+      });
+    }
+
+    await prisma.raffleParticipationEvent.create({
+      data: {
+        participationId: participationKey,
+        raffleId: sales[0].raffleId,
+        eventType: "WHATSAPP_RESENT",
+        message: "Notificación de WhatsApp reenviada manualmente.",
+        ...auditActorData(actor),
+        metadata: {
+          notificationType: jobKind,
+          ticketNumbers: sales.map((sale) => sale.ticketNumber),
+        },
+      },
     });
 
     return { success: true };
@@ -411,6 +804,9 @@ export const ticketSaleService = {
       paymentMethod?: "TRANSFER" | "MERCADOPAGO";
       couponCode?: string | null;
       earlyAccessAuthorized?: boolean;
+      administrativeOverride?: boolean;
+      actor?: AuditActor;
+      marketingConsent?: boolean;
     }
   ) {
     const { raffleId, customerName, customerPhone, customerState } = data;
@@ -423,7 +819,11 @@ export const ticketSaleService = {
       result = await prisma.$transaction(async (tx) => {
       await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(7421, ${raffleId}::integer)`);
       const raffle = await tx.raffle.findFirst({
-        where: { id: raffleId, status: RaffleStatus.ACTIVE, published: true },
+        where: {
+          id: raffleId,
+          status: RaffleStatus.ACTIVE,
+          ...(data.administrativeOverride ? {} : { published: true }),
+        },
         select: {
           id: true,
           ticketPrice: true,
@@ -434,7 +834,11 @@ export const ticketSaleService = {
           earlyAccessEnabled: true,
         },
       });
-      if (!raffle || !canParticipateInRaffle(raffle, data.earlyAccessAuthorized)) {
+      if (
+        !raffle ||
+        (!data.administrativeOverride &&
+          !canParticipateInRaffle(raffle, data.earlyAccessAuthorized))
+      ) {
         throw new Error("RAFFLE_UNAVAILABLE");
       }
 
@@ -497,6 +901,32 @@ export const ticketSaleService = {
         })),
       });
 
+      await tx.raffleParticipationEvent.create({
+        data: {
+          participationId: reservationId,
+          raffleId,
+          eventType: "PARTICIPATION_CREATED",
+          message: data.actor
+            ? "Apartado creado desde Admin."
+            : "Apartado creado por el participante.",
+          ...(data.actor
+            ? auditActorData(data.actor)
+            : {
+                actorType: "CUSTOMER",
+                actorName: "Participante",
+                origin: "STOREFRONT",
+              }),
+          nextState: {
+            paymentStatus: "PENDING",
+            paymentMethod,
+          },
+          metadata: {
+            ticketNumbers: tickets,
+            administrativeOverride: data.administrativeOverride === true,
+          },
+        },
+      });
+
       const subtotal = Number(raffle.ticketPrice) * tickets.length;
       const discountTotal = couponResult?.discountTotal ?? 0;
       return {
@@ -524,6 +954,19 @@ export const ticketSaleService = {
       }
 
       throw error;
+    }
+
+    if (data.marketingConsent === true && !data.administrativeOverride) {
+      await whatsappMarketingConsentService
+        .grant(storePrisma, {
+          phone: customerPhone,
+          displayName: customerName,
+          source: WhatsappMarketingConsentSource.RAFFLE_CHECKOUT,
+          metadata: { raffleId, reservationId, paymentMethod },
+        })
+        .catch((error) => {
+          console.error("[Marketing consent] Raffle checkout consent could not be recorded:", error);
+        });
     }
 
     // 3. Post-transaction actions
@@ -663,9 +1106,24 @@ export const ticketSaleService = {
     });
   },
 
-  async delete(prisma: PrismaClient, id: number) {
-    const sale = await prisma.ticketSale.delete({
-      where: { id },
+  async delete(prisma: PrismaClient, id: number, actor: AuditActor) {
+    const current = await prisma.ticketSale.findUnique({ where: { id } });
+    if (!current) return null;
+    const sale = await prisma.$transaction(async (tx) => {
+      await tx.raffleParticipationEvent.create({
+        data: {
+          participationId: current.reservationId || `sale-${current.id}`,
+          raffleId: current.raffleId,
+          eventType: "TICKET_SALE_DELETED",
+          message: "Registro de boleto eliminado desde Admin.",
+          ...auditActorData(actor),
+          previousState: {
+            ticketNumber: current.ticketNumber,
+            paymentStatus: current.paymentStatus,
+          },
+        },
+      });
+      return tx.ticketSale.delete({ where: { id } });
     });
     void publishTicketAvailabilityChanged(sale.raffleId).catch((error) => {
       console.error("[Raffle availability] Could not publish deletion change:", error);

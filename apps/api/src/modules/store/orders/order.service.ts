@@ -1,5 +1,8 @@
 import { storePrisma } from "@nexus/db/store";
-import { OrderStatus } from "@prisma/client-store";
+import {
+  OrderStatus,
+  WhatsappMarketingConsentSource,
+} from "@prisma/client-store";
 import { orderReleaseQueue } from "../../../queues/order-release.queue";
 import {
   getOrderReminderJobId,
@@ -11,6 +14,13 @@ import { customerPhoneIdentity } from "../../../utils/customer-phone";
 import type { OrderKind, OrderItemPurpose } from "../../../services/evolution/channel.resolver";
 import { validateCouponForItems } from "../coupons/coupon.service";
 import { resolvePaymentHoldMinutes } from "../payments/payment-hold-policy";
+import {
+  auditActorData,
+  systemAuditActor,
+  type AuditActor,
+} from "../../../utils/admin-authorization";
+import { whatsappMarketingConsentService } from "../../../services/whatsapp-marketing-consent.service";
+import { synchronizeItemAvailability } from "../products/product-inventory";
 
 const createOrderError = (message: string, statusCode = 400) => {
   const error = new Error(message) as Error & { statusCode?: number };
@@ -78,6 +88,11 @@ const toStorePaymentHoldSummary = (hold: any) => {
     mpPaidAmount: null,
     createdAt: hold.createdAt,
     updatedAt: hold.updatedAt,
+    paymentRecovery: {
+      scheduledAt: hold.recoveryScheduledAt,
+      sentAt: hold.recoverySentAt,
+      openedAt: hold.recoveryOpenedAt,
+    },
     isRead: true,
     readAt: null,
     items: hold.items,
@@ -191,7 +206,10 @@ export const orderService = {
     if (!Number.isInteger(orderId) || orderId < 1) return null;
     const order = await storePrisma.order.findUnique({
       where: { id: orderId },
-      include: { items: true },
+      include: {
+        items: true,
+        events: { orderBy: { createdAt: "desc" } },
+      },
     });
     return order ? { ...order, recordType: "ORDER" } : null;
   },
@@ -207,6 +225,7 @@ export const orderService = {
   async updateCustomer(
     id: number,
     data: { customerName: string; customerPhone: string; shippingState?: string | null },
+    actor: AuditActor,
   ) {
     const order = await storePrisma.order.findUnique({
       where: { id },
@@ -240,16 +259,37 @@ export const orderService = {
       total = Math.max(0, Number(order.subtotal) + shippingCost - Number((order as any).discountTotal || 0));
     }
 
-    return storePrisma.order.update({
-      where: { id },
-      data: {
-        customerName: data.customerName.trim(),
-        customerPhone: data.customerPhone.trim(),
-        shippingState: nextState,
-        shippingCost,
-        total,
-      },
-      include: { items: true },
+    return storePrisma.$transaction(async (tx) => {
+      const updated = await tx.order.update({
+        where: { id },
+        data: {
+          customerName: data.customerName.trim(),
+          customerPhone: data.customerPhone.trim(),
+          shippingState: nextState,
+          shippingCost,
+          total,
+        },
+        include: { items: true },
+      });
+      await tx.orderEvent.create({
+        data: {
+          orderId: id,
+          eventType: "CUSTOMER_UPDATED",
+          message: "Información del cliente actualizada desde Admin.",
+          ...auditActorData(actor),
+          previousState: {
+            customerName: order.customerName,
+            customerPhone: order.customerPhone,
+            shippingState: order.shippingState,
+          },
+          nextState: {
+            customerName: updated.customerName,
+            customerPhone: updated.customerPhone,
+            shippingState: updated.shippingState,
+          },
+        },
+      });
+      return updated;
     });
   },
 
@@ -366,6 +406,20 @@ export const orderService = {
           items: {
             create: orderItemsData,
           },
+          events: {
+            create: {
+              eventType: "ORDER_CREATED",
+              message: "Apartado creado por el cliente.",
+              actorType: "CUSTOMER",
+              actorName: "Cliente",
+              origin: "STOREFRONT",
+              nextState: {
+                status: "PENDING",
+                paymentStatus: "PENDING",
+                paymentMethod,
+              },
+            },
+          },
         },
       });
 
@@ -402,6 +456,7 @@ export const orderService = {
               409,
             );
           }
+          await synchronizeItemAvailability(tx, item.productId);
         }
       }
 
@@ -414,6 +469,19 @@ export const orderService = {
 
       return newOrder;
     });
+
+    if (data.marketingConsent === true) {
+      await whatsappMarketingConsentService
+        .grant(storePrisma, {
+          phone: order.customerPhone,
+          displayName: order.customerName,
+          source: WhatsappMarketingConsentSource.STORE_CHECKOUT,
+          metadata: { orderId: order.id, paymentMethod },
+        })
+        .catch((error) => {
+          console.error("[Marketing consent] Store checkout consent could not be recorded:", error);
+        });
+    }
 
     // Schedule auto-release. Mercado Pago uses a short silent hold while the customer pays.
     if (isMercadoPagoOrder && expiresAt) {
@@ -468,7 +536,11 @@ export const orderService = {
     return order;
   },
 
-  async updateStatus(id: number, status: OrderStatus) {
+  async updateStatus(
+    id: number,
+    status: OrderStatus,
+    actor: AuditActor = systemAuditActor(),
+  ) {
     const currentOrder = await storePrisma.order.findUnique({
       where: { id },
       include: { items: true }
@@ -506,7 +578,16 @@ export const orderService = {
           data: {
             orderId: id,
             eventType: "PAYMENT_CONFIRMED",
-            message: "Pago confirmado desde Admin.",
+            message:
+              actor.origin === "MERCADO_PAGO"
+                ? "Pago confirmado por Mercado Pago."
+                : "Pago confirmado desde Admin.",
+            ...auditActorData(actor),
+            previousState: {
+              status: currentOrder.status,
+              paymentStatus: currentOrder.paymentStatus,
+            },
+            nextState: { status: "PAID", paymentStatus: "APPROVED" },
           },
         });
       }
@@ -543,24 +624,29 @@ export const orderService = {
     return order;
   },
 
-  async cancelOrder(id: number) {
+  async cancelOrder(id: number, actor: AuditActor = systemAuditActor()) {
     const order = await storePrisma.order.findUnique({
       where: { id },
       include: { items: true },
     });
 
     if (!order) throw new Error("Order not found");
+    if (order.status !== "PENDING") {
+      throw createOrderError("Solo se pueden cancelar órdenes apartadas.", 409);
+    }
 
     const cancelledOrder = await storePrisma.$transaction(async (tx) => {
-      const cancelledOrder = await tx.order.update({
-        where: { id },
+      const cancelled = await tx.order.updateMany({
+        where: { id, status: "PENDING" },
         data: {
           status: "CANCELLED",
           paymentStatus: "CANCELLED",
           paymentExpiresAt: null,
         },
-        include: { items: true },
       });
+      if (cancelled.count !== 1) {
+        throw createOrderError("La orden ya cambió de estado; vuelve a intentarlo.", 409);
+      }
 
       for (const item of order.items) {
         if (item.productType === "BIRD") {
@@ -573,6 +659,7 @@ export const orderService = {
             where: { id: item.productId },
             data: { stock: { increment: item.quantity } },
           });
+          await synchronizeItemAvailability(tx, item.productId);
         }
       }
 
@@ -581,10 +668,16 @@ export const orderService = {
           orderId: id,
           eventType: "CANCELLED",
           message: "Orden cancelada y disponibilidad liberada.",
+          ...auditActorData(actor),
+          previousState: {
+            status: order.status,
+            paymentStatus: order.paymentStatus,
+          },
+          nextState: { status: "CANCELLED", paymentStatus: "CANCELLED" },
         },
       });
 
-      return cancelledOrder;
+      return tx.order.findUniqueOrThrow({ where: { id }, include: { items: true } });
     });
 
     const products = await storePrisma.product.findMany({
@@ -618,7 +711,11 @@ export const orderService = {
     return cancelledOrder;
   },
 
-  async cancelPaymentAttempt(id: number, paymentStatus: "FAILED" | "EXPIRED" = "FAILED") {
+  async cancelPaymentAttempt(
+    id: number,
+    paymentStatus: "FAILED" | "EXPIRED" = "FAILED",
+    actor: AuditActor = systemAuditActor(),
+  ) {
     const order = await storePrisma.order.findUnique({
       where: { id },
       include: { items: true },
@@ -628,15 +725,15 @@ export const orderService = {
     if (order.paymentMethod !== "MERCADOPAGO" || order.status !== "PENDING") return order;
 
     return storePrisma.$transaction(async (tx) => {
-      const cancelledOrder = await tx.order.update({
-        where: { id },
+      const cancelled = await tx.order.updateMany({
+        where: { id, status: "PENDING", paymentMethod: "MERCADOPAGO" },
         data: {
           status: "CANCELLED",
           paymentStatus,
           paymentExpiresAt: null,
         },
-        include: { items: true },
       });
+      if (cancelled.count !== 1) return null;
 
       for (const item of order.items) {
         if (item.productType === "BIRD") {
@@ -649,6 +746,7 @@ export const orderService = {
             where: { id: item.productId },
             data: { stock: { increment: item.quantity } },
           });
+          await synchronizeItemAvailability(tx, item.productId);
         }
       }
 
@@ -659,14 +757,24 @@ export const orderService = {
           message: paymentStatus === "EXPIRED"
             ? "Intento de pago con tarjeta expirado. Inventario liberado."
             : "Intento de pago con tarjeta no completado. Inventario liberado.",
+          ...auditActorData(actor),
+          previousState: {
+            status: order.status,
+            paymentStatus: order.paymentStatus,
+          },
+          nextState: { status: "CANCELLED", paymentStatus },
         },
       });
 
-      return cancelledOrder;
+      return tx.order.findUniqueOrThrow({ where: { id }, include: { items: true } });
     });
   },
 
-  async cancelPaymentAttemptForCustomer(id: number, customerPhone: string) {
+  async cancelPaymentAttemptForCustomer(
+    id: number,
+    customerPhone: string,
+    actor: AuditActor,
+  ) {
     const order = await storePrisma.order.findUnique({
       where: { id },
       select: {
@@ -688,10 +796,10 @@ export const orderService = {
       return order;
     }
 
-    return this.cancelPaymentAttempt(id, "FAILED");
+    return this.cancelPaymentAttempt(id, "FAILED", actor);
   },
 
-  async restoreOrder(id: number) {
+  async restoreOrder(id: number, actor: AuditActor) {
     const settings = await storePrisma.setting.findMany({
       where: {
         key: {
@@ -763,6 +871,7 @@ export const orderService = {
               409,
             );
           }
+          await synchronizeItemAvailability(tx, item.productId);
         }
       }
 
@@ -782,6 +891,13 @@ export const orderService = {
         data: {
           orderId: id,
           eventType: "RESTORED",
+          ...auditActorData(actor),
+          previousState: {
+            status: order.status,
+            paymentStatus: order.paymentStatus,
+          },
+          nextState: { status: "PENDING", paymentStatus: "PENDING" },
+          metadata: { releaseHours: isReleaseActive ? releaseHours : null },
           message: isReleaseActive
             ? `Orden restaurada desde Admin con nuevo límite de ${releaseHours} horas.`
             : "Orden restaurada desde Admin sin liberación automática activa.",
@@ -830,7 +946,7 @@ export const orderService = {
     return restoredOrder;
   },
 
-  async resendNotification(id: number) {
+  async resendNotification(id: number, actor: AuditActor) {
     const order = await storePrisma.order.findUnique({
       where: { id },
       include: { items: true },
@@ -858,17 +974,49 @@ export const orderService = {
       orderKind = { type: "articles_only" };
     }
 
-    await whatsappQueue.add("order-notification", {
-      kind:
-        order.status === "PAID"
-          ? "order-paid"
-          : order.status === "CANCELLED"
-            ? "order-cancelled"
-            : "order",
-      orderId: order.id.toString(),
-      recipientPhone: order.customerPhone,
-      orderKind,
-      timeLimit: `${releaseHours} horas`
+    const notificationKind = order.mpRefundedAt
+      ? "order-refunded"
+      : order.status === "PAID"
+        ? "order-paid"
+        : order.status === "CANCELLED"
+          ? "order-cancelled"
+          : "order";
+
+    if (notificationKind === "order") {
+      await whatsappQueue.add("order-notification", {
+        kind: "order",
+        orderId: order.id.toString(),
+        recipientPhone: order.customerPhone,
+        orderKind,
+        timeLimit: `${releaseHours} horas`,
+      });
+    } else {
+      await whatsappQueue.add("order-notification", {
+        kind: notificationKind,
+        orderId: order.id.toString(),
+        recipientPhone: order.customerPhone,
+        orderKind,
+      });
+    }
+
+    await storePrisma.orderEvent.create({
+      data: {
+        orderId: order.id,
+        eventType: "WHATSAPP_RESENT",
+        message: "Notificación de WhatsApp reenviada manualmente.",
+        ...auditActorData(actor),
+        metadata: {
+          orderStatus: order.status,
+          notificationType:
+            order.mpRefundedAt
+              ? "PAYMENT_REFUNDED"
+              : order.status === "PAID"
+              ? "PAYMENT_CONFIRMED"
+              : order.status === "CANCELLED"
+                ? "RELEASE"
+                : "RESERVATION",
+        },
+      },
     });
 
     return { success: true };

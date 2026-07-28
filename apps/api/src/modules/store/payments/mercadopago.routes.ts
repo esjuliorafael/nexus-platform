@@ -3,9 +3,55 @@ import { mpService } from "./mercadopago.service";
 import { z } from "zod";
 import { customerPhoneSchema } from "../../../utils/customer-phone";
 import { verifyGatewayPayload } from "./mercadopago-gateway.security";
+import { paymentRecoveryService } from "../../../services/payment-recovery.service";
 
 export async function mpRoutes(server: FastifyInstance) {
   server.get("/checkout-config", async () => mpService.getPublicCheckoutConfig());
+
+  server.post("/payment-recovery", {
+    config: {
+      rateLimit: {
+        max: 20,
+        timeWindow: "1 minute",
+      },
+    },
+  }, async (request, reply) => {
+    const schema = z.object({
+      token: z.string().min(32).max(128),
+    });
+    try {
+      const { token } = schema.parse(request.body);
+      const recovery = await paymentRecoveryService.resolve(token);
+      if (recovery.status === "missing") {
+        return reply.status(404).send({
+          message: "El enlace de recuperacion no es valido.",
+          code: "PAYMENT_RECOVERY_NOT_FOUND",
+        });
+      }
+      if (recovery.status === "expired") {
+        return reply.status(410).send({
+          message: "El tiempo para recuperar este pago termino.",
+          code: "PAYMENT_RECOVERY_EXPIRED",
+        });
+      }
+      if (recovery.status === "processing") {
+        return reply.status(409).send({
+          message:
+            "Mercado Pago todavia esta revisando este pago. No inicies otro intento.",
+          code: "PAYMENT_RECOVERY_PROCESSING",
+        });
+      }
+      return recovery;
+    } catch (error: any) {
+      if (error?.issues) {
+        return reply.status(400).send({
+          message: "Validation error",
+          errors: error.issues,
+        });
+      }
+      throw error;
+    }
+  });
 
   server.get("/raffle-checkout", async () => ({
     available: await mpService.isRaffleCheckoutAvailable(),

@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 import { LucideIcon, X } from 'lucide-react';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
@@ -15,6 +15,8 @@ import {
   StorefrontTemporarySurfaceHeaderItem,
   StorefrontTemporarySurfaceItem,
 } from './TemporarySurfaceMotion';
+
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 interface BottomSheetProps {
   isOpen: boolean;
@@ -41,7 +43,24 @@ export function BottomSheet({
 }: BottomSheetProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const reduceMotion = useReducedMotion();
-  useBodyScrollLock(isOpen);
+  const [hasScrollLock, setHasScrollLock] = useState(isOpen);
+
+  useIsomorphicLayoutEffect(() => {
+    if (isOpen) {
+      setHasScrollLock(true);
+      return undefined;
+    }
+
+    const timer = window.setTimeout(
+      () => setHasScrollLock(false),
+      reduceMotion
+        ? STOREFRONT_TEMPORARY_SURFACE_SEQUENCE_MS.reducedDurationMs
+        : STOREFRONT_TEMPORARY_SURFACE_SEQUENCE_MS.panelExitDurationMs,
+    );
+    return () => window.clearTimeout(timer);
+  }, [isOpen, reduceMotion]);
+
+  useBodyScrollLock(hasScrollLock);
 
   const panelVariants = reduceMotion
     ? {

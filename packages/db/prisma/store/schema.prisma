@@ -21,19 +21,21 @@ model Setting {
 }
 
 model User {
-  id                   Int             @id @default(autoincrement())
-  username             String          @unique
-  passwordHash         String          @map("password_hash")
+  id                   Int              @id @default(autoincrement())
+  username             String           @unique
+  passwordHash         String           @map("password_hash")
   name                 String
   email                String?
   phone                String?
-  role                 Role            @default(STAFF)
-  active               Boolean         @default(true)
-  createdAt            DateTime        @default(now()) @map("created_at")
-  notificationEmail    String?         @map("notification_email")
-  receiveNotifications Boolean         @default(true) @map("receive_notifications")
-  mustChangePassword   Boolean         @default(true) @map("must_change_password")
+  role                 Role             @default(STAFF)
+  active               Boolean          @default(true)
+  createdAt            DateTime         @default(now()) @map("created_at")
+  notificationEmail    String?          @map("notification_email")
+  receiveNotifications Boolean          @default(true) @map("receive_notifications")
+  mustChangePassword   Boolean          @default(true) @map("must_change_password")
   orderReads           OrderRead[]
+  orderEvents          OrderEvent[]
+  productEvents        ProductEvent[]
   contactProfile       ContactProfile?
   mediaVaultItems      MediaVaultItem[]
 
@@ -115,7 +117,9 @@ model Product {
   age              BirdAge?               @map("age")
   purpose          BirdPurpose?           @map("purpose")
   orderItems       OrderItem[]
+  events           ProductEvent[]
   paymentHoldItems StorePaymentHoldItem[]
+  inventoryIntegrityIncidents InventoryIntegrityIncident[]
   gallery          ProductGallery[]
   coverAsset       MediaAsset?            @relation("ProductCoverAsset", fields: [coverAssetId], references: [id], onDelete: SetNull)
 
@@ -151,8 +155,8 @@ model StorefrontAnnouncement {
   id           Int                             @id @default(autoincrement())
   scope        StorefrontAnnouncementScope
   targetId     Int?                            @map("target_id")
-  presentation StorefrontAnnouncementDisplay  @default(POPUP)
-  variant      StorefrontAnnouncementVariant  @default(INFO)
+  presentation StorefrontAnnouncementDisplay   @default(POPUP)
+  variant      StorefrontAnnouncementVariant   @default(INFO)
   frequency    StorefrontAnnouncementFrequency @default(ONCE_VISITOR)
   eyebrow      String?
   title        String
@@ -259,6 +263,10 @@ model StorePaymentHold {
   mpSellerUserId        String?                @map("mp_seller_user_id")
   mpPaymentStatus       String?                @map("mp_payment_status")
   mpPaymentStatusDetail String?                @map("mp_payment_status_detail")
+  recoveryTokenHash     String?                @unique @map("recovery_token_hash")
+  recoveryScheduledAt   DateTime?              @map("recovery_scheduled_at")
+  recoverySentAt        DateTime?              @map("recovery_sent_at")
+  recoveryOpenedAt      DateTime?              @map("recovery_opened_at")
   createdAt             DateTime               @default(now()) @map("created_at")
   updatedAt             DateTime               @updatedAt @map("updated_at")
   coupon                Coupon?                @relation(fields: [couponId], references: [id], onDelete: SetNull)
@@ -284,6 +292,25 @@ model StorePaymentHoldItem {
 
   @@index([holdId])
   @@map("store_payment_hold_items")
+}
+
+model InventoryIntegrityIncident {
+  id               Int       @id @default(autoincrement())
+  productId        Int       @map("product_id")
+  issueType        String    @map("issue_type")
+  status           String    @default("OPEN")
+  firstDetectedAt  DateTime  @default(now()) @map("first_detected_at")
+  lastDetectedAt   DateTime  @default(now()) @map("last_detected_at")
+  resolvedAt       DateTime? @map("resolved_at")
+  resolvedByUserId Int?      @map("resolved_by_user_id")
+  resolvedByName   String?   @map("resolved_by_name")
+  resolution       String?
+  snapshot         Json?
+  product          Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([productId, issueType])
+  @@index([status, lastDetectedAt])
+  @@map("inventory_integrity_incidents")
 }
 
 model OrderPaymentAttempt {
@@ -344,15 +371,53 @@ model OrderRead {
 }
 
 model OrderEvent {
-  id        Int      @id @default(autoincrement())
-  orderId   Int      @map("order_id")
-  eventType String   @map("event_type")
-  message   String?  @map("message")
-  createdAt DateTime @default(now()) @map("created_at")
-  order     Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id            Int      @id @default(autoincrement())
+  orderId       Int      @map("order_id")
+  eventType     String   @map("event_type")
+  message       String?  @map("message")
+  actorType     String   @default("SYSTEM") @map("actor_type")
+  actorUserId   Int?     @map("actor_user_id")
+  actorName     String?  @map("actor_name")
+  actorRole     String?  @map("actor_role")
+  origin        String   @default("SYSTEM")
+  previousState Json?    @map("previous_state")
+  nextState     Json?    @map("next_state")
+  metadata      Json?
+  ipAddress     String?  @map("ip_address")
+  userAgent     String?  @map("user_agent")
+  requestId     String?  @map("request_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  order         Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  actorUser     User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
 
   @@index([orderId, createdAt])
+  @@index([actorUserId, createdAt])
   @@map("order_events")
+}
+
+model ProductEvent {
+  id            Int      @id @default(autoincrement())
+  productId     Int      @map("product_id")
+  eventType     String   @map("event_type")
+  message       String?  @map("message")
+  actorType     String   @default("SYSTEM") @map("actor_type")
+  actorUserId   Int?     @map("actor_user_id")
+  actorName     String?  @map("actor_name")
+  actorRole     String?  @map("actor_role")
+  origin        String   @default("SYSTEM")
+  previousState Json?    @map("previous_state")
+  nextState     Json?    @map("next_state")
+  metadata      Json?
+  ipAddress     String?  @map("ip_address")
+  userAgent     String?  @map("user_agent")
+  requestId     String?  @map("request_id")
+  createdAt     DateTime @default(now()) @map("created_at")
+  product       Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  actorUser     User?    @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+
+  @@index([productId, createdAt])
+  @@index([actorUserId, createdAt])
+  @@map("product_events")
 }
 
 model OrderItem {
@@ -453,18 +518,18 @@ model MediaAsset {
 }
 
 model MediaVaultItem {
-  id             String      @id @default(uuid()) @db.Uuid
-  assetId        String      @unique @map("asset_id") @db.Uuid
-  uploadedById   Int?        @map("uploaded_by_id")
-  uploadedByName String      @map("uploaded_by_name")
-  downloadName   String      @map("download_name")
-  expiresAt      DateTime    @map("expires_at")
-  downloadedAt   DateTime?   @map("downloaded_at")
-  downloadCount  Int         @default(0) @map("download_count")
-  createdAt      DateTime    @default(now()) @map("created_at")
-  updatedAt      DateTime    @updatedAt @map("updated_at")
-  asset           MediaAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
-  uploadedBy      User?       @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
+  id             String     @id @default(uuid()) @db.Uuid
+  assetId        String     @unique @map("asset_id") @db.Uuid
+  uploadedById   Int?       @map("uploaded_by_id")
+  uploadedByName String     @map("uploaded_by_name")
+  downloadName   String     @map("download_name")
+  expiresAt      DateTime   @map("expires_at")
+  downloadedAt   DateTime?  @map("downloaded_at")
+  downloadCount  Int        @default(0) @map("download_count")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
+  asset          MediaAsset @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  uploadedBy     User?      @relation(fields: [uploadedById], references: [id], onDelete: SetNull)
 
   @@index([expiresAt])
   @@index([uploadedById, createdAt])
@@ -490,20 +555,51 @@ model PaymentChannel {
 }
 
 model WhatsappChannel {
-  id           Int                @id @default(autoincrement())
-  evolutionKey String?            @map("evolution_key")
-  evolutionUrl String?            @map("evolution_url")
-  active       Boolean            @default(true) @map("active")
-  createdAt    DateTime           @default(now()) @map("created_at")
-  instanceName String?            @map("instance_name")
-  name         String             @map("name")
-  phone        String             @map("phone")
-  purpose      String             @map("purpose")
-  template     String             @map("template")
-  updated_at   DateTime           @default(now()) @map("updated_at")
-  templates    WhatsappTemplate[]
+  id                     Int                     @id @default(autoincrement())
+  provider               WhatsappProvider        @default(EVOLUTION)
+  deliveryStrategy       WhatsappDeliveryStrategy @default(STANDARD) @map("delivery_strategy")
+  evolutionKey           String?                 @map("evolution_key")
+  evolutionUrl           String?                 @map("evolution_url")
+  kapsoPhoneNumberId     String?                 @map("kapso_phone_number_id")
+  kapsoBusinessAccountId String?                 @map("kapso_business_account_id")
+  active                 Boolean                 @default(true) @map("active")
+  createdAt              DateTime                @default(now()) @map("created_at")
+  instanceName           String?                 @map("instance_name")
+  name                   String                  @map("name")
+  phone                  String                  @map("phone")
+  purpose                String                  @map("purpose")
+  template               String                  @map("template")
+  updated_at             DateTime                @default(now()) @map("updated_at")
+  templates              WhatsappTemplate[]
+  cloudTemplates         WhatsappCloudTemplate[]
+  kapsoOnboardingSessions KapsoOnboardingSession[]
 
+  @@index([provider, active])
   @@map("whatsapp_channels")
+}
+
+model KapsoOnboardingSession {
+  id                       String                        @id @default(uuid())
+  tokenHash                String                        @unique @map("token_hash")
+  customerId               String                        @map("customer_id")
+  target                   KapsoOnboardingTarget
+  channelId                Int?                          @map("channel_id")
+  status                   KapsoOnboardingStatus         @default(PENDING)
+  setupLinkId              String?                       @map("setup_link_id")
+  phoneNumberId            String?                       @map("phone_number_id")
+  businessAccountId        String?                       @map("business_account_id")
+  displayPhoneNumber       String?                       @map("display_phone_number")
+  returnUrl                String                        @map("return_url")
+  errorMessage             String?                       @map("error_message")
+  expiresAt                DateTime                      @map("expires_at")
+  completedAt              DateTime?                     @map("completed_at")
+  createdAt                DateTime                      @default(now()) @map("created_at")
+  updatedAt                DateTime                      @updatedAt @map("updated_at")
+  channel                  WhatsappChannel?              @relation(fields: [channelId], references: [id], onDelete: SetNull)
+
+  @@index([customerId, status, createdAt])
+  @@index([channelId, status])
+  @@map("kapso_onboarding_sessions")
 }
 
 model WhatsappTemplate {
@@ -518,6 +614,29 @@ model WhatsappTemplate {
 
   @@unique([channelId, type])
   @@map("whatsapp_templates")
+}
+
+model WhatsappCloudTemplate {
+  id             Int                        @id @default(autoincrement())
+  channelId      Int?                       @map("channel_id")
+  ownerKey       String                     @map("owner_key")
+  scope          WhatsappCloudTemplateScope
+  type           TemplateType
+  templateName   String                     @map("template_name")
+  templateId     String?                    @map("template_id")
+  languageCode   String                     @default("es_MX") @map("language_code")
+  status         String                     @default("PENDING")
+  parameterNames Json                       @map("parameter_names")
+  contentHash    String                     @map("content_hash")
+  lastError      String?                    @map("last_error")
+  lastSyncedAt   DateTime?                  @map("last_synced_at")
+  createdAt      DateTime                   @default(now()) @map("created_at")
+  updatedAt      DateTime                   @updatedAt @map("updated_at")
+  channel        WhatsappChannel?           @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerKey, scope, type])
+  @@index([channelId, status])
+  @@map("whatsapp_cloud_templates")
 }
 
 model ShippingZone {
@@ -569,23 +688,101 @@ model BillingPayment {
 }
 
 model WhatsappMessageLog {
-  id              Int       @id @default(autoincrement())
-  attempt         Int       @default(1) @map("attempt")
-  status          String    @map("status")
-  errorMessage    String?   @map("error_message")
-  instanceName    String    @map("instance_name")
-  jobId           String?   @map("job_id")
-  lastStatusAt    DateTime? @map("last_status_at")
-  messageId       String?   @map("message_id")
-  orderId         String?   @map("order_id")
-  providerStatus  String?   @map("provider_status")
-  responsePayload Json?     @map("response_payload")
-  recipientPhone  String    @map("recipient_phone")
-  sentAt          DateTime  @default(now()) @map("sent_at")
-  templateUsed    String    @map("template_used")
-  ticketSaleId    Int?      @map("ticket_sale_id")
+  id              Int              @id @default(autoincrement())
+  attempt         Int              @default(1) @map("attempt")
+  status          String           @map("status")
+  errorMessage    String?          @map("error_message")
+  instanceName    String           @map("instance_name")
+  jobId           String?          @map("job_id")
+  lastStatusAt    DateTime?        @map("last_status_at")
+  messageId       String?          @map("message_id")
+  orderId         String?          @map("order_id")
+  providerStatus  String?          @map("provider_status")
+  provider        WhatsappProvider @default(EVOLUTION)
+  responsePayload Json?            @map("response_payload")
+  recipientPhone  String           @map("recipient_phone")
+  sentAt          DateTime         @default(now()) @map("sent_at")
+  templateUsed    String           @map("template_used")
+  ticketSaleId    Int?             @map("ticket_sale_id")
 
   @@map("whatsapp_message_logs")
+}
+
+model WhatsappMarketingPreference {
+  id              Int                              @id @default(autoincrement())
+  phone           String                           @unique
+  displayName     String?                          @map("display_name")
+  status          WhatsappMarketingConsentStatus   @default(UNKNOWN)
+  consentAt       DateTime?                        @map("consent_at")
+  consentSource   WhatsappMarketingConsentSource?  @map("consent_source")
+  consentVersion  String?                          @map("consent_version")
+  optedOutAt      DateTime?                        @map("opted_out_at")
+  lastMarketingAt DateTime?                        @map("last_marketing_at")
+  createdAt       DateTime                         @default(now()) @map("created_at")
+  updatedAt       DateTime                         @updatedAt @map("updated_at")
+  events          WhatsappMarketingConsentEvent[]
+
+  @@index([status])
+  @@map("whatsapp_marketing_preferences")
+}
+
+model WhatsappMarketingConsentEvent {
+  id             Int                              @id @default(autoincrement())
+  preferenceId   Int                              @map("preference_id")
+  previousStatus WhatsappMarketingConsentStatus?  @map("previous_status")
+  nextStatus     WhatsappMarketingConsentStatus   @map("next_status")
+  source         WhatsappMarketingConsentSource
+  policyVersion  String?                          @map("policy_version")
+  keyword        String?
+  externalEventId String?                         @unique @map("external_event_id")
+  metadata       Json?
+  createdAt      DateTime                         @default(now()) @map("created_at")
+  preference     WhatsappMarketingPreference      @relation(fields: [preferenceId], references: [id], onDelete: Cascade)
+
+  @@index([preferenceId, createdAt])
+  @@map("whatsapp_marketing_consent_events")
+}
+
+enum WhatsappProvider {
+  EVOLUTION
+  KAPSO
+}
+
+enum WhatsappDeliveryStrategy {
+  STANDARD
+  KAPSO_PREFERRED
+  EVOLUTION_ONLY
+}
+
+enum KapsoOnboardingTarget {
+  PRINCIPAL
+  SPECIALIZED
+}
+
+enum KapsoOnboardingStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  EXPIRED
+}
+
+enum WhatsappMarketingConsentStatus {
+  UNKNOWN
+  GRANTED
+  OPTED_OUT
+}
+
+enum WhatsappMarketingConsentSource {
+  STORE_CHECKOUT
+  RAFFLE_CHECKOUT
+  INBOUND_KEYWORD
+  ADMIN
+  IMPORT
+}
+
+enum WhatsappCloudTemplateScope {
+  STORE
+  RAFFLES
 }
 
 enum Role {
@@ -701,12 +898,17 @@ enum ContactChannelType {
 }
 
 enum TemplateType {
-  RESERVATION       @map("reservation")
-  RELEASE           @map("release")
-  PAYMENT_CONFIRMED @map("payment_confirmed")
-  RESTORED          @map("restored")
-  REMINDER          @map("reminder")
-  OPENING           @map("opening")
+  RESERVATION         @map("reservation")
+  RELEASE             @map("release")
+  PAYMENT_CONFIRMED   @map("payment_confirmed")
+  PAYMENT_REFUNDED    @map("payment_refunded")
+  PAYMENT_RECOVERY    @map("payment_recovery")
+  RESTORED            @map("restored")
+  REMINDER            @map("reminder")
+  OPENING             @map("opening")
+  RAFFLE_INVITATION   @map("raffle_invitation")
+  RESULT_WINNER       @map("result_winner")
+  RESULT_PARTICIPANTS @map("result_participants")
 }
 
 enum ShippingType {

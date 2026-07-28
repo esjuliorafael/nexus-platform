@@ -87,6 +87,18 @@ export const expirePendingOrder = async (orderId: number) => {
       data: {
         orderId,
         eventType: "AUTO_CANCELLED",
+        actorType: "SYSTEM",
+        actorName: "Sistema",
+        origin: "SYSTEM",
+        previousState: {
+          status: order.status,
+          paymentStatus: order.paymentStatus,
+        },
+        nextState: {
+          status: "CANCELLED",
+          paymentStatus:
+            order.paymentMethod === "MERCADOPAGO" ? "EXPIRED" : "CANCELLED",
+        },
         message:
           order.paymentMethod === "MERCADOPAGO"
             ? "Intento de pago con tarjeta expirado. Inventario liberado sin notificacion de apartado."
@@ -111,7 +123,74 @@ export const expirePendingOrder = async (orderId: number) => {
   return expiredOrder;
 };
 
+export const reconcilePendingOrderExpirations = async (limit = 100) => {
+  const settings = await storePrisma.setting.findMany({
+    where: {
+      key: { in: ["inventory_release_active", "inventory_release_hours"] },
+    },
+    select: { key: true, value: true },
+  });
+  const settingsMap = Object.fromEntries(settings.map((setting) => [setting.key, setting.value]));
+  if (settingsMap.inventory_release_active !== "1") {
+    return { scanned: 0, scheduled: 0 };
+  }
+
+  const configuredHours = Number(settingsMap.inventory_release_hours || 24);
+  const releaseHours = Number.isFinite(configuredHours) && configuredHours > 0
+    ? configuredHours
+    : 24;
+  const pendingOrders = await storePrisma.order.findMany({
+    where: {
+      status: "PENDING",
+      paymentMethod: "TRANSFER",
+      expiresAt: null,
+    },
+    select: { id: true },
+    orderBy: { createdAt: "asc" },
+    take: limit,
+  });
+
+  let scheduled = 0;
+  for (const order of pendingOrders) {
+    const expiresAt = new Date(Date.now() + releaseHours * 3_600_000);
+    const updated = await storePrisma.$transaction(async (tx) => {
+      const result = await tx.order.updateMany({
+        where: {
+          id: order.id,
+          status: "PENDING",
+          paymentMethod: "TRANSFER",
+          expiresAt: null,
+        },
+        data: { expiresAt },
+      });
+      if (result.count !== 1) return false;
+
+      await tx.orderEvent.create({
+        data: {
+          orderId: order.id,
+          eventType: "EXPIRATION_SCHEDULED",
+          actorType: "SYSTEM",
+          actorName: "Sistema",
+          origin: "SYSTEM",
+          previousState: { expiresAt: null },
+          nextState: { expiresAt: expiresAt.toISOString() },
+          metadata: {
+            releaseHours,
+            reason: "legacy_pending_order_without_expiration",
+          },
+          message: `Se asignó un plazo de ${releaseHours} horas a una orden heredada sin vencimiento.`,
+        },
+      });
+      return true;
+    });
+    if (updated) scheduled += 1;
+  }
+
+  return { scanned: pendingOrders.length, scheduled };
+};
+
 export const expireOverduePendingOrders = async (limit = 100) => {
+  const reconciliation = await reconcilePendingOrderExpirations(limit);
   const orders = await storePrisma.order.findMany({
     where: {
       status: "PENDING",
@@ -128,5 +207,9 @@ export const expireOverduePendingOrders = async (limit = 100) => {
     if (result) expired += 1;
   }
 
-  return { scanned: orders.length, expired };
+  return {
+    scanned: orders.length,
+    expired,
+    expirationScheduled: reconciliation.scheduled,
+  };
 };

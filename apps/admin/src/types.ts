@@ -20,6 +20,21 @@ export interface OrderPaymentAttempt {
   updatedAt: string;
 }
 
+export interface ActivityEvent {
+  id: string;
+  eventType: string;
+  message?: string | null;
+  actorType: "USER" | "SYSTEM" | "CUSTOMER" | "MERCADO_PAGO" | string;
+  actorUserId?: number | null;
+  actorName?: string | null;
+  actorRole?: string | null;
+  origin: "ADMIN" | "SYSTEM" | "STOREFRONT" | "MERCADO_PAGO" | string;
+  previousState?: Record<string, unknown> | null;
+  nextState?: Record<string, unknown> | null;
+  metadata?: Record<string, unknown> | null;
+  createdAt: string;
+}
+
 export interface Order {
   id: string;
   recordType?: "ORDER" | "PAYMENT_HOLD";
@@ -47,7 +62,14 @@ export interface Order {
   holdStatus?: string | null;
   expiresAt?: string | null;
   paymentMethod?: "TRANSFER" | "MERCADOPAGO" | string;
-  paymentStatus?: "PENDING" | "APPROVED" | "FAILED" | "EXPIRED" | "CANCELLED" | "REFUNDED" | string;
+  paymentStatus?:
+    | "PENDING"
+    | "APPROVED"
+    | "FAILED"
+    | "EXPIRED"
+    | "CANCELLED"
+    | "REFUNDED"
+    | string;
   paymentExpiresAt?: string | null;
   mpPaymentId?: string | null;
   mpSellerUserId?: string | null;
@@ -63,6 +85,7 @@ export interface Order {
   isRead: boolean;
   readAt?: string;
   paymentAttempts?: OrderPaymentAttempt[];
+  activityEvents?: ActivityEvent[];
 }
 
 export interface WhatsAppMessageLog {
@@ -79,6 +102,7 @@ export interface WhatsAppMessageLog {
   jobId?: string | null;
   lastStatusAt?: string | null;
   messageId?: string | null;
+  provider?: WhatsAppProvider;
   providerStatus?: string | null;
   responsePayload?: unknown;
 }
@@ -117,6 +141,36 @@ export interface ProductGalleryAsset {
   assetStatus?: "UPLOADING" | "PROCESSING" | "READY" | "FAILED" | null;
   mediaType: "PHOTO" | "VIDEO";
   mimeType?: string;
+}
+
+export interface ProductSale {
+  orderId: string;
+  customerName: string;
+  customerPhone: string;
+  orderStatus: string;
+  paymentMethod: string;
+  paymentStatus: string;
+  quantity: number;
+  unitPrice: number;
+  lineTotal: number;
+  confirmedAt: string;
+  refundedAmount: number;
+  refundedAt?: string | null;
+}
+
+export interface ProductOverview {
+  product: Product;
+  metrics: {
+    confirmedRevenue: number;
+    unitsSold: number;
+    confirmedOrders: number;
+    activeReservations: number;
+    releasedReservations: number;
+    currentStock: number;
+  };
+  finalSale?: ProductSale | null;
+  recentSales: ProductSale[];
+  activityEvents: ActivityEvent[];
 }
 
 export interface Media {
@@ -409,7 +463,17 @@ export interface SalesChannel extends BankDetails {
   purpose: string;
 }
 
-export type TemplateType = "RESERVATION" | "RELEASE" | "PAYMENT_CONFIRMED" | "RESTORED" | "REMINDER" | "OPENING";
+export type TemplateType =
+  | "RESERVATION"
+  | "RELEASE"
+  | "PAYMENT_CONFIRMED"
+  | "PAYMENT_RECOVERY"
+  | "RESTORED"
+  | "REMINDER"
+  | "OPENING"
+  | "RAFFLE_INVITATION"
+  | "RESULT_WINNER"
+  | "RESULT_PARTICIPANTS";
 
 export interface WhatsAppTemplate {
   id: string;
@@ -425,13 +489,23 @@ export interface WhatsAppDetails {
   template: string; // Keep for legacy/backward compatibility if needed, but we'll prefer templates array
 }
 
+export type WhatsAppProvider = "EVOLUTION" | "KAPSO";
+export type WhatsAppDeliveryStrategy =
+  | "STANDARD"
+  | "KAPSO_PREFERRED"
+  | "EVOLUTION_ONLY";
+
 export interface WhatsAppChannel extends WhatsAppDetails {
   id: string;
   name: string;
   purpose: string;
+  provider: WhatsAppProvider;
+  deliveryStrategy?: WhatsAppDeliveryStrategy;
   instanceName?: string;
   evolutionUrl?: string;
   evolutionKey?: string;
+  kapsoPhoneNumberId?: string;
+  kapsoBusinessAccountId?: string;
   templates?: WhatsAppTemplate[];
 }
 
@@ -472,24 +546,33 @@ export interface Raffle {
   useZero: boolean;
   digits: number;
   drawDate?: string;
-    prizeShippingPolicy?: "INCLUDED" | "WINNER_PAYS" | null;
-    image?: string;
-    imageType?: "PHOTO" | "VIDEO";
-    imagePoster?: string | null;
-    gallery?: RaffleGalleryItem[];
-    prizes?: RafflePrize[];
-    status: "ACTIVE" | "FINISHED" | "CANCELLED";
-    published: boolean;
-    featured: boolean;
-    featuredOrder?: number | null;
-    winningNumber?: string | null;
-    resultPublishedAt?: string | null;
-    participationStartsAt?: string | null;
-    participationEndsAt?: string | null;
-    participationState?: "OPEN" | "UPCOMING" | "EARLY_ACCESS" | "CLOSED" | "UNAVAILABLE";
-    earlyAccessEnabled: boolean;
-    earlyAccessConfigured?: boolean;
-    createdAt: string;
+  prizeShippingPolicy?: "INCLUDED" | "WINNER_PAYS" | null;
+  image?: string;
+  imageType?: "PHOTO" | "VIDEO";
+  imagePoster?: string | null;
+  gallery?: RaffleGalleryItem[];
+  prizes?: RafflePrize[];
+  status: "ACTIVE" | "FINISHED" | "CANCELLED";
+  published: boolean;
+  featured: boolean;
+  featuredOrder?: number | null;
+  winningNumber?: string | null;
+  resultReferenceNumber?: string | null;
+  winningTicketNumber?: string | null;
+  winningParticipationId?: string | null;
+  resultResolutionStatus?: RaffleResultResolutionStatus | null;
+  resultPublishedAt?: string | null;
+  participationStartsAt?: string | null;
+  participationEndsAt?: string | null;
+  participationState?:
+    | "OPEN"
+    | "UPCOMING"
+    | "EARLY_ACCESS"
+    | "CLOSED"
+    | "UNAVAILABLE";
+  earlyAccessEnabled: boolean;
+  earlyAccessConfigured?: boolean;
+  createdAt: string;
   ticketStats?: {
     total: number;
     paid: number;
@@ -504,7 +587,27 @@ export interface RafflePrize {
   title: string;
   description: string;
   winnerRule?: string | null;
+  resultSource: "MAJOR_PRIZE" | "SECOND_PRIZE" | "THIRD_PRIZE" | "CUSTOM";
+  resultSourceLabel?: string | null;
+  resultReferenceNumber?: string | null;
+  winningNumber?: string | null;
+  winningTicketNumber?: string | null;
+  winningParticipationId?: string | null;
+  resultResolutionStatus?: RaffleResultResolutionStatus | null;
+  resultPublishedAt?: string | null;
+  fulfillmentStatus?: RafflePrizeFulfillmentStatus | null;
+  fulfillmentUpdatedAt?: string | null;
+  fulfillmentUpdatedBy?: number | null;
+  fulfillmentNotes?: string | null;
 }
+
+export type RafflePrizeFulfillmentStatus =
+  | "PENDING_CONTACT"
+  | "CONTACTED"
+  | "DELIVERY_COORDINATED"
+  | "DELIVERED"
+  | "NOT_CLAIMED"
+  | "NOT_APPLICABLE";
 
 export interface RaffleGalleryItem {
   id?: number;
@@ -577,6 +680,152 @@ export interface RaffleParticipation {
   tickets?: RaffleParticipationTicket[];
   paymentAttempts?: RafflePaymentAttempt[];
   whatsappLogs?: WhatsAppMessageLog[];
+  activityEvents?: ActivityEvent[];
+}
+
+export type RaffleOperationalTicketStatus =
+  | "available"
+  | "reserved"
+  | "paid"
+  | "review";
+
+export interface RaffleOperationalOverview {
+  raffleId: number;
+  metrics: {
+    paid: number;
+    reserved: number;
+    review: number;
+    occupied: number;
+    available: number;
+    revenue: number;
+    occupancy: number;
+  };
+  ticketStatuses: Array<{
+    ticketNumber: string;
+    status: Exclude<RaffleOperationalTicketStatus, "available">;
+    participationId: string;
+  }>;
+  recentParticipations: RaffleParticipation[];
+  updatedAt: string;
+}
+
+export type RaffleResultResolutionStatus =
+  | "ELIGIBLE_WINNER"
+  | "UNPAID_RESERVED"
+  | "PAYMENT_REVIEW"
+  | "UNASSIGNED_NUMBER"
+  | "OUTSIDE_UNIVERSE";
+
+export interface RafflePrizeResultPreview {
+  prizeId: number;
+  position: number;
+  title: string;
+  resultSource: RafflePrize["resultSource"];
+  resultSourceLabel: string | null;
+  referenceNumber: string;
+  winningNumber: string;
+  winningTicketNumber: string | null;
+  winningParticipationId: string | null;
+  resolutionStatus: RaffleResultResolutionStatus;
+  canPublish: boolean;
+  participant: {
+    name: string;
+    phone: string;
+    state?: string | null;
+    paymentStatus: string;
+  } | null;
+}
+
+export interface RaffleResultPreview {
+  raffleId: number;
+  prizes: RafflePrizeResultPreview[];
+  duplicateWinningTickets: string[];
+  canPublish: boolean;
+}
+
+export interface RaffleResultAdmin {
+  raffleId: number;
+  resultPublishedAt: string | null;
+  prizes: Array<
+    Omit<
+      RafflePrizeResultPreview,
+      "referenceNumber" | "winningNumber" | "resolutionStatus" | "canPublish"
+    > & {
+      referenceNumber: string | null;
+      draftReferenceNumber: string | null;
+      winningNumber: string | null;
+      resolutionStatus: RaffleResultResolutionStatus | null;
+      fulfillmentStatus: RafflePrizeFulfillmentStatus | null;
+      fulfillmentUpdatedAt: string | null;
+      fulfillmentUpdatedBy: number | null;
+      fulfillmentNotes: string | null;
+    }
+  >;
+  events: ActivityEvent[];
+}
+
+export type RaffleResultCampaignAudience = "WINNERS" | "PARTICIPANTS";
+export type RaffleResultCampaignStatus =
+  | "QUEUED"
+  | "PROCESSING"
+  | "PARTIAL"
+  | "SENT"
+  | "FAILED"
+  | "EMPTY";
+export type RaffleResultRecipientStatus =
+  | "PENDING"
+  | "PROCESSING"
+  | "SENT"
+  | "FAILED";
+
+export interface RaffleResultCampaignRecipient {
+  id: string;
+  phone: string;
+  customerName: string;
+  participationIds: string[];
+  status: RaffleResultRecipientStatus;
+  attempts: number;
+  lastError: string | null;
+  messageLogId: number | null;
+  sentAt: string | null;
+  messageLog?: {
+    id: number;
+    status: string;
+    providerStatus: string | null;
+    provider: "EVOLUTION" | "KAPSO";
+    errorMessage: string | null;
+    sentAt: string;
+  } | null;
+}
+
+export interface RaffleResultCampaign {
+  id: string;
+  audience: RaffleResultCampaignAudience;
+  status: RaffleResultCampaignStatus;
+  totalRecipients: number;
+  sentCount: number;
+  failedCount: number;
+  deliveredCount: number;
+  providerFailedCount: number;
+  acceptedCount: number;
+  initiatedByName: string | null;
+  initiatedByRole: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  recipients: RaffleResultCampaignRecipient[];
+}
+
+export interface RaffleResultCommunicationOverview {
+  raffleId: number;
+  resultPublishedAt: string | null;
+  prizes: RafflePrize[];
+  audienceEstimates: Array<{
+    audience: RaffleResultCampaignAudience;
+    totalRecipients: number;
+    invalidRecipients: number;
+    templateConfigured: boolean;
+  }>;
+  campaigns: RaffleResultCampaign[];
 }
 
 export type RaffleParticipantSegment =
@@ -641,6 +890,113 @@ export interface RaffleIntelligenceSegment {
   paymentRate: number;
 }
 
+export interface RaffleAudienceRules {
+  minPaidParticipations?: number;
+  paidInRaffleId?: number;
+  minPaidTickets?: number;
+  minNetRevenue?: number;
+  maxDaysSinceLastPaid?: number;
+  maxPaymentSpeedPercentile?: number;
+  paymentMethods?: Array<"TRANSFER" | "MERCADOPAGO">;
+  states?: string[];
+  countries?: Array<"MX" | "US" | "GT">;
+  winnerOnly?: boolean;
+  openingSubscriberOnly?: boolean;
+}
+
+export interface RaffleAudience {
+  id: string;
+  name: string;
+  description: string | null;
+  rules: RaffleAudienceRules;
+  active: boolean;
+  createdByUserId: number | null;
+  createdByName: string | null;
+  createdByRole: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface RaffleAudienceProfile {
+  phone: string;
+  displayName: string;
+  state: string;
+  country: "MX" | "US" | "GT" | null;
+  sourceParticipations: number;
+  paidParticipations: number;
+  paidTickets: number;
+  netRevenue: number;
+  paymentMethods: Array<"TRANSFER" | "MERCADOPAGO">;
+  averagePaymentHours: number | null;
+  paymentSpeedPercentile: number | null;
+  lastPaidAt: string | null;
+  consentStatus: "UNKNOWN" | "GRANTED" | "OPTED_OUT";
+}
+
+export interface RaffleAudiencePreview {
+  summary: {
+    profilesAnalyzed: number;
+    duplicatesRemoved: number;
+    audienceMatched: number;
+    eligible: number;
+    excluded: number;
+    exclusions: {
+      noConsent: number;
+      optedOut: number;
+      invalidPhone: number;
+      alreadyParticipating: number;
+      recentlyContacted: number;
+    };
+  };
+  sample: RaffleAudienceProfile[];
+}
+
+export interface RaffleInvitationRecipient {
+  id: string;
+  phone: string;
+  customerName: string;
+  status: RaffleResultRecipientStatus;
+  attempts: number;
+  lastError: string | null;
+  messageLogId: number | null;
+  sentAt: string | null;
+  messageLog?: {
+    id: number;
+    status: string;
+    providerStatus: string | null;
+    provider: "EVOLUTION" | "KAPSO";
+    errorMessage: string | null;
+    sentAt: string;
+  } | null;
+}
+
+export interface RaffleInvitationCampaign {
+  id: string;
+  audienceId: string | null;
+  audienceName: string;
+  frequencyWindowDays: number;
+  status: RaffleResultCampaignStatus;
+  totalRecipients: number;
+  sentCount: number;
+  failedCount: number;
+  initiatedByName: string | null;
+  initiatedByRole: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  recipients: RaffleInvitationRecipient[];
+}
+
+export interface RaffleInvitationOverview {
+  raffleId: number;
+  audience: {
+    id: string | null;
+    name: string;
+    rules: RaffleAudienceRules;
+  };
+  preview: RaffleAudiencePreview;
+  campaigns: RaffleInvitationCampaign[];
+}
+
 export interface ChannelReadiness {
   ready: boolean;
 }
@@ -660,7 +1016,10 @@ export interface ChannelMercadoPagoStatus extends ChannelReadiness {
 export interface ChannelWhatsappStatus extends ChannelReadiness {
   phone?: string;
   active?: boolean;
+  provider?: WhatsAppProvider;
   instanceName: string;
+  kapsoPhoneNumberId?: string;
+  kapsoBusinessAccountId?: string;
 }
 
 export interface ChannelTemplateStatus extends ChannelReadiness {

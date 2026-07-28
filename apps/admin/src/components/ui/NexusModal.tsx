@@ -1,8 +1,13 @@
 import React from "react";
-import { createPortal } from "react-dom";
-import { LucideIcon, X } from "lucide-react";
+import { type LucideIcon, X } from "lucide-react";
 import { NexusAutonomousButton } from "./NexusButton";
-import { useModalScrollLock } from "./useModalScrollLock";
+import {
+  NexusSurfaceHeaderItem,
+  NexusSurfaceItem,
+  NexusTemporarySurface,
+  useNexusSurfacePhase,
+  useNexusTemporarySurfaceContext,
+} from "./NexusTemporarySurface";
 
 interface NexusModalProps {
   isOpen: boolean;
@@ -12,8 +17,10 @@ interface NexusModalProps {
   iconTone?: "brand" | "danger" | "warning";
   onClose: () => void;
   children: React.ReactNode;
+  footer?: React.ReactNode;
   size?: "compact" | "standard" | "wide";
   zIndex?: number;
+  onAfterClose?: () => void;
 }
 
 interface NexusModalActionsProps extends React.HTMLAttributes<HTMLDivElement> {
@@ -34,75 +41,73 @@ export const NexusModal: React.FC<NexusModalProps> = ({
   iconTone = "brand",
   onClose,
   children,
+  footer,
   size = "standard",
   zIndex = 100,
+  onAfterClose,
 }) => {
-  useModalScrollLock(isOpen);
-
-  if (!isOpen) return null;
-
+  const titleId = React.useId();
   const iconToneClasses = {
     brand: "border-brand-100 bg-brand-50 text-brand-600",
     danger: "border-rose-100 bg-rose-50 text-rose-500",
     warning: "border-amber-100 bg-amber-50 text-amber-500",
   };
 
-  return createPortal(
-    <div
-      role="dialog"
-      aria-modal="true"
-      className="fixed inset-0 flex w-full max-w-[100dvw] items-end justify-center overflow-x-hidden p-0 animate-in fade-in duration-300 sm:items-center sm:p-[var(--space-lg)]"
-      style={{ zIndex }}
+  return (
+    <NexusTemporarySurface
+      isOpen={isOpen}
+      onClose={onClose}
+      onAfterClose={onAfterClose}
+      labelledBy={titleId}
+      zIndex={zIndex}
+      desktopPresentation="modal"
+      mobilePresentation="sheet"
+      containerClassName="flex items-end justify-center p-0 sm:items-center sm:p-[var(--space-lg)]"
+      panelClassName="box-border flex max-h-[90dvh] w-full min-w-0 max-w-full flex-col overflow-hidden rounded-b-none rounded-t-[var(--radius-outer)] bg-bg-card shadow-2xl sm:rounded-[var(--radius-outer)]"
+      panelStyle={{ maxWidth: `min(100dvw, ${widthBySize[size]})` }}
     >
-      <div
-        className="absolute inset-0"
-        style={{ backgroundColor: "var(--modal-backdrop)" }}
-        onClick={onClose}
-      />
-      <div
-        className="relative box-border w-full min-w-0 max-w-full overflow-hidden rounded-b-none rounded-t-[var(--radius-outer)] bg-bg-card shadow-2xl animate-in slide-in-from-bottom-10 duration-300 sm:rounded-[var(--radius-outer)] sm:zoom-in-95"
-        style={{ maxWidth: `min(100dvw, ${widthBySize[size]})` }}
-      >
+      <div className="box-border flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden">
         <div
-          className="box-border w-full min-w-0 max-w-full overflow-x-hidden"
+          className="flex shrink-0 items-start justify-between"
           style={{
+            gap: "var(--space-md)",
             padding: "var(--padding-inner)",
-            paddingBottom:
-              "calc(var(--padding-inner) + env(safe-area-inset-bottom))",
+            paddingBottom: "var(--space-md)",
           }}
         >
-          <div
-            className="flex items-start justify-between"
-            style={{ gap: "var(--space-md)", marginBottom: "var(--space-md)" }}
+          <NexusSurfaceHeaderItem
+            part="identity"
+            className="flex min-w-0 items-start"
+            style={{ gap: "var(--space-md)" }}
           >
-            <div
-              className="flex min-w-0 items-start"
-              style={{ gap: "var(--space-md)" }}
-            >
-              {Icon && (
-                <div
-                  className={`flex shrink-0 items-center justify-center border ${iconToneClasses[iconTone]}`}
-                  style={{
-                    width: "var(--size-icon-autonomous)",
-                    height: "var(--size-icon-autonomous)",
-                    borderRadius: "var(--radius-card-inner)",
-                  }}
-                >
-                  <Icon size={22} />
-                </div>
-              )}
+            {Icon && (
               <div
-                className="flex min-w-0 flex-col"
-                style={{ gap: "var(--space-xs)" }}
+                className={`flex shrink-0 items-center justify-center border ${iconToneClasses[iconTone]}`}
+                style={{
+                  width: "var(--size-icon-autonomous)",
+                  height: "var(--size-icon-autonomous)",
+                  borderRadius: "var(--radius-card-inner)",
+                }}
               >
-                {eyebrow && (
-                  <span className="text-label uppercase tracking-[0.15em] text-brand-500">
-                    {eyebrow}
-                  </span>
-                )}
-                <h3 className="break-words text-h1 text-text-main">{title}</h3>
+                <Icon size={22} />
               </div>
+            )}
+            <div
+              className="flex min-w-0 flex-col"
+              style={{ gap: "var(--space-xs)" }}
+            >
+              {eyebrow && (
+                <span className="text-label uppercase tracking-[0.15em] text-brand-500">
+                  {eyebrow}
+                </span>
+              )}
+              <h3 id={titleId} className="break-words text-h1 text-text-main">
+                {title}
+              </h3>
             </div>
+          </NexusSurfaceHeaderItem>
+
+          <NexusSurfaceHeaderItem part="close" className="shrink-0">
             <NexusAutonomousButton
               onClick={onClose}
               type="button"
@@ -110,15 +115,40 @@ export const NexusModal: React.FC<NexusModalProps> = ({
               density="compact"
               isIconOnly
               icon={X}
-              className="shrink-0"
               aria-label="Cerrar"
             />
-          </div>
-          {children}
+          </NexusSurfaceHeaderItem>
         </div>
+
+        <div
+          className="nexus-mobile-temporary-scroll-region min-h-0 flex-1 overscroll-contain overflow-y-auto overflow-x-hidden"
+          style={{
+            paddingInline: "var(--padding-inner)",
+            paddingBottom: footer
+              ? "var(--padding-inner)"
+              : "calc(var(--padding-inner) + env(safe-area-inset-bottom))",
+          }}
+        >
+          <NexusSurfaceItem phase="content" spatialMotion={false}>
+            {children}
+          </NexusSurfaceItem>
+        </div>
+
+        {footer && (
+          <NexusSurfaceItem
+            phase="footer"
+            className="shrink-0 border-t border-border-main bg-bg-card"
+            style={{
+              padding: "var(--padding-inner)",
+              paddingBottom:
+                "calc(var(--padding-inner) + env(safe-area-inset-bottom))",
+            }}
+          >
+            {footer}
+          </NexusSurfaceItem>
+        )}
       </div>
-    </div>,
-    document.body,
+    </NexusTemporarySurface>
   );
 };
 
@@ -127,12 +157,28 @@ export const NexusModalActions: React.FC<NexusModalActionsProps> = ({
   className = "",
   style,
   ...props
-}) => (
-  <div
-    className={`flex ${className}`}
-    style={{ gap: "var(--space-sm)", ...style }}
-    {...props}
-  >
-    {children}
-  </div>
-);
+}) => {
+  const isInsideTemporarySurface = useNexusTemporarySurfaceContext();
+  const containingPhase = useNexusSurfacePhase();
+  const classes = `flex ${className}`;
+  const mergedStyle = { gap: "var(--space-sm)", ...style };
+
+  if (isInsideTemporarySurface && containingPhase !== "footer") {
+    return (
+      <NexusSurfaceItem
+        phase="footer"
+        className={classes}
+        style={mergedStyle}
+        {...props}
+      >
+        {children}
+      </NexusSurfaceItem>
+    );
+  }
+
+  return (
+    <div className={classes} style={mergedStyle} {...props}>
+      {children}
+    </div>
+  );
+};

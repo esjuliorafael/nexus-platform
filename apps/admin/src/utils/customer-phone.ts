@@ -15,6 +15,20 @@ export function parseCustomerPhone(value: string | null | undefined, fallback: C
   if (digits.startsWith("502") && digits.length === 11) return { country: "GT" as const, nationalNumber: digits.slice(3) };
   if (digits.startsWith("52") && digits.length === 12) return { country: "MX" as const, nationalNumber: digits.slice(2) };
   if (digits.startsWith("1") && digits.length === 11) return { country: "US" as const, nationalNumber: digits.slice(1) };
+  if (raw.startsWith("+")) {
+    const fallbackConfig = CUSTOMER_PHONE_COUNTRIES[fallback];
+    const maxInternationalLength =
+      fallbackConfig.callingCode.length + fallbackConfig.nationalLength;
+    if (
+      digits.startsWith(fallbackConfig.callingCode) &&
+      digits.length <= maxInternationalLength
+    ) {
+      return {
+        country: fallback,
+        nationalNumber: digits.slice(fallbackConfig.callingCode.length),
+      };
+    }
+  }
   if (!raw.startsWith("+") && digits.length <= CUSTOMER_PHONE_COUNTRIES[fallback].nationalLength) {
     return { country: fallback, nationalNumber: digits };
   }
@@ -25,6 +39,29 @@ export function buildCustomerPhone(country: CustomerPhoneCountry, value: string)
   const config = CUSTOMER_PHONE_COUNTRIES[country];
   const digits = value.replace(/\D/g, "").slice(0, config.nationalLength);
   return digits ? `+${config.callingCode}${digits}` : "";
+}
+
+export function normalizeCustomerPhoneInput(
+  country: CustomerPhoneCountry,
+  value: string,
+) {
+  const config = CUSTOMER_PHONE_COUNTRIES[country];
+  const digits = value.replace(/\D/g, "");
+
+  if (country === "MX" && digits.startsWith("521") && digits.length === 13) {
+    return digits.slice(3);
+  }
+
+  if (
+    digits.length > config.nationalLength &&
+    digits.startsWith(config.callingCode)
+  ) {
+    return digits
+      .slice(config.callingCode.length)
+      .slice(0, config.nationalLength);
+  }
+
+  return digits.slice(0, config.nationalLength);
 }
 
 export function isCustomerPhoneComplete(value: string | null | undefined) {

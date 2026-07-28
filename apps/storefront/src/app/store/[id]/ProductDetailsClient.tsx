@@ -142,7 +142,9 @@ export function ProductDetailsClient({
     return () => observer.disconnect();
   }, []);
 
-  const isAvailable = product.saleStatus === "AVAILABLE";
+  const isAvailable =
+    product.saleStatus === "AVAILABLE" &&
+    (product.type !== "ITEM" || Number(product.stock) > 0);
   const productMediaItems = useMemo<Media[]>(() => {
     const coverItem: Media[] = product.coverMediaUrl
       ? [

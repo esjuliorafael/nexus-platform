@@ -22,6 +22,19 @@ export const ticketReleaseWorker = new Worker(
       },
     });
 
+    if (sales.length > 0) {
+      const participationId = sales[0].reservationId || `sale-${sales[0].id}`;
+      const newerRestoration = await rafflePrisma.raffleParticipationEvent.findFirst({
+        where: {
+          participationId,
+          eventType: "RESTORED",
+          createdAt: { gt: new Date(job.timestamp) },
+        },
+        select: { id: true },
+      });
+      if (newerRestoration) return;
+    }
+
     if (sales[0]?.paymentMethod === "MERCADOPAGO" && sales[0].mpPaymentId) {
       try {
         const { mpService } = await import("../modules/store/payments/mercadopago.service");
@@ -36,18 +49,38 @@ export const ticketReleaseWorker = new Worker(
     }
 
     if (sales.length > 0) {
-      await rafflePrisma.ticketSale.updateMany({
-        where: { id: { in: sales.map(s => s.id) } },
-        data: { paymentStatus: "CANCELLED" },
-      });
-
       const couponIds = Array.from(new Set(sales.map((sale) => sale.couponId).filter((id): id is number => Boolean(id))));
-      if (couponIds.length > 0) {
-        await Promise.all(couponIds.map((couponId) => rafflePrisma.raffleCoupon.update({
-          where: { id: couponId },
-          data: { usedCount: { decrement: 1 } },
-        })));
-      }
+      const participationId = sales[0].reservationId || `sale-${sales[0].id}`;
+      await rafflePrisma.$transaction(async (tx) => {
+        await tx.ticketSale.updateMany({
+          where: { id: { in: sales.map(s => s.id) } },
+          data: { paymentStatus: "CANCELLED" },
+        });
+
+        if (couponIds.length > 0) {
+          await Promise.all(couponIds.map((couponId) => tx.raffleCoupon.update({
+            where: { id: couponId },
+            data: { usedCount: { decrement: 1 } },
+          })));
+        }
+
+        await tx.raffleParticipationEvent.create({
+          data: {
+            participationId,
+            raffleId: sales[0].raffleId,
+            eventType: "AUTO_CANCELLED",
+            message: "Participación cancelada automáticamente por vencimiento del apartado.",
+            actorType: "SYSTEM",
+            actorName: "Sistema",
+            origin: "SYSTEM",
+            previousState: { paymentStatus: "PENDING" },
+            nextState: { paymentStatus: "CANCELLED" },
+            metadata: {
+              ticketNumbers: sales.map((sale) => sale.ticketNumber),
+            },
+          },
+        });
+      });
 
       console.log(`Auto-released ${sales.length} tickets.`);
       void publishTicketAvailabilityChanged(sales[0].raffleId).catch((error) => {

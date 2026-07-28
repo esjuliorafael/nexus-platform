@@ -12,6 +12,7 @@ import {
 } from "./RaffleParticipationFiltersModal";
 
 interface RaffleParticipationsViewProps {
+  canManageOperations: boolean;
   advancedFilters?: RaffleParticipationAdvancedFilters;
   searchQuery: string;
   onViewDetail: (participation: RaffleParticipation) => void;
@@ -25,6 +26,7 @@ const normalize = (value: string) =>
   value.toLocaleLowerCase("es-MX").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
 export const RaffleParticipationsView: React.FC<RaffleParticipationsViewProps> = ({
+  canManageOperations,
   advancedFilters = DEFAULT_RAFFLE_PARTICIPATION_FILTERS,
   searchQuery,
   onViewDetail,
@@ -142,6 +144,7 @@ export const RaffleParticipationsView: React.FC<RaffleParticipationsViewProps> =
             <div key={participation.id} className="animate-card-enter" style={{ animationDelay: `${index * 60}ms` }}>
               <RaffleParticipationCard
                 participation={participation}
+                canManageOperations={canManageOperations}
                 onViewDetail={() => onViewDetail(participation)}
                 onMarkAsPaid={() => confirmPayment(participation)}
                 onCancel={() => cancelParticipation(participation)}

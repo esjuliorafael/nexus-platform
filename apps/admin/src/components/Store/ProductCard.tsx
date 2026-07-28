@@ -11,6 +11,7 @@ interface ProductCardProps {
   product: Product;
   onEdit: () => void;
   onDelete: () => void;
+  onOpen: () => void;
   onToggleFeatured?: () => void;
   onTogglePublished?: () => void;
   isTogglingPublished?: boolean;
@@ -21,6 +22,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   product,
   onEdit,
   onDelete,
+  onOpen,
   onToggleFeatured,
   onTogglePublished,
   isTogglingPublished,
@@ -128,6 +130,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
     <NexusAutonomousCard
       onEdit={onEdit}
       onDelete={onDelete}
+      onClick={onOpen}
       swipeable
       isMuted={statusConfig.isMuted || !isPublished}
       innerClassName={`hover:shadow-xl hover:shadow-stone-200/40 active:scale-[0.995] transition-all duration-700 ${
@@ -255,7 +258,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
 
           <div className="flex shrink-0 items-center" style={{ gap: 'var(--space-md)' }}>
             {onTogglePublished && (
-              <div className="flex flex-col items-center" style={{ gap: 'var(--space-xs)' }}>
+              <div className="flex flex-col items-center" style={{ gap: 'var(--space-xs)' }} onClick={(event) => event.stopPropagation()}>
                 <NexusSwitch
                   checked={isPublished}
                   onChange={() => onTogglePublished()}
@@ -432,7 +435,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
             style={{ gap: 'var(--space-md)' }}
           >
             {onTogglePublished && (
-              <div className="flex flex-col items-center" style={{ gap: 'var(--space-xs)' }}>
+              <div className="flex flex-col items-center" style={{ gap: 'var(--space-xs)' }} onClick={(event) => event.stopPropagation()}>
                 <NexusSwitch
                   checked={isPublished}
                   onChange={() => onTogglePublished()}

@@ -19,7 +19,9 @@ export function ProductCard({ product }: { product: Product }) {
   const openCart = useCartUiStore((state) => state.openCart);
   const showToast = useToastStore((state) => state.showToast);
 
-  const isAvailable = product.saleStatus === 'AVAILABLE';
+  const isAvailable =
+    product.saleStatus === 'AVAILABLE' &&
+    (product.type !== 'ITEM' || Number(product.stock) > 0);
   const thumbnailUrl = getAssetUrl(
     product.coverPosterUrl || product.coverMediaUrl || product.thumbnail,
   );

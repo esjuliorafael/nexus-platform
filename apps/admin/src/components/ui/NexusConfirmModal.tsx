@@ -1,9 +1,12 @@
 import React from "react";
-import { createPortal } from "react-dom";
-import { AlertTriangle, LucideIcon } from "lucide-react";
-import { NexusAutonomousButton, NexusButtonVariant } from "./NexusButton";
+import { AlertTriangle, type LucideIcon } from "lucide-react";
+import { NexusAutonomousButton, type NexusButtonVariant } from "./NexusButton";
 import { NexusModalActions } from "./NexusModal";
-import { useModalScrollLock } from "./useModalScrollLock";
+import {
+  NexusSurfaceHeaderItem,
+  NexusSurfaceItem,
+  NexusTemporarySurface,
+} from "./NexusTemporarySurface";
 
 type NexusConfirmTone = "danger" | "warning" | "brand";
 
@@ -13,11 +16,13 @@ interface NexusConfirmModalProps {
   message: React.ReactNode;
   confirmLabel: React.ReactNode;
   cancelLabel?: React.ReactNode;
+  showCancel?: boolean;
   onConfirm: () => void;
   onCancel: () => void;
   tone?: NexusConfirmTone;
   icon?: LucideIcon;
   zIndex?: number;
+  isLoading?: boolean;
 }
 
 const toneClasses: Record<NexusConfirmTone, string> = {
@@ -38,40 +43,42 @@ export const NexusConfirmModal: React.FC<NexusConfirmModalProps> = ({
   message,
   confirmLabel,
   cancelLabel = "Cancelar",
+  showCancel = true,
   onConfirm,
   onCancel,
   tone = "danger",
   icon: Icon = AlertTriangle,
   zIndex = 250,
+  isLoading = false,
 }) => {
-  useModalScrollLock(isOpen);
+  const titleId = React.useId();
 
-  if (!isOpen) return null;
-
-  return createPortal(
-    <div
+  return (
+    <NexusTemporarySurface
+      isOpen={isOpen}
+      onClose={onCancel}
       role="alertdialog"
-      aria-modal="true"
-      className="fixed inset-0 flex w-full max-w-[100dvw] items-end justify-center overflow-x-hidden p-0 animate-in fade-in duration-300 sm:items-center sm:p-[var(--space-lg)]"
-      style={{ zIndex }}
+      labelledBy={titleId}
+      zIndex={zIndex}
+      desktopPresentation="modal"
+      mobilePresentation="sheet"
+      containerClassName="flex items-end justify-center p-0 sm:items-center sm:p-[var(--space-lg)]"
+      panelClassName="box-border w-full min-w-0 max-w-full overflow-hidden rounded-b-none rounded-t-[var(--radius-outer)] bg-bg-card shadow-2xl sm:rounded-[var(--radius-outer)]"
+      panelStyle={{ maxWidth: "min(100dvw, var(--width-modal-compact))" }}
     >
       <div
-        className="absolute inset-0"
-        style={{ backgroundColor: "var(--modal-backdrop)" }}
-        onClick={onCancel}
-      />
-      <div
-        className="relative box-border w-full min-w-0 max-w-full overflow-hidden rounded-b-none rounded-t-[var(--radius-outer)] bg-bg-card shadow-2xl animate-in slide-in-from-bottom-10 duration-300 sm:rounded-[var(--radius-outer)] sm:zoom-in-95"
-        style={{ maxWidth: "min(100dvw, var(--width-modal-compact))" }}
+        className="box-border flex w-full min-w-0 max-w-full flex-col items-center overflow-x-hidden text-center"
+        style={{
+          padding: "var(--padding-inner)",
+          paddingBottom:
+            "calc(var(--padding-inner) + env(safe-area-inset-bottom))",
+          gap: "var(--space-md)",
+        }}
       >
-        <div
-          className="box-border flex w-full min-w-0 max-w-full flex-col items-center overflow-x-hidden text-center"
-          style={{
-            padding: "var(--padding-inner)",
-            paddingBottom:
-              "calc(var(--padding-inner) + env(safe-area-inset-bottom))",
-            gap: "var(--space-md)",
-          }}
+        <NexusSurfaceHeaderItem
+          part="identity"
+          className="flex flex-col items-center"
+          style={{ gap: "var(--space-md)" }}
         >
           <div
             className={`flex items-center justify-center border ${toneClasses[tone]}`}
@@ -88,34 +95,44 @@ export const NexusConfirmModal: React.FC<NexusConfirmModalProps> = ({
             className="flex flex-col items-center"
             style={{ gap: "var(--space-xs)" }}
           >
-            <h3 className="text-h2 text-text-main">{title}</h3>
-            <p className="max-w-full break-words text-secondary text-text-muted">{message}</p>
+            <h3 id={titleId} className="text-h2 text-text-main">
+              {title}
+            </h3>
           </div>
+        </NexusSurfaceHeaderItem>
 
-          <NexusModalActions
-            className="w-full flex-col sm:flex-row"
-            style={{ marginTop: "var(--space-sm)" }}
-          >
+        <NexusSurfaceItem phase="content">
+          <p className="max-w-full break-words text-secondary text-text-muted">
+            {message}
+          </p>
+        </NexusSurfaceItem>
+
+        <NexusModalActions
+          className="w-full flex-col sm:flex-row"
+          style={{ marginTop: "var(--space-sm)" }}
+        >
+          {showCancel && (
             <NexusAutonomousButton
               type="button"
               onClick={onCancel}
               variant="secondary"
+              disabled={isLoading}
               className="w-full sm:flex-1"
             >
               {cancelLabel}
             </NexusAutonomousButton>
-            <NexusAutonomousButton
-              type="button"
-              onClick={onConfirm}
-              variant={confirmVariantByTone[tone]}
-              className="w-full sm:flex-1"
-            >
-              {confirmLabel}
-            </NexusAutonomousButton>
-          </NexusModalActions>
-        </div>
+          )}
+          <NexusAutonomousButton
+            type="button"
+            onClick={onConfirm}
+            variant={confirmVariantByTone[tone]}
+            isLoading={isLoading}
+            className="w-full sm:flex-1"
+          >
+            {confirmLabel}
+          </NexusAutonomousButton>
+        </NexusModalActions>
       </div>
-    </div>,
-    document.body,
+    </NexusTemporarySurface>
   );
 };

@@ -1,9 +1,11 @@
-import { useEffect, useRef } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
+
+const useIsomorphicLayoutEffect = typeof window === 'undefined' ? useEffect : useLayoutEffect;
 
 let lockCount = 0;
 let lockedScrollY = 0;
 let lockedSourceScrollY = 0;
-let previousBodyStyles: Pick<CSSStyleDeclaration, 'position' | 'top' | 'left' | 'right' | 'width' | 'overflow'> | null = null;
+let previousBodyStyles: Pick<CSSStyleDeclaration, 'position' | 'top' | 'left' | 'right' | 'width' | 'overflow' | 'paddingRight'> | null = null;
 
 export function pinLockedPageToTop() {
   if (typeof window === 'undefined' || lockCount === 0 || !previousBodyStyles) return;
@@ -32,12 +34,15 @@ export function useBodyScrollLock(locked: boolean, { restoreScroll = true }: Bod
   const restoreScrollRef = useRef(restoreScroll);
   restoreScrollRef.current = restoreScroll;
 
-  useEffect(() => {
+  useIsomorphicLayoutEffect(() => {
     if (!locked || typeof window === 'undefined') return;
 
     const body = document.body;
 
     if (lockCount === 0) {
+      const root = document.documentElement;
+      const widthBeforeLock = root.clientWidth;
+      const computedPaddingRight = Number.parseFloat(window.getComputedStyle(body).paddingRight) || 0;
       lockedScrollY = window.scrollY;
       lockedSourceScrollY = lockedScrollY;
       previousBodyStyles = {
@@ -47,6 +52,7 @@ export function useBodyScrollLock(locked: boolean, { restoreScroll = true }: Bod
         right: body.style.right,
         width: body.style.width,
         overflow: body.style.overflow,
+        paddingRight: body.style.paddingRight,
       };
 
       body.style.position = 'fixed';
@@ -55,6 +61,13 @@ export function useBodyScrollLock(locked: boolean, { restoreScroll = true }: Bod
       body.style.right = '0';
       body.style.width = '100%';
       body.style.overflow = 'hidden';
+
+      // CSS preserves the gutter in modern browsers. Compensate only when
+      // locking still changes the layout viewport.
+      const releasedScrollbarWidth = root.clientWidth - widthBeforeLock;
+      if (releasedScrollbarWidth > 0) {
+        body.style.paddingRight = `${computedPaddingRight + releasedScrollbarWidth}px`;
+      }
     }
 
     lockCount += 1;

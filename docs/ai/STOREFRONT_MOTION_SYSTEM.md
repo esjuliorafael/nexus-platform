@@ -428,6 +428,14 @@ gsap.to(element, {
 
 Do not introduce a new raw duration when an existing semantic token describes the interaction.
 
+## Scroll Locking
+
+- Reserve the native scrollbar channel with `scrollbar-gutter: stable`.
+- Lock the background through the complete drawer, modal, or bottom-sheet exit.
+- Apply measured inline-end compensation only when the browser still expands the layout viewport.
+- Preserve nested locks and restore the exact scroll position and previous body styles.
+- The background must never resize while a temporary surface enters or exits.
+
 ## Review Checklist
 
 - Does the animation communicate hierarchy, continuity, feedback, or spatial relationship?

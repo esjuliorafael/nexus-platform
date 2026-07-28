@@ -14,6 +14,14 @@ import {
 import { whatsappChannelRoutes } from "./whatsapp-channels/whatsapp-channel.routes";
 import { evolutionProxyRoutes } from "./whatsapp-channels/evolution-proxy.routes";
 import { evolutionWebhookRoutes } from "./whatsapp-channels/evolution-webhook.routes";
+import {
+  kapsoPilotAdminRoutes,
+  kapsoWebhookRoutes,
+} from "./whatsapp-channels/kapso-pilot.routes";
+import {
+  kapsoOnboardingAdminRoutes,
+  kapsoOnboardingPublicRoutes,
+} from "./whatsapp-channels/kapso-onboarding.routes";
 import { shippingZoneRoutes } from "./shipping-zones/shipping-zone.routes";
 import { dashboardRoutes } from "./dashboard/dashboard.routes";
 import { userRoutes } from "./users/user.routes";
@@ -36,6 +44,7 @@ import {
   storefrontAnnouncementAdminRoutes,
   storefrontAnnouncementPublicRoutes,
 } from "./storefront-announcements/storefront-announcement.routes";
+import { inventoryIntegrityRoutes } from "./inventory/inventory-integrity.routes";
 
 export async function storeRoutes(server: FastifyInstance) {
   // Public Storefront Routes
@@ -57,6 +66,8 @@ export async function storeRoutes(server: FastifyInstance) {
   await server.register(storefrontAnnouncementPublicRoutes, { prefix: "/store/announcements" });
   await server.register(mpRoutes, { prefix: "/mp" });
   await server.register(evolutionWebhookRoutes, { prefix: "/webhooks" });
+  await server.register(kapsoWebhookRoutes, { prefix: "/webhooks" });
+  await server.register(kapsoOnboardingPublicRoutes, { prefix: "/webhooks" });
 
   // Admin Routes
   await server.register(dashboardRoutes, { prefix: "/admin/dashboard" });
@@ -76,6 +87,12 @@ export async function storeRoutes(server: FastifyInstance) {
     prefix: "/admin/whatsapp-channels",
   });
   await server.register(evolutionProxyRoutes, { prefix: "/admin/whatsapp" });
+  await server.register(kapsoPilotAdminRoutes, {
+    prefix: "/admin/whatsapp/kapso",
+  });
+  await server.register(kapsoOnboardingAdminRoutes, {
+    prefix: "/admin/whatsapp/kapso/onboarding",
+  });
   await server.register(shippingZoneRoutes, {
     prefix: "/admin/shipping-zones",
   });
@@ -84,6 +101,7 @@ export async function storeRoutes(server: FastifyInstance) {
   await server.register(channelsOverviewRoutes, { prefix: "/admin/channels" });
   await server.register(couponAdminRoutes, { prefix: "/admin/coupons" });
   await server.register(storefrontAnnouncementAdminRoutes, { prefix: "/admin/storefront-announcements" });
+  await server.register(inventoryIntegrityRoutes, { prefix: "/admin/inventory-integrity" });
 
   // Settings Logo Upload
   server.post(

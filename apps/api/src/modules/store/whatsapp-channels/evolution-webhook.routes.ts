@@ -4,8 +4,8 @@ import { reconcileRecoverableWhatsappJobs } from "../../../services/whatsapp-rec
 import {
   invalidateWhatsappConnectionState,
   markWhatsappInstanceProviderRejected,
-  normalizePrincipalInstanceName,
 } from "../../../services/evolution/whatsapp-delivery.service";
+import { buildWhatsappAsyncFallbackPatch } from "../../../services/whatsapp/whatsapp-async-fallback";
 
 const STATUS_PRIORITY: Record<string, number> = {
   failed: 0,
@@ -20,11 +20,20 @@ const normalizeStatus = (value?: unknown, failureCode?: unknown) => {
   const raw = String(value ?? "").toLowerCase();
   const code = String(failureCode ?? "").trim();
 
-  if (code || raw.includes("error") || raw.includes("fail") || raw === "-1") return "failed";
+  if (code || raw.includes("error") || raw.includes("fail") || raw === "-1")
+    return "failed";
   if (!raw || raw.includes("pending") || raw === "0") return "pending";
-  if (raw.includes("read") || raw.includes("played") || raw === "3" || raw === "4") return "read";
-  if (raw.includes("delivery") || raw.includes("delivered") || raw === "2") return "delivered";
-  if (raw.includes("server") || raw.includes("ack") || raw === "1") return "server_ack";
+  if (
+    raw.includes("read") ||
+    raw.includes("played") ||
+    raw === "3" ||
+    raw === "4"
+  )
+    return "read";
+  if (raw.includes("delivery") || raw.includes("delivered") || raw === "2")
+    return "delivered";
+  if (raw.includes("server") || raw.includes("ack") || raw === "1")
+    return "server_ack";
   if (raw.includes("sent")) return "sent";
 
   return raw;
@@ -41,7 +50,10 @@ const firstValue = (source: any, paths: string[]) => {
   return null;
 };
 
-const shouldUpdateStatus = (currentStatus: string | null, nextStatus: string) => {
+const shouldUpdateStatus = (
+  currentStatus: string | null,
+  nextStatus: string,
+) => {
   if (nextStatus === "failed") {
     return currentStatus !== "delivered" && currentStatus !== "read";
   }
@@ -68,7 +80,11 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
       ? authorization.slice("Bearer ".length)
       : "";
 
-    if (configuredToken && incomingToken !== configuredToken && bearerToken !== configuredToken) {
+    if (
+      configuredToken &&
+      incomingToken !== configuredToken &&
+      bearerToken !== configuredToken
+    ) {
       return reply.status(401).send({ message: "Unauthorized webhook" });
     }
 
@@ -80,9 +96,12 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
     const instanceName =
       firstValue(payload, ["instance", "data.instance", "data.instanceName"]) ||
       "webhook";
-    const eventName = String(firstValue(payload, ["event", "type"]) || "").toLowerCase();
+    const eventName = String(
+      firstValue(payload, ["event", "type"]) || "",
+    ).toLowerCase();
     const connectionState = String(
-      firstValue(payload, ["data.state", "data.status", "state", "status"]) || "",
+      firstValue(payload, ["data.state", "data.status", "state", "status"]) ||
+        "",
     ).toLowerCase();
 
     if (eventName.includes("connection") || connectionState === "open") {
@@ -98,7 +117,8 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
       return reply.send({
         ok: true,
         connectionUpdate: true,
-        recoveryScheduled: instanceName !== "webhook" && connectionState === "open",
+        recoveryScheduled:
+          instanceName !== "webhook" && connectionState === "open",
       });
     }
 
@@ -155,11 +175,14 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
       const failureMessage = failureCode
         ? `WhatsApp rechazó el mensaje (código ${String(failureCode)}).`
         : String(
-          firstValue(payload, ["data.error", "error", "message"]) ||
-          existing.errorMessage ||
-          "Evolution reportó fallo.",
-        );
-      const shouldAdvanceStatus = shouldUpdateStatus(existing.status, nextStatus);
+            firstValue(payload, ["data.error", "error", "message"]) ||
+              existing.errorMessage ||
+              "Evolution reportó fallo.",
+          );
+      const shouldAdvanceStatus = shouldUpdateStatus(
+        existing.status,
+        nextStatus,
+      );
 
       await server.storePrisma.whatsappMessageLog.update({
         where: { id: existing.id },
@@ -172,16 +195,19 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
           responsePayload: shouldAdvanceStatus
             ? {
                 ...(payload && typeof payload === "object" ? payload : {}),
-                ...(
-                  existing.responsePayload &&
-                  typeof existing.responsePayload === "object" &&
-                  (existing.responsePayload as any).nexusRouting
-                    ? { nexusRouting: (existing.responsePayload as any).nexusRouting }
-                    : {}
-                ),
+                ...(existing.responsePayload &&
+                typeof existing.responsePayload === "object" &&
+                (existing.responsePayload as any).nexusRouting
+                  ? {
+                      nexusRouting: (existing.responsePayload as any)
+                        .nexusRouting,
+                    }
+                  : {}),
               }
             : existing.responsePayload,
-          lastStatusAt: shouldAdvanceStatus ? new Date() : existing.lastStatusAt,
+          lastStatusAt: shouldAdvanceStatus
+            ? new Date()
+            : existing.lastStatusAt,
           errorMessage: shouldAdvanceStatus
             ? nextStatus === "failed"
               ? failureMessage
@@ -195,21 +221,32 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
         if (String(failureCode) === "463") {
           markWhatsappInstanceProviderRejected(existing.instanceName);
         }
-        const [principalSetting, originalJob] = await Promise.all([
-          server.storePrisma.setting.findUnique({
-            where: { key: "whatsapp_evolution_instance" },
-            select: { value: true },
-          }),
-          whatsappQueue.getJob(existing.jobId),
-        ]);
-        const principalInstanceName = normalizePrincipalInstanceName(principalSetting?.value);
+        const originalJob = await whatsappQueue.getJob(existing.jobId);
+        const responsePayload =
+          existing.responsePayload &&
+          typeof existing.responsePayload === "object" &&
+          !Array.isArray(existing.responsePayload)
+            ? (existing.responsePayload as Record<string, unknown>)
+            : {};
+        const routing =
+          responsePayload.nexusRouting &&
+          typeof responsePayload.nexusRouting === "object"
+            ? (responsePayload.nexusRouting as Record<string, unknown>)
+            : null;
+        const fallbackPatch = originalJob
+          ? buildWhatsappAsyncFallbackPatch({
+              failedProvider: "EVOLUTION",
+              routing: routing as any,
+              originalJob: originalJob.data,
+            })
+          : null;
 
-        if (originalJob && principalInstanceName && existing.instanceName !== principalInstanceName) {
+        if (originalJob && fallbackPatch) {
           await whatsappQueue.add(
-            `${originalJob.name}-principal-fallback`,
+            `${originalJob.name}-provider-fallback`,
             {
               ...originalJob.data,
-              forcePrincipal: true,
+              ...fallbackPatch,
               fallbackOfMessageId: String(messageId),
             },
             { jobId: `provider-fallback-${String(messageId)}` },

@@ -28,7 +28,16 @@ export function StorefrontFilterPanel({
   onClose,
 }: StorefrontFilterPanelProps) {
   const surfaceMode = useResponsiveSurfaceMode();
-  useBodyScrollLock(isOpen && surfaceMode === "drawer");
+  const [shouldLockDrawer, setShouldLockDrawer] = useState(
+    isOpen && surfaceMode === "drawer",
+  );
+
+  useEffect(() => {
+    if (isOpen && surfaceMode === "drawer") setShouldLockDrawer(true);
+    if (surfaceMode === "sheet") setShouldLockDrawer(false);
+  }, [isOpen, surfaceMode]);
+
+  useBodyScrollLock(shouldLockDrawer);
 
   if (surfaceMode === null) return null;
 
@@ -38,6 +47,7 @@ export function StorefrontFilterPanel({
         open={isOpen}
         label={dialogLabel}
         onRequestClose={onClose}
+        onExitComplete={() => setShouldLockDrawer(false)}
       >
         <div className="shrink-0">
           <StorefrontDrawerHeader

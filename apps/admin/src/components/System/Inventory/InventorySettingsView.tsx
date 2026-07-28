@@ -1,7 +1,10 @@
-import React, { forwardRef, useEffect, useImperativeHandle, useState } from "react";
-import { CreditCard, RotateCcw, Timer } from "lucide-react";
-import { apiSystem } from "../../../api";
+import React, { forwardRef, useCallback, useEffect, useImperativeHandle, useState } from "react";
+import { CreditCard, PackageCheck, RefreshCw, RotateCcw, ShieldCheck, Timer, Unlock } from "lucide-react";
+import { apiInventoryIntegrity, apiSystem, type InventoryIntegrityIssue } from "../../../api";
+import { NexusSectionButton } from "../../ui/NexusButton";
+import { NexusSectionBadge } from "../../ui/NexusBadge";
 import { NexusSectionCard } from "../../ui/NexusCard";
+import { NexusConfirmModal } from "../../ui/NexusConfirmModal";
 import { NexusInlineNotice } from "../../ui/NexusInlineNotice";
 import { NexusInput } from "../../ui/NexusInputs";
 import { NexusSection } from "../../ui/NexusSection";
@@ -25,6 +28,9 @@ interface InventoryConfig {
   raffleReminderActive: boolean;
   raffleReminderHoursBefore: number;
   cardHoldMinutes: number;
+  paymentRecoveryEnabled: boolean;
+  paymentRecoveryServerEnabled: boolean;
+  paymentRecoveryTemplatesReady: boolean;
 }
 
 const DEFAULT_CONFIG: InventoryConfig = {
@@ -37,21 +43,26 @@ const DEFAULT_CONFIG: InventoryConfig = {
   raffleReminderActive: false,
   raffleReminderHoursBefore: 4,
   cardHoldMinutes: 30,
+  paymentRecoveryEnabled: false,
+  paymentRecoveryServerEnabled: false,
+  paymentRecoveryTemplatesReady: false,
 };
 
 const SwitchState = ({
   checked,
   onChange,
   label,
+  stateLabel,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label: string;
+  stateLabel?: string;
 }) => (
   <div className="flex flex-col items-center" style={{ gap: "var(--space-xs)" }}>
     <NexusSwitch checked={checked} onChange={onChange} aria-label={label} />
     <span className="text-caption text-text-muted uppercase">
-      {checked ? "Activo" : "Inactivo"}
+      {stateLabel || (checked ? "Activo" : "Inactivo")}
     </span>
   </div>
 );
@@ -61,6 +72,34 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [config, setConfig] = useState<InventoryConfig>(DEFAULT_CONFIG);
+    const [integrityIssues, setIntegrityIssues] = useState<InventoryIntegrityIssue[]>([]);
+    const [isIntegrityLoading, setIsIntegrityLoading] = useState(true);
+    const [integrityAuditFailed, setIntegrityAuditFailed] = useState(false);
+    const [issueToRelease, setIssueToRelease] = useState<InventoryIntegrityIssue | null>(null);
+    const [isReleasing, setIsReleasing] = useState(false);
+
+    const refreshIntegrity = useCallback(async (showFeedback = false) => {
+      setIsIntegrityLoading(true);
+      setIntegrityAuditFailed(false);
+      try {
+        const result = await apiInventoryIntegrity.audit();
+        setIntegrityIssues(result.issues);
+        if (showFeedback) {
+          showToast(
+            result.count
+              ? `${result.count} incidencia${result.count === 1 ? "" : "s"} encontrada${result.count === 1 ? "" : "s"}.`
+              : "El inventario no presenta incidencias.",
+            result.count ? "error" : "success",
+          );
+        }
+      } catch (error) {
+        console.error("Error auditando la integridad del inventario", error);
+        setIntegrityAuditFailed(true);
+        if (showFeedback) showToast("No se pudo auditar el inventario", "error");
+      } finally {
+        setIsIntegrityLoading(false);
+      }
+    }, [showToast]);
 
     useEffect(() => {
       const loadConfig = async () => {
@@ -77,6 +116,11 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
             raffleReminderActive: data.raffle_reminder_active === "1",
             raffleReminderHoursBefore: Number(data.raffle_reminder_hours_before || 4),
             cardHoldMinutes: Number(data.mp_payment_hold_minutes || 30),
+            paymentRecoveryEnabled: data.payment_recovery_enabled === "1",
+            paymentRecoveryServerEnabled:
+              data.payment_recovery_server_enabled === "1",
+            paymentRecoveryTemplatesReady:
+              data.payment_recovery_templates_ready === "1",
           });
         } catch (error) {
           console.error("Error cargando configuración de inventario", error);
@@ -88,6 +132,28 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
 
       void loadConfig();
     }, [showToast]);
+
+    useEffect(() => {
+      void refreshIntegrity();
+    }, [refreshIntegrity]);
+
+    const releaseOrphanReservation = async () => {
+      if (!issueToRelease || isReleasing) return;
+      setIsReleasing(true);
+      try {
+        const result = await apiInventoryIntegrity.releaseOrphanReservation(issueToRelease.productId);
+        showToast(`${result.productName} volvió a estar disponible.`);
+        setIssueToRelease(null);
+        await refreshIntegrity();
+      } catch (error: any) {
+        showToast(
+          error?.response?.data?.message || "No se pudo liberar la reserva.",
+          "error",
+        );
+      } finally {
+        setIsReleasing(false);
+      }
+    };
 
     useImperativeHandle(ref, () => ({
       handleSave: async () => {
@@ -131,6 +197,7 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
             raffle_reminder_active: config.raffleReminderActive ? "1" : "0",
             raffle_reminder_hours_before: config.raffleReminderHoursBefore,
             mp_payment_hold_minutes: config.cardHoldMinutes,
+            payment_recovery_enabled: config.paymentRecoveryEnabled ? "1" : "0",
           });
           showToast("Configuración de inventario guardada correctamente", "success");
         } catch (error) {
@@ -280,6 +347,22 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
           subtitle="Retención temporal de productos y boletos"
           icon={CreditCard}
           iconVariant="blue"
+          action={(
+            <SwitchState
+              checked={config.paymentRecoveryEnabled}
+              onChange={(paymentRecoveryEnabled) =>
+                setConfig((current) => ({ ...current, paymentRecoveryEnabled }))
+              }
+              label="Recuperación de pagos no concretados"
+              stateLabel={
+                config.paymentRecoveryEnabled &&
+                (!config.paymentRecoveryServerEnabled ||
+                  !config.paymentRecoveryTemplatesReady)
+                  ? "Pendiente"
+                  : undefined
+              }
+            />
+          )}
         >
           <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "var(--space-xl)" }}>
             <div className="relative">
@@ -297,12 +380,108 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
               />
             </div>
 
-            <NexusInlineNotice title="Conciliación protegida" variant="neutral" context="section">
-              Si Mercado Pago mantiene el cobro en proceso, Nexus conserva la retención y consulta el estado cada 10 minutos.
-              Después de 2 horas inicia la cancelación segura; el inventario solo se libera al confirmar un estado definitivo.
-            </NexusInlineNotice>
+            {!config.paymentRecoveryServerEnabled ? (
+              <NexusInlineNotice title="Bloqueo operativo activo" variant="warning" context="section">
+                La preferencia puede guardarse, pero el API no programará avisos hasta habilitar la recuperación en el servidor.
+              </NexusInlineNotice>
+            ) : !config.paymentRecoveryTemplatesReady ? (
+              <NexusInlineNotice title="Plantillas pendientes" variant="warning" context="section">
+                Configura y aprueba las plantillas de Pago no concretado para Tienda y Rifas antes de activar los envíos.
+              </NexusInlineNotice>
+            ) : config.paymentRecoveryEnabled ? (
+              <NexusInlineNotice title="Recuperación activa" variant="success" context="section">
+                Tras un rechazo definitivo, Nexus conservará temporalmente el inventario y enviará un enlace seguro para retomar el pago.
+              </NexusInlineNotice>
+            ) : (
+              <NexusInlineNotice title="Recuperación desactivada" variant="neutral" context="section">
+                Los pagos rechazados conservarán su retención normal, pero no generarán un aviso para retomar el checkout.
+              </NexusInlineNotice>
+            )}
+          </div>
+
+          <NexusInlineNotice
+            title="Conciliación protegida"
+            variant="neutral"
+            context="section"
+            style={{ marginTop: "var(--space-xl)" }}
+          >
+            Si Mercado Pago mantiene el cobro en proceso, Nexus conserva la retención y consulta el estado cada 10 minutos.
+            Después de 2 horas inicia la cancelación segura; el inventario solo se libera al confirmar un estado definitivo.
+          </NexusInlineNotice>
+        </NexusSection>
+
+        <NexusSection
+          title="Salud del inventario"
+          subtitle="Auditoría de reservas y retenciones de aves"
+          icon={ShieldCheck}
+          iconVariant={integrityIssues.length ? "rose" : "emerald"}
+          action={(
+            <NexusSectionButton
+              type="button"
+              variant="secondary"
+              icon={RefreshCw}
+              isIconOnly
+              aria-label="Auditar inventario"
+              title="Auditar inventario"
+              onClick={() => void refreshIntegrity(true)}
+              isLoading={isIntegrityLoading}
+            />
+          )}
+        >
+          <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
+            {isIntegrityLoading && integrityIssues.length === 0 ? (
+              <NexusInlineNotice title="Auditando inventario" variant="info" context="section">
+                Estamos contrastando aves reservadas, órdenes activas y retenciones de tarjeta.
+              </NexusInlineNotice>
+            ) : integrityAuditFailed ? (
+              <NexusInlineNotice title="Auditoría no disponible" variant="warning" context="section">
+                No fue posible comprobar el estado del inventario. Reintenta la auditoría antes de realizar una liberación manual.
+              </NexusInlineNotice>
+            ) : integrityIssues.length === 0 ? (
+              <NexusInlineNotice title="Sin incidencias" variant="success" context="section">
+                Todas las aves reservadas tienen una orden pendiente o una retención de pago que las protege.
+              </NexusInlineNotice>
+            ) : (
+              integrityIssues.map((issue) => (
+                <NexusSectionCard
+                  key={`${issue.productId}-${issue.issueType}`}
+                  icon={PackageCheck}
+                  iconVariant="rose"
+                  title={issue.productName}
+                  subtitle={issue.message}
+                  rightContent={(
+                    <NexusSectionBadge variant={issue.canRelease ? "warning" : "danger"}>
+                      {issue.canRelease ? "Reserva huérfana" : "Revisión requerida"}
+                    </NexusSectionBadge>
+                  )}
+                  actions={issue.canRelease ? (
+                    <NexusSectionButton
+                      type="button"
+                      variant="warning"
+                      icon={Unlock}
+                      onClick={() => setIssueToRelease(issue)}
+                    >
+                      Liberar reserva
+                    </NexusSectionButton>
+                  ) : undefined}
+                />
+              ))
+            )}
           </div>
         </NexusSection>
+
+        <NexusConfirmModal
+          isOpen={Boolean(issueToRelease)}
+          title="¿Liberar reserva huérfana?"
+          message={issueToRelease
+            ? `${issueToRelease.productName} volverá a estar disponible. Confirmamos que no tiene una orden pendiente ni una retención de pago activa.`
+            : ""}
+          confirmLabel="Sí, liberar"
+          tone="warning"
+          icon={Unlock}
+          onCancel={() => setIssueToRelease(null)}
+          onConfirm={() => void releaseOrphanReservation()}
+        />
       </div>
     );
   },

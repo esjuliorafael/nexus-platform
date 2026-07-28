@@ -26,6 +26,7 @@ function isMissingInstanceError(error: unknown) {
 export async function evolutionProxyRoutes(server: FastifyInstance) {
   function getWebhookUrl(request: any) {
     const configuredBaseUrl =
+      process.env.EVOLUTION_WEBHOOK_BASE_URL ||
       process.env.API_PUBLIC_URL ||
       process.env.PUBLIC_API_URL ||
       process.env.WEBHOOK_BASE_URL ||

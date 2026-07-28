@@ -1,4 +1,8 @@
-import { PrismaClient, RaffleStatus, RaffleDistribution } from "@prisma/client-raffle";
+import {
+  PrismaClient,
+  RaffleStatus,
+  RaffleDistribution,
+} from "@prisma/client-raffle";
 import { ticketService } from "../tickets/ticket.service";
 import { mediaAssetService } from "../../store/media-assets/media-asset.service";
 import bcrypt from "bcrypt";
@@ -41,7 +45,10 @@ export const raffleService = {
       prisma.rafflePaymentHoldTicket.findMany({
         where: {
           raffleId: { in: raffleIds },
-          hold: { status: { in: ["ACTIVE", "PROCESSING"] }, expiresAt: { gt: new Date() } },
+          hold: {
+            status: { in: ["ACTIVE", "PROCESSING"] },
+            expiresAt: { gt: new Date() },
+          },
         },
         select: { raffleId: true },
       }),
@@ -49,20 +56,32 @@ export const raffleService = {
 
     const metrics = new Map<
       number,
-      { reserved: number; paid: number; recentActivityCount: number; lastParticipationAt: Date | null }
+      {
+        reserved: number;
+        paid: number;
+        recentActivityCount: number;
+        lastParticipationAt: Date | null;
+      }
     >();
     raffleIds.forEach((id) =>
-      metrics.set(id, { reserved: 0, paid: 0, recentActivityCount: 0, lastParticipationAt: null }),
+      metrics.set(id, {
+        reserved: 0,
+        paid: 0,
+        recentActivityCount: 0,
+        lastParticipationAt: null,
+      }),
     );
 
     salesByStatus.forEach((group) => {
       const current = metrics.get(group.raffleId);
       if (!current) return;
       if (group.paymentStatus === "PAID") current.paid = group._count._all;
-      if (group.paymentStatus === "PENDING") current.reserved = group._count._all;
+      if (group.paymentStatus === "PENDING")
+        current.reserved = group._count._all;
       if (
         group._max.createdAt &&
-        (!current.lastParticipationAt || group._max.createdAt > current.lastParticipationAt)
+        (!current.lastParticipationAt ||
+          group._max.createdAt > current.lastParticipationAt)
       ) {
         current.lastParticipationAt = group._max.createdAt;
       }
@@ -87,10 +106,14 @@ export const raffleService = {
           reserved: raffleMetrics.reserved,
           paid: raffleMetrics.paid,
           occupancyPercent: raffle.ticketQuantity
-            ? Math.min(100, Math.round((occupied / raffle.ticketQuantity) * 100))
+            ? Math.min(
+                100,
+                Math.round((occupied / raffle.ticketQuantity) * 100),
+              )
             : 0,
           recentActivityCount: raffleMetrics.recentActivityCount,
-          lastParticipationAt: raffleMetrics.lastParticipationAt?.toISOString() ?? null,
+          lastParticipationAt:
+            raffleMetrics.lastParticipationAt?.toISOString() ?? null,
         },
       };
     });
@@ -111,9 +134,23 @@ export const raffleService = {
         imagePoster: true,
         drawDate: true,
         winningNumber: true,
+        winningTicketNumber: true,
+        resultResolutionStatus: true,
         resultPublishedAt: true,
         opportunities: true,
         digits: true,
+        prizes: {
+          where: { resultPublishedAt: { not: null } },
+          orderBy: { position: "asc" },
+          select: {
+            id: true,
+            position: true,
+            title: true,
+            winningNumber: true,
+            winningTicketNumber: true,
+            resultResolutionStatus: true,
+          },
+        },
       },
       orderBy: { resultPublishedAt: "desc" },
       take: 3,
@@ -169,7 +206,9 @@ export const raffleService = {
       prizes,
       ...raffleData
     } = data;
-    const earlyAccessCodeHash = earlyAccessCode ? await bcrypt.hash(earlyAccessCode, 12) : null;
+    const earlyAccessCodeHash = earlyAccessCode
+      ? await bcrypt.hash(earlyAccessCode, 12)
+      : null;
     if (coverPosterAssetId && raffleData.image) {
       raffleData.imagePoster = await mediaAssetService.adoptPosterByUrl(
         raffleData.image,
@@ -185,16 +224,34 @@ export const raffleService = {
           ticketPrice: raffleData.ticketPrice.toString(), // Prisma Decimal
           gallery: gallery?.length ? { create: gallery } : undefined,
           prizes: {
-            create: prizes.map((prize: { title: string; description: string; winnerRule?: string | null }, index: number) => ({
-              ...prize,
-              winnerRule: prize.winnerRule || null,
-              position: index + 1,
-            })),
+            create: prizes.map(
+              (
+                prize: {
+                  title: string;
+                  description: string;
+                  winnerRule?: string | null;
+                  resultSource: string;
+                  resultSourceLabel?: string | null;
+                },
+                index: number,
+              ) => ({
+                title: prize.title,
+                description: prize.description,
+                winnerRule: prize.winnerRule || null,
+                resultSource: prize.resultSource,
+                resultSourceLabel:
+                  prize.resultSource === "CUSTOM"
+                    ? prize.resultSourceLabel || null
+                    : null,
+                position: index + 1,
+              }),
+            ),
           },
         },
       });
 
-      const { digits, startFromZero } = await ticketService.generateOpportunities(tx, raffle);
+      const { digits, startFromZero } =
+        await ticketService.generateOpportunities(tx, raffle);
 
       return tx.raffle.update({
         where: { id: raffle.id },
@@ -239,7 +296,9 @@ export const raffleService = {
           _max: { featuredOrder: true },
         });
         const resolvedOrder =
-          featuredOrder ?? current.featuredOrder ?? (highestOrder._max.featuredOrder ?? 0) + 1;
+          featuredOrder ??
+          current.featuredOrder ??
+          (highestOrder._max.featuredOrder ?? 0) + 1;
 
         const updated = await tx.raffle.update({
           where: { id },
@@ -290,9 +349,19 @@ export const raffleService = {
   },
 
   async update(prisma: PrismaClient, id: number, data: any) {
-    const { gallery, prizes, earlyAccessCode, clearEarlyAccessCode, coverPosterAssetId, ...updateData } = data;
+    const {
+      gallery,
+      prizes,
+      earlyAccessCode,
+      clearEarlyAccessCode,
+      coverPosterAssetId,
+      ...updateData
+    } = data;
     // Read the current record once for result publication, universe changes, and media cleanup.
-    const current = await prisma.raffle.findUnique({ where: { id }, include: { gallery: true } });
+    const current = await prisma.raffle.findUnique({
+      where: { id },
+      include: { gallery: true },
+    });
     if (coverPosterAssetId) {
       const videoUrl = updateData.image ?? current?.image;
       if (!videoUrl) throw new Error("La portada de video no esta disponible.");
@@ -301,8 +370,10 @@ export const raffleService = {
         coverPosterAssetId,
       );
     }
-    if (earlyAccessCode) updateData.earlyAccessCodeHash = await bcrypt.hash(earlyAccessCode, 12);
-    if (clearEarlyAccessCode || updateData.earlyAccessEnabled === false) updateData.earlyAccessCodeHash = null;
+    if (earlyAccessCode)
+      updateData.earlyAccessCodeHash = await bcrypt.hash(earlyAccessCode, 12);
+    if (clearEarlyAccessCode || updateData.earlyAccessEnabled === false)
+      updateData.earlyAccessCodeHash = null;
     if (data.ticketPrice) updateData.ticketPrice = data.ticketPrice.toString();
     if (updateData.status && updateData.status !== RaffleStatus.ACTIVE) {
       updateData.featured = false;
@@ -326,9 +397,12 @@ export const raffleService = {
     // Release replaced media only after the database update succeeds.
     const universeDefinitionChanged = Boolean(
       current &&
-      ((updateData.ticketQuantity !== undefined && updateData.ticketQuantity !== current.ticketQuantity) ||
-        (updateData.opportunities !== undefined && updateData.opportunities !== current.opportunities) ||
-        (updateData.distribution !== undefined && updateData.distribution !== current.distribution)),
+      ((updateData.ticketQuantity !== undefined &&
+        updateData.ticketQuantity !== current.ticketQuantity) ||
+        (updateData.opportunities !== undefined &&
+          updateData.opportunities !== current.opportunities) ||
+        (updateData.distribution !== undefined &&
+          updateData.distribution !== current.distribution)),
     );
 
     const updated = await prisma.$transaction(async (tx) => {
@@ -348,11 +422,28 @@ export const raffleService = {
             ? {
                 prizes: {
                   deleteMany: {},
-                  create: prizes.map((prize: { title: string; description: string; winnerRule?: string | null }, index: number) => ({
-                    ...prize,
-                    winnerRule: prize.winnerRule || null,
-                    position: index + 1,
-                  })),
+                  create: prizes.map(
+                    (
+                      prize: {
+                        title: string;
+                        description: string;
+                        winnerRule?: string | null;
+                        resultSource: string;
+                        resultSourceLabel?: string | null;
+                      },
+                      index: number,
+                    ) => ({
+                      title: prize.title,
+                      description: prize.description,
+                      winnerRule: prize.winnerRule || null,
+                      resultSource: prize.resultSource,
+                      resultSourceLabel:
+                        prize.resultSource === "CUSTOM"
+                          ? prize.resultSourceLabel || null
+                          : null,
+                      position: index + 1,
+                    }),
+                  ),
                 },
               }
             : {}),
@@ -366,7 +457,8 @@ export const raffleService = {
       if (!universeDefinitionChanged) return raffle;
 
       await tx.raffleOpportunity.deleteMany({ where: { raffleId: id } });
-      const { digits, startFromZero } = await ticketService.generateOpportunities(tx, raffle);
+      const { digits, startFromZero } =
+        await ticketService.generateOpportunities(tx, raffle);
       return tx.raffle.update({
         where: { id },
         data: { digits, useZero: startFromZero },
@@ -377,12 +469,18 @@ export const raffleService = {
       });
     });
 
-    if (data.image !== undefined && current?.image && current.image !== data.image) {
+    if (
+      data.image !== undefined &&
+      current?.image &&
+      current.image !== data.image
+    ) {
       await mediaAssetService.releaseByUrlIfUnreferenced(current.image);
     }
 
     if (gallery !== undefined && current) {
-      const retainedUrls = new Set(gallery.map((item: { filePath: string }) => item.filePath));
+      const retainedUrls = new Set(
+        gallery.map((item: { filePath: string }) => item.filePath),
+      );
       for (const item of current.gallery) {
         if (!retainedUrls.has(item.filePath)) {
           await mediaAssetService.releaseByUrlIfUnreferenced(item.filePath);
@@ -397,7 +495,7 @@ export const raffleService = {
     // 1. Buscar para obtener la imagen de portada y galería
     const raffle = await prisma.raffle.findUnique({
       where: { id },
-      include: { gallery: true }
+      include: { gallery: true },
     });
 
     if (raffle) {

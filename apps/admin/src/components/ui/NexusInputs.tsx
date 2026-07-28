@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { LucideIcon, Copy, Check, Eye, EyeOff } from 'lucide-react';
+import { useNexusTemporarySurfaceContext } from './NexusTemporarySurface';
 
 interface InputProps extends React.InputHTMLAttributes<HTMLInputElement> {
   label: string;
@@ -28,6 +29,7 @@ export const NexusInput: React.FC<InputProps> = ({
 }) => {
   const [showPassword, setShowPassword] = useState(false);
   const [isCopied, setIsPaid] = useState(false);
+  const isInsideTemporarySurface = useNexusTemporarySurfaceContext();
   
   const isPasswordField = props.type === 'password';
   const inputType = isPasswordField ? (showPassword ? 'text' : 'password') : props.type;
@@ -42,7 +44,7 @@ export const NexusInput: React.FC<InputProps> = ({
 
   return (
     <div 
-      className="group flex w-full min-w-0 flex-col animate-in fade-in zoom-in-95 duration-300"
+      className={`group flex w-full min-w-0 flex-col ${isInsideTemporarySurface ? '' : 'animate-in fade-in zoom-in-95 duration-300'}`}
       style={{ animationDelay, animationTimingFunction: 'var(--ease-emil)', animationFillMode: 'both', gap: 'var(--space-xs)' }}
     >
       <label className="text-label uppercase tracking-[0.15em] text-text-muted ml-1 group-focus-within:text-brand-500 transition-colors">
@@ -118,9 +120,11 @@ export const NexusTextarea: React.FC<TextareaProps> = ({
   className = '', 
   ...props 
 }) => {
+  const isInsideTemporarySurface = useNexusTemporarySurfaceContext();
+
   return (
     <div 
-      className="group flex flex-col animate-in fade-in zoom-in-95 duration-200"
+      className={`group flex flex-col ${isInsideTemporarySurface ? '' : 'animate-in fade-in zoom-in-95 duration-200'}`}
       style={{ animationDelay, animationTimingFunction: 'var(--ease-emil)', animationFillMode: 'both', gap: 'var(--space-xs)' }}
     >
       <label className="text-label uppercase tracking-[0.15em] text-text-muted ml-1 group-focus-within:text-brand-500 transition-colors">
@@ -152,9 +156,11 @@ export const NexusSelect: React.FC<SelectProps> = ({
   className = '', 
   ...props 
 }) => {
+  const isInsideTemporarySurface = useNexusTemporarySurfaceContext();
+
   return (
     <div 
-      className="group flex w-full min-w-0 flex-col animate-in fade-in zoom-in-95 duration-200"
+      className={`group flex w-full min-w-0 flex-col ${isInsideTemporarySurface ? '' : 'animate-in fade-in zoom-in-95 duration-200'}`}
       style={{ animationDelay, animationTimingFunction: 'var(--ease-emil)', animationFillMode: 'both', gap: 'var(--space-xs)' }}
     >
       <label className="text-label uppercase tracking-[0.15em] text-text-muted ml-1 group-focus-within:text-brand-500 transition-colors">

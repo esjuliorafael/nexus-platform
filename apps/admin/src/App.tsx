@@ -11,9 +11,11 @@ import {
   UserPlus,
   Upload,
   RefreshCw,
+  RotateCcw,
   Plus,
   Package,
   ArrowRight,
+  Pencil,
 } from "lucide-react";
 import { Header } from "./components/Header";
 import { QuickActions } from "./components/QuickActions";
@@ -42,10 +44,7 @@ import {
   MediaVaultFiltersModal,
   type MediaVaultFilter,
 } from "./components/Media/Vault/MediaVaultFiltersModal";
-import {
-  StoreView,
-  StoreViewRef,
-} from "./components/Store/StoreView";
+import { StoreView, StoreViewRef } from "./components/Store/StoreView";
 import {
   DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS,
   StoreProductAdvancedFilters,
@@ -83,6 +82,11 @@ import {
   RaffleFiltersModal,
   type RaffleAdvancedFilters,
 } from "./components/Raffle/RaffleFiltersModal";
+import {
+  DEFAULT_TICKET_BOARD_FILTER,
+  type TicketBoardFilter,
+} from "./components/Raffle/RaffleTicketBoardView";
+import { RaffleTicketBoardFiltersModal } from "./components/Raffle/RaffleTicketBoardFiltersModal";
 import { RaffleParticipationsView } from "./components/Raffle/Participations/RaffleParticipationsView";
 import {
   DEFAULT_RAFFLE_PARTICIPATION_FILTERS,
@@ -111,7 +115,14 @@ import {
   BillingPayment,
   RaffleParticipation,
 } from "./types";
-import { apiOrders, apiDashboard, apiBilling, apiSystem, api, apiRaffleParticipations } from "./api";
+import {
+  apiOrders,
+  apiDashboard,
+  apiBilling,
+  apiSystem,
+  api,
+  apiRaffleParticipations,
+} from "./api";
 import {
   NexusAutonomousButton,
   NexusSectionButton,
@@ -131,6 +142,25 @@ export const ThemeContext = createContext<{
   theme: "light",
   toggleTheme: () => {},
 });
+
+const PageHeaderActionPair: React.FC<React.PropsWithChildren> = ({
+  children,
+}) => {
+  const actions = React.Children.toArray(children);
+
+  return (
+    <div
+      className={
+        actions.length > 1
+          ? "grid w-full grid-cols-[minmax(0,1fr)_minmax(0,2fr)] md:flex md:w-auto"
+          : "flex w-full [&>button]:w-full md:w-auto md:[&>button]:w-auto"
+      }
+      style={{ gap: "var(--space-sm)" }}
+    >
+      {actions}
+    </div>
+  );
+};
 
 type SystemViewType =
   | "shipping"
@@ -166,6 +196,7 @@ type MediaModeType =
 
 type StoreModeType =
   | "list"
+  | "overview"
   | "create"
   | "edit"
   | "hero_list"
@@ -215,6 +246,7 @@ const MEDIA_MODES: MediaModeType[] = [
 
 const STORE_MODES: StoreModeType[] = [
   "list",
+  "overview",
   "create",
   "edit",
   "hero_list",
@@ -477,17 +509,28 @@ function App() {
   const [raffleParticipationSearchQuery, setRaffleParticipationSearchQuery] =
     useState("");
   const [raffleParticipationFilters, setRaffleParticipationFilters] =
-    useState<RaffleParticipationAdvancedFilters>(DEFAULT_RAFFLE_PARTICIPATION_FILTERS);
-  const [isRaffleParticipationFiltersOpen, setIsRaffleParticipationFiltersOpen] =
-    useState(false);
+    useState<RaffleParticipationAdvancedFilters>(
+      DEFAULT_RAFFLE_PARTICIPATION_FILTERS,
+    );
+  const [
+    isRaffleParticipationFiltersOpen,
+    setIsRaffleParticipationFiltersOpen,
+  ] = useState(false);
   const [raffleSearchQuery, setRaffleSearchQuery] = useState("");
   const [raffleAdvancedFilters, setRaffleAdvancedFilters] =
     useState<RaffleAdvancedFilters>(DEFAULT_RAFFLE_ADVANCED_FILTERS);
   const [isRaffleFiltersOpen, setIsRaffleFiltersOpen] = useState(false);
+  const [raffleTicketBoardSearchQuery, setRaffleTicketBoardSearchQuery] =
+    useState("");
+  const [raffleTicketBoardFilter, setRaffleTicketBoardFilter] =
+    useState<TicketBoardFilter>(DEFAULT_TICKET_BOARD_FILTER);
+  const [isRaffleTicketBoardFiltersOpen, setIsRaffleTicketBoardFiltersOpen] =
+    useState(false);
   const [storeProductSearchQuery, setStoreProductSearchQuery] = useState("");
   const [mediaVaultSearchQuery, setMediaVaultSearchQuery] = useState("");
-  const [mediaVaultFilter, setMediaVaultFilter] =
-    useState<MediaVaultFilter>(DEFAULT_MEDIA_VAULT_FILTER);
+  const [mediaVaultFilter, setMediaVaultFilter] = useState<MediaVaultFilter>(
+    DEFAULT_MEDIA_VAULT_FILTER,
+  );
   const [isMediaVaultFiltersOpen, setIsMediaVaultFiltersOpen] = useState(false);
   const [storeProductAdvancedFilters, setStoreProductAdvancedFilters] =
     useState<StoreProductAdvancedFilters>(
@@ -501,19 +544,20 @@ function App() {
     if (localStorage.getItem("admin_store_view_mode") === "heroes")
       return "hero_list";
     const saved = getStoredEnum("admin_store_view_mode", STORE_MODES, "list");
-    return saved === "order-detail" ? "orders" : saved;
+    return saved === "order-detail"
+      ? "orders"
+      : saved === "overview"
+        ? "list"
+        : saved;
   });
+  const canManageOperations = userRole === "admin" || userRole === "superadmin";
   const [raffleViewMode, setRaffleViewMode] = useState<RaffleModeType>(() => {
     const legacyMode = localStorage.getItem("admin_raffle_view_mode");
     if (legacyMode === "orders" || legacyMode === "order-detail") {
       return "participations";
     }
     if (legacyMode === "coupons") return "coupon_list";
-    const saved = getStoredEnum(
-      "admin_raffle_view_mode",
-      RAFFLE_MODES,
-      "list",
-    );
+    const saved = getStoredEnum("admin_raffle_view_mode", RAFFLE_MODES, "list");
     if (saved === "participation-detail") return "participations";
     return saved === "detail" ? "list" : saved;
   });
@@ -624,15 +668,21 @@ function App() {
   const raffleSettingsRef = React.useRef<{ handleSave: () => void }>(null);
   const platformSettingsRef = React.useRef<{ handleSave: () => void }>(null);
   const storefrontStatusRef = React.useRef<StorefrontStatusViewRef>(null);
-  const storefrontAnnouncementRef = React.useRef<StorefrontAnnouncementViewRef>(null);
+  const storefrontAnnouncementRef =
+    React.useRef<StorefrontAnnouncementViewRef>(null);
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
+  const orderDetailOriginRef = React.useRef<
+    "orders-tab" | "store-orders" | "product-overview"
+  >("orders-tab");
   const [selectedRaffleParticipation, setSelectedRaffleParticipation] =
     useState<RaffleParticipation | null>(null);
   const [raffleParticipationReturnMode, setRaffleParticipationReturnMode] =
     useState<"participations" | "detail" | "tickets">("participations");
   const [orders, setOrders] = useState<Order[]>([]);
-  const [pendingOrderIds, setPendingOrderIds] = useState<Set<string>>(new Set());
+  const [pendingOrderIds, setPendingOrderIds] = useState<Set<string>>(
+    new Set(),
+  );
   const announcedUnreadOrderIdsRef = React.useRef<Set<string>>(new Set());
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(
     null,
@@ -756,10 +806,15 @@ function App() {
           setBillingCharges(billingData.charges);
           setBillingPayments(billingData.payments);
           const nextRaffleEnabled = configData["raffle_enabled"] === "1";
-          localStorage.setItem("admin_raffle_enabled", nextRaffleEnabled ? "1" : "0");
+          localStorage.setItem(
+            "admin_raffle_enabled",
+            nextRaffleEnabled ? "1" : "0",
+          );
           setRaffleEnabled(nextRaffleEnabled);
           if (!nextRaffleEnabled) {
-            setActiveTab((current) => (current === "Rifas" ? "Inicio" : current));
+            setActiveTab((current) =>
+              current === "Rifas" ? "Inicio" : current,
+            );
             setRaffleViewMode("list");
           }
         });
@@ -858,41 +913,53 @@ function App() {
   const isStoreProductListViewActive = isStoreMode && storeViewMode === "list";
   const isMediaVaultListViewActive =
     isMediaMode && mediaViewMode === "vault_list";
-  const isMediaPanelListViewActive =
-    isMediaMode && mediaViewMode === "list";
+  const isMediaPanelListViewActive = isMediaMode && mediaViewMode === "list";
   const isSystemMode = activeTab === "Sistema";
   const isProfileMode = activeTab === "Mi Perfil";
   const isRafflesMode = activeTab === "Rifas";
-  const isRaffleListViewActive =
-    isRafflesMode && raffleViewMode === "list";
+  const isRaffleListViewActive = isRafflesMode && raffleViewMode === "list";
   const isRaffleParticipationsListViewActive =
     isRafflesMode && raffleViewMode === "participations";
+  const isRaffleTicketBoardViewActive =
+    isRafflesMode && raffleViewMode === "tickets";
   // The active raffle route reserves its navigation rail before remote config resolves.
   const showRaffleNavigation = raffleEnabled || isRafflesMode;
 
   const hasStoreProductAdvancedFilters =
-    storeProductAdvancedFilters.type !== DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS.type ||
-    storeProductAdvancedFilters.publication !== DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS.publication ||
-    storeProductAdvancedFilters.purpose !== DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS.purpose ||
-    storeProductAdvancedFilters.age !== DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS.age;
+    storeProductAdvancedFilters.type !==
+      DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS.type ||
+    storeProductAdvancedFilters.publication !==
+      DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS.publication ||
+    storeProductAdvancedFilters.purpose !==
+      DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS.purpose ||
+    storeProductAdvancedFilters.age !==
+      DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS.age;
   const hasMediaVaultFilters = mediaVaultFilter !== DEFAULT_MEDIA_VAULT_FILTER;
   const hasGalleryAdvancedFilters =
     galleryAdvancedFilters.type !== DEFAULT_GALLERY_ADVANCED_FILTERS.type ||
-    galleryAdvancedFilters.categoryId !== DEFAULT_GALLERY_ADVANCED_FILTERS.categoryId;
+    galleryAdvancedFilters.categoryId !==
+      DEFAULT_GALLERY_ADVANCED_FILTERS.categoryId;
   const hasRaffleParticipationFilters =
-    raffleParticipationFilters.status !== DEFAULT_RAFFLE_PARTICIPATION_FILTERS.status ||
-    raffleParticipationFilters.type !== DEFAULT_RAFFLE_PARTICIPATION_FILTERS.type ||
-    raffleParticipationFilters.paymentMethod !== DEFAULT_RAFFLE_PARTICIPATION_FILTERS.paymentMethod;
+    raffleParticipationFilters.status !==
+      DEFAULT_RAFFLE_PARTICIPATION_FILTERS.status ||
+    raffleParticipationFilters.type !==
+      DEFAULT_RAFFLE_PARTICIPATION_FILTERS.type ||
+    raffleParticipationFilters.paymentMethod !==
+      DEFAULT_RAFFLE_PARTICIPATION_FILTERS.paymentMethod;
   const hasOrderAdvancedFilters =
     orderAdvancedFilters.status !== DEFAULT_ORDER_ADVANCED_FILTERS.status ||
     orderAdvancedFilters.type !== DEFAULT_ORDER_ADVANCED_FILTERS.type ||
-    orderAdvancedFilters.paymentMethod !== DEFAULT_ORDER_ADVANCED_FILTERS.paymentMethod ||
-    orderAdvancedFilters.deliveryMethod !== DEFAULT_ORDER_ADVANCED_FILTERS.deliveryMethod;
+    orderAdvancedFilters.paymentMethod !==
+      DEFAULT_ORDER_ADVANCED_FILTERS.paymentMethod ||
+    orderAdvancedFilters.deliveryMethod !==
+      DEFAULT_ORDER_ADVANCED_FILTERS.deliveryMethod;
   const hasRaffleAdvancedFilters =
     raffleAdvancedFilters.status !== DEFAULT_RAFFLE_ADVANCED_FILTERS.status ||
     raffleAdvancedFilters.type !== DEFAULT_RAFFLE_ADVANCED_FILTERS.type ||
     raffleAdvancedFilters.access !== DEFAULT_RAFFLE_ADVANCED_FILTERS.access ||
     raffleAdvancedFilters.featured !== DEFAULT_RAFFLE_ADVANCED_FILTERS.featured;
+  const hasRaffleTicketBoardFilter =
+    raffleTicketBoardFilter !== DEFAULT_TICKET_BOARD_FILTER;
 
   useEffect(() => {
     if (!token || !isOrdersViewActive) return;
@@ -998,6 +1065,21 @@ function App() {
   const navigateToSystem = (mode: SystemViewType = "billing") => {
     setActiveTab("Sistema");
     setSystemViewMode(mode);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleBackFromOrderDetail = () => {
+    const origin = orderDetailOriginRef.current;
+    if (origin === "product-overview") {
+      setActiveTab("Tienda");
+      setStoreViewMode("overview");
+    } else if (origin === "store-orders") {
+      setActiveTab("Tienda");
+      setStoreViewMode("orders");
+    } else {
+      navigateToOrders();
+      return;
+    }
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
 
@@ -1124,6 +1206,14 @@ function App() {
         } else if (isRafflesMode && raffleViewMode === "detail") {
           setRaffleViewMode("list");
           window.scrollTo({ top: 0, behavior: "smooth" });
+        } else if (isStoreMode && storeViewMode === "overview") {
+          setStoreViewMode("list");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } else if (
+          (isStoreMode || isOrdersTab) &&
+          storeViewMode === "order-detail"
+        ) {
+          handleBackFromOrderDetail();
         } else if (
           isOrdersTab ||
           (isStoreMode &&
@@ -1152,14 +1242,12 @@ function App() {
         else if (isCreatingCoupon || isEditingCoupon)
           setStoreViewMode("coupon_list");
         else if (isStoreMode) setStoreViewMode("list");
-        else if (isCreatingRaffle || isEditingRaffle)
-          setRaffleViewMode("list");
+        else if (isCreatingRaffle || isEditingRaffle) setRaffleViewMode("list");
         else if (isCreatingRaffleCoupon || isEditingRaffleCoupon)
           setRaffleViewMode("coupon_list");
         else if (isCreatingSlide || isEditingSlide)
           setMediaViewMode("slider_list");
-        else if (isUploadingToVault)
-          setMediaViewMode("vault_list");
+        else if (isUploadingToVault) setMediaViewMode("vault_list");
         else if (isMediaMode) setMediaViewMode("list");
         closeConfirm();
       },
@@ -1167,9 +1255,22 @@ function App() {
   };
 
   const handleViewOrderDetail = (order: Order) => {
+    orderDetailOriginRef.current = isOrdersTab ? "orders-tab" : "store-orders";
     setSelectedOrder(order);
     setStoreViewMode("order-detail");
     window.scrollTo({ top: 0, behavior: "smooth" });
+  };
+
+  const handleViewProductOrder = async (orderId: string) => {
+    try {
+      const order = await apiOrders.getById(orderId);
+      orderDetailOriginRef.current = "product-overview";
+      setSelectedOrder(order);
+      setStoreViewMode("order-detail");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {
+      showToast("No se pudo abrir la orden asociada", "error");
+    }
   };
 
   const handleDetailOrderStatusChange = async (
@@ -1203,9 +1304,7 @@ function App() {
       );
     } catch (error) {
       showToast(
-        status === "PAID"
-          ? "Error al actualizar estado"
-          : "Error al cancelar",
+        status === "PAID" ? "Error al actualizar estado" : "Error al cancelar",
         "error",
       );
     }
@@ -1239,16 +1338,45 @@ function App() {
         paymentStatus,
       );
       setSelectedRaffleParticipation(updated);
-      showToast(paymentStatus === "PAID" ? "Pago confirmado" : "Apartado cancelado");
+      showToast(
+        paymentStatus === "PAID" ? "Pago confirmado" : "Apartado cancelado",
+      );
     } catch (error: any) {
-      showToast(error?.response?.data?.message || "No se pudo actualizar la participación", "error");
+      showToast(
+        error?.response?.data?.message ||
+          "No se pudo actualizar la participación",
+        "error",
+      );
+    }
+  };
+
+  const handleRestoreRaffleParticipation = async (confirmPayment = false) => {
+    if (!selectedRaffleParticipation) return;
+    try {
+      const updated = confirmPayment
+        ? await apiRaffleParticipations.restoreAndConfirmPayment(
+            selectedRaffleParticipation.id,
+          )
+        : await apiRaffleParticipations.restore(selectedRaffleParticipation.id);
+      setSelectedRaffleParticipation(updated);
+      showToast(
+        confirmPayment
+          ? "Participación restaurada y pago confirmado"
+          : "Participación restaurada correctamente",
+      );
+    } catch (error: any) {
+      showToast(
+        error?.response?.data?.message ||
+          "No se pudo restaurar la participación",
+        "error",
+      );
     }
   };
 
   const getActionAddon = () => {
     if (isFormMode) {
       return (
-        <>
+        <PageHeaderActionPair>
           <NexusSectionButton
             onClick={handleCancelAction}
             variant="secondary"
@@ -1268,12 +1396,19 @@ function App() {
                 galleryRef.current?.handleSave();
               if (isCreatingSlide || isEditingSlide)
                 homeSliderRef.current?.handleSave();
-              if (isUploadingToVault)
-                mediaVaultRef.current?.handleSave();
+              if (isUploadingToVault) mediaVaultRef.current?.handleSave();
               if (isCreatingRaffle || isEditingRaffle)
-                (document.getElementById("raffle-form") as HTMLFormElement | null)?.requestSubmit();
+                (
+                  document.getElementById(
+                    "raffle-form",
+                  ) as HTMLFormElement | null
+                )?.requestSubmit();
               if (isCreatingRaffleCoupon || isEditingRaffleCoupon)
-                (document.getElementById("raffle-coupon-form") as HTMLFormElement | null)?.requestSubmit();
+                (
+                  document.getElementById(
+                    "raffle-coupon-form",
+                  ) as HTMLFormElement | null
+                )?.requestSubmit();
             }}
             variant="brand"
             icon={isUploadingToVault ? Upload : Save}
@@ -1288,14 +1423,20 @@ function App() {
           >
             {isUploadingToVault ? "Subir Archivos" : "Guardar Cambios"}
           </NexusSectionButton>
-        </>
+        </PageHeaderActionPair>
       );
     }
 
-    if ((isStoreMode || isOrdersTab) && storeViewMode === "order-detail" && selectedOrder) {
+    if (
+      canManageOperations &&
+      (isStoreMode || isOrdersTab) &&
+      storeViewMode === "order-detail" &&
+      selectedOrder
+    ) {
       return (
-        <>
-          {(selectedOrder.status === "pending" || selectedOrder.status === "paid") && (
+        <PageHeaderActionPair>
+          {(selectedOrder.status === "pending" ||
+            selectedOrder.status === "paid") && (
             <NexusSectionButton
               onClick={() =>
                 setConfirmDialog({
@@ -1306,7 +1447,10 @@ function App() {
                   confirmLabel: "Cancelar Orden",
                   variant: "danger",
                   onConfirm: async () => {
-                    await handleDetailOrderStatusChange(selectedOrder.id, "CANCELLED");
+                    await handleDetailOrderStatusChange(
+                      selectedOrder.id,
+                      "CANCELLED",
+                    );
                     closeConfirm();
                   },
                 })
@@ -1328,7 +1472,10 @@ function App() {
                   confirmLabel: "Confirmar Pago",
                   variant: "brand",
                   onConfirm: async () => {
-                    await handleDetailOrderStatusChange(selectedOrder.id, "PAID");
+                    await handleDetailOrderStatusChange(
+                      selectedOrder.id,
+                      "PAID",
+                    );
                     closeConfirm();
                   },
                 })
@@ -1361,54 +1508,121 @@ function App() {
               Restaurar Orden
             </NexusSectionButton>
           )}
-        </>
+        </PageHeaderActionPair>
       );
     }
 
     if (
       isRafflesMode &&
+      canManageOperations &&
       raffleViewMode === "participation-detail" &&
       selectedRaffleParticipation?.status === "PENDING"
     ) {
-      const isTransfer = selectedRaffleParticipation.paymentMethod !== "MERCADOPAGO";
+      const isTransfer =
+        selectedRaffleParticipation.paymentMethod !== "MERCADOPAGO";
       if (!isTransfer) return null;
       return (
-        <>
+        <PageHeaderActionPair>
           <NexusSectionButton
             variant="secondary"
-            className="text-text-muted hover:text-text-main"
-            onClick={() => setConfirmDialog({
-              isOpen: true,
-              title: "¿Cancelar apartado?",
-              message: "Los boletos volverán a estar disponibles y se notificará al participante.",
-              confirmLabel: "Sí, Cancelar",
-              variant: "danger",
-              onConfirm: async () => {
-                await handleRaffleParticipationStatusChange("CANCELLED");
-                closeConfirm();
-              },
-            })}
+            className="w-full text-text-muted hover:text-text-main md:w-auto"
+            onClick={() =>
+              setConfirmDialog({
+                isOpen: true,
+                title: "¿Cancelar apartado?",
+                message:
+                  "Los boletos volverán a estar disponibles y se notificará al participante.",
+                confirmLabel: "Sí, Cancelar",
+                variant: "danger",
+                onConfirm: async () => {
+                  await handleRaffleParticipationStatusChange("CANCELLED");
+                  closeConfirm();
+                },
+              })
+            }
           >
             Cancelar
           </NexusSectionButton>
           <NexusSectionButton
             variant="brand"
             icon={CheckCircle2}
-            onClick={() => setConfirmDialog({
-              isOpen: true,
-              title: "¿Confirmar pago?",
-              message: `Se confirmará el pago de ${selectedRaffleParticipation.ticketCount} ${selectedRaffleParticipation.ticketCount === 1 ? "boleto" : "boletos"}.`,
-              confirmLabel: "Confirmar Pago",
-              variant: "brand",
-              onConfirm: async () => {
-                await handleRaffleParticipationStatusChange("PAID");
-                closeConfirm();
-              },
-            })}
+            className="w-full md:w-auto"
+            onClick={() =>
+              setConfirmDialog({
+                isOpen: true,
+                title: "¿Confirmar pago?",
+                message: `Se confirmará el pago de ${selectedRaffleParticipation.ticketCount} ${selectedRaffleParticipation.ticketCount === 1 ? "boleto" : "boletos"}.`,
+                confirmLabel: "Confirmar Pago",
+                variant: "brand",
+                onConfirm: async () => {
+                  await handleRaffleParticipationStatusChange("PAID");
+                  closeConfirm();
+                },
+              })
+            }
           >
             Confirmar Pago
           </NexusSectionButton>
-        </>
+        </PageHeaderActionPair>
+      );
+    }
+
+    if (
+      isRafflesMode &&
+      canManageOperations &&
+      raffleViewMode === "participation-detail" &&
+      selectedRaffleParticipation?.recordType !== "PAYMENT_HOLD" &&
+      selectedRaffleParticipation?.paymentMethod !== "MERCADOPAGO" &&
+      selectedRaffleParticipation?.status === "CANCELLED"
+    ) {
+      return (
+        <div
+          className="flex w-full flex-col sm:flex-row"
+          style={{ gap: "var(--space-sm)" }}
+        >
+          <NexusSectionButton
+            variant="secondary"
+            icon={RotateCcw}
+            className="w-full whitespace-nowrap sm:w-auto"
+            onClick={() =>
+              setConfirmDialog({
+                isOpen: true,
+                title: "¿Restaurar participación?",
+                message:
+                  "Nexus comprobará que todos los boletos sigan disponibles, iniciará un nuevo plazo de apartado y notificará al participante.",
+                confirmLabel: "Restaurar Participación",
+                variant: "brand",
+                onConfirm: async () => {
+                  await handleRestoreRaffleParticipation();
+                  closeConfirm();
+                },
+              })
+            }
+          >
+            Restaurar Participación
+          </NexusSectionButton>
+          <NexusSectionButton
+            variant="brand"
+            icon={CheckCircle2}
+            className="w-full whitespace-nowrap sm:w-auto"
+            onClick={() =>
+              setConfirmDialog({
+                isOpen: true,
+                title: "¿Restaurar y confirmar pago?",
+                message:
+                  "Usa esta acción únicamente si ya recibiste el pago. Nexus restaurará los boletos, marcará la participación como pagada y enviará la confirmación por WhatsApp.",
+                confirmLabel: "Restaurar y Confirmar Pago",
+                variant: "brand",
+                onConfirm: async () => {
+                  await handleRestoreRaffleParticipation(true);
+                  closeConfirm();
+                },
+              })
+            }
+          >
+            Restaurar y Confirmar
+          </NexusSectionButton>
+        </div>
       );
     }
 
@@ -1457,6 +1671,18 @@ function App() {
           </NexusSectionButton>
         );
       }
+    }
+
+    if (isStoreMode && storeViewMode === "overview") {
+      return (
+        <NexusSectionButton
+          onClick={() => storeRef.current?.handleEditSelected()}
+          variant="brand"
+          icon={Pencil}
+        >
+          Editar Producto
+        </NexusSectionButton>
+      );
     }
 
     if (isStoreMode && storeViewMode === "list") {
@@ -1549,7 +1775,7 @@ function App() {
       if (systemViewMode === "identity") {
         if (identityStatus === "editing") {
           return (
-            <>
+            <PageHeaderActionPair>
               <NexusSectionButton
                 onClick={() => identityRef.current?.handleCancel()}
                 variant="secondary"
@@ -1564,7 +1790,7 @@ function App() {
               >
                 Guardar Identidad
               </NexusSectionButton>
-            </>
+            </PageHeaderActionPair>
           );
         }
         return null;
@@ -1604,7 +1830,7 @@ function App() {
           );
         }
         return (
-          <>
+          <PageHeaderActionPair>
             <NexusSectionButton
               onClick={() => setAnnouncementViewMode("list")}
               variant="secondary"
@@ -1620,7 +1846,7 @@ function App() {
             >
               Guardar Aviso
             </NexusSectionButton>
-          </>
+          </PageHeaderActionPair>
         );
       }
       if (systemViewMode === "raffle") {
@@ -1639,7 +1865,7 @@ function App() {
         (channelsViewMode === "create" || channelsViewMode === "edit")
       ) {
         return (
-          <>
+          <PageHeaderActionPair>
             <NexusSectionButton
               onClick={() => setChannelsViewMode("hub")}
               variant="secondary"
@@ -1657,7 +1883,7 @@ function App() {
                 ? "Crear Canal"
                 : "Actualizar Canal"}
             </NexusSectionButton>
-          </>
+          </PageHeaderActionPair>
         );
       }
     }
@@ -1694,523 +1920,579 @@ function App() {
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
       <UploadQueueProvider showToast={showToast}>
-      <div className="min-h-screen bg-bg-app font-sans pb-[var(--space-3xl)] text-stone-900 transition-colors duration-500 dark:text-stone-100 md:pb-[var(--space-lg)]">
-        <Header
-          activeTab={activeTab}
-          setActiveTab={setActiveTab as any}
-          onLogout={handleLogout}
-          raffleEnabled={showRaffleNavigation}
-          newOrdersCount={pendingOrderIds.size}
-          onOpenProfile={() => {
-            setActiveTab("Mi Perfil");
-            setProfileViewMode("details");
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
-        />
+        <div className="min-h-screen bg-bg-app font-sans pb-[var(--space-3xl)] text-stone-900 transition-colors duration-500 dark:text-stone-100 md:pb-[var(--space-lg)]">
+          <Header
+            activeTab={activeTab}
+            setActiveTab={setActiveTab as any}
+            onLogout={handleLogout}
+            raffleEnabled={showRaffleNavigation}
+            newOrdersCount={pendingOrderIds.size}
+            onOpenProfile={() => {
+              setActiveTab("Mi Perfil");
+              setProfileViewMode("details");
+              window.scrollTo({ top: 0, behavior: "smooth" });
+            }}
+          />
 
-        <main
-          className="mx-auto max-w-7xl"
-          style={{
-            paddingInline: "var(--space-md)",
-            paddingTop: "var(--space-lg)",
-          }}
-        >
-          <div
-            className="flex flex-col justify-between sm:flex-row sm:items-end"
+          <main
+            className="mx-auto max-w-7xl"
             style={{
-              gap: "var(--space-md)",
-              marginBottom: isOrdersListViewActive ||
-                isStoreProductListViewActive ||
-                isRaffleParticipationsListViewActive ||
-                isMediaPanelListViewActive ||
-                isMediaVaultListViewActive
-                ? "var(--space-md)"
-                : "var(--space-lg)",
+              paddingInline: "var(--space-md)",
+              paddingTop: "var(--space-lg)",
             }}
           >
-            <PageHeader
-              activeTab={activeTab}
-              userName={userName}
-              currentDate={currentDate}
-              mediaViewMode={mediaViewMode}
-              isCreatingMedia={isCreatingMedia}
-              isEditingMedia={isEditingMedia}
-              isCreatingSlide={isCreatingSlide}
-              isEditingSlide={isEditingSlide}
-              storeViewMode={storeViewMode}
-              isCreatingProduct={isCreatingProduct}
-              isEditingProduct={isEditingProduct}
-              isCreatingStoreHero={isCreatingStoreHero}
-              isEditingStoreHero={isEditingStoreHero}
-              raffleViewMode={raffleViewMode}
-              isCreatingRaffle={isCreatingRaffle}
-              isEditingRaffle={isEditingRaffle}
-              systemViewMode={systemViewMode}
-              announcementViewMode={announcementViewMode}
-              profileViewMode={profileViewMode}
-              shippingSubView={shippingSubView}
-              channelsViewMode={channelsViewMode}
-              selectedOrderRecordType={selectedOrder?.recordType}
-              actionAddon={getActionAddon()}
-            />
-          </div>
-
-          {isOrdersListViewActive && (
-            <div style={{ marginBottom: "var(--space-lg)" }}>
-              <NexusViewToolbar
-                searchValue={orderSearchQuery}
-                onSearchChange={setOrderSearchQuery}
-                searchPlaceholder="Buscar orden, producto, cliente, teléfono o estado..."
-                filterActive={hasOrderAdvancedFilters}
-                onFilterClick={() => setIsOrderFiltersOpen(true)}
-              />
-            </div>
-          )}
-
-          {isStoreProductListViewActive && (
-            <div style={{ marginBottom: "var(--space-lg)" }}>
-              <NexusViewToolbar
-                searchValue={storeProductSearchQuery}
-                onSearchChange={setStoreProductSearchQuery}
-                searchPlaceholder="Buscar producto, anillo, precio o estado..."
-                filterActive={hasStoreProductAdvancedFilters}
-                onFilterClick={() => setIsStoreProductFiltersOpen(true)}
-              />
-            </div>
-          )}
-
-          {isRaffleListViewActive && (
-            <div style={{ marginBottom: "var(--space-lg)" }}>
-              <NexusViewToolbar
-                searchValue={raffleSearchQuery}
-                onSearchChange={setRaffleSearchQuery}
-                searchPlaceholder="Buscar título o número de rifa..."
-                filterLabel="Filtros"
-                filterActive={hasRaffleAdvancedFilters}
-                onFilterClick={() => setIsRaffleFiltersOpen(true)}
-              />
-            </div>
-          )}
-
-          {isRaffleParticipationsListViewActive && (
-            <div style={{ marginBottom: "var(--space-lg)" }}>
-              <NexusViewToolbar
-                searchValue={raffleParticipationSearchQuery}
-                onSearchChange={setRaffleParticipationSearchQuery}
-                searchPlaceholder="Buscar rifa, participante, teléfono, estado o boleto..."
-                filterActive={hasRaffleParticipationFilters}
-                onFilterClick={() => setIsRaffleParticipationFiltersOpen(true)}
-              />
-            </div>
-          )}
-
-          {isMediaPanelListViewActive && (
-            <div style={{ marginBottom: "var(--space-lg)" }}>
-              <NexusViewToolbar
-                searchValue={searchQuery}
-                onSearchChange={setSearchQuery}
-                searchPlaceholder="Buscar medio, categoría o subcategoría..."
-                filterActive={hasGalleryAdvancedFilters}
-                onFilterClick={() => setIsGalleryFiltersOpen(true)}
-              />
-            </div>
-          )}
-
-          {isMediaVaultListViewActive && (
-            <div style={{ marginBottom: "var(--space-lg)" }}>
-              <NexusViewToolbar
-                searchValue={mediaVaultSearchQuery}
-                onSearchChange={setMediaVaultSearchQuery}
-                searchPlaceholder="Buscar archivo, formato o usuario..."
-                filterActive={hasMediaVaultFilters}
-                onFilterClick={() => setIsMediaVaultFiltersOpen(true)}
-              />
-            </div>
-          )}
-
-          <div
-            className="flex flex-col lg:flex-row"
-            style={{ gap: "var(--space-lg)" }}
-          >
-            <div className="z-40 w-full flex-shrink-0 lg:w-fit">
-              <QuickActions
-                context={isOrdersTab ? "Tienda" : activeTab}
-                onAction={handleQuickAction}
-                isDetail={
-                  storeViewMode === "order-detail" ||
-                  (isRafflesMode && raffleViewMode === "participation-detail") ||
-                  (isRafflesMode && raffleViewMode === "detail") ||
-                  (isRafflesMode && raffleViewMode === "tickets") ||
-                  (isSystemMode &&
-                    systemViewMode === "channels" &&
-                    channelsViewMode === "principal")
-                }
-                raffleEnabled={showRaffleNavigation}
-                userRole={userRole}
+            <div
+              className="flex flex-col justify-between sm:flex-row sm:items-end"
+              style={{
+                gap: "var(--space-md)",
+                marginBottom:
+                  isOrdersListViewActive ||
+                  isStoreProductListViewActive ||
+                  isRaffleParticipationsListViewActive ||
+                  isMediaPanelListViewActive ||
+                  isMediaVaultListViewActive
+                    ? "var(--space-md)"
+                    : "var(--space-lg)",
+              }}
+            >
+              <PageHeader
+                activeTab={activeTab}
+                userName={userName}
+                currentDate={currentDate}
+                mediaViewMode={mediaViewMode}
+                isCreatingMedia={isCreatingMedia}
+                isEditingMedia={isEditingMedia}
+                isCreatingSlide={isCreatingSlide}
+                isEditingSlide={isEditingSlide}
+                storeViewMode={storeViewMode}
+                isCreatingProduct={isCreatingProduct}
+                isEditingProduct={isEditingProduct}
+                isCreatingStoreHero={isCreatingStoreHero}
+                isEditingStoreHero={isEditingStoreHero}
+                raffleViewMode={raffleViewMode}
+                isCreatingRaffle={isCreatingRaffle}
+                isEditingRaffle={isEditingRaffle}
+                systemViewMode={systemViewMode}
+                announcementViewMode={announcementViewMode}
+                profileViewMode={profileViewMode}
+                shippingSubView={shippingSubView}
+                channelsViewMode={channelsViewMode}
+                selectedOrderRecordType={selectedOrder?.recordType}
+                actionAddon={getActionAddon()}
               />
             </div>
 
-            <div className="flex-1">
-              {isProfileMode ? (
-                <ProfileView
-                  viewMode={profileViewMode}
-                  showToast={showToast}
-                  onIdentityChange={(nextProfile: OwnProfile) => {
-                    setUserName(nextProfile.name.split(" ")[0]);
-                    const currentSession = localStorage.getItem("admin_session");
-                    if (currentSession) {
-                      const parsed = JSON.parse(currentSession);
-                      parsed.name = nextProfile.name;
-                      localStorage.setItem("admin_session", JSON.stringify(parsed));
-                    }
-                  }}
+            {isOrdersListViewActive && (
+              <div style={{ marginBottom: "var(--space-lg)" }}>
+                <NexusViewToolbar
+                  searchValue={orderSearchQuery}
+                  onSearchChange={setOrderSearchQuery}
+                  searchPlaceholder="Buscar orden, producto, cliente, teléfono o estado..."
+                  filterActive={hasOrderAdvancedFilters}
+                  onFilterClick={() => setIsOrderFiltersOpen(true)}
                 />
-              ) : isMediaMode ? (
-                mediaViewMode === "slider_list" ||
-                mediaViewMode === "slide_create" ||
-                mediaViewMode === "slide_edit" ? (
-                  <HomeSliderView
-                    ref={homeSliderRef}
-                    viewMode={mediaViewMode}
-                    onSetViewMode={setMediaViewMode}
+              </div>
+            )}
+
+            {isStoreProductListViewActive && (
+              <div style={{ marginBottom: "var(--space-lg)" }}>
+                <NexusViewToolbar
+                  searchValue={storeProductSearchQuery}
+                  onSearchChange={setStoreProductSearchQuery}
+                  searchPlaceholder="Buscar producto, anillo, precio o estado..."
+                  filterActive={hasStoreProductAdvancedFilters}
+                  onFilterClick={() => setIsStoreProductFiltersOpen(true)}
+                />
+              </div>
+            )}
+
+            {isRaffleListViewActive && (
+              <div style={{ marginBottom: "var(--space-lg)" }}>
+                <NexusViewToolbar
+                  searchValue={raffleSearchQuery}
+                  onSearchChange={setRaffleSearchQuery}
+                  searchPlaceholder="Buscar título o número de rifa..."
+                  filterLabel="Filtros"
+                  filterActive={hasRaffleAdvancedFilters}
+                  onFilterClick={() => setIsRaffleFiltersOpen(true)}
+                />
+              </div>
+            )}
+
+            {isRaffleTicketBoardViewActive && (
+              <div style={{ marginBottom: "var(--space-lg)" }}>
+                <NexusViewToolbar
+                  searchValue={raffleTicketBoardSearchQuery}
+                  onSearchChange={(value) =>
+                    setRaffleTicketBoardSearchQuery(value.replace(/\D/g, ""))
+                  }
+                  searchPlaceholder="Buscar número de boleto..."
+                  filterLabel="Filtros"
+                  filterActive={hasRaffleTicketBoardFilter}
+                  onFilterClick={() => setIsRaffleTicketBoardFiltersOpen(true)}
+                />
+              </div>
+            )}
+
+            {isRaffleParticipationsListViewActive && (
+              <div style={{ marginBottom: "var(--space-lg)" }}>
+                <NexusViewToolbar
+                  searchValue={raffleParticipationSearchQuery}
+                  onSearchChange={setRaffleParticipationSearchQuery}
+                  searchPlaceholder="Buscar rifa, participante, teléfono, estado o boleto..."
+                  filterActive={hasRaffleParticipationFilters}
+                  onFilterClick={() =>
+                    setIsRaffleParticipationFiltersOpen(true)
+                  }
+                />
+              </div>
+            )}
+
+            {isMediaPanelListViewActive && (
+              <div style={{ marginBottom: "var(--space-lg)" }}>
+                <NexusViewToolbar
+                  searchValue={searchQuery}
+                  onSearchChange={setSearchQuery}
+                  searchPlaceholder="Buscar medio, categoría o subcategoría..."
+                  filterActive={hasGalleryAdvancedFilters}
+                  onFilterClick={() => setIsGalleryFiltersOpen(true)}
+                />
+              </div>
+            )}
+
+            {isMediaVaultListViewActive && (
+              <div style={{ marginBottom: "var(--space-lg)" }}>
+                <NexusViewToolbar
+                  searchValue={mediaVaultSearchQuery}
+                  onSearchChange={setMediaVaultSearchQuery}
+                  searchPlaceholder="Buscar archivo, formato o usuario..."
+                  filterActive={hasMediaVaultFilters}
+                  onFilterClick={() => setIsMediaVaultFiltersOpen(true)}
+                />
+              </div>
+            )}
+
+            <div
+              className="flex flex-col lg:flex-row"
+              style={{ gap: "var(--space-lg)" }}
+            >
+              <div className="z-40 w-full flex-shrink-0 lg:w-fit">
+                <QuickActions
+                  context={isOrdersTab ? "Tienda" : activeTab}
+                  onAction={handleQuickAction}
+                  isDetail={
+                    storeViewMode === "order-detail" ||
+                    (isStoreMode && storeViewMode === "overview") ||
+                    (isRafflesMode &&
+                      raffleViewMode === "participation-detail") ||
+                    (isRafflesMode && raffleViewMode === "detail") ||
+                    (isRafflesMode && raffleViewMode === "tickets") ||
+                    (isSystemMode &&
+                      systemViewMode === "channels" &&
+                      channelsViewMode === "principal")
+                  }
+                  raffleEnabled={showRaffleNavigation}
+                  userRole={userRole}
+                />
+              </div>
+
+              <div className="flex-1">
+                {isProfileMode ? (
+                  <ProfileView
+                    viewMode={profileViewMode}
                     showToast={showToast}
-                    onValidationChange={setIsFormValid}
-                  />
-                ) : mediaViewMode === "vault_list" ||
-                  mediaViewMode === "vault_upload" ? (
-                  <MediaVaultView
-                    ref={mediaVaultRef}
-                    viewMode={mediaViewMode}
-                    filter={mediaVaultFilter}
-                    searchQuery={mediaVaultSearchQuery}
-                    onSetViewMode={setMediaViewMode}
-                    showToast={showToast}
-                    setConfirmDialog={setConfirmDialog}
-                    onValidationChange={setIsFormValid}
-                  />
-                ) : (
-                  <GalleryView
-                    ref={galleryRef}
-                    searchQuery={searchQuery}
-                    advancedFilters={galleryAdvancedFilters}
-                    viewMode={mediaViewMode}
-                    onSetViewMode={setMediaViewMode}
-                    showToast={showToast}
-                    setConfirmDialog={setConfirmDialog}
-                    onValidationChange={setIsFormValid}
-                  />
-                )
-              ) : isStoreMode || isOrdersTab ? (
-                (storeViewMode === "orders" || isOrdersTab) &&
-                storeViewMode !== "order-detail" ? (
-                  <OrdersView
-                    orders={orders}
-                    isLoading={isLoadingDashboard}
-                    advancedFilters={orderAdvancedFilters}
-                    searchQuery={orderSearchQuery}
-                    onOrdersChange={setOrders}
-                    onViewDetail={handleViewOrderDetail}
-                    showToast={showToast}
-                    setConfirmDialog={setConfirmDialog}
-                  />
-                ) : storeViewMode === "order-detail" && selectedOrder ? (
-                  <OrderDetailView
-                    order={selectedOrder}
-                    onBack={() =>
-                      isOrdersTab
-                        ? setActiveTab("Órdenes")
-                        : setStoreViewMode("orders")
-                    }
-                    showToast={showToast}
-                  />
-                ) : (
-                  <StoreView
-                    ref={storeRef}
-                    productSearchQuery={storeProductSearchQuery}
-                    advancedFilters={storeProductAdvancedFilters}
-                    viewMode={storeViewMode}
-                    onSetViewMode={setStoreViewMode}
-                    showToast={showToast}
-                    setConfirmDialog={setConfirmDialog}
-                    onValidationChange={setIsFormValid}
-                  />
-                )
-              ) : isRafflesMode ? (
-                raffleViewMode === "participations" ? (
-                  <RaffleParticipationsView
-                    advancedFilters={raffleParticipationFilters}
-                    searchQuery={raffleParticipationSearchQuery}
-                    onViewDetail={(participation) => {
-                      setRaffleParticipationReturnMode("participations");
-                      setSelectedRaffleParticipation(participation);
-                      setRaffleViewMode("participation-detail");
-                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    onIdentityChange={(nextProfile: OwnProfile) => {
+                      setUserName(nextProfile.name.split(" ")[0]);
+                      const currentSession =
+                        localStorage.getItem("admin_session");
+                      if (currentSession) {
+                        const parsed = JSON.parse(currentSession);
+                        parsed.name = nextProfile.name;
+                        localStorage.setItem(
+                          "admin_session",
+                          JSON.stringify(parsed),
+                        );
+                      }
                     }}
-                    onParticipationChange={(participation) => {
-                      setSelectedRaffleParticipation((current) =>
-                        current?.id === participation.id ? participation : current,
-                      );
-                    }}
-                    showToast={showToast}
-                    setConfirmDialog={setConfirmDialog}
                   />
-                ) : raffleViewMode === "participation-detail" && selectedRaffleParticipation ? (
-                  <RaffleParticipationDetailView
-                    participation={selectedRaffleParticipation}
-                    onLoaded={setSelectedRaffleParticipation}
-                    showToast={showToast}
-                  />
-                ) : (
-                  <RaffleView
-                    searchQuery={raffleSearchQuery}
-                    advancedFilters={raffleAdvancedFilters}
-                    viewMode={raffleViewMode}
-                    onSetViewMode={setRaffleViewMode}
-                    onViewParticipation={(participation, origin) => {
-                      setRaffleParticipationReturnMode(origin);
-                      setSelectedRaffleParticipation(participation);
-                      setRaffleViewMode("participation-detail");
-                      window.scrollTo({ top: 0, behavior: "smooth" });
-                    }}
-                    showToast={showToast}
-                    setConfirmDialog={setConfirmDialog}
-                    onValidationChange={setIsFormValid}
-                  />
-                )
-              ) : isSystemMode ? (
-                <div
-                  className="animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-visible"
-                  style={{ paddingBottom: "var(--space-xl)" }}
-                >
-                  {systemViewMode === "shipping" ? (
-                    <ShippingView
-                      ref={shippingRef}
-                      subView={shippingSubView}
-                      setSubView={setShippingSubView}
+                ) : isMediaMode ? (
+                  mediaViewMode === "slider_list" ||
+                  mediaViewMode === "slide_create" ||
+                  mediaViewMode === "slide_edit" ? (
+                    <HomeSliderView
+                      ref={homeSliderRef}
+                      viewMode={mediaViewMode}
+                      onSetViewMode={setMediaViewMode}
+                      showToast={showToast}
+                      onValidationChange={setIsFormValid}
+                    />
+                  ) : mediaViewMode === "vault_list" ||
+                    mediaViewMode === "vault_upload" ? (
+                    <MediaVaultView
+                      ref={mediaVaultRef}
+                      viewMode={mediaViewMode}
+                      filter={mediaVaultFilter}
+                      searchQuery={mediaVaultSearchQuery}
+                      onSetViewMode={setMediaViewMode}
+                      showToast={showToast}
+                      setConfirmDialog={setConfirmDialog}
+                      onValidationChange={setIsFormValid}
+                    />
+                  ) : (
+                    <GalleryView
+                      ref={galleryRef}
+                      searchQuery={searchQuery}
+                      advancedFilters={galleryAdvancedFilters}
+                      viewMode={mediaViewMode}
+                      onSetViewMode={setMediaViewMode}
+                      showToast={showToast}
+                      setConfirmDialog={setConfirmDialog}
+                      onValidationChange={setIsFormValid}
+                    />
+                  )
+                ) : isStoreMode || isOrdersTab ? (
+                  (storeViewMode === "orders" || isOrdersTab) &&
+                  storeViewMode !== "order-detail" ? (
+                    <OrdersView
+                      orders={orders}
+                      isLoading={isLoadingDashboard}
+                      canManageOperations={canManageOperations}
+                      advancedFilters={orderAdvancedFilters}
+                      searchQuery={orderSearchQuery}
+                      onOrdersChange={setOrders}
+                      onViewDetail={handleViewOrderDetail}
                       showToast={showToast}
                       setConfirmDialog={setConfirmDialog}
                     />
-                  ) : systemViewMode === "config" ? (
-                    <PlatformSettingsView
-                      ref={platformSettingsRef}
+                  ) : storeViewMode === "order-detail" && selectedOrder ? (
+                    <OrderDetailView
+                      order={selectedOrder}
+                      canManageOperations={canManageOperations}
+                      onBack={handleBackFromOrderDetail}
                       showToast={showToast}
                     />
-                  ) : systemViewMode === "users" ? (
-                    <UsersView
-                      ref={usersRef}
+                  ) : (
+                    <StoreView
+                      ref={storeRef}
+                      productSearchQuery={storeProductSearchQuery}
+                      advancedFilters={storeProductAdvancedFilters}
+                      viewMode={storeViewMode}
+                      onSetViewMode={setStoreViewMode}
+                      showToast={showToast}
+                      setConfirmDialog={setConfirmDialog}
+                      onValidationChange={setIsFormValid}
+                      onOpenOrder={handleViewProductOrder}
+                    />
+                  )
+                ) : isRafflesMode ? (
+                  raffleViewMode === "participations" ? (
+                    <RaffleParticipationsView
+                      canManageOperations={canManageOperations}
+                      advancedFilters={raffleParticipationFilters}
+                      searchQuery={raffleParticipationSearchQuery}
+                      onViewDetail={(participation) => {
+                        setRaffleParticipationReturnMode("participations");
+                        setSelectedRaffleParticipation(participation);
+                        setRaffleViewMode("participation-detail");
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      onParticipationChange={(participation) => {
+                        setSelectedRaffleParticipation((current) =>
+                          current?.id === participation.id
+                            ? participation
+                            : current,
+                        );
+                      }}
                       showToast={showToast}
                       setConfirmDialog={setConfirmDialog}
                     />
-                  ) : systemViewMode === "identity" ? (
-                    <IdentityView
-                      ref={identityRef}
-                      status={identityStatus}
-                      setStatus={setIdentityStatus}
-                      onTempLogoChange={setHasTempLogo}
+                  ) : raffleViewMode === "participation-detail" &&
+                    selectedRaffleParticipation ? (
+                    <RaffleParticipationDetailView
+                      participation={selectedRaffleParticipation}
+                      canManageOperations={canManageOperations}
+                      onLoaded={setSelectedRaffleParticipation}
                       showToast={showToast}
                     />
-                  ) : systemViewMode === "channels" ? (
-                    channelsViewMode === "hub" ? (
-                      <ChannelsHub
-                        onEditPrincipal={() => setChannelsViewMode("principal")}
-                        onCreateChannel={() => {
-                          setSelectedChannelId(null);
-                          setChannelsViewMode("create");
-                        }}
-                        onEditChannel={(id) => {
-                          setSelectedChannelId(id);
-                          setChannelsViewMode("edit");
-                        }}
+                  ) : (
+                    <RaffleView
+                      searchQuery={raffleSearchQuery}
+                      canManageOperations={canManageOperations}
+                      advancedFilters={raffleAdvancedFilters}
+                      ticketBoardSearchQuery={raffleTicketBoardSearchQuery}
+                      ticketBoardFilter={raffleTicketBoardFilter}
+                      viewMode={raffleViewMode}
+                      onSetViewMode={setRaffleViewMode}
+                      onViewParticipation={(participation, origin) => {
+                        setRaffleParticipationReturnMode(origin);
+                        setSelectedRaffleParticipation(participation);
+                        setRaffleViewMode("participation-detail");
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      showToast={showToast}
+                      setConfirmDialog={setConfirmDialog}
+                      onValidationChange={setIsFormValid}
+                    />
+                  )
+                ) : isSystemMode ? (
+                  <div
+                    className="animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-visible"
+                    style={{ paddingBottom: "var(--space-xl)" }}
+                  >
+                    {systemViewMode === "shipping" ? (
+                      <ShippingView
+                        ref={shippingRef}
+                        subView={shippingSubView}
+                        setSubView={setShippingSubView}
                         showToast={showToast}
                         setConfirmDialog={setConfirmDialog}
                       />
-                    ) : channelsViewMode === "principal" ? (
-                      <PrincipalChannelView
+                    ) : systemViewMode === "config" ? (
+                      <PlatformSettingsView
+                        ref={platformSettingsRef}
                         showToast={showToast}
                       />
-                    ) : channelsViewMode === "create" ? (
-                      <ChannelForm
-                        ref={channelFormRef}
-                        onCancel={() => setChannelsViewMode("hub")}
-                        onSave={() => setChannelsViewMode("hub")}
+                    ) : systemViewMode === "users" ? (
+                      <UsersView
+                        ref={usersRef}
+                        showToast={showToast}
+                        setConfirmDialog={setConfirmDialog}
+                      />
+                    ) : systemViewMode === "identity" ? (
+                      <IdentityView
+                        ref={identityRef}
+                        status={identityStatus}
+                        setStatus={setIdentityStatus}
+                        onTempLogoChange={setHasTempLogo}
+                        showToast={showToast}
+                      />
+                    ) : systemViewMode === "channels" ? (
+                      channelsViewMode === "hub" ? (
+                        <ChannelsHub
+                          onEditPrincipal={() =>
+                            setChannelsViewMode("principal")
+                          }
+                          onCreateChannel={() => {
+                            setSelectedChannelId(null);
+                            setChannelsViewMode("create");
+                          }}
+                          onEditChannel={(id) => {
+                            setSelectedChannelId(id);
+                            setChannelsViewMode("edit");
+                          }}
+                          showToast={showToast}
+                          setConfirmDialog={setConfirmDialog}
+                        />
+                      ) : channelsViewMode === "principal" ? (
+                        <PrincipalChannelView showToast={showToast} />
+                      ) : channelsViewMode === "create" ? (
+                        <ChannelForm
+                          ref={channelFormRef}
+                          onCancel={() => setChannelsViewMode("hub")}
+                          onSave={() => setChannelsViewMode("hub")}
+                          onValidationChange={setIsFormValid}
+                          showToast={showToast}
+                          setConfirmDialog={setConfirmDialog}
+                        />
+                      ) : (
+                        <ChannelEditor
+                          id={selectedChannelId!}
+                          onSave={() => setChannelsViewMode("hub")}
+                          showToast={showToast}
+                          setConfirmDialog={setConfirmDialog}
+                        />
+                      )
+                    ) : systemViewMode === "inventory" ? (
+                      <InventorySettingsView
+                        ref={inventoryRef}
+                        showToast={showToast}
+                      />
+                    ) : systemViewMode === "billing" ? (
+                      <BillingView
+                        ref={billingRef}
+                        showToast={showToast}
+                        setConfirmDialog={setConfirmDialog}
+                      />
+                    ) : systemViewMode === "storefront" ? (
+                      <StorefrontStatusView
+                        ref={storefrontStatusRef}
+                        showToast={showToast}
+                      />
+                    ) : systemViewMode === "announcements" ? (
+                      <StorefrontAnnouncementView
+                        ref={storefrontAnnouncementRef}
+                        viewMode={announcementViewMode}
+                        onSetViewMode={setAnnouncementViewMode}
                         onValidationChange={setIsFormValid}
                         showToast={showToast}
                         setConfirmDialog={setConfirmDialog}
                       />
-                    ) : (
-                      <ChannelEditor
-                        id={selectedChannelId!}
-                        onClose={() => setChannelsViewMode("hub")}
-                        onSave={() => setChannelsViewMode("hub")}
+                    ) : systemViewMode === "raffle" ? (
+                      <RaffleSettingsView
+                        ref={raffleSettingsRef}
                         showToast={showToast}
-                        setConfirmDialog={setConfirmDialog}
+                        onStatusChange={(enabled) => {
+                          localStorage.setItem(
+                            "admin_raffle_enabled",
+                            enabled ? "1" : "0",
+                          );
+                          setRaffleEnabled(enabled);
+                        }}
                       />
-                    )
-                  ) : systemViewMode === "inventory" ? (
-                    <InventorySettingsView
-                      ref={inventoryRef}
-                      showToast={showToast}
-                    />
-                  ) : systemViewMode === "billing" ? (
-                    <BillingView
-                      ref={billingRef}
-                      showToast={showToast}
-                      setConfirmDialog={setConfirmDialog}
-                    />
-                  ) : systemViewMode === "storefront" ? (
-                    <StorefrontStatusView
-                      ref={storefrontStatusRef}
-                      showToast={showToast}
-                    />
-                  ) : systemViewMode === "announcements" ? (
-                    <StorefrontAnnouncementView
-                      ref={storefrontAnnouncementRef}
-                      viewMode={announcementViewMode}
-                      onSetViewMode={setAnnouncementViewMode}
-                      onValidationChange={setIsFormValid}
-                      showToast={showToast}
-                      setConfirmDialog={setConfirmDialog}
-                    />
-                  ) : systemViewMode === "raffle" ? (
-                    <RaffleSettingsView
-                      ref={raffleSettingsRef}
-                      showToast={showToast}
-                      onStatusChange={(enabled) => {
-                        localStorage.setItem("admin_raffle_enabled", enabled ? "1" : "0");
-                        setRaffleEnabled(enabled);
-                      }}
-                    />
-                  ) : systemViewMode === "intelligence" ? (
-                    <RaffleIntelligenceView showToast={showToast} />
-                  ) : (
-                    <NexusAutonomousCard>
-                      <div
-                        className="flex flex-col items-center text-center"
-                        style={{ gap: "var(--space-sm)" }}
-                      >
-                        <NexusAutonomousIcon icon={Settings} variant="muted" />
-                      <h3 className="text-h3 text-text-main">
-                        Módulo en Desarrollo
-                      </h3>
-                      <p className="text-secondary text-text-muted">
-                        Esta sección del sistema estará disponible próximamente.
-                      </p>
-                      </div>
-                    </NexusAutonomousCard>
-                  )}
-                </div>
-              ) : (
-                <DashboardView
-                  isLoading={isLoadingDashboard}
-                  stats={dashboardStats}
-                  orders={orders}
-                  billingServices={billingServices}
-                  billingCharges={billingCharges}
-                  billingPayments={billingPayments}
-                  onNavigateToSystem={navigateToSystem}
-                  onNavigateToMedia={navigateToMedia}
-                  onTabChange={setActiveTab as any}
-                />
-              )}
+                    ) : systemViewMode === "intelligence" ? (
+                      <RaffleIntelligenceView showToast={showToast} />
+                    ) : (
+                      <NexusAutonomousCard>
+                        <div
+                          className="flex flex-col items-center text-center"
+                          style={{ gap: "var(--space-sm)" }}
+                        >
+                          <NexusAutonomousIcon
+                            icon={Settings}
+                            variant="muted"
+                          />
+                          <h3 className="text-h3 text-text-main">
+                            Módulo en Desarrollo
+                          </h3>
+                          <p className="text-secondary text-text-muted">
+                            Esta sección del sistema estará disponible
+                            próximamente.
+                          </p>
+                        </div>
+                      </NexusAutonomousCard>
+                    )}
+                  </div>
+                ) : (
+                  <DashboardView
+                    isLoading={isLoadingDashboard}
+                    stats={dashboardStats}
+                    orders={orders}
+                    billingServices={billingServices}
+                    billingCharges={billingCharges}
+                    billingPayments={billingPayments}
+                    onNavigateToSystem={navigateToSystem}
+                    onNavigateToMedia={navigateToMedia}
+                    onTabChange={setActiveTab as any}
+                  />
+                )}
+              </div>
             </div>
-          </div>
-        </main>
+          </main>
 
-        <BottomNav
-          activeTab={activeTab as any}
-          onTabChange={setActiveTab as any}
-          tabs={bottomNavTabs}
-          newOrdersCount={pendingOrderIds.size}
-        />
-        <StoreProductFiltersModal
-          isOpen={isStoreProductFiltersOpen}
-          value={storeProductAdvancedFilters}
-          onClose={() => setIsStoreProductFiltersOpen(false)}
-          onApply={(filters) => {
-            setStoreProductAdvancedFilters(filters);
-            setIsStoreProductFiltersOpen(false);
-          }}
-          onClear={() => {
-            setStoreProductAdvancedFilters(DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS);
-            setIsStoreProductFiltersOpen(false);
-          }}
-        />
-        <GalleryFiltersModal
-          isOpen={isGalleryFiltersOpen}
-          value={galleryAdvancedFilters}
-          onClose={() => setIsGalleryFiltersOpen(false)}
-          onApply={(filters) => {
-            setGalleryAdvancedFilters(filters);
-            setIsGalleryFiltersOpen(false);
-          }}
-          onClear={() => {
-            setGalleryAdvancedFilters(DEFAULT_GALLERY_ADVANCED_FILTERS);
-            setIsGalleryFiltersOpen(false);
-          }}
-        />
-        <MediaVaultFiltersModal
-          isOpen={isMediaVaultFiltersOpen}
-          value={mediaVaultFilter}
-          onClose={() => setIsMediaVaultFiltersOpen(false)}
-          onApply={(filter) => {
-            setMediaVaultFilter(filter);
-            setIsMediaVaultFiltersOpen(false);
-          }}
-          onClear={() => {
-            setMediaVaultFilter(DEFAULT_MEDIA_VAULT_FILTER);
-            setIsMediaVaultFiltersOpen(false);
-          }}
-        />
-        <OrderFiltersModal
-          isOpen={isOrderFiltersOpen}
-          value={orderAdvancedFilters}
-          onClose={() => setIsOrderFiltersOpen(false)}
-          onApply={(filters) => {
-            setOrderAdvancedFilters(filters);
-            setIsOrderFiltersOpen(false);
-          }}
-          onClear={() => {
-            setOrderAdvancedFilters(DEFAULT_ORDER_ADVANCED_FILTERS);
-            setIsOrderFiltersOpen(false);
-          }}
-        />
-        <RaffleParticipationFiltersModal
-          isOpen={isRaffleParticipationFiltersOpen}
-          value={raffleParticipationFilters}
-          onClose={() => setIsRaffleParticipationFiltersOpen(false)}
-          onApply={(filters) => {
-            setRaffleParticipationFilters(filters);
-            setIsRaffleParticipationFiltersOpen(false);
-          }}
-          onClear={() => {
-            setRaffleParticipationFilters(DEFAULT_RAFFLE_PARTICIPATION_FILTERS);
-            setIsRaffleParticipationFiltersOpen(false);
-          }}
-        />
-        <RaffleFiltersModal
-          isOpen={isRaffleFiltersOpen}
-          value={raffleAdvancedFilters}
-          onClose={() => setIsRaffleFiltersOpen(false)}
-          onApply={(filters) => {
-            setRaffleAdvancedFilters(filters);
-            setIsRaffleFiltersOpen(false);
-          }}
-          onClear={() => {
-            setRaffleAdvancedFilters(DEFAULT_RAFFLE_ADVANCED_FILTERS);
-            setIsRaffleFiltersOpen(false);
-          }}
-        />
-        <ConfirmModal {...confirmDialog} onCancel={closeConfirm} />
-        {toast && (
-          <Toast
-            message={toast.message}
-            type={toast.type}
-            actionLabel={toast.actionLabel}
-            onAction={toast.onAction}
-            onClose={() => setToast(null)}
+          {!isRaffleTicketBoardViewActive && (
+            <BottomNav
+              activeTab={activeTab as any}
+              onTabChange={setActiveTab as any}
+              tabs={bottomNavTabs}
+              newOrdersCount={pendingOrderIds.size}
+            />
+          )}
+          <StoreProductFiltersModal
+            isOpen={isStoreProductFiltersOpen}
+            value={storeProductAdvancedFilters}
+            onClose={() => setIsStoreProductFiltersOpen(false)}
+            onApply={(filters) => {
+              setStoreProductAdvancedFilters(filters);
+              setIsStoreProductFiltersOpen(false);
+            }}
+            onClear={() => {
+              setStoreProductAdvancedFilters(
+                DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS,
+              );
+              setIsStoreProductFiltersOpen(false);
+            }}
           />
-        )}
-      </div>
+          <GalleryFiltersModal
+            isOpen={isGalleryFiltersOpen}
+            value={galleryAdvancedFilters}
+            onClose={() => setIsGalleryFiltersOpen(false)}
+            onApply={(filters) => {
+              setGalleryAdvancedFilters(filters);
+              setIsGalleryFiltersOpen(false);
+            }}
+            onClear={() => {
+              setGalleryAdvancedFilters(DEFAULT_GALLERY_ADVANCED_FILTERS);
+              setIsGalleryFiltersOpen(false);
+            }}
+          />
+          <MediaVaultFiltersModal
+            isOpen={isMediaVaultFiltersOpen}
+            value={mediaVaultFilter}
+            onClose={() => setIsMediaVaultFiltersOpen(false)}
+            onApply={(filter) => {
+              setMediaVaultFilter(filter);
+              setIsMediaVaultFiltersOpen(false);
+            }}
+            onClear={() => {
+              setMediaVaultFilter(DEFAULT_MEDIA_VAULT_FILTER);
+              setIsMediaVaultFiltersOpen(false);
+            }}
+          />
+          <OrderFiltersModal
+            isOpen={isOrderFiltersOpen}
+            value={orderAdvancedFilters}
+            onClose={() => setIsOrderFiltersOpen(false)}
+            onApply={(filters) => {
+              setOrderAdvancedFilters(filters);
+              setIsOrderFiltersOpen(false);
+            }}
+            onClear={() => {
+              setOrderAdvancedFilters(DEFAULT_ORDER_ADVANCED_FILTERS);
+              setIsOrderFiltersOpen(false);
+            }}
+          />
+          <RaffleParticipationFiltersModal
+            isOpen={isRaffleParticipationFiltersOpen}
+            value={raffleParticipationFilters}
+            onClose={() => setIsRaffleParticipationFiltersOpen(false)}
+            onApply={(filters) => {
+              setRaffleParticipationFilters(filters);
+              setIsRaffleParticipationFiltersOpen(false);
+            }}
+            onClear={() => {
+              setRaffleParticipationFilters(
+                DEFAULT_RAFFLE_PARTICIPATION_FILTERS,
+              );
+              setIsRaffleParticipationFiltersOpen(false);
+            }}
+          />
+          <RaffleFiltersModal
+            isOpen={isRaffleFiltersOpen}
+            value={raffleAdvancedFilters}
+            onClose={() => setIsRaffleFiltersOpen(false)}
+            onApply={(filters) => {
+              setRaffleAdvancedFilters(filters);
+              setIsRaffleFiltersOpen(false);
+            }}
+            onClear={() => {
+              setRaffleAdvancedFilters(DEFAULT_RAFFLE_ADVANCED_FILTERS);
+              setIsRaffleFiltersOpen(false);
+            }}
+          />
+          <RaffleTicketBoardFiltersModal
+            isOpen={isRaffleTicketBoardFiltersOpen}
+            value={raffleTicketBoardFilter}
+            onClose={() => setIsRaffleTicketBoardFiltersOpen(false)}
+            onApply={(filter) => {
+              setRaffleTicketBoardFilter(filter);
+              setIsRaffleTicketBoardFiltersOpen(false);
+            }}
+            onClear={() => {
+              setRaffleTicketBoardFilter(DEFAULT_TICKET_BOARD_FILTER);
+              setIsRaffleTicketBoardFiltersOpen(false);
+            }}
+          />
+          <ConfirmModal {...confirmDialog} onCancel={closeConfirm} />
+          {toast && (
+            <Toast
+              message={toast.message}
+              type={toast.type}
+              actionLabel={toast.actionLabel}
+              onAction={toast.onAction}
+              onClose={() => setToast(null)}
+            />
+          )}
+        </div>
       </UploadQueueProvider>
     </ThemeContext.Provider>
   );

@@ -18,6 +18,7 @@ import {
   getRaffleCheckoutDraft,
   getPendingRafflePaymentAttempt,
   RaffleCheckoutDraft,
+  saveRaffleCheckoutDraft,
   savePendingRafflePaymentAttempt,
 } from '../../../../lib/raffle-checkout-draft';
 import { formatPrice } from '../../../../utils/formatters';
@@ -37,6 +38,7 @@ import { useCheckoutTransitionReady } from '../../../../hooks/useCheckoutTransit
 import { PaymentMethodCard } from '../../../../components/checkout/PaymentMethodCard';
 import { BankInfoCard } from '../../../../components/checkout/BankInfoCard';
 import { MercadoPagoCardPayment } from '../../../../components/checkout/MercadoPagoCardPayment';
+import { MarketingConsentField } from '../../../../components/checkout/MarketingConsentField';
 import { getRaffleEarlyAccessToken } from '../../../../lib/raffle-early-access';
 import {
   StorefrontCheckoutMotion,
@@ -51,6 +53,10 @@ import {
 import { useFeedbackSound } from '../../../../hooks/useFeedbackSound';
 import { StorefrontIcon } from '../../../../components/ui/Icon';
 import { isCustomerPhoneComplete } from '../../../../lib/customer-phone';
+import {
+  formatCustomerName,
+  normalizeCustomerName,
+} from '../../../../lib/customer-name';
 
 type RaffleCheckoutStep = 0 | 1;
 type CompletionState = 'reserved' | 'approved' | 'pending' | null;
@@ -73,6 +79,7 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
   const [customerState, setCustomerState] = useState('');
+  const [marketingConsent, setMarketingConsent] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<'TRANSFER' | 'MERCADOPAGO'>('TRANSFER');
   const [paymentOptions, setPaymentOptions] = useState<PublicPaymentOptions | null>(null);
   const [mpCheckoutConfig, setMpCheckoutConfig] = useState<MercadoPagoCheckoutConfig | null>(null);
@@ -120,10 +127,12 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
   useEffect(() => {
     let active = true;
     setDraft(getRaffleCheckoutDraft(raffleId));
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const recoveryToken = params.get('recovery');
     const storedPaymentAttempt = getPendingRafflePaymentAttempt(raffleId);
     if (storedPaymentAttempt) {
       setEmbeddedPaymentHoldId(storedPaymentAttempt.paymentHoldId);
-      setCustomerName(storedPaymentAttempt.customerName);
+      setCustomerName(formatCustomerName(storedPaymentAttempt.customerName));
       setCustomerPhone(storedPaymentAttempt.customerPhone);
       setCustomerState(storedPaymentAttempt.customerState || '');
       setPaymentMethod('MERCADOPAGO');
@@ -133,20 +142,74 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
       raffleApi.getById(raffleId),
       paymentApi.getOptions('RAFFLES'),
       paymentApi.getCheckoutConfig(),
-    ]).then(([raffleResult, paymentResult, configResult]) => {
+      recoveryToken
+        ? paymentApi.getPaymentRecovery(recoveryToken)
+        : Promise.resolve(null),
+    ]).then(([raffleResult, paymentResult, configResult, recoveryResult]) => {
       if (!active) return;
       setRaffle(raffleResult.status === 'fulfilled' ? raffleResult.value : null);
       setPaymentOptions(paymentResult.status === 'fulfilled' ? paymentResult.value : null);
       setMpCheckoutConfig(configResult.status === 'fulfilled'
         ? configResult.value
         : { mode: 'redirect', publicKey: null });
+      if (
+        recoveryToken &&
+        recoveryResult.status === 'fulfilled' &&
+        recoveryResult.value?.kind === 'raffle' &&
+        recoveryResult.value.raffleId === raffleId
+      ) {
+        const recovery = recoveryResult.value;
+        const recoveredDraft: RaffleCheckoutDraft = {
+          raffleId,
+          tickets: recovery.tickets,
+          coupon: recovery.coupon,
+        };
+        saveRaffleCheckoutDraft(recoveredDraft);
+        setDraft(recoveredDraft);
+        setCustomerName(formatCustomerName(recovery.customer.name));
+        setCustomerPhone(recovery.customer.phone);
+        setCustomerState(recovery.customer.state || '');
+        setEmbeddedPaymentHoldId(recovery.paymentHoldId);
+        savePendingRafflePaymentAttempt(raffleId, {
+          paymentHoldId: recovery.paymentHoldId,
+          expiresAt: recovery.expiresAt,
+          customerName: normalizeCustomerName(recovery.customer.name),
+          customerPhone: recovery.customer.phone,
+          customerState: recovery.customer.state || undefined,
+        });
+        setPaymentMethod('MERCADOPAGO');
+        setCheckoutStep(1);
+        window.history.replaceState(
+          {},
+          '',
+          `/raffles/${raffleId}/checkout`,
+        );
+        showToast('Tus boletos siguen protegidos. Puedes intentar con otra tarjeta o cambiar a deposito o transferencia.', {
+          type: 'info',
+          title: 'Pago recuperado',
+        });
+      } else if (recoveryToken && recoveryResult.status === 'rejected') {
+        window.history.replaceState(
+          {},
+          '',
+          `/raffles/${raffleId}/checkout`,
+        );
+        showToast(
+          recoveryResult.reason?.response?.data?.message ||
+            'Este enlace de recuperacion ya no esta disponible.',
+          {
+            type: 'info',
+            title: 'Recuperacion finalizada',
+          },
+        );
+      }
       setIsInitialized(true);
     });
 
     return () => {
       active = false;
     };
-  }, [raffleId]);
+  }, [raffleId, showToast]);
 
   useEffect(() => {
     if (mpCheckoutConfig?.mode !== 'embedded' || !embeddedPaymentHoldId) return;
@@ -213,12 +276,13 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
     }
     return raffleApi.reserveTickets(raffle!.id, {
       tickets: draft!.tickets,
-      customerName: customerName.trim(),
+      customerName: normalizeCustomerName(customerName),
       customerPhone: customerPhone.trim(),
       customerState: customerState.trim() || undefined,
       paymentMethod,
       couponCode: draft?.coupon?.code,
       earlyAccessToken: getRaffleEarlyAccessToken(raffle!.id) || undefined,
+      marketingConsent,
     });
   };
 
@@ -310,18 +374,19 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
       if (!paymentHoldId) {
         const hold = await raffleApi.createPaymentHold(raffle.id, {
           tickets: draft.tickets,
-          customerName: customerName.trim(),
+          customerName: normalizeCustomerName(customerName),
           customerPhone: customerPhone.trim(),
           customerState: customerState.trim() || undefined,
           couponCode: draft.coupon?.code,
           earlyAccessToken: getRaffleEarlyAccessToken(raffle.id) || undefined,
+          marketingConsent,
         });
         paymentHoldId = hold.paymentHoldId;
         setEmbeddedPaymentHoldId(paymentHoldId);
         savePendingRafflePaymentAttempt(raffleId, {
           paymentHoldId,
           expiresAt: hold.expiresAt,
-          customerName: customerName.trim(),
+          customerName: normalizeCustomerName(customerName),
           customerPhone: customerPhone.trim(),
           customerState: customerState.trim() || undefined,
         });
@@ -488,7 +553,7 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
                   required
                   icon={User}
                   value={customerName}
-                  onChange={(event) => setCustomerName(event.target.value)}
+                  onChange={(event) => setCustomerName(formatCustomerName(event.target.value))}
                   placeholder="Tu nombre"
                 />
                 <StorefrontPhoneField
@@ -509,6 +574,10 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
               <StorefrontNote icon={MessageCircle}>
                 Selecciona el código de país correcto e ingresa únicamente los dígitos de tu número de WhatsApp. Enviaremos ahí las confirmaciones y actualizaciones de tu participación.
               </StorefrontNote>
+              <MarketingConsentField
+                checked={marketingConsent}
+                onChange={setMarketingConsent}
+              />
             </StorefrontCheckoutSection>
           </div>
 

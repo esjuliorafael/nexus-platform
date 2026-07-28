@@ -57,6 +57,7 @@ export const raffleApi = {
     paymentMethod?: 'TRANSFER' | 'MERCADOPAGO';
     couponCode?: string;
     earlyAccessToken?: string;
+    marketingConsent?: boolean;
   }) => client.post<RaffleReservationResponse>(`/raffles/${id}/tickets`, data).then(res => res.data),
   createPaymentHold: (id: number, data: {
     tickets: string[];
@@ -65,6 +66,7 @@ export const raffleApi = {
     customerState?: string;
     couponCode?: string;
     earlyAccessToken?: string;
+    marketingConsent?: boolean;
   }) => client.post<RafflePaymentHoldResponse>(`/raffles/${id}/payment-holds`, {
     ...data,
     paymentMethod: 'MERCADOPAGO',

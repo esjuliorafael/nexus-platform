@@ -108,7 +108,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
 
         <StorefrontTemporarySurfaceItem
           phase="content"
-          className="flex-1 overflow-y-auto px-[var(--sf-inset-page-mobile)] pb-[var(--sf-space-md)] pt-[calc(var(--sf-inset-mobile-chrome-block)+var(--sf-h-mobile-nav)+var(--sf-space-mobile-chrome-after))] sm:p-[var(--sf-padding-inner)]"
+          className="mt-[calc(var(--sf-inset-mobile-chrome-block)+var(--sf-h-mobile-nav)+var(--sf-space-mobile-chrome-after))] min-h-0 flex-1 overflow-y-auto overscroll-contain px-[var(--sf-inset-page-mobile)] pb-[var(--sf-space-md)] sm:mt-0 sm:p-[var(--sf-padding-inner)]"
         >
           {items.length === 0 ? (
             <div className="flex h-full flex-col items-center justify-center text-center text-stone-400" style={{ gap: 'var(--sf-space-md)' }}>

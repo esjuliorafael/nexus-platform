@@ -11,6 +11,7 @@ import { OrderStatus } from "@prisma/client-store";
 import { storePaymentHoldService } from "./store-payment-hold.service";
 import { z } from "zod";
 import { customerPhoneSchema } from "../../../utils/customer-phone";
+import { customerAuditActor, requireAdminActor } from "../../../utils/admin-authorization";
 
 const convertPaymentHoldSchema = z.object({
   customerPhone: customerPhoneSchema,
@@ -78,7 +79,11 @@ export async function orderRoutes(server: FastifyInstance) {
       }
 
       const body = cancelPaymentAttemptSchema.parse(request.body);
-      return await orderService.cancelPaymentAttemptForCustomer(orderId, body.customerPhone);
+      return await orderService.cancelPaymentAttemptForCustomer(
+        orderId,
+        body.customerPhone,
+        customerAuditActor(),
+      );
     } catch (error: any) {
       if (error?.issues) {
         return reply.status(400).send({
@@ -140,13 +145,15 @@ export async function orderRoutes(server: FastifyInstance) {
 
   server.patch("/admin/:id/customer", { preHandler: [server.authenticate] }, async (request, reply) => {
     try {
+      const actor = await requireAdminActor(server, request, reply);
+      if (!actor) return;
       const { id } = request.params as { id: string };
       const orderId = parseInt(id, 10);
       if (!Number.isInteger(orderId) || orderId < 1) {
         return reply.status(400).send({ message: "Invalid order id" });
       }
       const validated = updateOrderCustomerSchema.parse(request.body);
-      return orderService.updateCustomer(orderId, validated);
+      return orderService.updateCustomer(orderId, validated, actor);
     } catch (error: any) {
       if (error?.issues) {
         return reply.status(400).send({
@@ -159,24 +166,47 @@ export async function orderRoutes(server: FastifyInstance) {
   });
 
   server.patch("/admin/:id/status", { preHandler: [server.authenticate] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    const validated = updateOrderStatusSchema.parse(request.body);
-    return orderService.updateStatus(parseInt(id), validated.status);
-  });
-
-  server.post("/admin/:id/resend-whatsapp", { preHandler: [server.authenticate] }, async (request, reply) => {
-    const { id } = request.params as { id: string };
-    return orderService.resendNotification(parseInt(id));
-  });
-
-  server.post("/admin/:id/restore", { preHandler: [server.authenticate] }, async (request, reply) => {
     try {
+      const actor = await requireAdminActor(server, request, reply);
+      if (!actor) return;
       const { id } = request.params as { id: string };
       const orderId = parseInt(id, 10);
       if (!Number.isInteger(orderId) || orderId < 1) {
         return reply.status(400).send({ message: "Invalid order id" });
       }
-      return await orderService.restoreOrder(orderId);
+      const validated = updateOrderStatusSchema.parse(request.body);
+      if (validated.status === "CANCELLED") {
+        return orderService.cancelOrder(orderId, actor);
+      }
+      return orderService.updateStatus(orderId, validated.status, actor);
+    } catch (error: any) {
+      if (error?.issues) {
+        return reply.status(400).send({
+          message: "Validation error",
+          errors: error.issues,
+        });
+      }
+      throw error;
+    }
+  });
+
+  server.post("/admin/:id/resend-whatsapp", { preHandler: [server.authenticate] }, async (request, reply) => {
+    const actor = await requireAdminActor(server, request, reply);
+    if (!actor) return;
+    const { id } = request.params as { id: string };
+    return orderService.resendNotification(parseInt(id), actor);
+  });
+
+  server.post("/admin/:id/restore", { preHandler: [server.authenticate] }, async (request, reply) => {
+    try {
+      const actor = await requireAdminActor(server, request, reply);
+      if (!actor) return;
+      const { id } = request.params as { id: string };
+      const orderId = parseInt(id, 10);
+      if (!Number.isInteger(orderId) || orderId < 1) {
+        return reply.status(400).send({ message: "Invalid order id" });
+      }
+      return await orderService.restoreOrder(orderId, actor);
     } catch (error: any) {
       if (error?.statusCode) {
         return reply.status(error.statusCode).send({ message: error.message });
@@ -187,6 +217,8 @@ export async function orderRoutes(server: FastifyInstance) {
 
   server.post("/admin/:id/refund", { preHandler: [server.authenticate] }, async (request, reply) => {
     try {
+      const actor = await requireAdminActor(server, request, reply);
+      if (!actor) return;
       const { id } = request.params as { id: string };
       const orderId = parseInt(id, 10);
       if (!Number.isInteger(orderId) || orderId < 1) {
@@ -194,7 +226,7 @@ export async function orderRoutes(server: FastifyInstance) {
       }
 
       const { mpService } = await import("../payments/mercadopago.service");
-      return await mpService.refundOrder(orderId);
+      return await mpService.refundOrder(orderId, actor);
     } catch (error: any) {
       if (error?.statusCode) {
         return reply.status(error.statusCode).send({ message: error.message });
@@ -206,8 +238,10 @@ export async function orderRoutes(server: FastifyInstance) {
   });
 
   server.delete("/admin/:id", { preHandler: [server.authenticate] }, async (request, reply) => {
+    const actor = await requireAdminActor(server, request, reply);
+    if (!actor) return;
     const { id } = request.params as { id: string };
-    await orderService.cancelOrder(parseInt(id));
+    await orderService.cancelOrder(parseInt(id), actor);
     return { success: true };
   });
 }

@@ -23,6 +23,7 @@ import { NexusAutonomousIcon } from '../../ui/NexusIcon';
 
 interface OrderCardProps {
   order: Order;
+  canManageOperations: boolean;
   onViewDetail: (order: Order) => void;
   onMarkAsPaid: (orderId: string) => void;
   onCancelOrder: (orderId: string) => void;
@@ -85,6 +86,7 @@ const formatDate = (dateStr: string) => {
 
 export const OrderCard: React.FC<OrderCardProps> = ({
   order,
+  canManageOperations,
   onViewDetail,
   onMarkAsPaid,
   onCancelOrder,
@@ -197,7 +199,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
 
   return (
     <NexusAutonomousCard
-      swipeable={!isPaymentHold && order.status === 'pending'}
+      swipeable={canManageOperations && !isPaymentHold && order.status === 'pending'}
       isMuted={order.status === 'cancelled' || order.status === 'not_completed'}
       className={`group ${statusConfig.cardOpacity} animate-in fade-in duration-500`}
       style={style}
@@ -389,7 +391,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
             )}
 
             <div className="ml-auto hidden items-center sm:ml-0 sm:flex" style={{ gap: 'var(--space-sm)' }}>
-              {!isPaymentHold && order.status === 'pending' && (
+              {canManageOperations && !isPaymentHold && order.status === 'pending' && (
                 <NexusAutonomousButton
                   density="compact"
                   onClick={(e) => {
@@ -402,7 +404,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                   title="Marcar pagada"
                 />
               )}
-              {!isPaymentHold && (order.status === 'pending' || order.status === 'paid') && (
+              {canManageOperations && !isPaymentHold && (order.status === 'pending' || order.status === 'paid') && (
                 <NexusAutonomousButton
                   density="compact"
                   onClick={(e) => {

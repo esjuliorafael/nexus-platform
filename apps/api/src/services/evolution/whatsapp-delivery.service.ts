@@ -24,9 +24,14 @@ export type WhatsappDeliveryRoute = {
   route: "DIRECT" | "PRINCIPAL_FALLBACK";
   preferredInstanceName?: string;
   fallbackReason?: string;
+  policyClass?: "CRITICAL" | "OPERATIONAL" | "CAMPAIGN";
+  providerPriority?: readonly ("EVOLUTION" | "KAPSO")[];
+  fallbackFromProvider?: "EVOLUTION" | "KAPSO";
 };
 
-export function normalizePrincipalInstanceName(instanceName: string | null | undefined) {
+export function normalizePrincipalInstanceName(
+  instanceName: string | null | undefined,
+) {
   const normalized = String(instanceName || "").trim();
   if (!normalized) return "";
   return normalized.endsWith("_main") ? normalized : `${normalized}_main`;
@@ -34,7 +39,9 @@ export function normalizePrincipalInstanceName(instanceName: string | null | und
 
 export function isRecoverableWhatsappConnectionError(error: unknown) {
   const message = String((error as any)?.message || error || "").toLowerCase();
-  return RECOVERABLE_CONNECTION_MARKERS.some((marker) => message.includes(marker));
+  return RECOVERABLE_CONNECTION_MARKERS.some((marker) =>
+    message.includes(marker),
+  );
 }
 
 function instanceKey(instance: EvolutionInstance) {
@@ -69,7 +76,10 @@ export function invalidateWhatsappConnectionState(instanceName: string) {
 }
 
 export function markWhatsappInstanceProviderRejected(instanceName: string) {
-  providerRejectedUntil.set(instanceName, Date.now() + PROVIDER_REJECTION_COOLDOWN_MS);
+  providerRejectedUntil.set(
+    instanceName,
+    Date.now() + PROVIDER_REJECTION_COOLDOWN_MS,
+  );
 }
 
 function isWhatsappInstanceProviderRejected(instanceName: string) {
@@ -89,24 +99,34 @@ function withRouting(
   return sendAndLog({ ...params, instance, routing });
 }
 
-export async function sendWhatsappWithFailover(params: SendAndLogParams & {
-  principalFallback?: EvolutionInstance | null;
-}) {
-  const { principalFallback, ...messageParams } = params;
+export async function sendWhatsappWithFailover(
+  params: SendAndLogParams & {
+    principalFallback?: EvolutionInstance | null;
+    directRouting?: WhatsappDeliveryRoute;
+  },
+) {
+  const { principalFallback, directRouting, ...messageParams } = params;
   const preferred = params.instance;
-  const principal = principalFallback && !sameInstance(preferred, principalFallback)
-    ? principalFallback
-    : null;
+  const principal =
+    principalFallback && !sameInstance(preferred, principalFallback)
+      ? principalFallback
+      : null;
 
   if (!principal) {
-    return withRouting(messageParams, preferred, { route: "DIRECT" });
+    return withRouting(
+      messageParams,
+      preferred,
+      directRouting || { route: "DIRECT" },
+    );
   }
 
   if (isWhatsappInstanceProviderRejected(preferred.instanceName)) {
     return withRouting(messageParams, principal, {
+      ...directRouting,
       route: "PRINCIPAL_FALLBACK",
       preferredInstanceName: preferred.instanceName,
-      fallbackReason: "WhatsApp rechazó recientemente los envíos de la instancia especializada.",
+      fallbackReason:
+        "WhatsApp rechazó recientemente los envíos de la instancia especializada.",
     });
   }
 
@@ -114,6 +134,7 @@ export async function sendWhatsappWithFailover(params: SendAndLogParams & {
     const state = await getConnectionState(preferred);
     if (state !== "open") {
       return withRouting(messageParams, principal, {
+        ...directRouting,
         route: "PRINCIPAL_FALLBACK",
         preferredInstanceName: preferred.instanceName,
         fallbackReason: `La instancia especializada reportó estado ${state}.`,
@@ -123,6 +144,7 @@ export async function sendWhatsappWithFailover(params: SendAndLogParams & {
     if (isRecoverableWhatsappConnectionError(error)) {
       invalidateConnectionState(preferred);
       return withRouting(messageParams, principal, {
+        ...directRouting,
         route: "PRINCIPAL_FALLBACK",
         preferredInstanceName: preferred.instanceName,
         fallbackReason: String((error as any)?.message || error),
@@ -138,6 +160,7 @@ export async function sendWhatsappWithFailover(params: SendAndLogParams & {
 
     invalidateConnectionState(preferred);
     return withRouting(messageParams, principal, {
+      ...directRouting,
       route: "PRINCIPAL_FALLBACK",
       preferredInstanceName: preferred.instanceName,
       fallbackReason: String((error as any)?.message || error),

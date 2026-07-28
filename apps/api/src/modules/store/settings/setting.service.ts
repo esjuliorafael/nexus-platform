@@ -1,4 +1,7 @@
 import { storePrisma } from "@nexus/db/store";
+import { getPaymentRecoveryOperationalStatus } from "../../../services/payment-recovery-policy.service";
+import { isKapsoDeliveryEnabled } from "../../../services/kapso/kapso.config";
+import { isKapsoTenantDeliveryEnabled } from "../../../services/whatsapp/whatsapp-delivery-policy";
 
 function getSettingGroup(setting: { key: string; group?: string }) {
   if (setting.key.startsWith("storage_r2_")) return "storage";
@@ -8,7 +11,7 @@ function getSettingGroup(setting: { key: string; group?: string }) {
 export const settingService = {
   async getAllGrouped() {
     const storeSettings = await storePrisma.setting.findMany();
-    
+
     let raffleSettings: any[] = [];
     if (process.env.RAFFLE_ENABLED === "true") {
       try {
@@ -22,16 +25,37 @@ export const settingService = {
     // Combine settings giving priority to store settings for core flags like raffle_enabled
     const combinedSettings = [...raffleSettings, ...storeSettings];
 
-    return combinedSettings.reduce((acc: any, setting) => {
+    const grouped = combinedSettings.reduce((acc: any, setting) => {
       if (!acc[setting.group]) acc[setting.group] = {};
       acc[setting.group][setting.key] = setting.value;
       return acc;
     }, {});
+    const recovery = await getPaymentRecoveryOperationalStatus({
+      inspectWhenServerDisabled: true,
+    });
+    if (!grouped.general) grouped.general = {};
+    grouped.general.payment_recovery_server_enabled = recovery.serverEnabled
+      ? "1"
+      : "0";
+    grouped.general.payment_recovery_templates_ready = recovery.templatesReady
+      ? "1"
+      : "0";
+    grouped.general.payment_recovery_effective = recovery.effective ? "1" : "0";
+    const kapsoTenantEnabled = isKapsoTenantDeliveryEnabled(
+      grouped.general.whatsapp_kapso_delivery_enabled,
+    );
+    grouped.general.whatsapp_kapso_server_enabled = isKapsoDeliveryEnabled()
+      ? "1"
+      : "0";
+    grouped.general.whatsapp_kapso_delivery_effective =
+      isKapsoDeliveryEnabled() && kapsoTenantEnabled ? "1" : "0";
+    return grouped;
   },
 
   async getPublicGrouped() {
     const grouped = await this.getAllGrouped();
-    const sensitiveKey = /(secret|token|api_key|access_key|private_key|client_id|evolution_key|password)/i;
+    const sensitiveKey =
+      /(secret|token|api_key|access_key|private_key|client_id|evolution_key|password|kapso_customer)/i;
 
     return Object.fromEntries(
       Object.entries(grouped).map(([group, values]) => [
@@ -49,7 +73,10 @@ export const settingService = {
     return storePrisma.setting.findUnique({ where: { key } });
   },
 
-  async upsert(key: string, data: { value: string; description?: string; group?: string }) {
+  async upsert(
+    key: string,
+    data: { value: string; description?: string; group?: string },
+  ) {
     return storePrisma.setting.upsert({
       where: { key },
       update: data,
@@ -60,50 +87,66 @@ export const settingService = {
   async bulkUpsert(settings: { key: string; value: string; group?: string }[]) {
     const { rafflePrisma } = await import("@nexus/db/raffle");
 
-    const storeSettings = settings.filter(s => !s.key.startsWith('raffle_'));
-    const raffleSettings = settings.filter(s => s.key.startsWith('raffle_'));
+    const storeSettings = settings.filter((s) => !s.key.startsWith("raffle_"));
+    const raffleSettings = settings.filter((s) => s.key.startsWith("raffle_"));
 
     const promises: any[] = [];
 
     // Save Store settings
-    storeSettings.forEach(s => {
+    storeSettings.forEach((s) => {
       const group = getSettingGroup(s);
-      promises.push(storePrisma.setting.upsert({
-        where: { key: s.key },
-        update: { 
-          value: s.value, 
-          group,
-          updated_at: new Date() 
-        },
-        create: { 
-          key: s.key, 
-          value: s.value, 
-          group,
-          updated_at: new Date() 
-        },
-      }));
+      promises.push(
+        storePrisma.setting.upsert({
+          where: { key: s.key },
+          update: {
+            value: s.value,
+            group,
+            updated_at: new Date(),
+          },
+          create: {
+            key: s.key,
+            value: s.value,
+            group,
+            updated_at: new Date(),
+          },
+        }),
+      );
     });
 
     // Provisioning logic for WhatsApp Instances if prefix changed
-    const rawPrefix = settings.find(s => s.key === 'whatsapp_evolution_instance')?.value;
+    const rawPrefix = settings.find(
+      (s) => s.key === "whatsapp_evolution_instance",
+    )?.value;
     if (rawPrefix) {
       // Clean prefix of any existing suffixes to avoid redundancy (manzana_main -> manzana)
-      const cleanPrefix = rawPrefix.split('_')[0];
+      const cleanPrefix = rawPrefix.split("_")[0];
       // Trigger background provisioning to not block the main response
-      this.provisionEvolutionInstances(cleanPrefix).catch(e => console.error("[WhatsApp] Auto-provisioning failed", e));
+      this.provisionEvolutionInstances(cleanPrefix).catch((e) =>
+        console.error("[WhatsApp] Auto-provisioning failed", e),
+      );
     }
 
     // Save Raffle settings if module is enabled or it's the master toggle
     if (raffleSettings.length > 0) {
-      raffleSettings.forEach(s => {
+      raffleSettings.forEach((s) => {
         // raffle_enabled is the master toggle and should always be saved in storePrisma
         // to allow the UI to react even if the plugin isn't loaded yet.
-        if (s.key === 'raffle_enabled' || process.env.RAFFLE_ENABLED === "true") {
-          promises.push(storePrisma.setting.upsert({
-            where: { key: s.key },
-            update: { value: s.value, updated_at: new Date() },
-            create: { key: s.key, value: s.value, group: s.group || "general", updated_at: new Date() },
-          }));
+        if (
+          s.key === "raffle_enabled" ||
+          process.env.RAFFLE_ENABLED === "true"
+        ) {
+          promises.push(
+            storePrisma.setting.upsert({
+              where: { key: s.key },
+              update: { value: s.value, updated_at: new Date() },
+              create: {
+                key: s.key,
+                value: s.value,
+                group: s.group || "general",
+                updated_at: new Date(),
+              },
+            }),
+          );
         }
       });
     }
@@ -113,16 +156,21 @@ export const settingService = {
 
   async provisionEvolutionInstances(prefix: string) {
     const settings = await this.getAllGrouped();
-    const baseUrl = settings.general?.whatsapp_evolution_url || process.env.EVOLUTION_API_URL;
-    const apiKey = settings.general?.whatsapp_evolution_key || process.env.EVOLUTION_API_KEY;
+    const baseUrl =
+      settings.general?.whatsapp_evolution_url || process.env.EVOLUTION_API_URL;
+    const apiKey =
+      settings.general?.whatsapp_evolution_key || process.env.EVOLUTION_API_KEY;
 
     if (!baseUrl || !apiKey) {
-      console.warn("[WhatsApp] Provisioning skipped: URL or Key missing in settings.");
+      console.warn(
+        "[WhatsApp] Provisioning skipped: URL or Key missing in settings.",
+      );
       return;
     }
 
-    const purposes = ['main', 'combat', 'breeding', 'raffles'];
-    const { evolutionClient } = await import("../../../services/evolution/evolution.client");
+    const purposes = ["main", "combat", "breeding", "raffles"];
+    const { evolutionClient } =
+      await import("../../../services/evolution/evolution.client");
 
     for (const purpose of purposes) {
       const instanceName = `${prefix}_${purpose}`;
@@ -135,8 +183,11 @@ export const settingService = {
         });
       } catch (e: any) {
         // Evolution returns error if already exists, we can ignore that safely
-        if (!e.message?.includes('already exists')) {
-           console.error(`[WhatsApp] Failed to provision ${instanceName}:`, e.message);
+        if (!e.message?.includes("already exists")) {
+          console.error(
+            `[WhatsApp] Failed to provision ${instanceName}:`,
+            e.message,
+          );
         }
       }
     }

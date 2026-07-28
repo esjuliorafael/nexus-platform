@@ -71,7 +71,11 @@ export function RaffleSelectionDrawer({ isOpen, raffleId, selectedTickets, ticke
       <div className="shrink-0">
         <DrawerHeader count={selectedTickets.length} onClose={handleClose} />
       </div>
-      <StorefrontTemporarySurfaceItem phase="content" className="flex-1 overflow-y-auto px-[var(--sf-inset-page-mobile)] pt-[calc(var(--sf-inset-mobile-chrome-block)+var(--sf-h-mobile-nav)+var(--sf-space-mobile-chrome-after))] sm:p-[var(--sf-padding-inner)]" style={{ paddingBottom: 'var(--sf-space-xl)' }}>
+      <StorefrontTemporarySurfaceItem
+        phase="content"
+        className="mt-[calc(var(--sf-inset-mobile-chrome-block)+var(--sf-h-mobile-nav)+var(--sf-space-mobile-chrome-after))] min-h-0 flex-1 overflow-y-auto overscroll-contain px-[var(--sf-inset-page-mobile)] sm:mt-0 sm:p-[var(--sf-padding-inner)]"
+        style={{ paddingBottom: 'var(--sf-space-xl)' }}
+      >
         {selectedTickets.length ? (
           <RaffleTicketSelectionExplorer
             selectedTickets={selectedTickets}

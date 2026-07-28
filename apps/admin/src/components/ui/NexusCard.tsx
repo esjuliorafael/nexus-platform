@@ -17,10 +17,11 @@ interface NexusCardBaseProps {
   innerClassName?: string;
   delay?: string;
   style?: React.CSSProperties;
+  onClick?: () => void;
 }
 
 const NexusCardBase: React.FC<NexusCardBaseProps> = ({
-  children, level, density = 'default', swipeable, onEdit, onDelete, customSwipeLeft, customSwipeRight, isMuted, className = '', innerClassName = '', delay = '0ms', style
+  children, level, density = 'default', swipeable, onEdit, onDelete, customSwipeLeft, customSwipeRight, isMuted, className = '', innerClassName = '', delay = '0ms', style, onClick
 }) => {
   const [translateX, setTranslateX] = React.useState(0);
   const [isSwiping, setIsSwiping] = React.useState(false);
@@ -31,6 +32,7 @@ const NexusCardBase: React.FC<NexusCardBaseProps> = ({
   const gestureAxis = React.useRef<'pending' | 'horizontal' | 'vertical'>('pending');
   const swipeLeftActionRef = React.useRef<HTMLDivElement>(null);
   const swipeRightActionRef = React.useRef<HTMLDivElement>(null);
+  const suppressClickRef = React.useRef(false);
 
   const getSwipeActionWidth = (side: 'left' | 'right') =>
     (side === 'left' ? swipeLeftActionRef : swipeRightActionRef).current?.getBoundingClientRect().width || 120;
@@ -42,6 +44,7 @@ const NexusCardBase: React.FC<NexusCardBaseProps> = ({
 
   const handleTouchStart = (e: React.TouchEvent) => {
     if (!swipeable) return;
+    suppressClickRef.current = false;
     touchStartX.current = e.touches[0].clientX;
     touchStartY.current = e.touches[0].clientY;
     dragStartTranslate.current = translateX;
@@ -98,6 +101,7 @@ const NexusCardBase: React.FC<NexusCardBaseProps> = ({
     }
 
     setIsSwiping(false);
+    suppressClickRef.current = true;
     const finalTranslate = dragTranslate.current;
 
     if (finalTranslate > getSwipeActionWidth('left') * 0.55) {
@@ -211,13 +215,27 @@ const NexusCardBase: React.FC<NexusCardBaseProps> = ({
           onTouchMove={handleTouchMove}
           onTouchEnd={handleTouchEnd}
           onTouchCancel={handleTouchCancel}
+          onClick={() => {
+            if (suppressClickRef.current) {
+              suppressClickRef.current = false;
+              return;
+            }
+            onClick?.();
+          }}
+          onKeyDown={(event) => {
+            if (!onClick || (event.key !== 'Enter' && event.key !== ' ')) return;
+            event.preventDefault();
+            onClick();
+          }}
+          role={onClick ? 'button' : undefined}
+          tabIndex={onClick ? 0 : undefined}
           style={{
             transform: swipeable ? `translateX(${translateX}px)` : 'none',
             transition: isSwiping ? 'none' : 'transform 0.4s var(--ease-emil)',
             borderRadius: radiusToken,
             padding: paddingToken
           }}
-          className={`relative z-10 bg-bg-card border border-border-main transition-all duration-700 overflow-hidden flex-1 flex flex-col ${elevationClass} ${innerClassName}`}
+          className={`relative z-10 bg-bg-card border border-border-main transition-all duration-700 overflow-hidden flex-1 flex flex-col ${elevationClass} ${onClick ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2' : ''} ${innerClassName}`}
         >
           <div className="absolute inset-0 pointer-events-none opacity-[0.015]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)', backgroundSize: '20px 20px' }} />
           <div className={`relative z-10 flex-1 flex flex-col transition-opacity duration-500 ${isMuted ? 'opacity-60 grayscale-[0.5]' : 'opacity-100'}`}>
@@ -418,4 +436,5 @@ export const NexusAutonomousCard: React.FC<{
   customSwipeLeft?: React.ReactNode;
   customSwipeRight?: React.ReactNode;
   isMuted?: boolean;
+  onClick?: () => void;
 }> = (props) => <NexusCardBase {...props} level={1} />;

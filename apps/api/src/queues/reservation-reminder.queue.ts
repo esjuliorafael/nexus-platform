@@ -92,6 +92,17 @@ export const reservationReminderWorker = new Worker<ReservationReminderJobData>(
 
     if (sales.length === 0) return;
 
+    const participationId = sales[0].reservationId || `sale-${sales[0].id}`;
+    const newerRestoration = await rafflePrisma.raffleParticipationEvent.findFirst({
+      where: {
+        participationId,
+        eventType: "RESTORED",
+        createdAt: { gt: new Date(job.timestamp) },
+      },
+      select: { id: true },
+    });
+    if (newerRestoration) return;
+
     await whatsappQueue.add("reservation-reminder", {
       kind: "reservation-reminder",
       ticketSaleIds: sales.map((sale) => sale.id),

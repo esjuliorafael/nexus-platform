@@ -1,6 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
 import {
-  ArrowLeft,
   Banknote,
   BellRing,
   Building2,
@@ -21,20 +20,31 @@ import {
   Smartphone,
   Ticket,
   User,
-  Variable,
 } from "lucide-react";
-import { apiMercadoPago, apiPayments, apiSystem, apiWhatsApp } from "../../../api";
-import { SalesChannel, WhatsAppChannel } from "../../../types";
+import {
+  apiMercadoPago,
+  apiPayments,
+  apiSystem,
+  apiWhatsApp,
+} from "../../../api";
+import {
+  SalesChannel,
+  WhatsAppChannel,
+  WhatsAppDeliveryStrategy,
+  WhatsAppProvider,
+} from "../../../types";
 import {
   NexusSectionButton,
   NexusCardButton,
   NexusAutonomousButton,
 } from "../../ui/NexusButton";
-import { NexusInput, NexusSelect, NexusTextarea } from "../../ui/NexusInputs";
+import { NexusInput, NexusSelect } from "../../ui/NexusInputs";
 import { NexusSection } from "../../ui/NexusSection";
 import { NexusSectionCard } from "../../ui/NexusCard";
-import { NexusModal } from "../../ui/NexusModal";
+import { NexusModal, NexusModalActions } from "../../ui/NexusModal";
 import { NexusSwitch } from "../../ui/NexusSwitch";
+import { NexusConfirmModal } from "../../ui/NexusConfirmModal";
+import { NexusSegmentedControl } from "../../ui/NexusSegmentedControl";
 import {
   WhatsAppPairingData,
   WhatsAppPairingMethod,
@@ -42,10 +52,11 @@ import {
   WHATSAPP_PAIRING_WINDOW_SECONDS,
 } from "./WhatsAppPairingModal";
 import { resolveChannelInstanceName } from "./channelInstance";
+import { CHANNEL_TEMPLATE_SECTIONS } from "./channelTemplateCatalog";
+import { runKapsoOnboarding } from "./kapsoOnboarding";
 
 interface ChannelEditorProps {
   id: string;
-  onClose: () => void;
   onSave: () => void;
   showToast: (message: string, type?: "success" | "error") => void;
   setConfirmDialog: (dialog: any) => void;
@@ -59,186 +70,17 @@ const PURPOSE_LABELS: Record<string, string> = {
   RAFFLES: "Canal de Rifas",
 };
 
-const TEMPLATE_GROUPS = [
-  {
-    key: "store",
-    label: "Tienda",
-    description: "Mensajes para apartados, pagos y liberaciones de ordenes.",
-    templates: [
-      {
-        type: "RESERVATION",
-        label: "Apartado de orden",
-        globalKey: "whatsapp_global_store_res",
-        variables: [
-          "{{greeting}}",
-          "{{customer_name}}",
-          "{{order_id}}",
-          "{{item_list}}",
-          "{{amount}}",
-          "{{bank_info}}",
-          "{{time_store}}",
-        ],
-        sample:
-          "{{greeting}}, {{customer_name}}. Tu orden #{{order_id}} fue apartada correctamente.\n\nProductos: {{item_list}}\nTotal: ${{amount}}\n\n{{bank_info}}\n\nTienes {{time_store}} para realizar tu pago.",
-      },
-      {
-        type: "PAYMENT_CONFIRMED",
-        label: "Pago confirmado",
-        globalKey: "whatsapp_global_store_pay",
-        variables: [
-          "{{customer_name}}",
-          "{{order_id}}",
-          "{{item_list}}",
-          "{{amount}}",
-        ],
-        sample:
-          "Hola {{customer_name}}, hemos confirmado el pago de tu orden #{{order_id}} por ${{amount}}. Tu pedido ya esta en proceso.",
-      },
-      {
-        type: "RESTORED",
-        label: "Apartado restaurado",
-        globalKey: "whatsapp_global_store_restored",
-        variables: [
-          "{{greeting}}",
-          "{{customer_name}}",
-          "{{order_id}}",
-          "{{item_list}}",
-          "{{amount}}",
-          "{{bank_info}}",
-          "{{time_store}}",
-        ],
-        sample:
-          "{{greeting}}, {{customer_name}}. Tu apartado de la orden #{{order_id}} fue restaurado correctamente.\n\nProductos: {{item_list}}\nTotal: ${{amount}}\n\n{{bank_info}}\n\nTienes {{time_store}} para completar tu pago.",
-      },
-      {
-        type: "REMINDER",
-        label: "Recordatorio de pago",
-        globalKey: "whatsapp_global_store_reminder",
-        variables: [
-          "{{greeting}}",
-          "{{customer_name}}",
-          "{{order_id}}",
-          "{{item_list}}",
-          "{{amount}}",
-          "{{bank_info}}",
-          "{{time_remaining}}",
-        ],
-        sample:
-          "{{greeting}}, {{customer_name}}. Te recordamos que tu orden #{{order_id}} sigue pendiente de pago.\n\nProductos: {{item_list}}\nTotal: ${{amount}}\n\n{{bank_info}}\n\nTu apartado vence en {{time_remaining}}.",
-      },
-      {
-        type: "RELEASE",
-        label: "Liberación de orden",
-        globalKey: "whatsapp_global_store_rel",
-        variables: ["{{customer_name}}", "{{order_id}}", "{{item_list}}"],
-        sample:
-          "¡Hola, {{customer_name}}! La orden #{{order_id}} fue liberada porque concluyó el tiempo disponible para confirmar el pago.\n\nProductos:\n{{item_list}}",
-      },
-    ],
-  },
-  {
-    key: "raffle",
-    label: "Rifas",
-    description: "Mensajes para boletos apartados, pagados o liberados.",
-    templates: [
-      {
-        type: "OPENING",
-        label: "Aviso de apertura",
-        globalKey: "whatsapp_global_raffle_opening",
-        variables: [
-          "{{raffle_name}}",
-          "{{opening_date}}",
-          "{{raffle_url}}",
-        ],
-        sample:
-          "¡Ya comenzó! 🎟️\n\nLa rifa “{{raffle_name}}” abrió su participación el {{opening_date}}.\n\nSelecciona tus boletos aquí:\n{{raffle_url}}\n\n¡Mucha suerte! 🍀",
-      },
-      {
-        type: "RESERVATION",
-        label: "Apartado de boletos",
-        globalKey: "whatsapp_global_raffle_res",
-        variables: [
-          "{{customer_name}}",
-          "{{ticket_list}}",
-          "{{raffle_name}}",
-          "{{amount}}",
-          "{{bank_info}}",
-          "{{time_raffle}}",
-        ],
-        sample:
-          'Hola {{customer_name}}, tus boletos para la rifa "{{raffle_name}}" fueron apartados.\n\nBoletos participantes:\n{{ticket_list}}\n\nTotal: ${{amount}}\n\n{{bank_info}}\n\nTienes {{time_raffle}} para realizar tu pago.',
-      },
-      {
-        type: "PAYMENT_CONFIRMED",
-        label: "Pago confirmado",
-        globalKey: "whatsapp_global_raffle_pay",
-        variables: [
-          "{{customer_name}}",
-          "{{ticket_list}}",
-          "{{raffle_name}}",
-          "{{amount}}",
-        ],
-        sample:
-          'Hola {{customer_name}}, recibimos tu pago para la rifa "{{raffle_name}}".\n\nBoletos participantes:\n{{ticket_list}}\n\nYa estás participando. Mucha suerte.',
-      },
-      {
-        type: "REMINDER",
-        label: "Recordatorio de pago",
-        globalKey: "whatsapp_global_raffle_reminder",
-        variables: [
-          "{{customer_name}}",
-          "{{ticket_list}}",
-          "{{raffle_name}}",
-          "{{amount}}",
-          "{{bank_info}}",
-          "{{time_remaining}}",
-        ],
-        sample:
-          'Hola {{customer_name}}, te recordamos que tus boletos para la rifa "{{raffle_name}}" siguen pendientes de pago.\n\nBoletos participantes:\n{{ticket_list}}\n\nTotal: ${{amount}}\n\n{{bank_info}}\n\nTus boletos se liberarán en {{time_remaining}}.',
-      },
-      {
-        type: "RELEASE",
-        label: "Liberación de boletos",
-        globalKey: "whatsapp_global_raffle_rel",
-        variables: [
-          "{{customer_name}}",
-          "{{ticket_list}}",
-          "{{raffle_name}}",
-        ],
-        sample:
-          'Hola {{customer_name}}, tus boletos para la rifa "{{raffle_name}}" fueron liberados porque concluyó el tiempo disponible para confirmar el pago.\n\nBoletos participantes:\n{{ticket_list}}',
-      },
-    ],
-  },
-];
-
-const StatusPill: React.FC<{ ready: boolean; label: string }> = ({
-  ready,
-  label,
-}) => (
-  <span
-    className={`inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-[9px] font-black uppercase tracking-widest ${
-      ready
-        ? "bg-emerald-50 text-emerald-700 border-emerald-100"
-        : "bg-bg-muted text-text-muted border-border-main"
-    }`}
-  >
-    <span
-      className={`w-1.5 h-1.5 rounded-full ${ready ? "bg-emerald-500" : "bg-text-muted/30"}`}
-    />
-    {label}
-  </span>
-);
-
 export const ChannelEditor: React.FC<ChannelEditorProps> = ({
   id,
-  onClose,
   onSave,
   showToast,
   setConfirmDialog,
 }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
+  const [isSyncingCloudTemplates, setIsSyncingCloudTemplates] = useState(false);
+  const [isConnectingKapso, setIsConnectingKapso] = useState(false);
+  const [cloudTemplatesReady, setCloudTemplatesReady] = useState(false);
   const [modal, setModal] = useState<ModalType>(null);
   const [globalConfig, setGlobalConfig] = useState<Record<string, string>>({});
   const [paymentObj, setPaymentObj] = useState<SalesChannel | null>(null);
@@ -254,23 +96,23 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
   const [whatsappData, setWhatsappData] = useState({
     phone: "",
     active: true,
-    templates: [] as any[],
+    provider: "EVOLUTION" as WhatsAppProvider,
+    deliveryStrategy: "STANDARD" as WhatsAppDeliveryStrategy,
+    kapsoPhoneNumberId: "",
+    kapsoBusinessAccountId: "",
   });
   const [instanceStatus, setInstanceStatus] = useState<
     "open" | "close" | "connecting" | "loading"
   >("loading");
-  const [pairingData, setPairingData] = useState<WhatsAppPairingData | null>(null);
-  const [connectingMethod, setConnectingMethod] = useState<WhatsAppPairingMethod | null>(null);
+  const [pairingData, setPairingData] = useState<WhatsAppPairingData | null>(
+    null,
+  );
+  const [connectingMethod, setConnectingMethod] =
+    useState<WhatsAppPairingMethod | null>(null);
   const [instanceExists, setInstanceExists] = useState(false);
-  const [templateDraft, setTemplateDraft] = useState<{
-    type: string;
-    label: string;
-    content: string;
-    variables: string[];
-    sample: string;
-    source: string;
-  } | null>(null);
-
+  const [showMissingPhoneAlert, setShowMissingPhoneAlert] = useState(false);
+  const [confirmDisconnectKapso, setConfirmDisconnectKapso] = useState(false);
+  const [isDisconnectingKapso, setIsDisconnectingKapso] = useState(false);
   const RAFFLE_ENABLED = import.meta.env.VITE_RAFFLE_ENABLED === "true";
 
   const instanceName = useMemo(
@@ -304,6 +146,46 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       setInstanceExists(false);
       setInstanceStatus("close");
       return "close";
+    }
+  };
+
+  const checkKapsoStatus = async (phoneNumberId: string) => {
+    if (!phoneNumberId.trim()) {
+      setInstanceExists(false);
+      setInstanceStatus("close");
+      return "close";
+    }
+    setInstanceStatus("loading");
+    try {
+      const response = await apiWhatsApp.getKapsoStatus(
+        phoneNumberId,
+        whatsappData.kapsoBusinessAccountId,
+      );
+      const status = String(
+        response.data?.phoneNumber?.status ||
+          response.data?.phoneNumber?.connection_status ||
+          "",
+      ).toUpperCase();
+      const connected = status === "CONNECTED";
+      setInstanceExists(connected);
+      setInstanceStatus(connected ? "open" : "close");
+      return connected ? "open" : "close";
+    } catch {
+      setInstanceExists(false);
+      setInstanceStatus("close");
+      return "close";
+    }
+  };
+
+  const checkCloudTemplateReadiness = async (channelId: string) => {
+    try {
+      const response = await apiWhatsApp.getKapsoTemplateReadiness(channelId);
+      const ready = Boolean(response.data?.ready);
+      setCloudTemplatesReady(ready);
+      return ready;
+    } catch {
+      setCloudTemplatesReady(false);
+      return false;
     }
   };
 
@@ -341,16 +223,24 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       setWhatsappData({
         phone: wa?.phone || "",
         active: wa?.active ?? true,
-        templates: wa?.templates || [],
+        provider: wa?.provider || "EVOLUTION",
+        deliveryStrategy: wa?.deliveryStrategy || "STANDARD",
+        kapsoPhoneNumberId: wa?.kapsoPhoneNumberId || "",
+        kapsoBusinessAccountId: wa?.kapsoBusinessAccountId || "",
       });
 
-      await checkInstanceStatus(
-        wa?.instanceName ||
-          resolveChannelInstanceName(
-            settings.whatsapp_evolution_instance,
-            purpose,
-          ),
-      );
+      if ((wa?.provider || "EVOLUTION") === "KAPSO") {
+        await checkKapsoStatus(wa?.kapsoPhoneNumberId || "");
+        if (wa?.id) await checkCloudTemplateReadiness(String(wa.id));
+      } else {
+        await checkInstanceStatus(
+          wa?.instanceName ||
+            resolveChannelInstanceName(
+              settings.whatsapp_evolution_instance,
+              purpose,
+            ),
+        );
+      }
     } catch (error) {
       showToast("Error al cargar datos del canal", "error");
     } finally {
@@ -368,9 +258,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
     if (pairingData?.instanceName) {
       timer = setInterval(() => {
         setPairingData((prev) =>
-          prev
-            ? { ...prev, timeLeft: Math.max(0, prev.timeLeft - 1) }
-            : null,
+          prev ? { ...prev, timeLeft: Math.max(0, prev.timeLeft - 1) } : null,
         );
       }, 1000);
       poll = setInterval(async () => {
@@ -390,23 +278,28 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
   const paymentReady = Boolean(paymentData.bank && paymentData.beneficiary);
   const mpReady = Boolean((paymentObj as any)?.mpAccessToken);
   const whatsappReady = Boolean(
-    whatsappData.phone && whatsappData.active && instanceStatus === "open",
+    whatsappData.phone &&
+    whatsappData.active &&
+    instanceStatus === "open" &&
+    (whatsappData.provider !== "KAPSO" || cloudTemplatesReady),
   );
-  const visibleTemplateGroups = useMemo(() => {
+  const visibleTemplateSections = useMemo(() => {
     const purpose = generalData.purpose.toUpperCase();
     if (purpose === "RAFFLES")
-      return TEMPLATE_GROUPS.filter((group) => group.key === "raffle");
+      return CHANNEL_TEMPLATE_SECTIONS.filter(
+        (section) => section.scope === "RAFFLES",
+      );
     if (purpose === "COMBAT" || purpose === "BREEDING")
-      return TEMPLATE_GROUPS.filter((group) => group.key === "store");
-    return TEMPLATE_GROUPS;
+      return CHANNEL_TEMPLATE_SECTIONS.filter(
+        (section) => section.scope === "STORE",
+      );
+    return CHANNEL_TEMPLATE_SECTIONS;
   }, [generalData.purpose]);
-  const visibleTemplateTypes = visibleTemplateGroups.flatMap((group) =>
-    group.templates.map((template) => template.type),
+  const visibleTemplateTypes = visibleTemplateSections.flatMap((section) =>
+    section.groups.flatMap((group) => group.templates),
   );
-  const templatesReady = visibleTemplateTypes.every((type) =>
-    whatsappData.templates.some(
-      (template) => template.type?.toUpperCase() === type,
-    ),
+  const templatesReady = visibleTemplateTypes.every((template) =>
+    Boolean(globalConfig[template.key]?.trim()),
   );
 
   const saveIdentity = async () => {
@@ -425,7 +318,11 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
         ...generalData,
         phone: whatsappData.phone,
         active: whatsappData.active,
+        provider: whatsappData.provider,
+        deliveryStrategy: whatsappData.deliveryStrategy,
         instanceName,
+        kapsoPhoneNumberId: whatsappData.kapsoPhoneNumberId || null,
+        kapsoBusinessAccountId: whatsappData.kapsoBusinessAccountId || null,
       };
       const tasks = [];
       if (paymentObj && paymentReady)
@@ -470,8 +367,23 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
   };
 
   const saveWhatsApp = async (close = true) => {
-    if (!whatsappData.phone.trim()) {
+    if (
+      whatsappData.provider === "EVOLUTION" &&
+      !whatsappData.phone.trim()
+    ) {
       showToast("El numero de WhatsApp es obligatorio", "error");
+      return false;
+    }
+    if (
+      (whatsappData.provider === "KAPSO" ||
+        whatsappData.deliveryStrategy === "KAPSO_PREFERRED") &&
+      (!whatsappData.kapsoPhoneNumberId.trim() ||
+        !whatsappData.kapsoBusinessAccountId.trim())
+    ) {
+      showToast(
+        "Phone Number ID y Business Account ID son obligatorios para Cloud API",
+        "error",
+      );
       return false;
     }
     setIsSaving(true);
@@ -480,18 +392,24 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
         ...generalData,
         phone: whatsappData.phone,
         active: whatsappData.active,
+        provider: whatsappData.provider,
+        deliveryStrategy: whatsappData.deliveryStrategy,
         instanceName,
+        kapsoPhoneNumberId: whatsappData.kapsoPhoneNumberId || null,
+        kapsoBusinessAccountId: whatsappData.kapsoBusinessAccountId || null,
       };
       const response = whatsappObj
         ? await apiWhatsApp.update(whatsappObj.id, payload)
         : await apiWhatsApp.create(payload);
       const savedChannel = response.data;
-      setWhatsappObj((current) => ({
-        ...(current || {}),
-        ...savedChannel,
-        id: String(savedChannel.id),
-        templates: savedChannel.templates || current?.templates || whatsappData.templates,
-      } as WhatsAppChannel));
+      setWhatsappObj(
+        (current) =>
+          ({
+            ...(current || {}),
+            ...savedChannel,
+            id: String(savedChannel.id),
+          }) as WhatsAppChannel,
+      );
       if (close) {
         showToast("Mensajeria actualizada");
         setModal(null);
@@ -506,6 +424,92 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
     }
   };
 
+  const syncCloudTemplates = async () => {
+    if (!whatsappObj?.id) {
+      showToast("Guarda primero la mensajeria del canal", "error");
+      return;
+    }
+    const saved = await saveWhatsApp(false);
+    if (!saved) return;
+
+    setIsSyncingCloudTemplates(true);
+    try {
+      const response = await apiWhatsApp.syncKapsoTemplates(whatsappObj.id);
+      const templates = response.data?.templates || [];
+      const pending = templates.filter(
+        (template: any) => template.status === "PENDING",
+      ).length;
+      const rejected = templates.filter(
+        (template: any) =>
+          template.status === "REJECTED" || template.status === "ERROR",
+      ).length;
+      setCloudTemplatesReady(Boolean(response.data?.ready));
+      showToast(
+        response.data?.ready
+          ? "Plantillas Cloud aprobadas y listas"
+          : rejected
+            ? `${rejected} plantillas requieren correccion`
+            : `${pending} plantillas siguen en revision de Meta`,
+        rejected ? "error" : "success",
+      );
+    } catch (error: any) {
+      showToast(
+        error?.response?.data?.message ||
+          "No se pudieron sincronizar las plantillas Cloud",
+        "error",
+      );
+    } finally {
+      setIsSyncingCloudTemplates(false);
+    }
+  };
+
+  const connectKapso = async () => {
+    if (!whatsappObj?.id) {
+      showToast("Guarda primero el canal de mensajería", "error");
+      return;
+    }
+    setIsConnectingKapso(true);
+    try {
+      await runKapsoOnboarding({
+        target: "SPECIALIZED",
+        channelId: Number(whatsappObj.id),
+      });
+      showToast("WhatsApp Business conectado mediante Kapso");
+      await loadChannelData();
+    } catch (error: any) {
+      showToast(
+        error?.response?.data?.message ||
+          error?.message ||
+          "No se pudo conectar WhatsApp con Kapso",
+        "error",
+      );
+    } finally {
+      setIsConnectingKapso(false);
+    }
+  };
+
+  const disconnectKapso = async () => {
+    if (!whatsappObj?.id) return;
+    setIsDisconnectingKapso(true);
+    try {
+      await apiWhatsApp.disconnectKapso({
+        target: "SPECIALIZED",
+        channelId: Number(whatsappObj.id),
+      });
+      setConfirmDisconnectKapso(false);
+      showToast("Cloud API desvinculada del Canal Especializado");
+      await loadChannelData();
+    } catch (error: any) {
+      showToast(
+        error?.response?.data?.message ||
+          "No se pudo desvincular el número de Kapso",
+        "error",
+      );
+    } finally {
+      setIsDisconnectingKapso(false);
+    }
+  };
+
   const connectMercadoPago = async () => {
     if (!paymentObj?.id) {
       showToast("Guarda primero la informacion bancaria del canal", "error");
@@ -515,7 +519,10 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       const url = await apiMercadoPago.getAuthUrl(paymentObj.id);
       if (url) window.location.href = url;
     } catch (error: any) {
-      showToast(error?.response?.data?.message || "Error al conectar con Mercado Pago", "error");
+      showToast(
+        error?.response?.data?.message || "Error al conectar con Mercado Pago",
+        "error",
+      );
     }
   };
 
@@ -525,7 +532,11 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       const saved = await saveWhatsApp(false);
       if (!saved) return;
 
-      const res = await apiWhatsApp.connect(instanceName, method, whatsappData.phone);
+      const res = await apiWhatsApp.connect(
+        instanceName,
+        method,
+        whatsappData.phone,
+      );
       const value = method === "qr" ? res.data?.base64 : res.data?.pairingCode;
       if (!value) throw new Error("Evolution API no devolvió un código");
       setInstanceExists(true);
@@ -540,7 +551,9 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       showToast(
         error?.response?.data?.error ||
           error?.message ||
-          (method === "qr" ? "Error al generar QR" : "Error al generar el código"),
+          (method === "qr"
+            ? "Error al generar QR"
+            : "Error al generar el código"),
         "error",
       );
     } finally {
@@ -554,16 +567,17 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       return;
     }
     if (!whatsappData.phone.trim()) {
-      showToast("Primero captura el numero de WhatsApp", "error");
+      setShowMissingPhoneAlert(true);
       return;
     }
 
     setConfirmDialog({
       isOpen: true,
       title: "Confirmar línea de WhatsApp",
-      message: method === "qr"
-        ? `Se generará un QR para vincular el número ${whatsappData.phone}.`
-        : `Se generará un código asociado al número ${whatsappData.phone}.`,
+      message:
+        method === "qr"
+          ? `Se generará un QR para vincular el número ${whatsappData.phone}.`
+          : `Se generará un código asociado al número ${whatsappData.phone}.`,
       confirmLabel: method === "qr" ? "Generar QR" : "Generar código",
       variant: "warning",
       onConfirm: async () => {
@@ -595,87 +609,6 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
     });
   };
 
-  const getTemplateMeta = (type: string, globalKey: string) => {
-    const existing = whatsappData.templates.find(
-      (t) => t.type?.toUpperCase() === type.toUpperCase(),
-    );
-    if (existing?.content)
-      return { source: "Canal", content: existing.content };
-    if (globalConfig[globalKey])
-      return { source: "Principal", content: globalConfig[globalKey] };
-    return { source: "Sin definir", content: "" };
-  };
-
-  const renderTemplatePreview = (content: string) => {
-    const bankInfo = [
-      "Banco: BBVA",
-      "Beneficiario: Rancho Demo",
-      "No. Cuenta: 1234567890",
-      "CLABE: 012345678901234567",
-      "Tarjeta: 1234 5678 9012 3456",
-    ].join("\n");
-
-    return content
-      .replace(/\{\{greeting\}\}/g, "Buena tarde")
-      .replace(/\{\{customer_name\}\}/g, "Carlos Ramirez")
-      .replace(/\{\{order_id\}\}/g, "1284")
-      .replace(/\{\{item_list\}\}/g, "1x Gallo colorado, 2x Alimento premium")
-      .replace(
-        /\{\{ticket_list\}\}/g,
-        "002, 005, 009 y 010\n\n✨ Oportunidades adicionales:\n\n002: 164, 246, 271, 635, 701, 888, 986\n005: 171, 265, 534, 817, 929, 943, 976\n009: 212, 430, 516, 605, 626, 752, 882\n010: 405, 423, 436, 441, 538, 728, 963",
-      )
-      .replace(/\{\{raffle_name\}\}/g, "Rifa Especial de Junio")
-      .replace(/\{\{opening_date\}\}/g, "lunes, 20 de julio de 2026 a las 8:00 a.m.")
-      .replace(/\{\{raffle_url\}\}/g, "https://rancholastrojes.com.mx/raffles/1")
-      .replace(/\{\{amount\}\}/g, "1,250.00")
-      .replace(/\{\{bank_info\}\}/g, bankInfo)
-      .replace(/\{\{time_store\}\}/g, "24 horas")
-      .replace(/\{\{time_raffle\}\}/g, "12 horas")
-      .replace(/\{\{time_remaining\}\}/g, "4 horas");
-  };
-
-  const openTemplate = (
-    type: string,
-    label: string,
-    globalKey: string,
-    variables: string[],
-    sample: string,
-  ) => {
-    const existing = whatsappData.templates.find(
-      (t) => t.type?.toUpperCase() === type.toUpperCase(),
-    );
-    const meta = getTemplateMeta(type, globalKey);
-    setTemplateDraft({
-      type,
-      label,
-      content: existing?.content || "",
-      variables,
-      sample,
-      source: meta.source,
-    });
-  };
-
-  const saveTemplate = async () => {
-    if (!templateDraft || !whatsappObj) {
-      showToast("Guarda primero la mensajeria del canal", "error");
-      return;
-    }
-    setIsSaving(true);
-    try {
-      await apiWhatsApp.saveTemplate(whatsappObj.id, {
-        type: templateDraft.type as any,
-        content: templateDraft.content,
-      });
-      showToast("Plantilla guardada");
-      setTemplateDraft(null);
-      loadChannelData();
-    } catch (error) {
-      showToast("No se pudo guardar la plantilla", "error");
-    } finally {
-      setIsSaving(false);
-    }
-  };
-
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-40 animate-in fade-in duration-500">
@@ -696,111 +629,15 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
     );
   }
 
-  if (templateDraft) {
-    return (
-      <div className="space-y-8 pb-20 animate-in fade-in duration-300">
-        <NexusCardButton
-          onClick={() => setTemplateDraft(null)}
-          variant="secondary"
-          icon={ArrowLeft}
-        >
-          Volver a Plantillas
-        </NexusCardButton>
-
-        <NexusSection
-          title={templateDraft.label}
-          subtitle={`Origen actual: ${templateDraft.source}. Al guardar, este canal usara su propia plantilla para este evento.`}
-          icon={FileText}
-          iconVariant="brand"
-          action={
-            <NexusSectionButton
-              onClick={saveTemplate}
-              isLoading={isSaving}
-              icon={Save}
-            >
-              Guardar Plantilla
-            </NexusSectionButton>
-          }
-        >
-          <div
-            className="grid grid-cols-1 xl:grid-cols-2"
-            style={{ gap: "var(--space-lg)" }}
-          >
-            <div className="space-y-6">
-              <NexusTextarea
-                label="Mensaje del canal"
-                rows={12}
-                value={templateDraft.content}
-                onChange={(e) =>
-                  setTemplateDraft({
-                    ...templateDraft,
-                    content: e.target.value,
-                  })
-                }
-                placeholder={templateDraft.sample}
-                helperText="Dejalo vacio si quieres seguir usando la plantilla principal o el default del sistema."
-              />
-              <div className="bg-bg-muted border border-border-main rounded-[2rem] p-5">
-                <p className="text-label text-text-muted mb-3">
-                  Variables disponibles
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {templateDraft.variables.map((variable) => (
-                    <span
-                      key={variable}
-                      className="px-3 py-1.5 rounded-full bg-bg-card border border-border-main text-label text-text-muted"
-                    >
-                      {variable}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            </div>
-
-            <NexusSection
-              title="Preview"
-              subtitle="Ejemplo con datos simulados"
-              icon={Variable}
-              iconVariant="muted"
-              animate={false}
-            >
-              <div className="bg-bg-muted border border-border-main rounded-[2rem] p-6 whitespace-pre-line text-secondary text-text-main leading-relaxed min-h-[20rem]">
-                {renderTemplatePreview(
-                  templateDraft.content || templateDraft.sample,
-                )}
-              </div>
-              <p className="text-label text-text-muted/60 mt-5">
-                Esta plantilla solo aplica a este canal especializado. Si falta,
-                Nexus intenta usar el Canal Principal.
-              </p>
-            </NexusSection>
-          </div>
-        </NexusSection>
-      </div>
-    );
-  }
-
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-500">
-      <div className="flex items-center justify-between gap-4">
-        <NexusCardButton onClick={onClose} icon={ArrowLeft} variant="secondary">
-          Volver
-        </NexusCardButton>
-        <div className="flex items-center gap-2">
-          <StatusPill ready={paymentReady} label="Banco" />
-          <StatusPill ready={mpReady} label="MP" />
-          <StatusPill ready={whatsappReady} label="WA" />
-          <StatusPill ready={templatesReady} label="Tpl" />
-        </div>
-      </div>
-
       <NexusSection
         title={
           generalData.name ||
           PURPOSE_LABELS[generalData.purpose] ||
           "Canal Especializado"
         }
-        subtitle="Este canal sobrescribe al Canal Principal cuando el flujo coincide con su proposito"
+        subtitle="Este canal especializa identidad, cobros y transporte cuando coincide con su propósito"
         icon={ShieldCheck}
         iconVariant="brand"
         action={
@@ -857,7 +694,19 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
             icon={MessageCircle}
             iconVariant={whatsappReady ? "emerald" : "muted"}
             title="Mensajeria WhatsApp"
-            subtitle={whatsappData.phone || "Numero de WhatsApp pendiente"}
+            subtitle={
+              whatsappData.phone
+                ? `${whatsappData.phone} / ${
+                    whatsappData.provider === "KAPSO"
+                      ? `WhatsApp Cloud API / ${
+                          cloudTemplatesReady
+                            ? "Plantillas listas"
+                            : "Plantillas pendientes"
+                        }`
+                      : "Evolution API"
+                  }`
+                : "Numero de WhatsApp pendiente"
+            }
             rightContent={
               <p className="text-label text-text-muted">
                 {whatsappReady ? "Vinculado" : "Parcial"}
@@ -876,77 +725,82 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       </NexusSection>
 
       <NexusSection
-        title="Plantillas del Canal"
-        subtitle="Mensajes especializados para este proposito. Si falta una, se usa Canal Principal."
+        title="Plantillas de Mensajería"
+        subtitle="Este canal utiliza el contenido administrado desde el Canal Principal."
         icon={FileText}
         iconVariant={templatesReady ? "brand" : "muted"}
       >
-        <div className="flex flex-col gap-8">
-          {visibleTemplateGroups.map((group) => (
-            <div key={group.label} className="space-y-4">
-              <div>
-                <h4 className="text-h2 text-text-main">{group.label}</h4>
+        <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
+          {visibleTemplateSections.map((section) => (
+            <div
+              key={section.scope}
+              className="flex flex-col"
+              style={{ gap: "var(--space-md)" }}
+            >
+              <div className="flex flex-col" style={{ gap: "var(--space-xs)" }}>
+                <h4 className="text-h2 text-text-main">{section.label}</h4>
                 <p className="text-secondary text-text-muted">
-                  {group.description}
+                  {section.description}
                 </p>
               </div>
-              <div className="flex flex-col gap-4">
-                {group.templates.map((template) => {
-                  const meta = getTemplateMeta(
-                    template.type,
-                    template.globalKey,
-                  );
-                  const exists = meta.source === "Canal";
-                  const hasFallback = meta.source === "Principal";
-                  const Icon =
-                    template.type === "PAYMENT_CONFIRMED"
-                      ? CheckCircle2
-                      : template.type === "OPENING"
-                        ? BellRing
-                      : template.type === "RESTORED"
-                        ? RefreshCw
-                      : template.type === "RELEASE"
-                        ? LogOut
-                        : Ticket;
-                  return (
-                    <NexusSectionCard
-                      key={`${group.label}-${template.type}`}
-                      icon={Icon}
-                      iconVariant={
-                        exists ? "brand" : hasFallback ? "emerald" : "muted"
-                      }
-                      title={template.label}
-                      subtitle={
-                        exists
-                          ? "Plantilla configurada para este canal"
-                          : hasFallback
-                            ? "Usa plantilla del Canal Principal"
-                            : "Sin plantilla configurada"
-                      }
-                      rightContent={
-                        <p className="text-label text-text-muted">
-                          {meta.source}
-                        </p>
-                      }
-                      actions={
-                        <NexusCardButton
-                          onClick={() =>
-                            openTemplate(
-                              template.type,
-                              `${group.label}: ${template.label}`,
-                              template.globalKey,
-                              template.variables,
-                              template.sample,
-                            )
-                          }
-                          icon={Edit2}
-                        >
-                          Editar
-                        </NexusCardButton>
-                      }
-                    />
-                  );
-                })}
+              <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
+                {section.groups.map((group) => (
+                  <div
+                    key={group.key}
+                    className="flex flex-col"
+                    style={{ gap: "var(--space-md)" }}
+                  >
+                    <div
+                      className="flex flex-col"
+                      style={{ gap: "var(--space-xs)" }}
+                    >
+                      <h5 className="text-body font-bold text-text-main">
+                        {group.label}
+                      </h5>
+                      <p className="text-secondary text-text-muted">
+                        {group.description}
+                      </p>
+                    </div>
+                    <div
+                      className="flex flex-col"
+                      style={{ gap: "var(--space-base)" }}
+                    >
+                      {group.templates.map((template) => {
+                        const isConfigured = Boolean(
+                          globalConfig[template.key]?.trim(),
+                        );
+                        const Icon =
+                          template.type === "PAYMENT_CONFIRMED"
+                            ? CheckCircle2
+                            : template.type === "OPENING"
+                              ? BellRing
+                              : template.type === "RESTORED"
+                                ? RefreshCw
+                                : template.type === "RELEASE"
+                                  ? LogOut
+                                  : Ticket;
+                        return (
+                          <NexusSectionCard
+                            key={`${group.key}-${template.type}`}
+                            icon={Icon}
+                            iconVariant={isConfigured ? "emerald" : "muted"}
+                            title={template.label}
+                            subtitle={
+                              isConfigured
+                                ? "Contenido configurado en el Canal Principal"
+                                : "Configura esta plantilla en el Canal Principal"
+                            }
+                            rightContent={
+                              <p className="text-label text-text-muted">
+                                {isConfigured ? "Principal" : "Pendiente"}
+                              </p>
+                            }
+                          />
+                        );
+                      })}
+                    </div>
+                  </div>
+                ))}
               </div>
             </div>
           ))}
@@ -1116,22 +970,172 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
           onClose={() => setModal(null)}
           size="standard"
           zIndex={250}
+          footer={
+            <NexusModalActions className="w-full">
+              <NexusAutonomousButton
+                onClick={() =>
+                  whatsappData.provider === "KAPSO"
+                    ? checkKapsoStatus(whatsappData.kapsoPhoneNumberId)
+                    : checkInstanceStatus(instanceName)
+                }
+                icon={RefreshCw}
+                variant="secondary"
+                className="min-w-0 flex-1"
+              >
+                Revisar
+              </NexusAutonomousButton>
+              <NexusAutonomousButton
+                onClick={() => saveWhatsApp(true)}
+                isLoading={isSaving}
+                icon={Save}
+                className="min-w-0 flex-[2]"
+              >
+                Guardar
+              </NexusAutonomousButton>
+            </NexusModalActions>
+          }
         >
           <div
             className="flex w-full min-w-0 max-w-full flex-col overflow-x-hidden"
             style={{ gap: "var(--space-lg)" }}
           >
-            <NexusInput
-              label="Número de WhatsApp"
-              value={whatsappData.phone}
-              onChange={(e) =>
-                setWhatsappData({ ...whatsappData, phone: e.target.value })
-              }
-              icon={Smartphone}
-              helperText="Incluye código de país. Para México suele iniciar con 521."
-            />
             <div
-              className="flex w-full min-w-0 max-w-full flex-col items-stretch border border-border-main bg-bg-muted sm:flex-row sm:items-center sm:justify-between"
+              className="flex w-full min-w-0 flex-col"
+              style={{ gap: "var(--space-xs)" }}
+            >
+              <span className="text-label uppercase tracking-[0.15em] text-text-muted">
+                Proveedor de mensajería
+              </span>
+              <NexusSegmentedControl
+                value={whatsappData.provider}
+                options={[
+                  {
+                    value: "EVOLUTION",
+                    label: "Evolution API",
+                    activeClassName:
+                      "bg-bg-card text-brand-600 border border-border-main shadow-sm",
+                  },
+                  {
+                    value: "KAPSO",
+                    label: "Cloud API",
+                    activeClassName:
+                      "bg-bg-card text-brand-600 border border-border-main shadow-sm",
+                  },
+                ]}
+                onChange={(provider) => {
+                  setWhatsappData({ ...whatsappData, provider });
+                  setInstanceExists(false);
+                  setInstanceStatus("close");
+                }}
+                ariaLabel="Proveedor de mensajería"
+                context="section"
+                className="grid h-[var(--h-input)] w-full grid-cols-2"
+              />
+            </div>
+            <div
+              className="flex w-full min-w-0 flex-col"
+              style={{ gap: "var(--space-xs)" }}
+            >
+              <NexusSelect
+                label="Estrategia de entrega"
+                value={whatsappData.deliveryStrategy}
+                onChange={(event) =>
+                  setWhatsappData({
+                    ...whatsappData,
+                    deliveryStrategy: event.target
+                      .value as WhatsAppDeliveryStrategy,
+                  })
+                }
+              >
+                <option value="STANDARD">Estándar según la notificación</option>
+                <option value="KAPSO_PREFERRED">Kapso preferente</option>
+                <option value="EVOLUTION_ONLY">Solo Evolution API</option>
+              </NexusSelect>
+              <p className="px-1 text-secondary italic leading-relaxed text-text-muted">
+                {whatsappData.deliveryStrategy === "KAPSO_PREFERRED"
+                  ? "Usa Kapso para todas las notificaciones de este canal. El Canal Principal queda como respaldo."
+                  : whatsappData.deliveryStrategy === "EVOLUTION_ONLY"
+                    ? "Todas las notificaciones usan Evolution API. Kapso queda deshabilitado para este canal."
+                    : "Nexus elige el proveedor según la importancia de cada notificación."}
+              </p>
+            </div>
+            {whatsappData.provider === "EVOLUTION" && (
+              <NexusInput
+                label="Número de WhatsApp"
+                value={whatsappData.phone}
+                onChange={(e) =>
+                  setWhatsappData({ ...whatsappData, phone: e.target.value })
+                }
+                icon={Smartphone}
+                helperText="Incluye código de país. Para México suele iniciar con 521."
+              />
+            )}
+            {whatsappData.provider === "KAPSO" && (
+              <div
+                className="flex w-full min-w-0 flex-col"
+                style={{ gap: "var(--space-md)" }}
+              >
+                <NexusAutonomousButton
+                  onClick={connectKapso}
+                  isLoading={isConnectingKapso}
+                  icon={LinkIcon}
+                  variant="success"
+                  className="w-full"
+                >
+                  {whatsappData.kapsoPhoneNumberId
+                    ? "Cambiar número vinculado"
+                    : "Vincular con Kapso"}
+                </NexusAutonomousButton>
+                {Boolean(whatsappData.kapsoPhoneNumberId) && (
+                  <NexusAutonomousButton
+                    onClick={() => setConfirmDisconnectKapso(true)}
+                    icon={LogOut}
+                    variant="danger"
+                    className="w-full"
+                  >
+                    Desvincular Cloud API
+                  </NexusAutonomousButton>
+                )}
+              </div>
+            )}
+            <div
+              className="flex w-full min-w-0 max-w-full items-center justify-between border border-border-main bg-bg-muted"
+              style={{
+                gap: "var(--space-md)",
+                padding: "var(--padding-inner)",
+                borderRadius: "var(--radius-inner-visual)",
+              }}
+            >
+              <div className="min-w-0 flex-1">
+                <p className="text-h2 text-text-main">Dispositivo del canal</p>
+                <p className="break-words text-secondary text-text-muted">
+                  {instanceStatus === "open"
+                    ? whatsappData.provider === "KAPSO"
+                      ? whatsappData.phone
+                        ? `Cloud API vinculada: ${whatsappData.phone}`
+                        : "Cloud API vinculada mediante Meta"
+                      : "Vinculado con Evolution API"
+                    : whatsappData.provider === "KAPSO"
+                      ? "Cloud API sin conexión"
+                      : `Instancia: ${instanceName}`}
+                </p>
+              </div>
+              <span
+                className={`shrink-0 text-label ${
+                  instanceStatus === "open"
+                    ? "text-emerald-600"
+                    : "text-text-muted"
+                }`}
+              >
+                {instanceStatus === "loading"
+                  ? "Revisando"
+                  : instanceStatus === "open"
+                    ? "En línea"
+                    : "Desconectado"}
+              </span>
+            </div>
+            <div
+              className="flex w-full min-w-0 max-w-full items-center justify-between border border-border-main bg-bg-muted"
               style={{
                 gap: "var(--space-md)",
                 padding: "var(--padding-inner)",
@@ -1147,7 +1151,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
                 </p>
               </div>
               <NexusSwitch
-                className="shrink-0 self-start sm:self-center"
+                className="shrink-0"
                 checked={whatsappData.active}
                 onChange={(active) =>
                   setWhatsappData({ ...whatsappData, active })
@@ -1155,52 +1159,48 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
                 aria-label="Activar notificaciones de WhatsApp"
               />
             </div>
-            <div
-              className="grid w-full min-w-0 grid-cols-[minmax(0,1fr)] sm:grid-cols-2"
-              style={{ gap: "var(--space-base)" }}
-            >
-              <NexusAutonomousButton
-                density="compact"
-                onClick={() => saveWhatsApp(true)}
-                isLoading={isSaving}
-                icon={Save}
-                className="w-full min-w-0 sm:col-span-1"
+            {whatsappData.provider === "EVOLUTION" &&
+              instanceStatus !== "open" && (
+              <div
+                className="grid w-full min-w-0 grid-cols-2"
+                style={{ gap: "var(--space-base)" }}
               >
-                Guardar
-              </NexusAutonomousButton>
+                  <NexusAutonomousButton
+                    onClick={() => openWhatsAppFlow("qr")}
+                    icon={QrCode}
+                    variant="success"
+                    className="w-full min-w-0"
+                    disabled={instanceStatus === "loading"}
+                    isLoading={connectingMethod === "qr"}
+                  >
+                    Vincular QR
+                  </NexusAutonomousButton>
+                  <NexusAutonomousButton
+                    onClick={() => openWhatsAppFlow("pairing_code")}
+                    icon={KeyRound}
+                    variant="success"
+                    className="w-full min-w-0"
+                    disabled={instanceStatus === "loading"}
+                    isLoading={connectingMethod === "pairing_code"}
+                  >
+                    Usar código
+                  </NexusAutonomousButton>
+              </div>
+            )}
+            {whatsappData.provider === "KAPSO" &&
+              Boolean(whatsappData.kapsoPhoneNumberId) && (
               <NexusAutonomousButton
-                density="compact"
-                onClick={() => openWhatsAppFlow("qr")}
-                icon={QrCode}
-                variant="success"
-                className="w-full min-w-0 sm:col-span-1"
-                disabled={instanceStatus === "open"}
-                isLoading={connectingMethod === "qr"}
-              >
-                Vincular QR
-              </NexusAutonomousButton>
-              <NexusAutonomousButton
-                density="compact"
-                onClick={() => openWhatsAppFlow("pairing_code")}
-                icon={KeyRound}
-                variant="success"
-                className="w-full min-w-0 sm:col-span-1"
-                disabled={instanceStatus === "open"}
-                isLoading={connectingMethod === "pairing_code"}
-              >
-                Usar código
-              </NexusAutonomousButton>
-              <NexusAutonomousButton
-                density="compact"
-                onClick={() => checkInstanceStatus(instanceName)}
+                onClick={syncCloudTemplates}
+                isLoading={isSyncingCloudTemplates}
                 icon={RefreshCw}
                 variant="secondary"
-                className="w-full min-w-0 sm:col-span-1"
+                className="w-full min-w-0"
               >
-                Revisar
+                Sincronizar plantillas
               </NexusAutonomousButton>
-            </div>
-            {instanceExists && (
+            )}
+            {instanceStatus === "open" &&
+              whatsappData.provider === "EVOLUTION" && (
               <NexusAutonomousButton
                 onClick={disconnectWhatsApp}
                 icon={LogOut}
@@ -1213,6 +1213,32 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
           </div>
         </NexusModal>
       )}
+
+      <NexusConfirmModal
+        isOpen={showMissingPhoneAlert}
+        title="Número requerido"
+        message="Ingresa el número de WhatsApp antes de vincular el dispositivo."
+        confirmLabel="Entendido"
+        showCancel={false}
+        tone="warning"
+        icon={Smartphone}
+        onConfirm={() => setShowMissingPhoneAlert(false)}
+        onCancel={() => setShowMissingPhoneAlert(false)}
+        zIndex={270}
+      />
+
+      <NexusConfirmModal
+        isOpen={confirmDisconnectKapso}
+        title="¿Desvincular Cloud API?"
+        message="Kapso retirará este número del proyecto. El Canal Especializado conservará su configuración de Evolution API."
+        confirmLabel="Desvincular"
+        onConfirm={disconnectKapso}
+        onCancel={() => setConfirmDisconnectKapso(false)}
+        tone="danger"
+        icon={LogOut}
+        isLoading={isDisconnectingKapso}
+        zIndex={270}
+      />
 
       <WhatsAppPairingModal
         data={pairingData}

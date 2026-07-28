@@ -7,6 +7,10 @@ export interface ChannelConfig {
   instanceName: string | null;
   evolutionUrl: string | null;
   evolutionKey: string | null;
+  provider: "EVOLUTION" | "KAPSO";
+  deliveryStrategy: "STANDARD" | "KAPSO_PREFERRED" | "EVOLUTION_ONLY";
+  kapsoPhoneNumberId: string | null;
+  kapsoBusinessAccountId: string | null;
   phone: string;
   template: string;
   templates?: any[]; // Dynamic templates from relation

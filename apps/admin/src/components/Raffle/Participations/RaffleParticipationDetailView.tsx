@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, Calendar, Clock, CreditCard, Edit2, Hash, MapPin, MessageCircle, Phone, RotateCcw, Save, Sparkles, Ticket, UserRound, Waypoints } from "lucide-react";
+import { AlertTriangle, Calendar, Clock, CreditCard, Edit2, Hash, History, MapPin, MessageCircle, Phone, RotateCcw, Save, Sparkles, Ticket, UserRound, Waypoints } from "lucide-react";
 import { apiRaffleParticipations } from "../../../api";
 import { MEXICO_STATES } from "../../../constants";
-import { RaffleParticipation, RaffleParticipationTicket } from "../../../types";
+import { RaffleParticipation, RaffleParticipationTicket, WhatsAppMessageLog } from "../../../types";
 import { NexusAutonomousBadge, NexusBadge, NexusCardBadge } from "../../ui/NexusBadge";
 import { NexusSectionCard } from "../../ui/NexusCard";
 import { NexusAutonomousIcon, NexusCardIcon } from "../../ui/NexusIcon";
@@ -14,12 +14,14 @@ import { NexusInput, NexusSelect } from "../../ui/NexusInputs";
 import { NexusModal, NexusModalActions } from "../../ui/NexusModal";
 import { NexusPhoneField } from "../../ui/NexusPhoneField";
 import { isCustomerPhoneComplete } from "../../../utils/customer-phone";
-import { getWhatsappDeliveryRouteLabel } from "../../../utils/whatsapp-routing";
+import { getWhatsappDeliveryRouteLabel, getWhatsappProviderLabel } from "../../../utils/whatsapp-routing";
+import { NexusActivityHistory } from "../../ui/NexusActivityHistory";
 
 interface RaffleParticipationDetailViewProps {
   participation: RaffleParticipation;
   onLoaded: (participation: RaffleParticipation) => void;
   showToast: (message: string, type?: "success" | "error") => void;
+  canManageOperations: boolean;
 }
 
 const formatCurrency = (value: number) =>
@@ -56,16 +58,38 @@ const getMercadoPagoStatusLabel = (
   return "Pendiente";
 };
 
-const getWhatsappLogBadge = (status: string) => {
+const getWhatsappLogBadge = (
+  status: string,
+  providerStatus?: string | null,
+) => {
+  const normalizedProviderStatus = String(providerStatus || "").toLowerCase();
   if (status === "failed") return { label: "Fallida", variant: "danger" as const };
+  if (
+    status === "pending" &&
+    ["accepted", "pending", "server_ack"].includes(normalizedProviderStatus)
+  ) {
+    return { label: "Enviada", variant: "info" as const };
+  }
   if (status === "pending") return { label: "Pendiente", variant: "warning" as const };
-  if (status === "server_ack") return { label: "Aceptada", variant: "info" as const };
+  if (status === "server_ack") return { label: "Enviada", variant: "info" as const };
   if (status === "delivered") return { label: "Entregada", variant: "success" as const };
   if (status === "read") return { label: "Leída", variant: "success" as const };
   return { label: "Enviada", variant: "success" as const };
 };
 
-export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailViewProps> = ({ participation, onLoaded, showToast }) => {
+const getWhatsappPurposeLabel = (template: string) => {
+  if (template === "reservation") return "Apartado de boletos";
+  if (template === "reservation-restored" || template === "reservation_restored_rifas") return "Apartado restaurado";
+  if (template === "reservation-paid" || template === "reservation_paid_rifas") return "Pago confirmado";
+  if (template === "reservation-refunded" || template === "reservation_refunded_rifas") return "Devolución de pago";
+  if (template === "reservation-reminder" || template === "reservation_reminder_rifas") return "Recordatorio de pago";
+  if (template === "reservation-cancelled") return "Liberación de boletos";
+  if (template === "raffle-winner") return "Ganador de la rifa";
+  if (template === "raffle-results") return "Resultados de la rifa";
+  return template;
+};
+
+export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailViewProps> = ({ participation, onLoaded, showToast, canManageOperations }) => {
   const [detail, setDetail] = useState<RaffleParticipation>(participation);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
@@ -73,6 +97,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
   const [isParticipantModalOpen, setIsParticipantModalOpen] = useState(false);
   const [isSavingParticipant, setIsSavingParticipant] = useState(false);
   const [isResendingWhatsApp, setIsResendingWhatsApp] = useState(false);
+  const [selectedWhatsappLog, setSelectedWhatsappLog] = useState<WhatsAppMessageLog | null>(null);
   const [participantForm, setParticipantForm] = useState({
     customerName: participation.customerName || "",
     customerPhone: participation.customerPhone || "",
@@ -94,6 +119,32 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
       .catch(() => showToast("No se pudo cargar el detalle de la participación", "error"))
       .finally(() => setIsLoading(false));
   }, [onLoaded, participation.id, showToast]);
+
+  useEffect(() => {
+    if ((detail.whatsappLogs?.length || 0) > 0) return;
+
+    let active = true;
+    const refreshNotificationHistory = () => {
+      void apiRaffleParticipations.getById(participation.id)
+        .then((updated) => {
+          if (!active) return;
+          setDetail(updated);
+          onLoaded(updated);
+        })
+        .catch(() => {
+          // Keep the detail usable while the asynchronous notification catches up.
+        });
+    };
+    const timers = [
+      window.setTimeout(refreshNotificationHistory, 1200),
+      window.setTimeout(refreshNotificationHistory, 3200),
+    ];
+
+    return () => {
+      active = false;
+      timers.forEach(window.clearTimeout);
+    };
+  }, [detail.whatsappLogs?.length, onLoaded, participation.id]);
 
   if (isLoading) return <NexusSpinner label="Cargando participación..." />;
 
@@ -117,6 +168,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
         ? "muted"
         : "warning";
   const canRefundMercadoPago =
+    canManageOperations &&
     detail.paymentMethod === "MERCADOPAGO" &&
     detail.status === "PAID" &&
     Boolean(detail.mpPaymentId) &&
@@ -335,7 +387,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
           iconVariant="emerald"
           actionPlacement="below"
           action={
-            !isPaymentHold ? (
+            !isPaymentHold && canManageOperations ? (
               <NexusSectionButton onClick={handleOpenParticipantModal} icon={Edit2}>
                 Editar Participante
               </NexusSectionButton>
@@ -534,7 +586,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
           icon={MessageCircle}
           iconVariant="emerald"
           actionPlacement="below"
-          action={
+          action={canManageOperations ? (
             <NexusSectionButton
               onClick={handleResendWhatsApp}
               isLoading={isResendingWhatsApp}
@@ -542,31 +594,110 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
             >
               Reenviar WhatsApp
             </NexusSectionButton>
-          }
+          ) : undefined}
         >
           {detail.whatsappLogs?.length ? (
             <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
               {detail.whatsappLogs.map((log) => {
-                const badge = getWhatsappLogBadge(log.status);
+                const badge = getWhatsappLogBadge(log.status, log.providerStatus);
                 return (
-                <div key={log.id} className="flex items-center justify-between border-b border-border-main pb-[var(--space-md)] last:border-0 last:pb-0" style={{ gap: "var(--space-md)" }}>
+                <button
+                  key={log.id}
+                  type="button"
+                  onClick={() => setSelectedWhatsappLog(log)}
+                  className="flex w-full items-center justify-between border-b border-border-main pb-[var(--space-md)] text-left transition-colors hover:text-text-main last:border-0 last:pb-0"
+                  style={{ gap: "var(--space-md)" }}
+                >
                   <div className="min-w-0">
-                    <p className="text-secondary font-bold text-text-main">{log.templateUsed}</p>
+                    <p className="text-secondary font-bold text-text-main">{getWhatsappPurposeLabel(log.templateUsed)}</p>
                     <p className="truncate text-secondary text-text-muted">
-                      {log.errorMessage || getWhatsappDeliveryRouteLabel(log.responsePayload) || log.providerStatus || "Notificación procesada"}
+                      {getWhatsappProviderLabel(log.provider)} · {getWhatsappDeliveryRouteLabel(log.responsePayload) || "Ruta no identificada"}
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
                     <NexusBadge variant={badge.variant}>{badge.label}</NexusBadge>
                     <p className="text-label text-text-muted" style={{ marginTop: "var(--space-xs)" }}><Clock size={11} className="inline" /> {formatDateTime(log.sentAt)}</p>
                   </div>
-                </div>
+                </button>
               );})}
             </div>
           ) : (
             <p className="text-secondary text-text-muted">Aún no hay notificaciones registradas para esta participación.</p>
           )}
         </NexusSection>}
+
+        <NexusModal
+          isOpen={Boolean(selectedWhatsappLog)}
+          onClose={() => setSelectedWhatsappLog(null)}
+          title={
+            selectedWhatsappLog
+              ? getWhatsappLogBadge(
+                  selectedWhatsappLog.status,
+                  selectedWhatsappLog.providerStatus,
+                ).label
+              : "WhatsApp"
+          }
+          eyebrow="Detalle de notificación"
+          icon={MessageCircle}
+          iconTone={selectedWhatsappLog?.status === "failed" ? "danger" : "brand"}
+          size="standard"
+        >
+          {selectedWhatsappLog && (
+            <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
+              <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-md)" }}>
+                <Field label="Propósito" value={getWhatsappPurposeLabel(selectedWhatsappLog.templateUsed)} />
+                <Field label="Fecha del intento" value={formatDateTime(selectedWhatsappLog.sentAt)} />
+                <Field label="Teléfono" value={selectedWhatsappLog.recipientPhone} />
+                <Field label="Intento" value={String(selectedWhatsappLog.attempt)} />
+                <Field label="Proveedor" value={getWhatsappProviderLabel(selectedWhatsappLog.provider)} />
+                <Field label="Estado del proveedor" value={selectedWhatsappLog.providerStatus || "Sin estado"} />
+                <Field label="Último estado" value={selectedWhatsappLog.lastStatusAt ? formatDateTime(selectedWhatsappLog.lastStatusAt) : "Sin actualización"} />
+                <Field label="Instancia" value={selectedWhatsappLog.instanceName || "No disponible"} />
+                <Field label="Ruta de envío" value={getWhatsappDeliveryRouteLabel(selectedWhatsappLog.responsePayload) || "Ruta no identificada"} wide />
+                <Field label="Message ID" value={selectedWhatsappLog.messageId || "No disponible"} wide />
+                {selectedWhatsappLog.jobId && <Field label="Job ID" value={selectedWhatsappLog.jobId} wide />}
+              </div>
+
+              {selectedWhatsappLog.errorMessage && (
+                <div
+                  className="border border-rose-100 bg-rose-50 text-rose-600"
+                  style={{ padding: "var(--padding-inner)", borderRadius: "var(--radius-card-inner)" }}
+                >
+                  <p className="text-label uppercase tracking-[0.15em]">Error</p>
+                  <p className="text-secondary leading-relaxed" style={{ marginTop: "var(--space-xs)" }}>
+                    {selectedWhatsappLog.errorMessage}
+                  </p>
+                </div>
+              )}
+
+              {selectedWhatsappLog.status === "failed" && canManageOperations && (
+                <NexusModalActions>
+                  <NexusAutonomousButton
+                    onClick={() => {
+                      setSelectedWhatsappLog(null);
+                      void handleResendWhatsApp();
+                    }}
+                    isLoading={isResendingWhatsApp}
+                    icon={MessageCircle}
+                  >
+                    Reenviar WhatsApp
+                  </NexusAutonomousButton>
+                </NexusModalActions>
+              )}
+            </div>
+          )}
+        </NexusModal>
+
+        {!isPaymentHold && (
+          <NexusSection
+            title="Historial de Actividad"
+            subtitle="Acciones y responsables"
+            icon={History}
+            iconVariant="muted"
+          >
+            <NexusActivityHistory events={detail.activityEvents} />
+          </NexusSection>
+        )}
 
         <NexusConfirmModal
           isOpen={isRefundModalOpen}

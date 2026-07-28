@@ -11,11 +11,25 @@ const raffleGalleryItemSchema = z.object({
   posterPath: z.string().url().optional().nullable(),
 });
 
-const rafflePrizeSchema = z.object({
-  title: z.string().trim().min(1).max(120),
-  description: z.string().trim().min(1).max(1000),
-  winnerRule: z.string().trim().max(500).optional().nullable(),
-});
+const rafflePrizeSchema = z
+  .object({
+    title: z.string().trim().min(1).max(120),
+    description: z.string().trim().min(1).max(1000),
+    winnerRule: z.string().trim().max(500).optional().nullable(),
+    resultSource: z
+      .enum(["MAJOR_PRIZE", "SECOND_PRIZE", "THIRD_PRIZE", "CUSTOM"])
+      .default("MAJOR_PRIZE"),
+    resultSourceLabel: z.string().trim().min(2).max(120).optional().nullable(),
+  })
+  .superRefine((prize, context) => {
+    if (prize.resultSource === "CUSTOM" && !prize.resultSourceLabel) {
+      context.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ["resultSourceLabel"],
+        message: "Especifica la referencia oficial de este premio",
+      });
+    }
+  });
 
 export const isClosedRaffleUniverse = (ticketQuantity: number, opportunities: number) => {
   const universe = ticketQuantity * opportunities;

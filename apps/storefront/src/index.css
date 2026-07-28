@@ -157,6 +157,10 @@
 }
 
 @media (min-width: 768px) {
+  html {
+    scrollbar-gutter: stable;
+  }
+
   :root {
     --sf-inset-page: var(--sf-inset-page-desktop);
     --sf-mobile-chrome-content-padding-bottom: var(--sf-space-xl);

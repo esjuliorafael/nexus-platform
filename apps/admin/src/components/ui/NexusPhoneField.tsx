@@ -5,6 +5,7 @@ import {
   CUSTOMER_PHONE_COUNTRIES,
   CUSTOMER_PHONE_COUNTRY_ORDER,
   CustomerPhoneCountry,
+  normalizeCustomerPhoneInput,
   parseCustomerPhone,
 } from "../../utils/customer-phone";
 
@@ -81,7 +82,14 @@ export const NexusPhoneField: React.FC<NexusPhoneFieldProps> = ({
             maxLength={config.nationalLength}
             placeholder={config.placeholder}
             aria-invalid={Boolean(error)}
-            onChange={(event) => onChange(buildCustomerPhone(country, event.target.value))}
+            onChange={(event) =>
+              onChange(
+                buildCustomerPhone(
+                  country,
+                  normalizeCustomerPhoneInput(country, event.target.value),
+                ),
+              )
+            }
             className="h-full min-w-0 flex-1 bg-transparent pl-12 pr-4 text-secondary font-medium text-text-main outline-none placeholder:text-text-muted disabled:opacity-50"
           />
         </div>

@@ -55,6 +55,7 @@ import { useCheckoutTransitionReady } from "../../hooks/useCheckoutTransitionRea
 import { PaymentMethodCard } from "../../components/checkout/PaymentMethodCard";
 import { BankInfoCard } from "../../components/checkout/BankInfoCard";
 import { MercadoPagoCardPayment } from "../../components/checkout/MercadoPagoCardPayment";
+import { MarketingConsentField } from "../../components/checkout/MarketingConsentField";
 import {
   StorefrontCheckoutMotion,
   useStorefrontCheckoutMotionReady,
@@ -67,6 +68,10 @@ import {
 } from "../../lib/motion";
 import { useFeedbackSound } from "../../hooks/useFeedbackSound";
 import { isCustomerPhoneComplete } from "../../lib/customer-phone";
+import {
+  formatCustomerName,
+  normalizeCustomerName,
+} from "../../lib/customer-name";
 
 type DeliveryType = "SHIPPING" | "PICKUP";
 type DeliveryMethod = "BUS_STATION" | "AIRPORT" | "PARCEL";
@@ -135,7 +140,7 @@ function isPendingPaymentAttemptExpired(attempt: PendingPaymentAttempt) {
 }
 
 export default function CheckoutPage() {
-  const { items, coupon, getTotalPrice, getDiscountTotal, clearCart, removeItem } = useCartStore();
+  const { items, coupon, getTotalPrice, getDiscountTotal, clearCart, removeItem, replaceCart } = useCartStore();
   const { settings, loading: settingsLoading } = useSettings();
   const { showToast } = useToastStore();
   const router = useRouter();
@@ -207,6 +212,7 @@ export default function CheckoutPage() {
     deliveryMethod: "" as DeliveryMethod | "",
     deliveryType: "SHIPPING" as DeliveryType,
   });
+  const [marketingConsent, setMarketingConsent] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -245,6 +251,76 @@ export default function CheckoutPage() {
       }
     }
   }, [clearCart]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.hash.slice(1));
+    const recoveryToken = params.get("recovery");
+    if (!recoveryToken) return;
+
+    let active = true;
+    paymentApi.getPaymentRecovery(recoveryToken)
+      .then((recovery) => {
+        if (!active || recovery.kind !== "store") return;
+        replaceCart(recovery.items, recovery.coupon);
+        setFormData({
+          customerName: formatCustomerName(recovery.customer.name),
+          customerEmail: recovery.customer.email || "",
+          customerPhone: recovery.customer.phone,
+          receiverName: formatCustomerName(recovery.customer.receiverName || ""),
+          shippingAddress: recovery.delivery.address || "",
+          shippingStreet: recovery.delivery.street || "",
+          shippingNeighborhood: recovery.delivery.neighborhood || "",
+          shippingPostalCode: recovery.delivery.postalCode || "",
+          shippingCity: recovery.delivery.city || "",
+          shippingState: recovery.delivery.state || "",
+          deliveryMethod: (recovery.delivery.method || "") as DeliveryMethod | "",
+          deliveryType: recovery.delivery.type,
+        });
+        setSomeoneElseReceives(Boolean(recovery.customer.receiverName));
+        const attempt = {
+          paymentHoldId: recovery.paymentHoldId,
+          customerName: normalizeCustomerName(recovery.customer.name),
+          customerPhone: recovery.customer.phone,
+          total: recovery.totals.total,
+          expiresAt: recovery.expiresAt,
+        };
+        savePendingPaymentAttempt(attempt);
+        setPendingPaymentAttempt(attempt);
+        setPaymentMethod("MERCADOPAGO");
+        setCheckoutStep(3);
+        setPaymentStatus(null);
+        window.history.replaceState({}, "", "/checkout");
+        showToast("Tu pedido sigue protegido. Puedes intentar con otra tarjeta o cambiar a deposito o transferencia.", {
+          type: "info",
+          title: "Pago recuperado",
+        });
+      })
+      .catch((error) => {
+        if (!active) return;
+        window.history.replaceState({}, "", "/checkout");
+        showToast(
+          error?.response?.data?.message ||
+            "Este enlace de recuperacion ya no esta disponible.",
+          {
+            type: "info",
+            title: "Recuperacion finalizada",
+          },
+        );
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [replaceCart, showToast]);
+
+  useEffect(() => {
+    if (!formData.shippingState || selectedZone || zones.length === 0) return;
+    const recoveredZone = zones.find(
+      (zone) => zone.name === formData.shippingState,
+    );
+    if (recoveredZone) setSelectedZone(recoveredZone);
+  }, [formData.shippingState, selectedZone, zones]);
 
   useEffect(() => {
     if (!mounted || items.length === 0) return;
@@ -402,7 +478,7 @@ export default function CheckoutPage() {
     setCompletionSnapshot(buildSummarySnapshot());
     setOrderComplete({
       ...order,
-      customerName: order.customerName || formData.customerName.trim(),
+      customerName: order.customerName || normalizeCustomerName(formData.customerName),
       total: order.total ?? orderTotal,
     });
     setCompletionState(state);
@@ -511,7 +587,10 @@ export default function CheckoutPage() {
 
     return {
       ...formData,
-      receiverName: someoneElseReceives ? formData.receiverName : "",
+      customerName: normalizeCustomerName(formData.customerName),
+      receiverName: someoneElseReceives
+        ? normalizeCustomerName(formData.receiverName)
+        : "",
       shippingState: selectedZone?.name || "",
       shippingAddress,
       shippingCost: shippingCalculation.total,
@@ -519,6 +598,7 @@ export default function CheckoutPage() {
       couponCode: coupon?.code || "",
       deliveryType: "SHIPPING",
       paymentMethod,
+      marketingConsent,
       items: items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
     };
   };
@@ -748,7 +828,7 @@ export default function CheckoutPage() {
         const createdHold = await createStorePaymentHold();
         attempt = {
           paymentHoldId: createdHold.paymentHoldId,
-          customerName: formData.customerName.trim(),
+          customerName: normalizeCustomerName(formData.customerName),
           customerPhone: formData.customerPhone.trim(),
           total: orderTotal,
           expiresAt: createdHold.expiresAt,
@@ -1032,7 +1112,10 @@ export default function CheckoutPage() {
                         label="Nombre completo"
                         placeholder="Ej. Juan Pérez"
                         value={formData.customerName}
-                        onChange={(event) => setFormData({ ...formData, customerName: event.target.value })}
+                        onChange={(event) => setFormData({
+                          ...formData,
+                          customerName: formatCustomerName(event.target.value),
+                        })}
                       />
                       <StorefrontPhoneField
                         required
@@ -1083,7 +1166,10 @@ export default function CheckoutPage() {
                             label="Nombre completo de quien recibe"
                             placeholder="Nombre de la persona que recibe"
                             value={formData.receiverName}
-                            onChange={(event) => setFormData({ ...formData, receiverName: event.target.value })}
+                            onChange={(event) => setFormData({
+                              ...formData,
+                              receiverName: formatCustomerName(event.target.value),
+                            })}
                           />
                         </div>
                       )}
@@ -1091,6 +1177,10 @@ export default function CheckoutPage() {
                     <StorefrontNote icon={MessageCircle}>
                       Selecciona el código de país correcto e ingresa únicamente los dígitos de tu número de WhatsApp. Enviaremos ahí las confirmaciones y actualizaciones de tu pedido.
                     </StorefrontNote>
+                    <MarketingConsentField
+                      checked={marketingConsent}
+                      onChange={setMarketingConsent}
+                    />
                   </StorefrontCheckoutSection>
                 </div>
 

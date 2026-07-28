@@ -1,6 +1,9 @@
 import { Prisma, PrismaClient, RaffleStatus, TicketStatus } from "@prisma/client-raffle";
 import { randomUUID } from "crypto";
-import { PrismaClient as StorePrismaClient } from "@prisma/client-store";
+import {
+  PrismaClient as StorePrismaClient,
+  WhatsappMarketingConsentSource,
+} from "@prisma/client-store";
 import { paymentHoldReleaseQueue } from "../../../queues/payment-hold-release.queue";
 import { getReminderDelayMs, reservationReminderQueue } from "../../../queues/reservation-reminder.queue";
 import { ticketReleaseQueue } from "../../../queues/ticket-release.queue";
@@ -20,6 +23,7 @@ import {
   PAYMENT_RECONCILIATION_INTERVAL_MS,
   resolvePaymentHoldMinutes,
 } from "../../store/payments/payment-hold-policy";
+import { whatsappMarketingConsentService } from "../../../services/whatsapp-marketing-consent.service";
 
 const scheduleRaffleReconciliation = async (prisma: PrismaClient, holdId: string) => {
   const expiresAt = new Date(Date.now() + PAYMENT_RECONCILIATION_INTERVAL_MS);
@@ -124,6 +128,7 @@ export const rafflePaymentHoldService = {
       customerState?: string | null;
       couponCode?: string | null;
       earlyAccessAuthorized?: boolean;
+      marketingConsent?: boolean;
     },
   ) {
     const tickets = Array.from(new Set(data.tickets));
@@ -177,6 +182,23 @@ export const rafflePaymentHoldService = {
         include: { raffle: true, tickets: true },
       });
     });
+
+    if (data.marketingConsent === true) {
+      await whatsappMarketingConsentService
+        .grant(storePrisma, {
+          phone: hold.customerPhone,
+          displayName: hold.customerName,
+          source: WhatsappMarketingConsentSource.RAFFLE_CHECKOUT,
+          metadata: {
+            raffleId: data.raffleId,
+            rafflePaymentHoldId: hold.id,
+            paymentMethod: "MERCADOPAGO",
+          },
+        })
+        .catch((error) => {
+          console.error("[Marketing consent] Raffle payment consent could not be recorded:", error);
+        });
+    }
 
     await paymentHoldReleaseQueue.add("raffle-hold", { kind: "raffle", holdId: hold.id }, { delay: holdMinutes * 60_000 });
     void publishTicketAvailabilityChanged(data.raffleId).catch(() => undefined);
@@ -264,6 +286,22 @@ export const rafflePaymentHoldService = {
           couponCode: hold.couponCode,
           discountTotal: hold.discountTotal,
         })),
+      });
+      await tx.raffleParticipationEvent.create({
+        data: {
+          participationId: reservationId,
+          raffleId: hold.raffleId,
+          eventType: "PAYMENT_METHOD_CHANGED",
+          message: "El participante cambió el intento con tarjeta a depósito o transferencia.",
+          actorType: "CUSTOMER",
+          actorName: "Participante",
+          origin: "STOREFRONT",
+          previousState: { paymentMethod: "MERCADOPAGO" },
+          nextState: { paymentMethod: "TRANSFER", paymentStatus: "PENDING" },
+          metadata: {
+            ticketNumbers: hold.tickets.map((ticket) => ticket.ticketNumber),
+          },
+        },
       });
       await tx.rafflePaymentHoldTicket.deleteMany({ where: { holdId } });
       await tx.rafflePaymentHold.update({
@@ -380,6 +418,22 @@ export const rafflePaymentHoldService = {
           mpPaymentTypeId: payment.payment_type_id || null,
           mpPaidAmount: Number(payment.transaction_amount),
         })),
+      });
+      await tx.raffleParticipationEvent.create({
+        data: {
+          participationId: reservationId,
+          raffleId: hold.raffleId,
+          eventType: "PAYMENT_CONFIRMED",
+          message: "Pago con tarjeta confirmado por Mercado Pago.",
+          actorType: "MERCADO_PAGO",
+          actorName: "Mercado Pago",
+          origin: "MERCADO_PAGO",
+          nextState: { paymentStatus: "PAID", mpPaymentStatus: payment.status },
+          metadata: {
+            paymentId: String(payment.id),
+            ticketNumbers: hold.tickets.map((ticket) => ticket.ticketNumber),
+          },
+        },
       });
       await tx.rafflePaymentHoldTicket.deleteMany({ where: { holdId } });
       await tx.rafflePaymentHold.update({

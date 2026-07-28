@@ -108,7 +108,7 @@ export const NexusButton: React.FC<NexusButtonProps> = ({
           style={{ gap: Icon && !isIconOnly && children ? 'var(--space-sm)' : undefined }}
         >
           {Icon && (
-            <Icon size={iconSize} strokeWidth={2.5} />
+            <Icon className="shrink-0" size={iconSize} strokeWidth={2.5} />
           )}
           {!isIconOnly && children}
         </div>

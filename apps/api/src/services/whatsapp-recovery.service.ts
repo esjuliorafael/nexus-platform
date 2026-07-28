@@ -10,7 +10,10 @@ import {
 } from "./evolution/whatsapp-delivery.service";
 
 let reconciliationRun: Promise<WhatsappRecoveryResult> | null = null;
-const instanceRecoveryRuns = new Map<string, Promise<{ recovered: number; discarded: number }>>();
+const instanceRecoveryRuns = new Map<
+  string,
+  Promise<{ recovered: number; discarded: number }>
+>();
 
 export type WhatsappRecoveryResult = {
   instancesChecked: number;
@@ -24,6 +27,7 @@ async function isJobStillRelevant(data: WhatsappJobData) {
     data.kind === "order" ||
     data.kind === "order-cancelled" ||
     data.kind === "order-paid" ||
+    data.kind === "order-refunded" ||
     data.kind === "order-restored" ||
     data.kind === "order-reminder"
   ) {
@@ -35,15 +39,24 @@ async function isJobStillRelevant(data: WhatsappJobData) {
 
     if (data.kind === "order-cancelled") return order.status === "CANCELLED";
     if (data.kind === "order-paid") {
-      return order.status !== "CANCELLED" && order.paymentStatus === "APPROVED" && !order.mpRefundedAt;
+      return (
+        order.status !== "CANCELLED" &&
+        order.paymentStatus === "APPROVED" &&
+        !order.mpRefundedAt
+      );
+    }
+    if (data.kind === "order-refunded") {
+      return order.paymentStatus === "REFUNDED" && Boolean(order.mpRefundedAt);
     }
     return order.status === "PENDING";
   }
 
   if (
     data.kind === "reservation" ||
+    data.kind === "reservation-restored" ||
     data.kind === "reservation-cancelled" ||
     data.kind === "reservation-paid" ||
+    data.kind === "reservation-refunded" ||
     data.kind === "reservation-reminder"
   ) {
     const sales = await rafflePrisma.ticketSale.findMany({
@@ -56,16 +69,59 @@ async function isJobStillRelevant(data: WhatsappJobData) {
       return sales.every((sale) => sale.paymentStatus === "CANCELLED");
     }
     if (data.kind === "reservation-paid") {
-      return sales.every((sale) => sale.paymentStatus === "PAID" && !sale.mpRefundedAt);
+      return sales.every(
+        (sale) => sale.paymentStatus === "PAID" && !sale.mpRefundedAt,
+      );
+    }
+    if (data.kind === "reservation-refunded") {
+      return sales.every(
+        (sale) =>
+          sale.paymentStatus === "CANCELLED" && Boolean(sale.mpRefundedAt),
+      );
     }
     return sales.every((sale) => sale.paymentStatus === "PENDING");
+  }
+
+  if (data.kind === "raffle-result") {
+    const recipient = await rafflePrisma.raffleResultRecipient.findUnique({
+      where: { id: data.campaignRecipientId },
+      select: { status: true },
+    });
+    return Boolean(
+      recipient &&
+      ["PENDING", "PROCESSING", "FAILED"].includes(recipient.status),
+    );
+  }
+
+  if (data.kind === "raffle-invitation") {
+    const recipient =
+      await rafflePrisma.raffleInvitationRecipient.findUnique({
+        where: { id: data.campaignRecipientId },
+        select: { status: true },
+      });
+    return Boolean(
+      recipient &&
+      ["PENDING", "PROCESSING", "FAILED"].includes(recipient.status),
+    );
+  }
+
+  if (
+    data.kind === "store-payment-recovery" ||
+    data.kind === "raffle-payment-recovery"
+  ) {
+    // The payment recovery worker validates the token, hold status and expiry
+    // immediately before delivery.
+    return true;
   }
 
   const subscription = await rafflePrisma.raffleOpeningSubscription.findUnique({
     where: { id: data.subscriptionId },
     select: { status: true },
   });
-  return Boolean(subscription && ["PENDING", "PROCESSING", "FAILED"].includes(subscription.status));
+  return Boolean(
+    subscription &&
+    ["PENDING", "PROCESSING", "FAILED"].includes(subscription.status),
+  );
 }
 
 async function recoverJob(job: Job<WhatsappJobData>) {
@@ -109,7 +165,9 @@ async function runFailedWhatsappJobsRecovery(instanceName: string) {
     },
     select: { jobId: true },
   });
-  const completedJobIds = new Set(successfulLogs.map((log) => log.jobId).filter(Boolean));
+  const completedJobIds = new Set(
+    successfulLogs.map((log) => log.jobId).filter(Boolean),
+  );
 
   let recovered = 0;
   let discarded = 0;
@@ -147,15 +205,22 @@ async function runWhatsappRecoveryReconciliation(): Promise<WhatsappRecoveryResu
     select: { instanceName: true, errorMessage: true },
     take: 5000,
   });
-  const instanceNames = Array.from(new Set(
-    failedLogs
-      .filter((log) => isRecoverableWhatsappConnectionError(log.errorMessage))
-      .map((log) => log.instanceName)
-      .filter((name) => name && name !== "missing"),
-  ));
+  const instanceNames = Array.from(
+    new Set(
+      failedLogs
+        .filter((log) => isRecoverableWhatsappConnectionError(log.errorMessage))
+        .map((log) => log.instanceName)
+        .filter((name) => name && name !== "missing"),
+    ),
+  );
 
   if (instanceNames.length === 0) {
-    return { instancesChecked: 0, instancesOpen: 0, recovered: 0, discarded: 0 };
+    return {
+      instancesChecked: 0,
+      instancesOpen: 0,
+      recovered: 0,
+      discarded: 0,
+    };
   }
 
   const [globalConfig, principalSetting, channels] = await Promise.all([
@@ -173,7 +238,9 @@ async function runWhatsappRecoveryReconciliation(): Promise<WhatsappRecoveryResu
   let instancesOpen = 0;
   let recovered = 0;
   let discarded = 0;
-  const principalInstanceName = normalizePrincipalInstanceName(principalSetting?.value);
+  const principalInstanceName = normalizePrincipalInstanceName(
+    principalSetting?.value,
+  );
   let principalOpen = false;
 
   if (principalInstanceName && globalConfig.baseUrl && globalConfig.apiKey) {
@@ -200,10 +267,16 @@ async function runWhatsappRecoveryReconciliation(): Promise<WhatsappRecoveryResu
     let preferredOpen = instanceName === principalInstanceName && principalOpen;
     if (!preferredOpen) {
       try {
-        const connection = await evolutionClient.getConnectionState({ instanceName, baseUrl, apiKey });
+        const connection = await evolutionClient.getConnectionState({
+          instanceName,
+          baseUrl,
+          apiKey,
+        });
         preferredOpen = connection.instance.state === "open";
       } catch (error: any) {
-        console.warn(`[WhatsApp recovery] Could not inspect ${instanceName}: ${error?.message || error}`);
+        console.warn(
+          `[WhatsApp recovery] Could not inspect ${instanceName}: ${error?.message || error}`,
+        );
       }
     }
 

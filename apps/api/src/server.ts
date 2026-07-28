@@ -29,6 +29,7 @@ import { expireOverduePendingOrders } from "./services/order-expiration.service"
 import { reconcileRaffleOpeningNotifications } from "./services/raffle-opening-notification.service";
 import { mediaVaultService } from "./modules/store/media-vault/media-vault.service";
 import { reconcileRecoverableWhatsappJobs } from "./services/whatsapp-recovery.service";
+import { inventoryIntegrityService } from "./modules/store/inventory/inventory-integrity.service";
 
 const server = fastify({
   logger: true,
@@ -191,6 +192,11 @@ async function bootstrap() {
             `Expired ${result.expired} overdue pending orders (${result.scanned} scanned).`,
           );
         }
+        if (result.expirationScheduled > 0) {
+          server.log.info(
+            `Scheduled expiration for ${result.expirationScheduled} legacy pending orders.`,
+          );
+        }
       } catch (error: any) {
         server.log.error(`Overdue order sweep failed: ${error.message}`);
       }
@@ -199,6 +205,21 @@ async function bootstrap() {
     await sweepOverdueOrders();
     const overdueOrderSweepTimer = setInterval(sweepOverdueOrders, 5 * 60 * 1000);
     overdueOrderSweepTimer.unref?.();
+
+    const auditInventoryIntegrity = async () => {
+      try {
+        const result = await inventoryIntegrityService.audit();
+        if (result.count > 0) {
+          server.log.warn(`Inventory integrity found ${result.count} incident(s).`);
+        }
+      } catch (error: any) {
+        server.log.error(`Inventory integrity audit failed: ${error.message}`);
+      }
+    };
+
+    await auditInventoryIntegrity();
+    const inventoryIntegrityTimer = setInterval(auditInventoryIntegrity, 15 * 60 * 1000);
+    inventoryIntegrityTimer.unref?.();
 
     const reconcileOrderReminders = async () => {
       try {

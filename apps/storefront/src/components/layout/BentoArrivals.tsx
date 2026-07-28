@@ -41,7 +41,9 @@ function ImmersiveProductCard({ product, priority = false }: { product: Product,
   const addItem = useCartStore((state) => state.addItem);
   const showToast = useToastStore((state) => state.showToast);
 
-  const isAvailable = product.saleStatus === 'AVAILABLE';
+  const isAvailable =
+    product.saleStatus === 'AVAILABLE' &&
+    (product.type !== 'ITEM' || Number(product.stock) > 0);
   const displayImage = product.coverPosterUrl || product.coverMediaUrl || product.thumbnail;
 
   const handleAddToCart = (e: React.MouseEvent) => {

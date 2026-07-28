@@ -96,7 +96,7 @@ test.describe('Storefront drawers', () => {
     await expect(page.getByTestId('storefront-drawer-backdrop')).toBeVisible();
 
     await page.waitForURL('**/raffles/1/checkout');
-    await expect(page.getByRole('heading', { name: 'Datos del participante' })).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'Información del participante' })).toBeVisible();
     await expect(dialog).toBeHidden();
 
     await expectCheckoutAtTopWithoutFooter(page);

@@ -13,11 +13,20 @@ import {
   ExtraCharge,
   Raffle,
   RaffleParticipation,
+  RaffleOperationalOverview,
+  RaffleResultAdmin,
+  RaffleResultPreview,
+  RaffleResultCommunicationOverview,
+  RaffleResultCampaignAudience,
+  RafflePrizeFulfillmentStatus,
   BillingPayment,
-  TemplateType,
   RaffleIntelligenceOverview,
   RaffleIntelligenceSegment,
   RaffleParticipantIntelligence,
+  RaffleAudience,
+  RaffleAudiencePreview,
+  RaffleAudienceRules,
+  RaffleInvitationOverview,
   ChannelsOverview,
   HomeSlide,
   StoreHero,
@@ -69,7 +78,9 @@ export const api = axios.create({
 
 export const apiMercadoPago = {
   getAuthUrl: async (channelId?: string | number): Promise<string> => {
-    const query = channelId ? `?channelId=${encodeURIComponent(String(channelId))}` : "";
+    const query = channelId
+      ? `?channelId=${encodeURIComponent(String(channelId))}`
+      : "";
     const res = await api.get(`/mp/auth-url${query}`);
     return res.data.url;
   },
@@ -157,7 +168,9 @@ export const apiUpload = {
 
     while (
       (asset.status === "PROCESSING" ||
-        (asset.type === "VIDEO" && asset.status === "READY" && !asset.posterUrl)) &&
+        (asset.type === "VIDEO" &&
+          asset.status === "READY" &&
+          !asset.posterUrl)) &&
       Date.now() < deadline
     ) {
       await new Promise((resolve) => window.setTimeout(resolve, 1200));
@@ -242,48 +255,69 @@ export const apiAuth = {
     return { ...res.data, id: res.data.id.toString() };
   },
   changePassword: async (currentPassword: string, newPassword: string) => {
-    const res = await api.put("/auth/me/password", { currentPassword, newPassword });
+    const res = await api.put("/auth/me/password", {
+      currentPassword,
+      newPassword,
+    });
     return res.data;
   },
 };
 
+const mapApiProduct = (item: any): Product => ({
+  id: item.id.toString(),
+  name: item.name,
+  price: parseFloat(item.price),
+  status: mapStatusDBtoFront(item.stock, item.saleStatus, item.type),
+  type: mapProductType(item.type),
+  stock: item.stock,
+  ringNumber: item.ringNumber || undefined,
+  age: item.age || undefined,
+  purpose: item.purpose || undefined,
+  featured: Boolean(item.featured),
+  featuredOrder: item.featuredOrder ?? null,
+  active: item.active !== false,
+  published: item.published !== false,
+  description: item.description || "",
+  imageUrl: item.thumbnail || "",
+  thumbnail: item.thumbnail || "",
+  coverAssetId: item.coverAssetId,
+  coverMediaUrl: item.coverMediaUrl,
+  coverPosterUrl: item.coverPosterUrl,
+  coverMediaType: item.coverMediaType,
+  coverAssetStatus: item.coverAssetStatus,
+  gallery: item.gallery
+    ? item.gallery.map((g: any) => ({
+        id: g.id?.toString(),
+        assetId: g.assetId,
+        mediaUrl: g.mediaUrl,
+        posterUrl: g.posterUrl,
+        mediaType: g.mediaType,
+        mimeType: g.mimeType,
+      }))
+    : [],
+  createdAt: item.createdAt,
+});
+
 export const apiProducts = {
   getAll: async (): Promise<Product[]> => {
     const res = await api.get("/admin/products");
-    return res.data.map((item: any) => ({
-      id: item.id.toString(),
-      name: item.name,
-      price: parseFloat(item.price),
-      status: mapStatusDBtoFront(item.stock, item.saleStatus, item.type),
-      type: mapProductType(item.type),
-      stock: item.stock,
-      ringNumber: item.ringNumber || undefined,
-      age: item.age || undefined,
-      purpose: item.purpose || undefined,
-      featured: Boolean(item.featured),
-      featuredOrder: item.featuredOrder ?? null,
-      active: item.active !== false,
-      published: item.published !== false,
-      description: item.description || "",
-      imageUrl: item.thumbnail || "",
-      thumbnail: item.thumbnail || "",
-      coverAssetId: item.coverAssetId,
-      coverMediaUrl: item.coverMediaUrl,
-      coverPosterUrl: item.coverPosterUrl,
-      coverMediaType: item.coverMediaType,
-      coverAssetStatus: item.coverAssetStatus,
-      gallery: item.gallery
-        ? item.gallery.map((g: any) => ({
-            id: g.id?.toString(),
-            assetId: g.assetId,
-            mediaUrl: g.mediaUrl,
-            posterUrl: g.posterUrl,
-            mediaType: g.mediaType,
-            mimeType: g.mimeType,
-          }))
-        : [],
-      createdAt: item.createdAt,
-    }));
+    return res.data.map(mapApiProduct);
+  },
+  getById: async (id: string): Promise<Product> => {
+    const res = await api.get(`/admin/products/${id}`);
+    return mapApiProduct(res.data);
+  },
+  getOverview: async (
+    id: string,
+  ): Promise<import("./types").ProductOverview> => {
+    const res = await api.get(`/admin/products/${id}/overview`);
+    return {
+      ...res.data,
+      product: mapApiProduct(res.data.product),
+      finalSale: res.data.finalSale || null,
+      recentSales: res.data.recentSales || [],
+      activityEvents: res.data.activityEvents || [],
+    };
   },
   create: async (data: any) => {
     return api.post("/admin/products", data);
@@ -399,7 +433,10 @@ export const apiStoreHeroes = {
     const res = await api.put(`/admin/store-heroes/${id}`, data);
     return mapStoreHero(res.data);
   },
-  reorder: async (scope: StoreHeroScope, ids: string[]): Promise<StoreHero[]> => {
+  reorder: async (
+    scope: StoreHeroScope,
+    ids: string[],
+  ): Promise<StoreHero[]> => {
     const res = await api.put("/admin/store-heroes/reorder", { scope, ids });
     return res.data.map(mapStoreHero);
   },
@@ -421,7 +458,12 @@ export const apiStorefrontAnnouncements = {
     const res = await api.get("/admin/storefront-announcements");
     return res.data.map(mapStorefrontAnnouncement);
   },
-  create: async (data: Omit<StorefrontAnnouncement, "id" | "version" | "createdAt" | "updatedAt">) => {
+  create: async (
+    data: Omit<
+      StorefrontAnnouncement,
+      "id" | "version" | "createdAt" | "updatedAt"
+    >,
+  ) => {
     const res = await api.post("/admin/storefront-announcements", data);
     return mapStorefrontAnnouncement(res.data);
   },
@@ -430,10 +472,14 @@ export const apiStorefrontAnnouncements = {
     return mapStorefrontAnnouncement(res.data);
   },
   updateStatus: async (id: string, active: boolean) => {
-    const res = await api.patch(`/admin/storefront-announcements/${id}/status`, { active });
+    const res = await api.patch(
+      `/admin/storefront-announcements/${id}/status`,
+      { active },
+    );
     return mapStorefrontAnnouncement(res.data);
   },
-  delete: async (id: string) => api.delete(`/admin/storefront-announcements/${id}`),
+  delete: async (id: string) =>
+    api.delete(`/admin/storefront-announcements/${id}`),
 };
 
 const mapNullableNumber = (value: any) =>
@@ -485,6 +531,21 @@ export interface RaffleCouponRecord {
   raffle?: { id: number; title: string } | null;
 }
 
+export interface RaffleCouponValidationResponse {
+  code: string;
+  name?: string | null;
+  discountType: "PERCENTAGE" | "FIXED";
+  discountValue: number;
+  subtotal: number;
+  discountTotal: number;
+  total: number;
+}
+
+export interface RaffleTicketAssignment {
+  mainTicketNumber: string;
+  extraOpportunities: string[];
+}
+
 const mapRaffleCoupon = (item: any): RaffleCouponRecord => ({
   ...item,
   id: String(item.id),
@@ -498,10 +559,25 @@ const mapRaffleCoupon = (item: any): RaffleCouponRecord => ({
 });
 
 export const apiRaffleCoupons = {
-  getAll: async (): Promise<RaffleCouponRecord[]> => (await api.get('/admin/raffle-coupons')).data.map(mapRaffleCoupon),
-  create: async (data: Partial<RaffleCouponRecord>) => mapRaffleCoupon((await api.post('/admin/raffle-coupons', data)).data),
-  update: async (id: string, data: Partial<RaffleCouponRecord>) => mapRaffleCoupon((await api.put(`/admin/raffle-coupons/${id}`, data)).data),
+  getAll: async (): Promise<RaffleCouponRecord[]> =>
+    (await api.get("/admin/raffle-coupons")).data.map(mapRaffleCoupon),
+  create: async (data: Partial<RaffleCouponRecord>) =>
+    mapRaffleCoupon((await api.post("/admin/raffle-coupons", data)).data),
+  update: async (id: string, data: Partial<RaffleCouponRecord>) =>
+    mapRaffleCoupon((await api.put(`/admin/raffle-coupons/${id}`, data)).data),
   delete: (id: string) => api.delete(`/admin/raffle-coupons/${id}`),
+  validate: async (
+    code: string,
+    raffleId: string | number,
+    tickets: string[],
+  ): Promise<RaffleCouponValidationResponse> =>
+    (
+      await api.post("/raffle-coupons/validate", {
+        code,
+        raffleId: Number(raffleId),
+        tickets,
+      })
+    ).data,
 };
 
 export const apiCategories = {
@@ -532,6 +608,10 @@ export const apiOrders = {
     const res = await api.get("/store/orders/admin");
     return res.data.map((item: any) => mapOrderResponse(item));
   },
+  getById: async (id: string): Promise<Order> => {
+    const res = await api.get(`/store/orders/admin/${id}`);
+    return mapOrderResponse(res.data);
+  },
   updateStatus: async (id: string, status: string): Promise<Order> => {
     const res = await api.patch(`/store/orders/admin/${id}/status`, { status });
     return mapOrderResponse(res.data);
@@ -555,7 +635,11 @@ export const apiOrders = {
   },
   updateCustomer: async (
     id: string,
-    data: { customerName: string; customerPhone: string; shippingState?: string | null },
+    data: {
+      customerName: string;
+      customerPhone: string;
+      shippingState?: string | null;
+    },
   ): Promise<Order> => {
     const res = await api.patch(`/store/orders/admin/${id}/customer`, data);
     return mapOrderResponse(res.data);
@@ -691,7 +775,11 @@ export const apiWhatsApp = {
       phone: item.phone,
       template: item.template,
       active: item.active,
+      provider: item.provider || "EVOLUTION",
+      deliveryStrategy: item.deliveryStrategy || "STANDARD",
       instanceName: item.instanceName,
+      kapsoPhoneNumberId: item.kapsoPhoneNumberId,
+      kapsoBusinessAccountId: item.kapsoBusinessAccountId,
       templates: item.templates || [],
     }));
   },
@@ -702,14 +790,6 @@ export const apiWhatsApp = {
   toggleStatus: async (id: string, active: boolean) =>
     api.put(`/admin/whatsapp-channels/${id}`, { active }),
 
-  // New method for templates
-  saveTemplate: async (
-    channelId: string,
-    data: { type: TemplateType; content: string },
-  ) => {
-    return api.post(`/admin/whatsapp-channels/${channelId}/templates`, data);
-  },
-
   // Evolution Proxy
   getStatus: async (instanceName: string) =>
     api.get(`/admin/whatsapp/status/${instanceName}`),
@@ -717,12 +797,37 @@ export const apiWhatsApp = {
     instanceName: string,
     method: "qr" | "pairing_code",
     phone?: string,
-  ) => api.post(`/admin/whatsapp/connect/${instanceName}`, {
-    method,
-    ...(method === "pairing_code" ? { phone } : {}),
-  }),
+  ) =>
+    api.post(`/admin/whatsapp/connect/${instanceName}`, {
+      method,
+      ...(method === "pairing_code" ? { phone } : {}),
+    }),
   disconnect: async (instanceName: string) =>
     api.post(`/admin/whatsapp/disconnect/${instanceName}`),
+  getKapsoStatus: async (phoneNumberId: string, businessAccountId?: string) =>
+    api.post("/admin/whatsapp/kapso/channel-diagnostics", {
+      phoneNumberId,
+      businessAccountId,
+    }),
+  syncKapsoTemplates: async (channelId?: string) =>
+    api.post("/admin/whatsapp/kapso/sync-templates", {
+      ...(channelId ? { channelId: Number(channelId) } : {}),
+    }),
+  getKapsoTemplateReadiness: async (channelId?: string) =>
+    api.get("/admin/whatsapp/kapso/template-readiness", {
+      params: channelId ? { channelId: Number(channelId) } : {},
+    }),
+  createKapsoSetupLink: async (data: {
+    target: "PRINCIPAL" | "SPECIALIZED";
+    channelId?: number;
+    returnUrl: string;
+  }) => api.post("/admin/whatsapp/kapso/onboarding/setup-link", data),
+  getKapsoOnboardingSession: async (sessionId: string) =>
+    api.get(`/admin/whatsapp/kapso/onboarding/sessions/${sessionId}`),
+  disconnectKapso: async (data: {
+    target: "PRINCIPAL" | "SPECIALIZED";
+    channelId?: number;
+  }) => api.post("/admin/whatsapp/kapso/onboarding/disconnect", data),
 };
 
 export const apiChannels = {
@@ -730,8 +835,7 @@ export const apiChannels = {
     const res = await api.get("/admin/channels/overview");
     return res.data;
   },
-  createSpecialized: async (data: any) =>
-    api.post("/admin/channels", data),
+  createSpecialized: async (data: any) => api.post("/admin/channels", data),
   deleteSpecialized: async (purpose: string) =>
     api.delete(`/admin/channels/${encodeURIComponent(purpose)}`),
 };
@@ -755,7 +859,8 @@ export const apiUsers = {
   },
   create: async (data: any) => api.post("/admin/users", data),
   update: async (id: string, data: any) => api.put(`/admin/users/${id}`, data),
-  updateContact: async (id: string, data: any) => api.put(`/admin/users/${id}/contact`, data),
+  updateContact: async (id: string, data: any) =>
+    api.put(`/admin/users/${id}/contact`, data),
   delete: async (id: string) => api.delete(`/admin/users/${id}`),
   toggleStatus: async (id: string, active: boolean) =>
     api.put(`/admin/users/${id}`, { active }),
@@ -820,6 +925,42 @@ export const apiSystem = {
   },
 };
 
+export interface InventoryIntegrityIssue {
+  productId: number;
+  productName: string;
+  issueType: "ORPHAN_RESERVED_BIRD" | "COMPLETED_ORDER_RESERVED_BIRD";
+  message: string;
+  canRelease: boolean;
+  orderReferences: Array<{
+    id: number;
+    status: string;
+    customerName: string;
+    createdAt: string;
+  }>;
+  paymentHoldReferences: Array<{
+    id: string;
+    status: string;
+    expiresAt: string;
+  }>;
+}
+
+export const apiInventoryIntegrity = {
+  audit: async (): Promise<{
+    checkedAt: string;
+    count: number;
+    issues: InventoryIntegrityIssue[];
+  }> => {
+    const res = await api.get("/admin/inventory-integrity");
+    return res.data;
+  },
+  releaseOrphanReservation: async (productId: number) => {
+    const res = await api.post(
+      `/admin/inventory-integrity/${productId}/release`,
+    );
+    return res.data as { productId: number; productName: string };
+  },
+};
+
 export const apiRaffles = {
   getAll: async (): Promise<Raffle[]> => {
     const res = await api.get("/raffles/admin");
@@ -829,7 +970,8 @@ export const apiRaffles = {
       ticketPrice: parseFloat(item.ticketPrice),
       published: item.published !== false,
       featured: item.featured === true,
-      featuredOrder: item.featuredOrder == null ? null : Number(item.featuredOrder),
+      featuredOrder:
+        item.featuredOrder == null ? null : Number(item.featuredOrder),
       earlyAccessEnabled: item.earlyAccessEnabled === true,
       earlyAccessConfigured: item.earlyAccessConfigured === true,
     }));
@@ -838,8 +980,135 @@ export const apiRaffles = {
   update: async (id: string, data: any) => api.put(`/raffles/${id}`, data),
   updatePublication: async (id: string, published: boolean) =>
     api.patch(`/raffles/${id}/publication`, { published }),
-  updateFeatured: async (id: string, featured: boolean, featuredOrder?: number | null) =>
-    api.patch(`/raffles/${id}/featured`, { featured, featuredOrder }),
+  updateFeatured: async (
+    id: string,
+    featured: boolean,
+    featuredOrder?: number | null,
+  ) => api.patch(`/raffles/${id}/featured`, { featured, featuredOrder }),
+  getTicketAssignments: async (
+    id: string | number,
+  ): Promise<RaffleTicketAssignment[]> =>
+    (
+      await api.get(
+        `/raffles/admin/${encodeURIComponent(String(id))}/ticket-assignments`,
+      )
+    ).data,
+  getResult: async (id: string): Promise<RaffleResultAdmin> => {
+    const response = await api.get(
+      `/raffles/admin/${encodeURIComponent(id)}/result`,
+    );
+    return response.data;
+  },
+  previewResult: async (
+    id: string,
+    results: Array<{ prizeId: number; referenceNumber: string }>,
+  ): Promise<RaffleResultPreview> => {
+    const response = await api.post(
+      `/raffles/admin/${encodeURIComponent(id)}/result/preview`,
+      { results },
+    );
+    return response.data;
+  },
+  saveResultDraft: async (
+    id: string,
+    prizeId: number,
+    referenceNumber: string,
+  ): Promise<{
+    id: number;
+    draftReferenceNumber: string;
+    updatedAt: string;
+  }> => {
+    const response = await api.patch(
+      `/raffles/admin/${encodeURIComponent(id)}/result/drafts/${prizeId}`,
+      { referenceNumber },
+    );
+    return response.data;
+  },
+  publishResult: async (
+    id: string,
+    results: Array<{ prizeId: number; referenceNumber: string }>,
+  ): Promise<{
+    raffle: Raffle;
+    preview: RaffleResultPreview;
+    resultPublishedAt: string;
+  }> => {
+    const response = await api.post(
+      `/raffles/admin/${encodeURIComponent(id)}/result`,
+      { results },
+    );
+    return {
+      ...response.data,
+      raffle: {
+        ...response.data.raffle,
+        id: String(response.data.raffle.id),
+        ticketPrice: Number(response.data.raffle.ticketPrice),
+      },
+    };
+  },
+  getResultCommunication: async (
+    id: string,
+  ): Promise<RaffleResultCommunicationOverview> => {
+    const response = await api.get(
+      `/raffles/admin/${encodeURIComponent(id)}/result/communication`,
+    );
+    return response.data;
+  },
+  createResultCampaign: async (
+    id: string,
+    audience: RaffleResultCampaignAudience,
+  ) => {
+    const response = await api.post(
+      `/raffles/admin/${encodeURIComponent(id)}/result/campaigns`,
+      { audience },
+    );
+    return response.data;
+  },
+  retryResultCampaign: async (id: string, campaignId: string) => {
+    const response = await api.post(
+      `/raffles/admin/${encodeURIComponent(id)}/result/campaigns/${encodeURIComponent(campaignId)}/retry`,
+    );
+    return response.data;
+  },
+  getInvitationOverview: async (
+    id: string,
+    params: { audienceId?: string; frequencyWindowDays?: number } = {},
+  ): Promise<RaffleInvitationOverview> => {
+    const response = await api.get(
+      `/raffles/admin/${encodeURIComponent(id)}/invitations`,
+      { params },
+    );
+    return response.data;
+  },
+  createInvitationCampaign: async (
+    id: string,
+    data: { audienceId?: string | null; frequencyWindowDays: number },
+  ) => {
+    const response = await api.post(
+      `/raffles/admin/${encodeURIComponent(id)}/invitations`,
+      data,
+    );
+    return response.data;
+  },
+  retryInvitationCampaign: async (id: string, campaignId: string) => {
+    const response = await api.post(
+      `/raffles/admin/${encodeURIComponent(id)}/invitations/${encodeURIComponent(campaignId)}/retry`,
+    );
+    return response.data;
+  },
+  updatePrizeFulfillment: async (
+    id: string,
+    prizeId: number,
+    data: {
+      status: RafflePrizeFulfillmentStatus;
+      notes?: string | null;
+    },
+  ) => {
+    const response = await api.patch(
+      `/raffles/admin/${encodeURIComponent(id)}/result/prizes/${prizeId}/fulfillment`,
+      data,
+    );
+    return response.data;
+  },
   reorderFeatured: async (ids: string[]): Promise<Raffle[]> => {
     const res = await api.put("/raffles/featured/reorder", {
       ids: ids.map((id) => Number(id)),
@@ -850,7 +1119,8 @@ export const apiRaffles = {
       ticketPrice: parseFloat(item.ticketPrice),
       published: item.published !== false,
       featured: item.featured === true,
-      featuredOrder: item.featuredOrder == null ? null : Number(item.featuredOrder),
+      featuredOrder:
+        item.featuredOrder == null ? null : Number(item.featuredOrder),
       earlyAccessEnabled: item.earlyAccessEnabled === true,
       earlyAccessConfigured: item.earlyAccessConfigured === true,
     }));
@@ -864,9 +1134,37 @@ export const apiRaffleParticipations = {
     return response.data;
   },
   getById: async (id: string): Promise<RaffleParticipation> => {
-    const response = await api.get(`/ticket-sales/admin/participations/${encodeURIComponent(id)}`);
+    const response = await api.get(
+      `/ticket-sales/admin/participations/${encodeURIComponent(id)}`,
+    );
     return response.data;
   },
+  getRaffleOverview: async (
+    raffleId: string | number,
+  ): Promise<RaffleOperationalOverview> => {
+    const response = await api.get(
+      `/ticket-sales/admin/raffles/${encodeURIComponent(String(raffleId))}/overview`,
+    );
+    return response.data;
+  },
+  createAdminParticipation: async (
+    raffleId: string | number,
+    data: {
+      tickets: string[];
+      customerName: string;
+      customerPhone: string;
+      customerState?: string | null;
+      couponCode?: string | null;
+    },
+  ): Promise<RaffleParticipation> => {
+    const response = await api.post(
+      `/ticket-sales/admin/raffles/${encodeURIComponent(String(raffleId))}/participations`,
+      data,
+    );
+    return response.data;
+  },
+  getAvailabilityEventsUrl: () =>
+    `${API_BASE_URL}/raffles/ticket-availability/events`,
   updateStatus: async (id: string, paymentStatus: "PAID" | "CANCELLED") => {
     const response = await api.patch(
       `/ticket-sales/admin/participations/${encodeURIComponent(id)}/status`,
@@ -874,9 +1172,25 @@ export const apiRaffleParticipations = {
     );
     return response.data as RaffleParticipation;
   },
+  restore: async (id: string): Promise<RaffleParticipation> => {
+    const response = await api.post(
+      `/ticket-sales/admin/participations/${encodeURIComponent(id)}/restore`,
+    );
+    return response.data;
+  },
+  restoreAndConfirmPayment: async (id: string): Promise<RaffleParticipation> => {
+    const response = await api.post(
+      `/ticket-sales/admin/participations/${encodeURIComponent(id)}/restore-paid`,
+    );
+    return response.data;
+  },
   updateParticipant: async (
     id: string,
-    data: { customerName: string; customerPhone: string; customerState?: string | null },
+    data: {
+      customerName: string;
+      customerPhone: string;
+      customerState?: string | null;
+    },
   ): Promise<RaffleParticipation> => {
     const response = await api.patch(
       `/ticket-sales/admin/participations/${encodeURIComponent(id)}/participant`,
@@ -944,6 +1258,58 @@ export const apiRaffleIntelligence = {
     link.remove();
     window.URL.revokeObjectURL(url);
   },
+  getAudiences: async (): Promise<RaffleAudience[]> => {
+    const res = await api.get("/admin/raffle-intelligence/audiences");
+    return res.data;
+  },
+  getAudienceOptions: async (): Promise<{
+    raffles: Array<{ id: number; title: string; status: string }>;
+    states: string[];
+  }> => {
+    const res = await api.get("/admin/raffle-intelligence/audiences/options");
+    return res.data;
+  },
+  previewAudience: async (data: {
+    rules?: RaffleAudienceRules;
+    audienceId?: string;
+    targetRaffleId?: number;
+    frequencyWindowDays?: number;
+  }): Promise<RaffleAudiencePreview> => {
+    const res = await api.post(
+      "/admin/raffle-intelligence/audiences/preview",
+      data,
+    );
+    return res.data;
+  },
+  createAudience: async (data: {
+    name: string;
+    description?: string | null;
+    rules: RaffleAudienceRules;
+    active?: boolean;
+  }): Promise<RaffleAudience> => {
+    const res = await api.post("/admin/raffle-intelligence/audiences", data);
+    return res.data;
+  },
+  updateAudience: async (
+    id: string,
+    data: Partial<{
+      name: string;
+      description: string | null;
+      rules: RaffleAudienceRules;
+      active: boolean;
+    }>,
+  ): Promise<RaffleAudience> => {
+    const res = await api.patch(
+      `/admin/raffle-intelligence/audiences/${encodeURIComponent(id)}`,
+      data,
+    );
+    return res.data;
+  },
+  deleteAudience: async (id: string): Promise<void> => {
+    await api.delete(
+      `/admin/raffle-intelligence/audiences/${encodeURIComponent(id)}`,
+    );
+  },
 };
 
 export interface MediaVaultItem {
@@ -978,12 +1344,14 @@ export interface MediaVaultPage {
 }
 
 export const apiMediaVault = {
-  list: async (params: {
-    page?: number;
-    pageSize?: number;
-    type?: "PHOTO" | "VIDEO";
-    search?: string;
-  } = {}): Promise<MediaVaultPage> => {
+  list: async (
+    params: {
+      page?: number;
+      pageSize?: number;
+      type?: "PHOTO" | "VIDEO";
+      search?: string;
+    } = {},
+  ): Promise<MediaVaultPage> => {
     const res = await api.get("/admin/media-vault", { params });
     return res.data;
   },
@@ -1065,9 +1433,11 @@ function mapOrderResponse(item: any): Order {
     mpPaymentStatusDetail: item.mpPaymentStatusDetail,
     mpPaymentMethodId: item.mpPaymentMethodId,
     mpPaymentTypeId: item.mpPaymentTypeId,
-    mpPaidAmount: item.mpPaidAmount != null ? parseFloat(item.mpPaidAmount) : null,
+    mpPaidAmount:
+      item.mpPaidAmount != null ? parseFloat(item.mpPaidAmount) : null,
     mpRefundId: item.mpRefundId,
-    mpRefundedAmount: item.mpRefundedAmount != null ? parseFloat(item.mpRefundedAmount) : null,
+    mpRefundedAmount:
+      item.mpRefundedAmount != null ? parseFloat(item.mpRefundedAmount) : null,
     mpRefundedAt: item.mpRefundedAt,
     date: item.createdAt,
     isRead: Boolean(item.isRead),
@@ -1083,6 +1453,12 @@ function mapOrderResponse(item: any): Order {
       createdAt: attempt.createdAt,
       updatedAt: attempt.updatedAt,
     })),
+    activityEvents: (item.events || item.activityEvents || []).map(
+      (event: any) => ({
+        ...event,
+        id: String(event.id),
+      }),
+    ),
     items: (item.items || []).map((i: any) => ({
       id: i.productId.toString(),
       name: i.productName || "Producto",

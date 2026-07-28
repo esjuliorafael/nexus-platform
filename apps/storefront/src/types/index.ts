@@ -147,10 +147,25 @@ export interface Raffle {
   featured: boolean;
   featuredOrder: number | null;
   winningNumber: string | null;
+  resultReferenceNumber: string | null;
+  winningTicketNumber: string | null;
+  winningParticipationId: string | null;
+  resultResolutionStatus:
+    | "ELIGIBLE_WINNER"
+    | "UNPAID_RESERVED"
+    | "PAYMENT_REVIEW"
+    | "UNASSIGNED_NUMBER"
+    | "OUTSIDE_UNIVERSE"
+    | null;
   resultPublishedAt: string | null;
   participationStartsAt: string | null;
   participationEndsAt: string | null;
-  participationState: "OPEN" | "UPCOMING" | "EARLY_ACCESS" | "CLOSED" | "UNAVAILABLE";
+  participationState:
+    | "OPEN"
+    | "UPCOMING"
+    | "EARLY_ACCESS"
+    | "CLOSED"
+    | "UNAVAILABLE";
   earlyAccessEnabled: boolean;
   earlyAccessConfigured: boolean;
   gallery?: RaffleGalleryItem[];
@@ -165,6 +180,14 @@ export interface RafflePrize {
   title: string;
   description: string;
   winnerRule: string | null;
+  resultSource: "MAJOR_PRIZE" | "SECOND_PRIZE" | "THIRD_PRIZE" | "CUSTOM";
+  resultSourceLabel: string | null;
+  resultReferenceNumber: string | null;
+  winningNumber: string | null;
+  winningTicketNumber: string | null;
+  winningParticipationId: string | null;
+  resultResolutionStatus: Raffle["resultResolutionStatus"];
+  resultPublishedAt: string | null;
 }
 
 export interface RaffleTicketStats {
@@ -184,9 +207,19 @@ export interface RaffleRecentResult {
   imagePoster: string | null;
   drawDate: string | null;
   winningNumber: string;
+  winningTicketNumber: string | null;
+  resultResolutionStatus: Raffle["resultResolutionStatus"];
   resultPublishedAt: string;
   opportunities: number;
   digits: number;
+  prizes: Array<{
+    id: number;
+    position: number;
+    title: string;
+    winningNumber: string | null;
+    winningTicketNumber: string | null;
+    resultResolutionStatus: Raffle["resultResolutionStatus"];
+  }>;
 }
 
 export interface RaffleOpportunity {

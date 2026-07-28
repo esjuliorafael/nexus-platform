@@ -20,6 +20,8 @@ build/
 **/.turbo/
 .next/
 **/.next/
+**/.next-stale-*/
+**/.next-build-*/
 out/
 **/out/
 
@@ -62,4 +64,6 @@ fix_*.ts
 
 # Independent media production projects
 rancho-las-trojes-video/
+rancho-las-trojes-raffle-video/
+videos/
 

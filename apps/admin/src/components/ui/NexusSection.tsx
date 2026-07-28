@@ -10,6 +10,7 @@ interface NexusSectionProps {
   children: React.ReactNode;
   action?: React.ReactNode;
   actionPlacement?: 'header' | 'below';
+  actionClassName?: string;
   className?: string;
   delay?: string;
   animate?: boolean;
@@ -23,6 +24,7 @@ export const NexusSection: React.FC<NexusSectionProps> = ({
   children, 
   action,
   actionPlacement = 'header',
+  actionClassName = '',
   className = '',
   delay = '0ms',
   animate = true
@@ -58,28 +60,41 @@ export const NexusSection: React.FC<NexusSectionProps> = ({
         }}
       >
         <div className="flex flex-col sm:flex-row sm:items-center justify-between" style={{ gap: 'var(--space-lg)' }}>
-          <div className="flex items-center transition-transform duration-500 group-hover/header:translate-x-1" style={{ gap: 'var(--space-md)' }}>
-            <div className="animate-in zoom-in-75 duration-700 [animation-fill-mode:both]" style={{ animationDelay: delay }}>
-              <NexusSectionIcon
-                icon={icon}
-                variant={iconVariant}
-                hoverGroup="group/section"
-              />
+          <div
+            className="flex min-w-0 flex-col transition-transform duration-500 group-hover/header:translate-x-1"
+            style={{ gap: 'var(--space-sm)' }}
+          >
+            <div className="flex min-w-0 items-center" style={{ gap: 'var(--space-md)' }}>
+              <div className="animate-in zoom-in-75 duration-700 [animation-fill-mode:both]" style={{ animationDelay: delay }}>
+                <NexusSectionIcon
+                  icon={icon}
+                  variant={iconVariant}
+                  hoverGroup="group/section"
+                />
+              </div>
+              <div className="animate-in fade-in slide-in-from-left-4 duration-700 [animation-fill-mode:both] flex min-w-0 flex-col" style={{ gap: 'var(--space-xs)', animationDelay: delay }}>
+                <h3 className="text-h1 text-text-main">
+                  {title}
+                </h3>
+                {subtitle && (
+                  <p className="hidden text-secondary text-text-muted sm:block">
+                    {subtitle}
+                  </p>
+                )}
+              </div>
             </div>
-            <div className="animate-in fade-in slide-in-from-left-4 duration-700 [animation-fill-mode:both] flex flex-col" style={{ gap: 'var(--space-xs)', animationDelay: delay }}>
-              <h3 className="text-h1 text-text-main">
-                {title}
-              </h3>
-              {subtitle && (
-                <p className="text-secondary text-text-muted">
-                  {subtitle}
-                </p>
-              )}
-            </div>
+            {subtitle && (
+              <p
+                className="animate-in fade-in slide-in-from-left-4 text-secondary text-text-muted [animation-fill-mode:both] sm:hidden"
+                style={{ animationDelay: delay }}
+              >
+                {subtitle}
+              </p>
+            )}
           </div>
 
           {action && actionPlacement === 'header' && (
-            <div className="w-full sm:w-auto shrink-0 [&>button]:w-full sm:[&>button]:w-auto animate-in fade-in zoom-in-95 duration-700 [animation-fill-mode:both]" style={{ animationDelay: delay }}>
+            <div className={`w-full sm:w-auto shrink-0 [&>button]:w-full sm:[&>button]:w-auto animate-in fade-in zoom-in-95 duration-700 [animation-fill-mode:both] ${actionClassName}`} style={{ animationDelay: delay }}>
               {action}
             </div>
           )}
@@ -87,7 +102,7 @@ export const NexusSection: React.FC<NexusSectionProps> = ({
 
         {action && actionPlacement === 'below' && (
           <div
-            className="w-full [&>button]:w-full animate-in fade-in zoom-in-95 duration-700 [animation-fill-mode:both]"
+            className={`w-full [&>button]:w-full animate-in fade-in zoom-in-95 duration-700 [animation-fill-mode:both] ${actionClassName}`}
             style={{ animationDelay: delay }}
           >
             {action}

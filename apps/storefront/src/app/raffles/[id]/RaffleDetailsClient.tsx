@@ -124,6 +124,7 @@ export function RaffleDetailsClient({ raffle, initialTicketAvailability, reserva
   const galleryStartIndex = raffle.image ? 1 : 0;
   const canNavigateRaffleMedia = raffleMediaItems.length > 1;
   const participationState = useMemo(() => {
+    if (raffle.status !== 'ACTIVE') return 'CLOSED' as const;
     const startsAt = raffle.participationStartsAt ? new Date(raffle.participationStartsAt).getTime() : null;
     const endsAt = raffle.participationEndsAt ? new Date(raffle.participationEndsAt).getTime() : null;
     if (endsAt && participationClock >= endsAt) return 'CLOSED' as const;
@@ -138,6 +139,7 @@ export function RaffleDetailsClient({ raffle, initialTicketAvailability, reserva
     raffle.earlyAccessEnabled,
     raffle.participationEndsAt,
     raffle.participationStartsAt,
+    raffle.status,
   ]);
   const canParticipate = participationState === 'OPEN';
   const isBeforePublicOpening = Boolean(
@@ -700,6 +702,12 @@ export function RaffleDetailsClient({ raffle, initialTicketAvailability, reserva
             </StorefrontReveal>
           </div>
 
+          {raffle.status === 'FINISHED' && raffle.winningNumber && (
+            <StorefrontReveal cadence="editorial" amount={0.2}>
+              <RafflePublishedResult raffle={raffle} />
+            </StorefrontReveal>
+          )}
+
           <StorefrontReveal
             cadence="editorial"
             amount={0.2}
@@ -801,6 +809,108 @@ export function RaffleDetailsClient({ raffle, initialTicketAvailability, reserva
         }}
       />
     </div>
+  );
+}
+
+function getRaffleResultStatusCopy(status?: string | null) {
+  if (status === 'ELIGIBLE_WINNER') {
+    return 'El boleto ganador cuenta con pago confirmado.';
+  }
+  if (status === 'UNPAID_RESERVED') {
+    return 'El boleto asociado no tenía un pago confirmado al resolver la rifa.';
+  }
+  if (status === 'OUTSIDE_UNIVERSE') {
+    return 'El resultado no corresponde a un número del universo de esta rifa.';
+  }
+  return 'No existe una participación pagada asociada con este resultado.';
+}
+
+function getRafflePlaceLabel(position?: number) {
+  if (position === 1) return 'Primer lugar';
+  if (position === 2) return 'Segundo lugar';
+  if (position === 3) return 'Tercer lugar';
+  return `Lugar ${position || 1}`;
+}
+
+function getRaffleResultSourceLabel(prize: NonNullable<Raffle['prizes']>[number]) {
+  if (prize.resultSource === 'SECOND_PRIZE') return 'Segundo Premio';
+  if (prize.resultSource === 'THIRD_PRIZE') return 'Tercer Premio';
+  if (prize.resultSource === 'CUSTOM') {
+    return prize.resultSourceLabel || 'Referencia oficial';
+  }
+  return 'Premio Mayor';
+}
+
+function RafflePublishedResult({ raffle }: { raffle: Raffle }) {
+  const publishedPrizes = (raffle.prizes || []).filter(
+    (prize) => prize.resultPublishedAt && prize.winningNumber,
+  );
+
+  const results = publishedPrizes.length > 0
+    ? publishedPrizes
+    : [{
+        id: -1,
+        position: 1,
+        title: raffle.title,
+        description: '',
+        winnerRule: null,
+        resultSource: 'MAJOR_PRIZE' as const,
+        resultSourceLabel: null,
+        resultReferenceNumber: raffle.resultReferenceNumber,
+        winningNumber: raffle.winningNumber,
+        winningTicketNumber: raffle.winningTicketNumber,
+        winningParticipationId: raffle.winningParticipationId,
+        resultResolutionStatus: raffle.resultResolutionStatus,
+        resultPublishedAt: raffle.resultPublishedAt,
+      }];
+
+  return (
+    <StorefrontNote icon={Trophy}>
+      <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
+        <div className="flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
+          <p className="sf-text-label text-brand-600">Resultado publicado</p>
+          <h2 className="sf-text-h2 text-stone-950">Resultados de la rifa</h2>
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: 'var(--sf-space-sm)' }}>
+          {results.map((prize) => (
+            <article
+              key={prize.id}
+              className="flex flex-col border border-stone-200 bg-white/70"
+              style={{
+                gap: 'var(--sf-space-sm)',
+                padding: 'var(--sf-padding-inner)',
+                borderRadius: 'var(--sf-radius-inner)',
+              }}
+            >
+              <div className="flex flex-col" style={{ gap: 'var(--sf-space-2xs)' }}>
+                <span className="sf-text-label uppercase text-stone-500">
+                  {getRafflePlaceLabel(prize.position)}
+                </span>
+                <strong className="sf-text-secondary-strong text-stone-950">
+                  {prize.title}
+                </strong>
+                <span className="sf-text-body text-stone-600">
+                  {getRaffleResultSourceLabel(prize)}
+                </span>
+              </div>
+              <div className="flex flex-wrap items-baseline" style={{ gap: 'var(--sf-space-sm)' }}>
+                <span className="sf-text-h2 tabular-nums text-stone-950">
+                  {prize.winningNumber}
+                </span>
+                {prize.winningTicketNumber && (
+                  <span className="sf-text-secondary-strong tabular-nums text-stone-700">
+                    Boleto {prize.winningTicketNumber}
+                  </span>
+                )}
+              </div>
+              <p className="sf-text-body text-stone-600">
+                {getRaffleResultStatusCopy(prize.resultResolutionStatus)}
+              </p>
+            </article>
+          ))}
+        </div>
+      </div>
+    </StorefrontNote>
   );
 }
 

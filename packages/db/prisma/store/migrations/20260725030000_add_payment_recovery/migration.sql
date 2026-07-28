@@ -1,0 +1,10 @@
+ALTER TABLE "store_payment_holds"
+  ADD COLUMN "recovery_token_hash" TEXT,
+  ADD COLUMN "recovery_scheduled_at" TIMESTAMP(3),
+  ADD COLUMN "recovery_sent_at" TIMESTAMP(3),
+  ADD COLUMN "recovery_opened_at" TIMESTAMP(3);
+
+CREATE UNIQUE INDEX "store_payment_holds_recovery_token_hash_key"
+  ON "store_payment_holds"("recovery_token_hash");
+
+ALTER TYPE "TemplateType" ADD VALUE IF NOT EXISTS 'payment_recovery';
