@@ -35,6 +35,7 @@ interface DashboardViewProps {
   onNavigateToSystem: (mode: any) => void;
   onNavigateToMedia: (mode: any) => void;
   onTabChange: (tab: any) => void;
+  onOpenSalesOverview: () => void;
 }
 
 const EmptyOrdersState: React.FC = () => (
@@ -53,7 +54,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   billingPayments,
   onNavigateToSystem,
   onNavigateToMedia,
-  onTabChange
+  onTabChange,
+  onOpenSalesOverview,
 }) => {
   const products = stats?.products;
   const activeProducts = stats?.activeProducts || 0;
@@ -96,6 +98,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           icon={CheckCircle2}
           variant="emerald"
           isLoading={isLoading}
+          onClick={onOpenSalesOverview}
         />
         <StatusMetricWidget
           label="Órdenes Pendientes"

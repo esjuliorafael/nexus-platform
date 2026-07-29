@@ -9,6 +9,8 @@ import {
   SalesChannel,
   WhatsAppChannel,
   DashboardStats,
+  SalesOverview,
+  SalesOverviewPeriod,
   AnnualService,
   ExtraCharge,
   Raffle,
@@ -213,6 +215,14 @@ function normalizeUploadResult(data: any): MediaUploadResult {
 export const apiDashboard = {
   getStats: async (): Promise<DashboardStats> => {
     const res = await api.get("/admin/dashboard/stats");
+    return res.data;
+  },
+  getSalesOverview: async (
+    period: SalesOverviewPeriod,
+  ): Promise<SalesOverview> => {
+    const res = await api.get("/admin/dashboard/sales-overview", {
+      params: { period },
+    });
     return res.data;
   },
 };

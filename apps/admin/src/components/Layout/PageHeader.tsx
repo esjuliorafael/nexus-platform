@@ -23,6 +23,7 @@ interface PageHeaderProps {
   profileViewMode: string;
   shippingSubView: string;
   channelsViewMode: string;
+  dashboardViewMode?: "dashboard" | "sales-overview";
   selectedOrderRecordType?: "ORDER" | "PAYMENT_HOLD";
   actionAddon?: React.ReactNode;
 }
@@ -49,6 +50,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   profileViewMode,
   shippingSubView,
   channelsViewMode,
+  dashboardViewMode = "dashboard",
   selectedOrderRecordType = "ORDER",
   actionAddon,
 }) => {
@@ -64,6 +66,13 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       (storeViewMode === "orders" || storeViewMode === "order-detail"));
 
   const getTitle = () => {
+    if (activeTab === "Inicio" && dashboardViewMode === "sales-overview")
+      return (
+        <>
+          Resumen de <span className="text-text-muted">Ventas</span>
+        </>
+      );
+
     if (isCreatingMedia)
       return (
         <>
@@ -423,6 +432,9 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   };
 
   const getDescription = () => {
+    if (activeTab === "Inicio" && dashboardViewMode === "sales-overview")
+      return "Consulta ingresos, unidades vendidas, productos y órdenes confirmadas.";
+
     if (isSystemMode && systemViewMode === "announcements") {
       if (announcementViewMode === "create" || announcementViewMode === "edit")
         return "Configura el contenido, destino, vigencia y frecuencia del mensaje.";

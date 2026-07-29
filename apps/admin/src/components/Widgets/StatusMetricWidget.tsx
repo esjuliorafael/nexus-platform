@@ -11,6 +11,7 @@ interface StatusMetricWidgetProps {
   icon: LucideIcon;
   variant: 'emerald' | 'brand' | 'muted';
   isLoading?: boolean;
+  onClick?: () => void;
 }
 
 const formatMoney = (value: number) =>
@@ -57,7 +58,8 @@ export const StatusMetricWidget: React.FC<StatusMetricWidgetProps> = ({
   percentage,
   icon,
   variant,
-  isLoading = false
+  isLoading = false,
+  onClick,
 }) => {
   if (isLoading) {
     return (
@@ -81,7 +83,14 @@ export const StatusMetricWidget: React.FC<StatusMetricWidgetProps> = ({
   const safePercentage = Number.isFinite(percentage) ? Math.max(0, Math.min(100, percentage)) : 0;
 
   return (
-    <NexusAutonomousCard className="h-full flex flex-col group/metric overflow-hidden relative">
+    <NexusAutonomousCard
+      className={`h-full flex flex-col group/metric overflow-hidden relative ${
+        onClick
+          ? "cursor-pointer transition-transform duration-300 hover:-translate-y-1 focus-within:ring-2 focus-within:ring-brand-300"
+          : ""
+      }`}
+      onClick={onClick}
+    >
       <div className="flex items-center justify-between relative z-10" style={{ gap: 'var(--space-md)' }}>
         <NexusAutonomousIcon icon={icon} variant={variant} hoverGroup="group/metric" />
         <div

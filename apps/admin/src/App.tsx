@@ -15,12 +15,14 @@ import {
   Plus,
   Package,
   ArrowRight,
+  ArrowLeft,
   Pencil,
 } from "lucide-react";
 import { Header } from "./components/Header";
 import { QuickActions } from "./components/QuickActions";
 import { PageHeader } from "./components/Layout/PageHeader";
 import { DashboardView } from "./components/Dashboard/DashboardView";
+import { SalesOverviewView } from "./components/Dashboard/SalesOverviewView";
 
 import { BottomNav } from "./components/BottomNav";
 import { GalleryView, GalleryViewRef } from "./components/Media/GalleryView";
@@ -673,7 +675,7 @@ function App() {
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const orderDetailOriginRef = React.useRef<
-    "orders-tab" | "store-orders" | "product-overview"
+    "orders-tab" | "store-orders" | "product-overview" | "sales-overview"
   >("orders-tab");
   const [selectedRaffleParticipation, setSelectedRaffleParticipation] =
     useState<RaffleParticipation | null>(null);
@@ -689,6 +691,13 @@ function App() {
   );
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
+  const [dashboardViewMode, setDashboardViewMode] = useState<
+    "dashboard" | "sales-overview"
+  >("dashboard");
+
+  useEffect(() => {
+    if (activeTab !== "Inicio") setDashboardViewMode("dashboard");
+  }, [activeTab]);
   const [billingServices, setBillingServices] = useState<AnnualService[]>([]);
   const [billingCharges, setBillingCharges] = useState<ExtraCharge[]>([]);
   const [billingPayments, setBillingPayments] = useState<BillingPayment[]>([]);
@@ -904,6 +913,7 @@ function App() {
   });
 
   const isMediaMode = activeTab === "Medios";
+  const isDashboardMode = activeTab === "Inicio";
   const isStoreMode = activeTab === "Tienda";
   const isOrdersTab = activeTab === "Órdenes";
   const isOrdersViewActive =
@@ -1070,7 +1080,10 @@ function App() {
 
   const handleBackFromOrderDetail = () => {
     const origin = orderDetailOriginRef.current;
-    if (origin === "product-overview") {
+    if (origin === "sales-overview") {
+      setActiveTab("Inicio");
+      setDashboardViewMode("sales-overview");
+    } else if (origin === "product-overview") {
       setActiveTab("Tienda");
       setStoreViewMode("overview");
     } else if (origin === "store-orders") {
@@ -1192,7 +1205,10 @@ function App() {
         navigateToSystem("identity");
         break;
       case "Volver":
-        if (isSystemMode && systemViewMode === "channels") {
+        if (isDashboardMode && dashboardViewMode === "sales-overview") {
+          setDashboardViewMode("dashboard");
+          window.scrollTo({ top: 0, behavior: "smooth" });
+        } else if (isSystemMode && systemViewMode === "channels") {
           setChannelsViewMode("hub");
           setSelectedChannelId(null);
           window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1266,6 +1282,19 @@ function App() {
       const order = await apiOrders.getById(orderId);
       orderDetailOriginRef.current = "product-overview";
       setSelectedOrder(order);
+      setStoreViewMode("order-detail");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {
+      showToast("No se pudo abrir la orden asociada", "error");
+    }
+  };
+
+  const handleViewSalesOrder = async (orderId: string) => {
+    try {
+      const order = await apiOrders.getById(orderId);
+      orderDetailOriginRef.current = "sales-overview";
+      setSelectedOrder(order);
+      setActiveTab("Órdenes");
       setStoreViewMode("order-detail");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch {
@@ -1374,6 +1403,21 @@ function App() {
   };
 
   const getActionAddon = () => {
+    if (isDashboardMode && dashboardViewMode === "sales-overview") {
+      return (
+        <NexusSectionButton
+          onClick={() => {
+            setDashboardViewMode("dashboard");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          variant="secondary"
+          icon={ArrowLeft}
+        >
+          Volver a Inicio
+        </NexusSectionButton>
+      );
+    }
+
     if (isFormMode) {
       return (
         <PageHeaderActionPair>
@@ -1977,6 +2021,7 @@ function App() {
                 profileViewMode={profileViewMode}
                 shippingSubView={shippingSubView}
                 channelsViewMode={channelsViewMode}
+                dashboardViewMode={dashboardViewMode}
                 selectedOrderRecordType={selectedOrder?.recordType}
                 actionAddon={getActionAddon()}
               />
@@ -2081,6 +2126,8 @@ function App() {
                   context={isOrdersTab ? "Tienda" : activeTab}
                   onAction={handleQuickAction}
                   isDetail={
+                    (isDashboardMode &&
+                      dashboardViewMode === "sales-overview") ||
                     storeViewMode === "order-detail" ||
                     (isStoreMode && storeViewMode === "overview") ||
                     (isRafflesMode &&
@@ -2362,6 +2409,11 @@ function App() {
                       </NexusAutonomousCard>
                     )}
                   </div>
+                ) : dashboardViewMode === "sales-overview" ? (
+                  <SalesOverviewView
+                    showToast={showToast}
+                    onOpenOrder={handleViewSalesOrder}
+                  />
                 ) : (
                   <DashboardView
                     isLoading={isLoadingDashboard}
@@ -2373,6 +2425,10 @@ function App() {
                     onNavigateToSystem={navigateToSystem}
                     onNavigateToMedia={navigateToMedia}
                     onTabChange={setActiveTab as any}
+                    onOpenSalesOverview={() => {
+                      setDashboardViewMode("sales-overview");
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
                   />
                 )}
               </div>

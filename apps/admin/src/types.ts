@@ -533,6 +533,48 @@ export interface DashboardStats {
   sales7Days: Record<string, number>;
 }
 
+export type SalesOverviewPeriod = "TODAY" | "7D" | "30D" | "MONTH" | "ALL";
+
+export interface SalesOverview {
+  period: SalesOverviewPeriod;
+  range: { from: string | null; to: string };
+  metrics: {
+    grossRevenue: number;
+    refundedAmount: number;
+    netRevenue: number;
+    orders: number;
+    unitsSold: number;
+    birdsSold: number;
+    itemUnitsSold: number;
+    distinctProducts: number;
+    ticketAverage: number;
+  };
+  typeBreakdown: {
+    birds: { units: number; revenue: number };
+    items: { units: number; revenue: number };
+  };
+  topProducts: Array<{
+    productId: number;
+    name: string;
+    type: "BIRD" | "ITEM";
+    units: number;
+    revenue: number;
+    orders: number;
+  }>;
+  salesByDay: Record<string, number>;
+  recentOrders: Array<{
+    id: number;
+    customerName: string;
+    customerPhone: string;
+    createdAt: string;
+    status: string;
+    total: number;
+    refundedAmount: number;
+    itemCount: number;
+    itemNames: string[];
+  }>;
+}
+
 // --- NUEVOS TIPOS: RIFAS ---
 
 export interface Raffle {
