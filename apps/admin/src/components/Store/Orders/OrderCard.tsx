@@ -1,4 +1,4 @@
-import React, { useMemo, useRef } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Bird,
   Calendar,
@@ -10,7 +10,7 @@ import {
   CreditCard,
   Hash,
   Layers,
-  MapPin,
+  MoreVertical,
   Package,
   ShoppingBag,
   type LucideIcon,
@@ -30,51 +30,6 @@ interface OrderCardProps {
   style?: React.CSSProperties;
 }
 
-const getStateAbbr = (stateName: string) => {
-  const map: Record<string, string> = {
-    Aguascalientes: 'Ags.',
-    'Baja California': 'B.C.',
-    'Baja California Sur': 'B.C.S.',
-    Campeche: 'Camp.',
-    Chiapas: 'Chis.',
-    Chihuahua: 'Chih.',
-    'Ciudad de Mexico': 'CDMX',
-    'Ciudad de México': 'CDMX',
-    Coahuila: 'Coah.',
-    Colima: 'Col.',
-    Durango: 'Dgo.',
-    Guanajuato: 'Gto.',
-    Guerrero: 'Gro.',
-    Hidalgo: 'Hgo.',
-    Jalisco: 'Jal.',
-    Mexico: 'Edo. Mex.',
-    México: 'Edo. Méx.',
-    Michoacan: 'Mich.',
-    Michoacán: 'Mich.',
-    Morelos: 'Mor.',
-    Nayarit: 'Nay.',
-    'Nuevo Leon': 'N.L.',
-    'Nuevo León': 'N.L.',
-    Oaxaca: 'Oax.',
-    Puebla: 'Pue.',
-    Queretaro: 'Qro.',
-    Querétaro: 'Qro.',
-    'Quintana Roo': 'Q. Roo',
-    'San Luis Potosi': 'S.L.P.',
-    Sinaloa: 'Sin.',
-    Sonora: 'Son.',
-    Tabasco: 'Tab.',
-    Tamaulipas: 'Tamps.',
-    Tlaxcala: 'Tlax.',
-    Veracruz: 'Ver.',
-    Yucatan: 'Yuc.',
-    Yucatán: 'Yuc.',
-    Zacatecas: 'Zac.',
-  };
-
-  return map[stateName] || `${stateName.substring(0, 3)}.`;
-};
-
 const formatDate = (dateStr: string) => {
   if (!dateStr) return '';
   const pureDate = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr.split(' ')[0];
@@ -93,6 +48,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
   style,
 }) => {
   const lastTap = useRef<number>(0);
+  const [isActionsOpen, setIsActionsOpen] = useState(false);
 
   const handleCardInteraction = () => {
     const now = Date.now();
@@ -111,6 +67,20 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     if (hasBirds) return { label: 'Aves', icon: Bird, mainIcon: Bird };
     return { label: 'Artículos', icon: ShoppingBag, mainIcon: ShoppingBag };
   }, [order.items]);
+  const productSummary = useMemo(() => {
+    const items = order.items || [];
+    if (items.length === 0) return 'Sin productos';
+
+    const firstItem = items[0];
+    const firstLabel = firstItem.quantity > 1
+      ? `${firstItem.quantity} × ${firstItem.name}`
+      : firstItem.name;
+    const remainingProducts = items.length - 1;
+
+    return remainingProducts > 0
+      ? `${firstLabel} + ${remainingProducts} ${remainingProducts === 1 ? 'producto' : 'productos'}`
+      : firstLabel;
+  }, [order.items]);
   const isPaymentHold = order.recordType === 'PAYMENT_HOLD';
 
   const statusConfig = useMemo<{
@@ -119,7 +89,6 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     badgeVariant: NexusBadgeVariant;
     icon: LucideIcon;
     label: string;
-    showStatusPill: boolean;
   }>(() => {
     switch (order.status) {
       case 'paid':
@@ -129,7 +98,6 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           badgeVariant: 'success',
           icon: CheckCircle2,
           label: 'Pagada',
-          showStatusPill: true,
         };
       case 'pending':
         return {
@@ -137,8 +105,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           iconVariant: 'brand',
           badgeVariant: 'warning',
           icon: Clock,
-          label: 'Pendiente',
-          showStatusPill: false,
+          label: 'Apartada',
         };
       case 'cancelled':
         return {
@@ -147,7 +114,6 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           badgeVariant: 'danger',
           icon: CircleX,
           label: 'Cancelada',
-          showStatusPill: true,
         };
       case 'payment_review':
         return {
@@ -156,7 +122,6 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           badgeVariant: 'warning',
           icon: Clock,
           label: 'En revisión',
-          showStatusPill: true,
         };
       case 'not_completed':
         return {
@@ -165,7 +130,6 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           badgeVariant: 'danger',
           icon: CircleX,
           label: 'No concretada',
-          showStatusPill: true,
         };
       default:
         return {
@@ -174,28 +138,12 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           badgeVariant: 'muted',
           icon: Package,
           label: order.status,
-          showStatusPill: false,
         };
     }
   }, [order.status]);
 
   const isCardPayment = order.paymentMethod === 'MERCADOPAGO';
-  const cardPaymentLabel = order.paymentStatus === 'APPROVED'
-    ? 'Tarjeta pagada'
-    : order.paymentStatus === 'REFUNDED'
-      ? 'Tarjeta devuelta'
-    : order.paymentStatus === 'FAILED'
-      ? 'Tarjeta fallida'
-      : order.paymentStatus === 'EXPIRED'
-        ? 'Tarjeta expirada'
-        : 'Tarjeta pendiente';
-  const cardPaymentBadgeVariant: NexusBadgeVariant = order.paymentStatus === 'APPROVED'
-    ? 'success'
-    : order.paymentStatus === 'REFUNDED'
-      ? 'muted'
-    : order.paymentStatus === 'FAILED' || order.paymentStatus === 'EXPIRED'
-      ? 'danger'
-      : 'warning';
+  const paymentMethodLabel = isCardPayment ? 'Tarjeta' : 'Dep. / Trans.';
 
   return (
     <NexusAutonomousCard
@@ -233,7 +181,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           <NexusAutonomousIcon
             icon={orderType.mainIcon}
             variant={statusConfig.iconVariant}
-            isMuted={order.status === 'cancelled'}
+            isMuted={order.status === 'cancelled' || order.status === 'not_completed'}
             style={{
               width: 'var(--size-card-thumb)',
               height: 'var(--size-card-thumb)',
@@ -243,43 +191,41 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           <div className="flex min-w-0 flex-1 flex-col justify-center" style={{ gap: 'var(--space-sm)' }}>
             <div className="flex min-w-0 flex-wrap items-center" style={{ gap: 'var(--space-xs)' }}>
               <NexusAutonomousBadge
-                variant="muted"
-                icon={orderType.icon}
-                className="border-border-main/50 bg-bg-muted/80 backdrop-blur-sm"
+                variant={statusConfig.badgeVariant}
+                icon={statusConfig.icon}
               >
-                {orderType.label}
+                {statusConfig.label}
               </NexusAutonomousBadge>
               <NexusAutonomousBadge
-                variant="brand"
-                icon={isPaymentHold ? CreditCard : Hash}
-                className="border-brand-100/50 bg-brand-50/80 backdrop-blur-sm"
+                variant="muted"
+                icon={CreditCard}
               >
-                {isPaymentHold ? 'Intento MP' : order.id}
+                {paymentMethodLabel}
               </NexusAutonomousBadge>
-              {statusConfig.showStatusPill && (
-                <NexusAutonomousBadge
-                  variant={statusConfig.badgeVariant}
-                  icon={statusConfig.icon}
-                  className="shadow-sm transition-colors duration-500 dark:shadow-none"
-                >
-                  {statusConfig.label}
-                </NexusAutonomousBadge>
-              )}
-              {isCardPayment && (
-                <NexusAutonomousBadge
-                  variant={cardPaymentBadgeVariant}
-                  icon={CreditCard}
-                  className="shadow-sm transition-colors duration-500 dark:shadow-none"
-                >
-                  {cardPaymentLabel}
-                </NexusAutonomousBadge>
-              )}
             </div>
 
-            <h3 className="truncate text-h2 font-bold text-text-main">
-              {order.customer}
-            </h3>
+            <div className="flex min-w-0 flex-col" style={{ gap: 'var(--space-xs)' }}>
+              <h3 className="truncate text-h2 font-bold text-text-main">
+                {order.customer}
+              </h3>
+              <p className="truncate text-secondary text-text-muted">{productSummary}</p>
+            </div>
           </div>
+        </div>
+
+        <div className="flex w-full flex-wrap items-center" style={{ gap: 'var(--space-xs)' }}>
+          <NexusAutonomousBadge
+            variant="brand"
+            icon={isPaymentHold ? CreditCard : Hash}
+          >
+            {isPaymentHold ? 'Intento MP' : order.id}
+          </NexusAutonomousBadge>
+          <NexusAutonomousBadge
+            variant="muted"
+            icon={orderType.icon}
+          >
+            {orderType.label}
+          </NexusAutonomousBadge>
         </div>
 
         <div
@@ -287,18 +233,25 @@ export const OrderCard: React.FC<OrderCardProps> = ({
           style={{ gap: 'var(--space-md)' }}
         >
           <div className="flex min-w-0 flex-col" style={{ gap: 'var(--space-xs)' }}>
-            <span className="text-label uppercase tracking-[0.15em] text-stone-400">Fecha</span>
+            <span className="text-label uppercase tracking-[0.15em] text-text-muted">Fecha</span>
             <div className="flex items-center text-secondary font-bold text-text-main" style={{ gap: 'var(--space-xs)' }}>
-              <Calendar size={12} className="text-stone-300" strokeWidth={2.5} />
+              <Calendar
+                className="text-text-muted"
+                strokeWidth={2.5}
+                style={{ width: 'var(--size-inner-icon-badge)', height: 'var(--size-inner-icon-badge)' }}
+              />
               {formatDate(order.date)}
             </div>
           </div>
 
           <div className="flex shrink-0 flex-col items-end" style={{ gap: 'var(--space-xs)' }}>
-            <span className="text-label uppercase tracking-[0.15em] text-stone-400">Total</span>
-            <div className="flex items-baseline text-h1 font-black text-text-main">
+            <span className="text-label uppercase tracking-[0.15em] text-text-muted">Total</span>
+            <div className="flex items-baseline text-secondary font-bold text-text-main">
               <span className="mr-0.5 text-secondary opacity-50">$</span>
-              {order.total.toLocaleString('es-MX', { minimumFractionDigits: 0 })}
+              {order.total.toLocaleString('es-MX', {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              })}
             </div>
           </div>
         </div>
@@ -310,87 +263,60 @@ export const OrderCard: React.FC<OrderCardProps> = ({
         className="hidden w-full cursor-pointer select-none flex-row items-center sm:flex"
         style={{ gap: 'var(--space-md)' }}
       >
-        <NexusAutonomousIcon
-          icon={orderType.mainIcon}
-          variant={statusConfig.iconVariant}
-          isMuted={order.status === 'cancelled'}
+          <NexusAutonomousIcon
+            icon={orderType.mainIcon}
+            variant={statusConfig.iconVariant}
+            isMuted={order.status === 'cancelled' || order.status === 'not_completed'}
           style={{
             width: 'var(--size-card-thumb)',
             height: 'var(--size-card-thumb)',
           }}
         />
 
-        <div className="flex min-w-0 flex-1 flex-col lg:flex-row lg:items-center" style={{ gap: 'var(--space-md)' }}>
+        <div className="flex min-w-0 flex-1 flex-row items-center" style={{ gap: 'var(--space-md)' }}>
           <div className="flex min-w-0 flex-1 flex-col justify-center" style={{ gap: 'var(--space-sm)' }}>
-            <div className="flex items-center" style={{ gap: 'var(--space-sm)' }}>
+            <div className="flex flex-wrap items-center" style={{ gap: 'var(--space-xs)' }}>
+              <NexusAutonomousBadge
+                variant={statusConfig.badgeVariant}
+                icon={statusConfig.icon}
+              >
+                {statusConfig.label}
+              </NexusAutonomousBadge>
               <NexusAutonomousBadge
                 variant="muted"
-                icon={orderType.icon}
-                className="border-border-main/50 bg-bg-muted/80 backdrop-blur-sm"
+                icon={CreditCard}
               >
-                {orderType.label}
+                {paymentMethodLabel}
               </NexusAutonomousBadge>
               <NexusAutonomousBadge
                 variant="brand"
                 icon={isPaymentHold ? CreditCard : Hash}
-                className="border-brand-100/50 bg-brand-50/80 backdrop-blur-sm"
               >
                 {isPaymentHold ? 'Intento MP' : order.id}
               </NexusAutonomousBadge>
-              {isCardPayment && (
-                <NexusAutonomousBadge
-                  variant={cardPaymentBadgeVariant}
-                  icon={CreditCard}
-                  className="shadow-sm transition-colors duration-500 dark:shadow-none"
-                >
-                  {cardPaymentLabel}
-                </NexusAutonomousBadge>
-              )}
+              <NexusAutonomousBadge
+                variant="muted"
+                icon={orderType.icon}
+              >
+                {orderType.label}
+              </NexusAutonomousBadge>
             </div>
 
-            <h3 className="truncate text-h2 font-bold text-text-main">{order.customer}</h3>
-          </div>
-
-          <div className="nexus-card-divider-desktop flex shrink-0 flex-row items-center lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-lg)' }}>
-            <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-              <span className="text-label uppercase tracking-[0.15em] text-stone-400">Fecha</span>
-              <div className="flex items-center text-secondary font-bold text-text-main" style={{ gap: 'var(--space-xs)' }}>
-                <Calendar size={12} className="text-stone-300" strokeWidth={2.5} />
-                {formatDate(order.date)}
-              </div>
-            </div>
-
-            <div className="hidden flex-col sm:flex" style={{ gap: 'var(--space-xs)' }}>
-              <span className="text-label uppercase tracking-[0.15em] text-stone-400">Destino</span>
-              <div className="flex items-center text-secondary font-bold capitalize text-text-main" style={{ gap: 'var(--space-xs)' }}>
-                <MapPin size={12} className="text-stone-300" strokeWidth={2.5} />
-                {getStateAbbr(order.customerState)}
-              </div>
-            </div>
-
-            <div className="nexus-card-divider-desktop flex flex-col items-end lg:min-w-[120px] lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-xs)' }}>
-              <span className="text-label uppercase tracking-[0.15em] text-stone-400">Total</span>
-              <div className="flex items-baseline text-h1 font-black text-text-main">
-                <span className="mr-0.5 text-secondary opacity-50">$</span>
-                {order.total.toLocaleString('es-MX', { minimumFractionDigits: 0 })}
-              </div>
+            <div className="flex min-w-0 flex-col" style={{ gap: 'var(--space-xs)' }}>
+              <h3 className="truncate text-h2 font-bold text-text-main">{order.customer}</h3>
+              <p className="truncate text-secondary text-text-muted">{productSummary}</p>
             </div>
           </div>
 
-          <div className="nexus-card-divider-desktop flex shrink-0 items-center justify-between lg:justify-end lg:pl-[var(--space-md)]" style={{ gap: 'var(--space-sm)' }}>
-            {statusConfig.showStatusPill && (
-              <div className="hidden sm:block">
-                <NexusAutonomousBadge
-                  variant={statusConfig.badgeVariant}
-                  icon={statusConfig.icon}
-                  className="shadow-sm transition-colors duration-500 dark:shadow-none"
-                >
-                  {statusConfig.label}
-                </NexusAutonomousBadge>
-              </div>
-            )}
-
-            <div className="ml-auto hidden items-center sm:ml-0 sm:flex" style={{ gap: 'var(--space-sm)' }}>
+          <div
+            className="nexus-card-divider-desktop relative hidden shrink-0 items-center pl-[var(--space-md)] sm:flex"
+            style={{ minWidth: 'var(--width-operation-card-summary)', minHeight: 'var(--size-button-card)' }}
+          >
+            {isActionsOpen ? (
+              <div
+                className="animate-raffle-actions-enter absolute inset-y-0 right-0 flex items-center justify-end"
+                style={{ gap: 'var(--space-sm)', left: 'var(--space-md)' }}
+              >
               {canManageOperations && !isPaymentHold && order.status === 'pending' && (
                 <NexusAutonomousButton
                   density="compact"
@@ -427,9 +353,64 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                 variant="dark"
                 isIconOnly
                 icon={ChevronRight}
-                title="Ver detalles"
-              />
-            </div>
+                  title="Ver detalles"
+                />
+                <NexusAutonomousButton
+                  density="compact"
+                  variant="secondary"
+                  isIconOnly
+                  icon={MoreVertical}
+                  title="Cerrar acciones"
+                  aria-expanded
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setIsActionsOpen(false);
+                  }}
+                />
+              </div>
+            ) : (
+              <div
+                className="animate-raffle-summary-enter absolute inset-y-0 right-0 flex items-center justify-end"
+                style={{ gap: 'var(--space-lg)', left: 'var(--space-md)' }}
+              >
+                <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
+                  <span className="text-label uppercase tracking-[0.15em] text-text-muted">Fecha</span>
+                  <div className="flex items-center text-secondary font-bold text-text-main" style={{ gap: 'var(--space-xs)' }}>
+                    <Calendar
+                      className="text-text-muted"
+                      strokeWidth={2.5}
+                      style={{ width: 'var(--size-inner-icon-badge)', height: 'var(--size-inner-icon-badge)' }}
+                    />
+                    {formatDate(order.date)}
+                  </div>
+                </div>
+                <div
+                  className="flex flex-col items-end"
+                  style={{ gap: 'var(--space-xs)', minWidth: 'var(--width-operation-card-total)' }}
+                >
+                  <span className="text-label uppercase tracking-[0.15em] text-text-muted">Total</span>
+                  <div className="flex items-baseline text-secondary font-bold text-text-main">
+                    <span className="mr-0.5 text-secondary opacity-50">$</span>
+                    {order.total.toLocaleString('es-MX', {
+                      minimumFractionDigits: 2,
+                      maximumFractionDigits: 2,
+                    })}
+                  </div>
+                </div>
+                <NexusAutonomousButton
+                  density="compact"
+                  variant="secondary"
+                  isIconOnly
+                  icon={MoreVertical}
+                  title="Más acciones"
+                  aria-expanded={false}
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    setIsActionsOpen(true);
+                  }}
+                />
+              </div>
+            )}
           </div>
         </div>
       </div>

@@ -569,7 +569,7 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
 
   return (
     <div
-      className="mx-auto flex w-full max-w-6xl flex-col pb-[var(--space-2xl)] sm:pb-[var(--space-lg)]"
+      className="mx-auto flex w-full max-w-6xl flex-col"
       style={{ gap: "var(--space-md)" }}
     >
       <div

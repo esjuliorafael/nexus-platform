@@ -114,7 +114,7 @@ export const RaffleCouponsView: React.FC<RaffleCouponsViewProps> = ({
   return (
     <div
       className="flex flex-col"
-      style={{ gap: "var(--space-lg)", paddingBottom: "var(--space-3xl)" }}
+      style={{ gap: "var(--space-lg)" }}
     >
       {coupons.length === 0 ? (
         <EmptyState

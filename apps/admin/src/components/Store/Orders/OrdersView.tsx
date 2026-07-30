@@ -162,7 +162,7 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
       ) : filtered.length > 0 ? (
         <div
           className="mx-auto flex max-w-6xl flex-col"
-          style={{ gap: "var(--space-md)", paddingBottom: "var(--space-3xl)" }}
+          style={{ gap: "var(--space-md)" }}
         >
           {paginatedOrders.map((order, idx) => (
             <div

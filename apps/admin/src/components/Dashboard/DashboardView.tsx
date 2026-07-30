@@ -1,21 +1,22 @@
 import React from 'react';
 import { 
-  ArrowRight, 
-  Package, 
-  ShoppingBag, 
-  Check, 
-  Lock
+  CheckCircle2,
+  CircleX,
+  Clock,
+  CreditCard,
+  History,
+  ReceiptText,
+  ShoppingBag,
+  Ticket,
 } from 'lucide-react';
 import {
   DashboardCommercialOverview,
   DashboardStats,
-  Order,
   AnnualService,
   ExtraCharge,
   BillingPayment,
 } from '../../types';
 import { SalesChart } from '../Widgets/SalesChart';
-import { OrderWidgetCard, OrderWidgetCardSkeleton } from '../Widgets/OrderWidgetCard';
 import { LatestProducts } from '../Widgets/LatestProducts';
 import { LatestMedia } from '../Widgets/LatestMedia';
 import { BillingAlertWidget } from '../Widgets/BillingAlertWidget';
@@ -23,16 +24,14 @@ import { FinancialWeightWidget } from '../Widgets/FinancialWeightWidget';
 import {
   OperationalAttentionWidget,
 } from '../Widgets/OperationalAttentionWidget';
-import { ProductMetricWidget } from '../Widgets/ProductMetricWidget';
-import { NexusAutonomousButton } from '../ui/NexusButton';
-import { NexusAutonomousCard } from '../ui/NexusCard';
-import { NexusHeader } from '../ui/NexusHeader';
+import { NexusSectionButton } from '../ui/NexusButton';
+import { NexusSectionBadge } from '../ui/NexusBadge';
+import { NexusSection } from '../ui/NexusSection';
 
 interface DashboardViewProps {
   isLoading: boolean;
   stats: DashboardStats | null;
   commercialOverview: DashboardCommercialOverview | null;
-  orders: Order[];
   billingServices: AnnualService[];
   billingCharges: ExtraCharge[];
   billingPayments: BillingPayment[];
@@ -40,21 +39,34 @@ interface DashboardViewProps {
   onNavigateToMedia: (mode: any) => void;
   onTabChange: (tab: any) => void;
   onOpenRaffleParticipations: () => void;
+  onOpenOrder: (orderId: string) => void;
+  onOpenParticipation: (participationId: string) => void;
   isLoadingCommercial: boolean;
 }
 
-const EmptyOrdersState: React.FC = () => (
-  <NexusAutonomousCard className="py-16 text-center border-dashed border-2">
-    <Package size={40} className="mx-auto text-stone-300 mb-4 opacity-60" />
-    <p className="text-secondary font-medium text-text-muted">Sin actividad reciente</p>
-  </NexusAutonomousCard>
-);
+const money = (value: number) =>
+  new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+  }).format(value);
+
+const compactDate = (value: string) =>
+  new Intl.DateTimeFormat('es-MX', {
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+  }).format(new Date(value));
+
+const compactTime = (value: string) =>
+  new Intl.DateTimeFormat('es-MX', {
+    hour: '2-digit',
+    minute: '2-digit',
+  }).format(new Date(value));
 
 export const DashboardView: React.FC<DashboardViewProps> = ({
   isLoading,
   stats,
   commercialOverview,
-  orders,
   billingServices,
   billingCharges,
   billingPayments,
@@ -62,14 +74,10 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigateToMedia,
   onTabChange,
   onOpenRaffleParticipations,
+  onOpenOrder,
+  onOpenParticipation,
   isLoadingCommercial,
 }) => {
-  const products = stats?.products;
-  const activeProducts = stats?.activeProducts || 0;
-  const availableProducts = products?.available ?? activeProducts;
-  const reservedProducts = products?.reserved || 0;
-  const inventoryBase = activeProducts || 1;
-
   const orderStats = stats?.orders;
   const commercialPeriod = commercialOverview?.period ?? '7D';
   const commercialSource = commercialOverview?.source ?? 'ALL';
@@ -89,9 +97,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       : commercialSource === 'RAFFLES'
         ? `Conversión de las rifas durante ${commercialPeriodLabel}.`
         : `Conversión de tienda y rifas durante ${commercialPeriodLabel}.`;
+  const commercialHistory = commercialOverview?.history ?? [];
+  const historyTitle =
+    commercialSource === 'STORE'
+      ? 'Historial de Órdenes'
+      : commercialSource === 'RAFFLES'
+        ? 'Historial de Participaciones'
+        : 'Historial Comercial';
+  const historySubtitle =
+    commercialSource === 'STORE'
+      ? `Últimas órdenes de ${commercialPeriodLabel}.`
+      : commercialSource === 'RAFFLES'
+        ? `Últimas participaciones de ${commercialPeriodLabel}.`
+        : `Últimos movimientos de tienda y rifas durante ${commercialPeriodLabel}.`;
 
   return (
-    <div className="flex flex-col pb-24 animate-in fade-in duration-300" style={{ gap: 'var(--space-lg)' }}>
+    <div className="flex flex-col animate-in fade-in duration-300" style={{ gap: 'var(--space-lg)' }}>
       {/* NIVEL A: ALERTAS CRÍTICAS */}
       <BillingAlertWidget
         services={billingServices}
@@ -130,81 +151,174 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           orders={orderStats?.pending}
           participations={stats?.participations?.pending}
           isLoading={isLoading}
-          onOpenOrders={() => onTabChange('Órdenes')}
+          onOpenOrders={() => onTabChange('Operaciones')}
           onOpenParticipations={onOpenRaffleParticipations}
         />
       </section>
 
-      {/* NIVEL E: NÚCLEO OPERATIVO (ACCIÓN) */}
-      <section className="grid grid-cols-1 xl:grid-cols-12 items-stretch" style={{ gap: 'var(--space-md)' }}>
-        {/* Feed de Órdenes */}
-        <div className="xl:col-span-8 flex flex-col">
-          <NexusAutonomousCard className="h-full flex flex-col">
-            <NexusHeader
-              title="Ordenes recientes"
-              subtitle="Flujo real de compra y cobro"
-              icon={ShoppingBag}
-              iconVariant="brand"
-            />
+      {/* NIVEL E: HISTORIAL COMERCIAL */}
+      <NexusSection
+        title={historyTitle}
+        subtitle={historySubtitle}
+        icon={History}
+        iconVariant="brand"
+      >
+        <div className="divide-y divide-border-main">
+          {isLoadingCommercial ? (
+            Array.from({ length: 3 }).map((_, index) => (
+              <div
+                key={index}
+                className="h-24 animate-pulse bg-bg-muted first:rounded-t-[var(--radius-inner)] last:rounded-b-[var(--radius-inner)]"
+              />
+            ))
+          ) : commercialHistory.length > 0 ? (
+            commercialHistory.map((item) => {
+              const isOrder = item.kind === 'ORDER';
+              const statusLabel =
+                item.status === 'CONFIRMED'
+                  ? 'Pagada'
+                  : item.status === 'PENDING'
+                    ? 'Apartada'
+                    : 'Cancelada';
+              const statusIcon =
+                item.status === 'CONFIRMED'
+                  ? CheckCircle2
+                  : item.status === 'PENDING'
+                    ? Clock
+                    : CircleX;
+              const statusVariant =
+                item.status === 'CONFIRMED'
+                  ? 'success'
+                  : item.status === 'PENDING'
+                    ? 'warning'
+                    : 'danger';
 
-            <div className="flex flex-col gap-2 flex-grow">
-              {isLoading ? (
-                Array.from({ length: 3 }).map((_, i) => <OrderWidgetCardSkeleton key={i} />)
-              ) : orders.length > 0 ? (
-                orders.slice(0, 3).map(order => (
-                  <OrderWidgetCard
-                    key={order.id}
-                    order={order}
-                    onViewDetail={() => onTabChange('Órdenes')}
-                  />
-                ))
-              ) : (
-                <EmptyOrdersState />
-              )}
-            </div>
+              return (
+                <article
+                  key={`${item.kind}-${item.id}`}
+                  className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center py-[var(--space-md)] first:pt-0 last:pb-0 lg:grid-cols-[var(--size-button-card)_minmax(0,1.1fr)_minmax(0,1fr)_7.5rem_8rem_9rem]"
+                  style={{ gap: 'var(--space-md)' }}
+                >
+                  <div
+                    className="grid shrink-0 place-items-center border border-border-main bg-bg-muted text-brand-600"
+                    style={{
+                      width: 'var(--size-icon-section-compact)',
+                      height: 'var(--size-icon-section-compact)',
+                      borderRadius: 'var(--radius-inner-visual)',
+                    }}
+                  >
+                    {isOrder ? (
+                      <ShoppingBag
+                        style={{
+                          width: 'var(--size-inner-icon-section-compact)',
+                          height: 'var(--size-inner-icon-section-compact)',
+                        }}
+                      />
+                    ) : (
+                      <Ticket
+                        style={{
+                          width: 'var(--size-inner-icon-section-compact)',
+                          height: 'var(--size-inner-icon-section-compact)',
+                        }}
+                      />
+                    )}
+                  </div>
 
-            <NexusAutonomousButton
-              onClick={() => onTabChange('Órdenes')}
-              variant="secondary"
-              className="w-full mt-6"
-              icon={ArrowRight}
+                  <div className="flex min-w-0 flex-col" style={{ gap: 'var(--space-sm)' }}>
+                    <div className="flex min-w-0 flex-wrap items-center" style={{ gap: 'var(--space-xs)' }}>
+                      <NexusSectionBadge icon={statusIcon} variant={statusVariant}>
+                        {statusLabel}
+                      </NexusSectionBadge>
+                      <NexusSectionBadge icon={CreditCard} variant="muted">
+                        {item.paymentMethod === 'MERCADOPAGO'
+                          ? 'Tarjeta'
+                          : 'Dep. / Trans.'}
+                      </NexusSectionBadge>
+                    </div>
+                    <strong className="truncate text-body font-bold text-text-main" title={item.customerName}>
+                      {item.customerName}
+                    </strong>
+                  </div>
+
+                  <div
+                    className="col-span-2 flex min-w-0 items-center lg:col-span-1"
+                    style={{ gap: 'var(--space-xs)' }}
+                    title={item.summaryItems.join(', ')}
+                  >
+                    <p className="min-w-0 flex-1 truncate text-secondary text-text-muted">
+                      {item.summaryItems[0]}
+                    </p>
+                    {item.summaryItems.length > 1 && (
+                      <NexusSectionBadge variant="muted">
+                        +{item.summaryItems.length - 1}
+                      </NexusSectionBadge>
+                    )}
+                  </div>
+
+                  <div className="hidden min-w-0 flex-col lg:flex" style={{ gap: 'var(--space-xs)' }}>
+                    <strong className="whitespace-nowrap text-body font-bold tabular-nums text-text-main">
+                      {compactDate(item.createdAt)}
+                    </strong>
+                    <span className="text-secondary tabular-nums text-text-muted">
+                      {compactTime(item.createdAt)}
+                    </span>
+                  </div>
+
+                  <div
+                    className="col-span-2 flex min-w-0 items-center justify-between lg:col-span-1 lg:flex-col lg:items-end"
+                    style={{ gap: 'var(--space-sm)' }}
+                  >
+                    <div className="flex min-w-0 flex-col lg:hidden" style={{ gap: 'var(--space-xs)' }}>
+                      <strong className="text-body font-bold tabular-nums text-text-main">
+                        {compactDate(item.createdAt)}
+                      </strong>
+                      <span className="text-secondary tabular-nums text-text-muted">
+                        {compactTime(item.createdAt)}
+                      </span>
+                    </div>
+                    <div className="flex min-w-0 flex-col items-end" style={{ gap: 'var(--space-xs)' }}>
+                      <strong className="text-body font-bold tabular-nums text-text-main">
+                        {money(item.amount)}
+                      </strong>
+                      <span className="text-secondary text-text-muted">
+                        {item.unitCount}{' '}
+                        {isOrder
+                          ? item.unitCount === 1
+                            ? 'unidad'
+                            : 'unidades'
+                          : item.unitCount === 1
+                            ? 'boleto'
+                            : 'boletos'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <NexusSectionButton
+                    type="button"
+                    variant="secondary"
+                    icon={ReceiptText}
+                    onClick={() =>
+                      isOrder
+                        ? onOpenOrder(item.id)
+                        : onOpenParticipation(item.id)
+                    }
+                    className="col-span-2 w-full lg:col-span-1"
+                  >
+                    Ver
+                  </NexusSectionButton>
+                </article>
+              );
+            })
+          ) : (
+            <p
+              className="text-center text-secondary text-text-muted"
+              style={{ paddingBlock: 'var(--space-lg)' }}
             >
-              Ver todas las órdenes
-            </NexusAutonomousButton>
-          </NexusAutonomousCard>
+              No hay movimientos para los filtros seleccionados.
+            </p>
+          )}
         </div>
-
-        {/* KPIs de Inventario */}
-        <aside className="xl:col-span-4 flex flex-col" style={{ gap: 'var(--space-md)' }}>
-          <ProductMetricWidget
-            label="Productos activos"
-            value={activeProducts}
-            icon={Package}
-            variant="brand"
-            signal="Activo"
-            percentage={activeProducts > 0 ? 100 : 0}
-            isLoading={isLoading}
-          />
-          <ProductMetricWidget
-            label="En inventario"
-            value={availableProducts}
-            icon={Check}
-            variant="emerald"
-            signal="Disponible"
-            percentage={(availableProducts / inventoryBase) * 100}
-            isLoading={isLoading}
-          />
-          <ProductMetricWidget
-            label="Reservados"
-            value={reservedProducts}
-            icon={Lock}
-            variant="orange"
-            signal="Reservado"
-            percentage={(reservedProducts / inventoryBase) * 100}
-            isLoading={isLoading}
-          />
-        </aside>
-      </section>
+      </NexusSection>
 
       {/* NIVEL F: CONTEXTO VISUAL (CATÁLOGO) */}
       <section className="grid grid-cols-1 lg:grid-cols-2 items-stretch" style={{ gap: 'var(--space-md)' }}>

@@ -65,6 +65,12 @@ import {
 } from "./components/Store/StoreProductFiltersModal";
 import { OrdersView } from "./components/Store/Orders/OrdersView";
 import { OrderDetailView } from "./components/Store/Orders/OrderDetailView";
+import { OperationsView } from "./components/Operations/OperationsView";
+import {
+  DEFAULT_OPERATIONS_FILTERS,
+  OperationsFiltersModal,
+  type OperationsAdvancedFilters,
+} from "./components/Operations/OperationsFiltersModal";
 import {
   DEFAULT_ORDER_ADVANCED_FILTERS,
   OrderFiltersModal,
@@ -193,7 +199,7 @@ type ActiveTabType =
   | "Inicio"
   | "Medios"
   | "Tienda"
-  | "Órdenes"
+  | "Operaciones"
   | "Sistema"
   | "Mi Perfil"
   | "Rifas";
@@ -239,7 +245,7 @@ const ACTIVE_TABS: ActiveTabType[] = [
   "Inicio",
   "Medios",
   "Tienda",
-  "Órdenes",
+  "Operaciones",
   "Sistema",
   "Mi Perfil",
   "Rifas",
@@ -299,6 +305,7 @@ const getStoredEnum = <T extends string>(
 const getStoredActiveTab = (): ActiveTabType => {
   const value = localStorage.getItem("admin_active_tab");
   if (value === "Galería") return "Medios";
+  if (value === "Órdenes") return "Operaciones";
   return value && ACTIVE_TABS.includes(value as ActiveTabType)
     ? (value as ActiveTabType)
     : "Inicio";
@@ -521,6 +528,11 @@ function App() {
   const [orderAdvancedFilters, setOrderAdvancedFilters] =
     useState<OrderAdvancedFilters>(DEFAULT_ORDER_ADVANCED_FILTERS);
   const [isOrderFiltersOpen, setIsOrderFiltersOpen] = useState(false);
+  const [operationsSearchQuery, setOperationsSearchQuery] = useState("");
+  const [operationsFilters, setOperationsFilters] =
+    useState<OperationsAdvancedFilters>(DEFAULT_OPERATIONS_FILTERS);
+  const [isOperationsFiltersOpen, setIsOperationsFiltersOpen] =
+    useState(false);
   const [raffleParticipationSearchQuery, setRaffleParticipationSearchQuery] =
     useState("");
   const [raffleParticipationFilters, setRaffleParticipationFilters] =
@@ -688,12 +700,20 @@ function App() {
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const orderDetailOriginRef = React.useRef<
-    "orders-tab" | "store-orders" | "product-overview" | "orders-overview"
+    | "dashboard"
+    | "orders-tab"
+    | "store-orders"
+    | "product-overview"
+    | "orders-overview"
   >("orders-tab");
   const [selectedRaffleParticipation, setSelectedRaffleParticipation] =
     useState<RaffleParticipation | null>(null);
   const [raffleParticipationReturnMode, setRaffleParticipationReturnMode] =
-    useState<"participations" | "detail" | "tickets">("participations");
+    useState<
+      "dashboard" | "operations" | "participations" | "detail" | "tickets"
+    >(
+      "participations",
+    );
   const [orders, setOrders] = useState<Order[]>([]);
   const [pendingOrderIds, setPendingOrderIds] = useState<Set<string>>(
     new Set(),
@@ -821,8 +841,8 @@ function App() {
   }, [showToast]);
 
   const openOrdersFromNotification = useCallback(() => {
-    setActiveTab("Órdenes");
-    setStoreViewMode("orders");
+    setActiveTab("Operaciones");
+    setStoreViewMode("list");
     setSelectedOrder(null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }, []);
@@ -973,15 +993,18 @@ function App() {
   const isMediaMode = activeTab === "Medios";
   const isDashboardMode = activeTab === "Inicio";
   const isStoreMode = activeTab === "Tienda";
-  const isOrdersTab = activeTab === "Órdenes";
+  const isOperationsTab = activeTab === "Operaciones";
   const isOrdersViewActive =
-    isOrdersTab || (isStoreMode && storeViewMode === "orders");
+    isOperationsTab || (isStoreMode && storeViewMode === "orders");
   const isOrdersListViewActive =
-    isOrdersViewActive &&
+    isStoreMode &&
+    storeViewMode === "orders" &&
     storeViewMode !== "order-detail" &&
     storeViewMode !== "orders-overview";
   const isOrdersOverviewActive =
-    isOrdersTab && storeViewMode === "orders-overview";
+    isStoreMode && storeViewMode === "orders-overview";
+  const isOperationsListViewActive =
+    isOperationsTab && storeViewMode !== "order-detail";
   const isStoreProductListViewActive = isStoreMode && storeViewMode === "list";
   const isMediaVaultListViewActive =
     isMediaMode && mediaViewMode === "vault_list";
@@ -1025,6 +1048,11 @@ function App() {
       DEFAULT_ORDER_ADVANCED_FILTERS.paymentMethod ||
     orderAdvancedFilters.deliveryMethod !==
       DEFAULT_ORDER_ADVANCED_FILTERS.deliveryMethod;
+  const hasOperationsFilters =
+    operationsFilters.source !== DEFAULT_OPERATIONS_FILTERS.source ||
+    operationsFilters.status !== DEFAULT_OPERATIONS_FILTERS.status ||
+    operationsFilters.paymentMethod !==
+      DEFAULT_OPERATIONS_FILTERS.paymentMethod;
   const hasRaffleAdvancedFilters =
     raffleAdvancedFilters.status !== DEFAULT_RAFFLE_ADVANCED_FILTERS.status ||
     raffleAdvancedFilters.type !== DEFAULT_RAFFLE_ADVANCED_FILTERS.type ||
@@ -1129,7 +1157,7 @@ function App() {
   };
 
   const navigateToOrders = () => {
-    setActiveTab("Órdenes");
+    setActiveTab("Tienda");
     setStoreViewMode("orders");
     window.scrollTo({ top: 0, behavior: "smooth" });
   };
@@ -1142,8 +1170,11 @@ function App() {
 
   const handleBackFromOrderDetail = () => {
     const origin = orderDetailOriginRef.current;
-    if (origin === "orders-overview") {
-      setActiveTab("Órdenes");
+    if (origin === "dashboard") {
+      setActiveTab("Inicio");
+      setStoreViewMode("list");
+    } else if (origin === "orders-overview") {
+      setActiveTab("Tienda");
       setStoreViewMode("orders-overview");
     } else if (origin === "product-overview") {
       setActiveTab("Tienda");
@@ -1151,6 +1182,9 @@ function App() {
     } else if (origin === "store-orders") {
       setActiveTab("Tienda");
       setStoreViewMode("orders");
+    } else if (origin === "orders-tab") {
+      setActiveTab("Operaciones");
+      setStoreViewMode("list");
     } else {
       navigateToOrders();
       return;
@@ -1202,8 +1236,13 @@ function App() {
       case "Gestión de Órdenes":
         navigateToOrders();
         break;
+      case "Gestión de Operaciones":
+        setActiveTab("Operaciones");
+        setStoreViewMode("list");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        break;
       case "Resumen de Órdenes":
-        setActiveTab("Órdenes");
+        setActiveTab("Tienda");
         setStoreViewMode("orders-overview");
         window.scrollTo({ top: 0, behavior: "smooth" });
         break;
@@ -1244,6 +1283,7 @@ function App() {
         setRaffleViewMode("create");
         break;
       case "Participaciones":
+      case "Gestión de Participaciones":
         setActiveTab("Rifas");
         setRaffleViewMode("participations");
         break;
@@ -1280,7 +1320,15 @@ function App() {
           setSelectedChannelId(null);
           window.scrollTo({ top: 0, behavior: "smooth" });
         } else if (isRafflesMode && raffleViewMode === "participation-detail") {
-          setRaffleViewMode(raffleParticipationReturnMode);
+          if (raffleParticipationReturnMode === "dashboard") {
+            setActiveTab("Inicio");
+            setRaffleViewMode("list");
+          } else if (raffleParticipationReturnMode === "operations") {
+            setActiveTab("Operaciones");
+            setRaffleViewMode("list");
+          } else {
+            setRaffleViewMode(raffleParticipationReturnMode);
+          }
           setSelectedRaffleParticipation(null);
           window.scrollTo({ top: 0, behavior: "smooth" });
         } else if (isRafflesMode && raffleViewMode === "tickets") {
@@ -1293,12 +1341,12 @@ function App() {
           setStoreViewMode("list");
           window.scrollTo({ top: 0, behavior: "smooth" });
         } else if (
-          (isStoreMode || isOrdersTab) &&
+          (isStoreMode || isOperationsTab) &&
           storeViewMode === "order-detail"
         ) {
           handleBackFromOrderDetail();
         } else if (
-          isOrdersTab ||
+          isOperationsTab ||
           (isStoreMode &&
             (storeViewMode === "orders" || storeViewMode === "order-detail"))
         ) {
@@ -1338,7 +1386,9 @@ function App() {
   };
 
   const handleViewOrderDetail = (order: Order) => {
-    orderDetailOriginRef.current = isOrdersTab ? "orders-tab" : "store-orders";
+    orderDetailOriginRef.current = isOperationsTab
+      ? "orders-tab"
+      : "store-orders";
     setSelectedOrder(order);
     setStoreViewMode("order-detail");
     window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1361,7 +1411,34 @@ function App() {
       const order = await apiOrders.getById(orderId);
       orderDetailOriginRef.current = "orders-overview";
       setSelectedOrder(order);
-      setActiveTab("Órdenes");
+      setActiveTab("Tienda");
+      setStoreViewMode("order-detail");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {
+      showToast("No se pudo abrir la orden asociada", "error");
+    }
+  };
+
+  const handleViewDashboardParticipation = async (participationId: string) => {
+    try {
+      const participation =
+        await apiRaffleParticipations.getById(participationId);
+      setRaffleParticipationReturnMode("dashboard");
+      setSelectedRaffleParticipation(participation);
+      setActiveTab("Rifas");
+      setRaffleViewMode("participation-detail");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    } catch {
+      showToast("No se pudo abrir la participación asociada", "error");
+    }
+  };
+
+  const handleViewDashboardOrder = async (orderId: string) => {
+    try {
+      const order = await apiOrders.getById(orderId);
+      orderDetailOriginRef.current = "dashboard";
+      setSelectedOrder(order);
+      setActiveTab("Operaciones");
       setStoreViewMode("order-detail");
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch {
@@ -1539,7 +1616,7 @@ function App() {
 
     if (
       canManageOperations &&
-      (isStoreMode || isOrdersTab) &&
+      (isStoreMode || isOperationsTab) &&
       storeViewMode === "order-detail" &&
       selectedOrder
     ) {
@@ -2017,23 +2094,29 @@ function App() {
     );
 
   const bottomNavTabs: Array<
-    "Inicio" | "Medios" | "Tienda" | "Órdenes" | "Sistema" | "Rifas"
+    "Inicio" | "Medios" | "Tienda" | "Operaciones" | "Sistema" | "Rifas"
   > = [
     "Inicio",
-    "Medios",
+    "Operaciones",
     "Tienda",
-    "Órdenes",
     ...(showRaffleNavigation ? ["Rifas" as const] : []),
+    "Medios",
     "Sistema",
   ];
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
       <UploadQueueProvider showToast={showToast}>
-        <div className="min-h-screen bg-bg-app font-sans pb-[var(--space-3xl)] text-stone-900 transition-colors duration-500 dark:text-stone-100 md:pb-[var(--space-lg)]">
+        <div className="min-h-screen bg-bg-app font-sans pb-[var(--admin-page-content-padding-bottom)] text-stone-900 transition-colors duration-500 dark:text-stone-100">
           <Header
             activeTab={activeTab}
-            setActiveTab={setActiveTab as any}
+            setActiveTab={(tab) => {
+              if (tab === "Operaciones") {
+                setStoreViewMode("list");
+                setSelectedOrder(null);
+              }
+              setActiveTab(tab as ActiveTabType);
+            }}
             onLogout={handleLogout}
             raffleEnabled={showRaffleNavigation}
             newOrdersCount={pendingOrderIds.size}
@@ -2057,6 +2140,7 @@ function App() {
                 gap: "var(--space-md)",
                 marginBottom:
                   isOrdersListViewActive ||
+                  isOperationsListViewActive ||
                   isStoreProductListViewActive ||
                   isRaffleParticipationsListViewActive ||
                   isMediaPanelListViewActive ||
@@ -2179,6 +2263,18 @@ function App() {
                   searchPlaceholder="Buscar orden, producto, cliente, teléfono o estado..."
                   filterActive={hasOrderAdvancedFilters}
                   onFilterClick={() => setIsOrderFiltersOpen(true)}
+                />
+              </div>
+            )}
+
+            {isOperationsListViewActive && (
+              <div style={{ marginBottom: "var(--space-lg)" }}>
+                <NexusViewToolbar
+                  searchValue={operationsSearchQuery}
+                  onSearchChange={setOperationsSearchQuery}
+                  searchPlaceholder="Buscar cliente, orden, participación, producto, rifa o boleto..."
+                  filterActive={hasOperationsFilters}
+                  onFilterClick={() => setIsOperationsFiltersOpen(true)}
                 />
               </div>
             )}
@@ -2339,7 +2435,35 @@ function App() {
                       onValidationChange={setIsFormValid}
                     />
                   )
-                ) : isStoreMode || isOrdersTab ? (
+                ) : isOperationsTab ? (
+                  storeViewMode === "order-detail" && selectedOrder ? (
+                    <OrderDetailView
+                      order={selectedOrder}
+                      canManageOperations={canManageOperations}
+                      onBack={handleBackFromOrderDetail}
+                      showToast={showToast}
+                    />
+                  ) : (
+                    <OperationsView
+                      orders={orders}
+                      isLoadingOrders={isLoadingDashboard}
+                      canManageOperations={canManageOperations}
+                      filters={operationsFilters}
+                      searchQuery={operationsSearchQuery}
+                      onOrdersChange={setOrders}
+                      onViewOrder={handleViewOrderDetail}
+                      onViewParticipation={(participation) => {
+                        setRaffleParticipationReturnMode("operations");
+                        setSelectedRaffleParticipation(participation);
+                        setActiveTab("Rifas");
+                        setRaffleViewMode("participation-detail");
+                        window.scrollTo({ top: 0, behavior: "smooth" });
+                      }}
+                      showToast={showToast}
+                      setConfirmDialog={setConfirmDialog}
+                    />
+                  )
+                ) : isStoreMode ? (
                   isOrdersOverviewActive ? (
                     <SalesOverviewView
                       period={salesOverviewFilters.period}
@@ -2348,7 +2472,7 @@ function App() {
                       showToast={showToast}
                       onOpenOrder={handleViewSalesOrder}
                     />
-                  ) : (storeViewMode === "orders" || isOrdersTab) &&
+                  ) : storeViewMode === "orders" &&
                     storeViewMode !== "order-detail" ? (
                     <OrdersView
                       orders={orders}
@@ -2432,10 +2556,7 @@ function App() {
                     />
                   )
                 ) : isSystemMode ? (
-                  <div
-                    className="animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-visible"
-                    style={{ paddingBottom: "var(--space-xl)" }}
-                  >
+                  <div className="animate-in fade-in slide-in-from-bottom-4 duration-500 overflow-visible">
                     {systemViewMode === "shipping" ? (
                       <ShippingView
                         ref={shippingRef}
@@ -2565,13 +2686,14 @@ function App() {
                     isLoadingCommercial={isLoadingDashboardCommercial}
                     stats={dashboardStats}
                     commercialOverview={dashboardCommercialOverview}
-                    orders={orders}
                     billingServices={billingServices}
                     billingCharges={billingCharges}
                     billingPayments={billingPayments}
                     onNavigateToSystem={navigateToSystem}
                     onNavigateToMedia={navigateToMedia}
                     onTabChange={setActiveTab as any}
+                    onOpenOrder={handleViewDashboardOrder}
+                    onOpenParticipation={handleViewDashboardParticipation}
                     onOpenRaffleParticipations={() => {
                       setActiveTab("Rifas");
                       setRaffleViewMode("participations");
@@ -2584,9 +2706,15 @@ function App() {
           </main>
 
           {!isRaffleTicketBoardViewActive && (
-            <BottomNav
+          <BottomNav
               activeTab={activeTab as any}
-              onTabChange={setActiveTab as any}
+              onTabChange={(tab) => {
+                if (tab === "Operaciones") {
+                  setStoreViewMode("list");
+                  setSelectedOrder(null);
+                }
+                setActiveTab(tab as ActiveTabType);
+              }}
               tabs={bottomNavTabs}
               newOrdersCount={pendingOrderIds.size}
             />
@@ -2671,6 +2799,19 @@ function App() {
             onClear={() => {
               setOrderAdvancedFilters(DEFAULT_ORDER_ADVANCED_FILTERS);
               setIsOrderFiltersOpen(false);
+            }}
+          />
+          <OperationsFiltersModal
+            isOpen={isOperationsFiltersOpen}
+            value={operationsFilters}
+            onClose={() => setIsOperationsFiltersOpen(false)}
+            onApply={(filters) => {
+              setOperationsFilters(filters);
+              setIsOperationsFiltersOpen(false);
+            }}
+            onClear={() => {
+              setOperationsFilters(DEFAULT_OPERATIONS_FILTERS);
+              setIsOperationsFiltersOpen(false);
             }}
           />
           <RaffleParticipationFiltersModal

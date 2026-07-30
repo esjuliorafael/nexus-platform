@@ -263,7 +263,7 @@ export const HomeSliderView = forwardRef<
 
     return (
       <div
-        className="mx-auto flex w-full max-w-6xl flex-col pb-[var(--space-2xl)] sm:pb-[var(--space-lg)]"
+        className="mx-auto flex w-full max-w-6xl flex-col"
         style={{ gap: "var(--space-md)" }}
       >
         {orderedSlides.map((slide, index) => (

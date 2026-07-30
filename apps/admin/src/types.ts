@@ -385,7 +385,7 @@ export interface StatCardProps {
 export type QuickActionGroup =
   | "Medios"
   | "Tienda"
-  | "Órdenes"
+  | "Operaciones"
   | "Diseño"
   | "Sistema"
   | "Mi Perfil"
@@ -571,6 +571,20 @@ export type SalesOverviewPaymentMethod =
 
 export type DashboardCommercialSource = "ALL" | "STORE" | "RAFFLES";
 
+export interface DashboardCommercialHistoryItem {
+  kind: "ORDER" | "PARTICIPATION";
+  id: string;
+  raffleId?: number;
+  customerName: string;
+  createdAt: string;
+  status: "CONFIRMED" | "PENDING" | "CANCELLED";
+  paymentMethod: string | null;
+  amount: number;
+  unitCount: number;
+  summaryItems: string[];
+  ticketNumbers?: string[];
+}
+
 export interface DashboardCommercialOverview {
   period: SalesOverviewPeriod;
   source: DashboardCommercialSource;
@@ -584,6 +598,7 @@ export interface DashboardCommercialOverview {
     cancelled: { count: number; amount: number };
     conversionRate: number;
   };
+  history: DashboardCommercialHistoryItem[];
 }
 
 export interface SalesOverview {
@@ -641,6 +656,7 @@ export interface SalesOverview {
     customerPhone: string;
     createdAt: string;
     status: string;
+    paymentMethod: string;
     total: number;
     netRevenue: number;
     refundedAmount: number;

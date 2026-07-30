@@ -404,7 +404,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
   return (
     <div
       className="animate-in fade-in slide-in-from-right-4 duration-500 flex flex-col"
-      style={{ gap: 'var(--space-lg)', paddingBottom: 'var(--space-xl)' }}
+      style={{ gap: 'var(--space-lg)' }}
     >
 
       <div className="grid grid-cols-1 lg:grid-cols-3" style={{ gap: 'var(--space-lg)' }}>

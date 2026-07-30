@@ -46,7 +46,7 @@ export const StorefrontAnnouncementView = forwardRef<StorefrontAnnouncementViewR
   if (loading) return <NexusSpinner label="Cargando avisos del Storefront..." />;
 
   return (
-    <div className="flex flex-col" style={{ gap: "var(--space-lg)", paddingBottom: "var(--space-xl)" }}>
+    <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
       <NexusHero title="Avisos del Storefront" subtitle="Comunicación pública" icon={BellRing} variant="dark" badge="Centralizados" badgeValue={`${items.length} configurados`} />
       {items.length === 0 ? (
         <EmptyState level={1} icon={BellRing} title="Sin avisos configurados" description="Publica mensajes globales o específicos sin modificar una rifa o producto." action={<NexusSectionButton icon={Plus} onClick={() => onSetViewMode("create")}>Nuevo aviso</NexusSectionButton>} />
@@ -84,4 +84,3 @@ export const StorefrontAnnouncementView = forwardRef<StorefrontAnnouncementViewR
     </div>
   );
 });
-

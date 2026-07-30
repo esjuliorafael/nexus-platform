@@ -34,10 +34,10 @@ export const Header: React.FC<HeaderProps> = ({
 
   const navItems = [
     "Inicio",
-    "Medios",
+    "Operaciones",
     "Tienda",
-    "Órdenes",
     ...(raffleEnabled ? ["Rifas"] : []),
+    "Medios",
     "Sistema",
   ];
 
@@ -163,9 +163,9 @@ export const Header: React.FC<HeaderProps> = ({
                       activeTab !== "Sistema" && (
                         <span className="absolute right-6 top-2 h-2.5 w-2.5 animate-pulse rounded-full border-2 border-bg-muted bg-brand-500" />
                       )}
-                    {item === "Órdenes" &&
+                    {item === "Operaciones" &&
                       newOrdersCount > 0 &&
-                      activeTab !== "Órdenes" && (
+                      activeTab !== "Operaciones" && (
                         <span className="absolute right-5 top-1 flex h-5 min-w-5 animate-pulse items-center justify-center rounded-full border-2 border-bg-muted bg-rose-500 px-1 text-[9px] font-black text-white">
                           {newOrdersCount > 9 ? "9+" : newOrdersCount}
                         </span>

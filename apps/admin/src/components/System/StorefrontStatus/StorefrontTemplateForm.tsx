@@ -169,7 +169,7 @@ export const StorefrontTemplateForm = forwardRef<
   return (
     <form
       className="flex flex-col animate-in fade-in duration-500"
-      style={{ gap: "var(--space-lg)", paddingBottom: "var(--space-xl)" }}
+      style={{ gap: "var(--space-lg)" }}
       onSubmit={(event) => {
         event.preventDefault();
         handleSave();

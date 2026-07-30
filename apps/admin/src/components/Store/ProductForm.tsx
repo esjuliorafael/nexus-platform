@@ -274,7 +274,7 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
       id="product-form"
       onSubmit={handleSubmit}
       className="flex flex-col animate-in fade-in duration-700"
-      style={{ gap: 'var(--space-lg)', paddingBottom: 'var(--space-xl)' }}
+      style={{ gap: 'var(--space-lg)' }}
     >
       
       {/* MASTER LAYOUT: 2 MAIN COLUMNS */}

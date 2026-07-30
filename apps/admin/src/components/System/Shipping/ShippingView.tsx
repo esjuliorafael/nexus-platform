@@ -179,7 +179,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
 
     if (subView === 'zones') {
       return (
-        <div key="shipping-zones-content" className="flex flex-col animate-in fade-in duration-300" style={{ gap: 'var(--space-lg)', paddingBottom: 'var(--space-xl)' }}>
+        <div key="shipping-zones-content" className="flex flex-col animate-in fade-in duration-300" style={{ gap: 'var(--space-lg)' }}>
           
           <NexusHero
             title="Cobertura Territorial"
@@ -250,7 +250,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
     }
 
     return (
-      <div key="shipping-config-content" className="flex flex-col animate-in fade-in duration-300" style={{ gap: 'var(--space-lg)', paddingBottom: 'var(--space-xl)' }}>
+      <div key="shipping-config-content" className="flex flex-col animate-in fade-in duration-300" style={{ gap: 'var(--space-lg)' }}>
         
         <NexusHero
           title="Logística y Envíos"

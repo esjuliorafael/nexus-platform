@@ -248,7 +248,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
   };
 
   return (
-    <div className="grid grid-cols-1 items-start lg:grid-cols-3" style={{ gap: "var(--space-lg)", paddingBottom: "var(--space-3xl)" }}>
+    <div className="grid grid-cols-1 items-start lg:grid-cols-3" style={{ gap: "var(--space-lg)" }}>
       <div className="flex flex-col lg:col-span-2" style={{ gap: "var(--space-lg)" }}>
         <NexusSection
           title={isPaymentHold ? "Intento de participación" : "Participación"}

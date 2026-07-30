@@ -54,12 +54,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
 }) => {
   const isMediaMode = activeTab === "Medios";
   const isStoreMode = activeTab === "Tienda";
-  const isOrdersTab = activeTab === "Órdenes" || activeTab.includes("rdenes");
+  const isOperationsTab = activeTab === "Operaciones";
   const isSystemMode = activeTab === "Sistema";
   const isProfileMode = activeTab === "Mi Perfil";
   const isRafflesMode = activeTab === "Rifas";
   const isOrdersMode =
-    isOrdersTab ||
+    isOperationsTab ||
     (isStoreMode &&
       (storeViewMode === "orders" || storeViewMode === "order-detail"));
 
@@ -201,6 +201,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             Resumen de <span className="text-text-muted">Órdenes</span>
           </>
         );
+      if (isOperationsTab)
+        return (
+          <>
+            Gestión de <span className="text-text-muted">Operaciones</span>
+          </>
+        );
       return (
         <>
           Gestión de <span className="text-text-muted">Órdenes</span>
@@ -259,7 +265,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       if (raffleViewMode === "participations")
         return (
           <>
-            Participaciones de <span className="text-text-muted">Rifas</span>
+            Gestión de <span className="text-text-muted">Participaciones</span>
           </>
         );
       if (raffleViewMode === "participation-detail")
@@ -469,6 +475,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         return "Consulta, descarga y administra archivos originales disponibles durante 30 días.";
       return "Explora, organiza y gestiona todos los medios visuales del rancho.";
     }
+    if (isOperationsTab)
+      return "Consulta y gestiona órdenes y participaciones desde una sola bandeja.";
     if (isOrdersMode)
       return storeViewMode === "order-detail"
         ? "Revisa el detalle del pedido, productos, cliente, pagos y notificaciones asociadas."

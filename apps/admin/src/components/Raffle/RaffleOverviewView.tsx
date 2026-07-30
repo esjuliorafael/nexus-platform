@@ -121,7 +121,7 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
 
   return (
     <div
-      className="flex flex-col pb-[var(--space-2xl)]"
+      className="flex flex-col"
       style={{ gap: "var(--space-lg)" }}
     >
       <div

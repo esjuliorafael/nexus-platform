@@ -179,7 +179,7 @@ export const StoreHeroView: React.FC<StoreHeroViewProps> = ({
   return (
     <div
       className="flex flex-col"
-      style={{ gap: "var(--space-lg)", paddingBottom: "var(--space-3xl)" }}
+      style={{ gap: "var(--space-lg)" }}
     >
       {heroes.length === 0 ? (
         <EmptyState

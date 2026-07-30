@@ -320,7 +320,7 @@ export const HomeSlideForm = forwardRef<
           handleSubmit();
         }}
         className="flex flex-col animate-in fade-in duration-700"
-        style={{ gap: "var(--space-lg)", paddingBottom: "var(--space-lg)" }}
+        style={{ gap: "var(--space-lg)" }}
       >
         <div
           className="grid grid-cols-1 items-start lg:grid-cols-12"

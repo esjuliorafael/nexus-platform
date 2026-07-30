@@ -115,7 +115,7 @@ export const CouponForm = forwardRef<
       id="coupon-form"
       onSubmit={handleSubmit}
       className="flex flex-col animate-in fade-in duration-700"
-      style={{ gap: "var(--space-lg)", paddingBottom: "var(--space-lg)" }}
+      style={{ gap: "var(--space-lg)" }}
     >
       <NexusSection
         icon={BadgePercent}

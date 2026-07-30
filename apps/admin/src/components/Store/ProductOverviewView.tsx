@@ -137,7 +137,7 @@ export const ProductOverviewView = ({
   const sales = isBird ? (overview.finalSale ? [overview.finalSale] : []) : overview.recentSales;
 
   return (
-    <div className="mx-auto flex w-full max-w-6xl flex-col" style={{ gap: "var(--space-lg)", paddingBottom: "var(--space-3xl)" }}>
+    <div className="mx-auto flex w-full max-w-6xl flex-col" style={{ gap: "var(--space-lg)" }}>
       <NexusAutonomousCard>
         <div className="flex flex-col sm:flex-row sm:items-center" style={{ gap: "var(--space-lg)" }}>
           <div

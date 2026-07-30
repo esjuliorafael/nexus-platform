@@ -8,6 +8,7 @@ import {
   ArrowUpRight,
   Bird,
   CircleDollarSign,
+  CreditCard,
   Hash,
   Layers,
   Minus,
@@ -291,7 +292,7 @@ export const SalesOverviewView = ({
   return (
     <div
       className="mx-auto flex w-full max-w-7xl flex-col"
-      style={{ gap: "var(--space-lg)", paddingBottom: "var(--space-3xl)" }}
+      style={{ gap: "var(--space-lg)" }}
     >
       {loading ? (
         <NexusSpinner label="Calculando ventas confirmadas..." />
@@ -617,7 +618,7 @@ export const SalesOverviewView = ({
                     >
                       <div
                         className="flex min-w-0 flex-wrap items-center"
-                        style={{ gap: "var(--space-base)" }}
+                        style={{ gap: "var(--space-xs)" }}
                       >
                         <NexusSectionBadge icon={Hash} variant="brand">
                           {order.id}
@@ -637,6 +638,11 @@ export const SalesOverviewView = ({
                             : order.productType === "ITEM"
                               ? "Artículo"
                               : "Mixta"}
+                        </NexusSectionBadge>
+                        <NexusSectionBadge icon={CreditCard} variant="muted">
+                          {order.paymentMethod === "MERCADOPAGO"
+                            ? "Tarjeta"
+                            : "Dep. / Trans."}
                         </NexusSectionBadge>
                       </div>
                       <strong

@@ -174,7 +174,7 @@ export const StoreHeroForm = forwardRef<
       id="store-hero-form"
       onSubmit={handleSubmit}
       className="flex flex-col animate-in fade-in duration-700"
-      style={{ gap: "var(--space-lg)", paddingBottom: "var(--space-lg)" }}
+      style={{ gap: "var(--space-lg)" }}
     >
       <input
         ref={fileInputRef}

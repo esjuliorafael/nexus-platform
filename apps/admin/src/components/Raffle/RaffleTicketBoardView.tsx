@@ -293,7 +293,7 @@ export const RaffleTicketBoardView: React.FC<RaffleTicketBoardViewProps> = ({
 
   return (
     <div
-      className="flex flex-col pb-[calc(var(--space-3xl)+var(--size-button-section)+env(safe-area-inset-bottom))] md:pb-[var(--space-2xl)]"
+      className="flex flex-col"
       style={{ gap: "var(--space-lg)" }}
     >
       <div ref={ticketSectionRef}>

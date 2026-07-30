@@ -139,7 +139,7 @@ export const RaffleParticipationsView: React.FC<RaffleParticipationsViewProps> =
             : "Los apartados y pagos de boletos aparecerán aquí como una participación completa."}
         />
       ) : (
-        <div className="mx-auto flex max-w-6xl flex-col" style={{ gap: "var(--space-md)", paddingBottom: "var(--space-3xl)" }}>
+        <div className="mx-auto flex max-w-6xl flex-col" style={{ gap: "var(--space-md)" }}>
           {visibleParticipations.map((participation, index) => (
             <div key={participation.id} className="animate-card-enter" style={{ animationDelay: `${index * 60}ms` }}>
               <RaffleParticipationCard

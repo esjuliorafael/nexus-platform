@@ -39,13 +39,16 @@ const getPreviousSalesRange = (periodStart: Date | null, periodEnd: Date) => {
 type PaidRaffleSale = {
   id: number;
   reservationId: string | null;
+  raffleId?: number;
+  ticketNumber?: string;
+  customerName?: string;
   paymentStatus: string;
   paymentMethod: string | null;
   mpPaidAmount: unknown;
   mpRefundedAmount: unknown;
   discountTotal: unknown;
   createdAt: Date;
-  raffle: { ticketPrice: unknown };
+  raffle: { title?: string; ticketPrice: unknown };
 };
 
 type SalesMetricOrder = {
@@ -62,10 +65,17 @@ type ProductTypeMetricKey = "ALL" | "BIRD" | "ITEM";
 type SalesPaymentMethod = "ALL" | "TRANSFER" | "MERCADOPAGO";
 
 type CommercialOrder = {
+  id?: number;
+  customerName?: string;
   status: string;
+  paymentMethod?: string | null;
   total: unknown;
   mpRefundedAmount: unknown;
   createdAt: Date;
+  items?: Array<{
+    productName: string | null;
+    quantity: number;
+  }>;
 };
 
 const getProductTypeMetrics = (orders: SalesMetricOrder[]) => {
@@ -512,10 +522,19 @@ export const dashboardService = {
         : storePrisma.order.findMany({
             where: { ...dateFilter, ...paymentFilter },
             select: {
+              id: true,
+              customerName: true,
               status: true,
+              paymentMethod: true,
               total: true,
               mpRefundedAmount: true,
               createdAt: true,
+              items: {
+                select: {
+                  productName: true,
+                  quantity: true,
+                },
+              },
             },
           }),
       source === "STORE"
@@ -525,13 +544,16 @@ export const dashboardService = {
             select: {
               id: true,
               reservationId: true,
+              raffleId: true,
+              ticketNumber: true,
+              customerName: true,
               paymentStatus: true,
               paymentMethod: true,
               mpPaidAmount: true,
               mpRefundedAmount: true,
               discountTotal: true,
               createdAt: true,
-              raffle: { select: { ticketPrice: true } },
+              raffle: { select: { title: true, ticketPrice: true } },
             },
           }),
     ]);
@@ -604,6 +626,99 @@ export const dashboardService = {
       ensurePoint(key).raffles += amount;
     }
 
+    const history = [
+      ...pulseOrders.map((order) => {
+        const total = Number(order.total);
+        const refundedAmount = Math.min(
+          total,
+          Math.max(0, Number(order.mpRefundedAmount || 0)),
+        );
+
+        return {
+          kind: "ORDER" as const,
+          id: String(order.id),
+          customerName: order.customerName || "Cliente",
+          createdAt: order.createdAt.toISOString(),
+          status: SETTLED_ORDER_STATUSES.includes(
+            order.status as (typeof SETTLED_ORDER_STATUSES)[number],
+          )
+            ? ("CONFIRMED" as const)
+            : order.status === "PENDING"
+              ? ("PENDING" as const)
+              : ("CANCELLED" as const),
+          paymentMethod: order.paymentMethod,
+          amount: Math.max(0, total - refundedAmount),
+          unitCount: (order.items || []).reduce(
+            (sum, item) => sum + item.quantity,
+            0,
+          ),
+          summaryItems: (order.items || []).map(
+            (item) => item.productName || "Producto",
+          ),
+        };
+      }),
+      ...Array.from(
+        pulseRaffleSales.reduce((groups, sale) => {
+          const key = sale.reservationId || `sale-${sale.id}`;
+          const group = groups.get(key) || [];
+          group.push(sale);
+          groups.set(key, group);
+          return groups;
+        }, new Map<string, PaidRaffleSale[]>()),
+      ).map(([participationId, sales]) => {
+        const first = sales[0];
+        const subtotal = Number(first.raffle.ticketPrice) * sales.length;
+        const discount = Math.max(
+          0,
+          ...sales.map((sale) => Number(sale.discountTotal || 0)),
+        );
+        const calculatedTotal = Math.max(0, subtotal - discount);
+        const isPaid = sales.every((sale) => sale.paymentStatus === "PAID");
+        const isPending = sales.some(
+          (sale) => sale.paymentStatus === "PENDING",
+        );
+        const paidAmount =
+          first.paymentMethod === "MERCADOPAGO" && first.mpPaidAmount != null
+            ? Number(first.mpPaidAmount)
+            : calculatedTotal;
+        const refundedAmount = Math.min(
+          paidAmount,
+          Math.max(
+            0,
+            ...sales.map((sale) => Number(sale.mpRefundedAmount || 0)),
+          ),
+        );
+
+        return {
+          kind: "PARTICIPATION" as const,
+          id: participationId,
+          raffleId: first.raffleId,
+          customerName: first.customerName || "Participante",
+          createdAt: first.createdAt.toISOString(),
+          status: isPaid
+            ? ("CONFIRMED" as const)
+            : isPending
+              ? ("PENDING" as const)
+              : ("CANCELLED" as const),
+          paymentMethod: first.paymentMethod,
+          amount: isPaid
+            ? Math.max(0, paidAmount - refundedAmount)
+            : calculatedTotal,
+          unitCount: sales.length,
+          summaryItems: [first.raffle.title || `Rifa #${first.raffleId}`],
+          ticketNumbers: sales
+            .map((sale) => sale.ticketNumber)
+            .filter((ticket): ticket is string => Boolean(ticket)),
+        };
+      }),
+    ]
+      .sort(
+        (left, right) =>
+          new Date(right.createdAt).getTime() -
+          new Date(left.createdAt).getTime(),
+      )
+      .slice(0, 5);
+
     return {
       period,
       source,
@@ -615,6 +730,7 @@ export const dashboardService = {
       },
       salesBySource,
       pulse,
+      history,
     };
   },
 
@@ -655,6 +771,7 @@ export const dashboardService = {
         customerPhone: true,
         createdAt: true,
         status: true,
+        paymentMethod: true,
         subtotal: true,
         discountTotal: true,
         total: true,
@@ -708,6 +825,7 @@ export const dashboardService = {
               customerPhone: true,
               createdAt: true,
               status: true,
+              paymentMethod: true,
               subtotal: true,
               discountTotal: true,
               total: true,
@@ -887,6 +1005,7 @@ export const dashboardService = {
         customerPhone: order.customerPhone,
         createdAt: order.createdAt,
         status: order.status,
+        paymentMethod: order.paymentMethod,
         total: orderTotal,
         netRevenue: orderNet * allocation,
         refundedAmount: orderRefunded * allocation,

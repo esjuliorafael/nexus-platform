@@ -106,7 +106,7 @@ export const StorefrontAnnouncementForm = forwardRef<StorefrontAnnouncementFormR
     useImperativeHandle(ref, () => ({ handleSave: () => void save() }));
 
     return (
-      <div className="grid grid-cols-1 xl:grid-cols-2" style={{ gap: "var(--space-lg)", paddingBottom: "var(--space-xl)" }}>
+      <div className="grid grid-cols-1 xl:grid-cols-2" style={{ gap: "var(--space-lg)" }}>
         <NexusSection title="Contenido del Aviso" subtitle="Define el mensaje que verá el visitante" icon={Megaphone} iconVariant="brand">
           <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
             <NexusInput label="Subtítulo" value={eyebrow} onChange={(event) => setEyebrow(event.target.value)} maxLength={60} placeholder="Aviso importante" />
@@ -171,4 +171,3 @@ export const StorefrontAnnouncementForm = forwardRef<StorefrontAnnouncementFormR
     );
   },
 );
-

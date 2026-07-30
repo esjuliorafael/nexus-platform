@@ -190,7 +190,7 @@ export const StorefrontStatusView = forwardRef<
     <div
       key="storefront-status-content"
       className="flex flex-col animate-in fade-in duration-300"
-      style={{ gap: "var(--space-lg)", paddingBottom: "var(--space-xl)" }}
+      style={{ gap: "var(--space-lg)" }}
     >
       <NexusHero
         title="Estado del Storefront"

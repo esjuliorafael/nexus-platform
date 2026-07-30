@@ -2,7 +2,7 @@ import React, { useEffect, useRef } from "react";
 import {
   Image,
   LayoutGrid,
-  Package,
+  Activity,
   Settings,
   ShoppingBag,
   Ticket,
@@ -13,7 +13,7 @@ type BottomTab =
   | "Inicio"
   | "Medios"
   | "Tienda"
-  | "Órdenes"
+  | "Operaciones"
   | "Envíos"
   | "Sistema"
   | "Rifas";
@@ -40,7 +40,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
     { id: "Inicio", label: "Inicio", icon: <LayoutGrid size={20} /> },
     { id: "Medios", label: "Medios", icon: <Image size={20} /> },
     { id: "Tienda", label: "Tienda", icon: <ShoppingBag size={20} /> },
-    { id: "Órdenes", label: "Órdenes", icon: <Package size={20} /> },
+    {
+      id: "Operaciones",
+      label: "Ops.",
+      icon: <Activity size={20} />,
+    },
     { id: "Envíos", label: "Envíos", icon: <Truck size={20} /> },
     { id: "Sistema", label: "Sistema", icon: <Settings size={20} /> },
     { id: "Rifas", label: "Rifas", icon: <Ticket size={20} /> },
@@ -90,10 +94,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
         paddingInlineStart: "max(var(--space-md), env(safe-area-inset-left))",
         paddingInlineEnd: "max(var(--space-md), env(safe-area-inset-right))",
         paddingTop: "var(--space-sm)",
-        paddingBottom: "calc(var(--space-md) + env(safe-area-inset-bottom))",
+        paddingBottom:
+          "calc(var(--admin-inset-mobile-chrome-block) + env(safe-area-inset-bottom))",
       }}
     >
-      <div className="relative mx-auto max-w-md overflow-hidden rounded-[2.5rem] border border-border-main bg-bg-card/90 p-1.5 shadow-2xl backdrop-blur-2xl dark:shadow-none">
+      <div className="relative mx-auto h-[var(--admin-h-mobile-nav-rail)] max-w-md overflow-hidden rounded-[2.5rem] border border-border-main bg-bg-card/90 p-1.5 shadow-2xl backdrop-blur-2xl dark:shadow-none">
         <div className="relative flex w-full items-center justify-around">
           {tabs.map((tabId) => {
             const item = items.find((candidate) => candidate.id === tabId);
@@ -120,7 +125,9 @@ export const BottomNav: React.FC<BottomNavProps> = ({
                     !isActive && (
                       <span className="absolute -right-1 -top-1 h-2.5 w-2.5 animate-pulse rounded-full border-2 border-bg-card bg-brand-500" />
                     )}
-                  {item.id === "Órdenes" && newOrdersCount > 0 && !isActive && (
+                  {item.id === "Operaciones" &&
+                    newOrdersCount > 0 &&
+                    !isActive && (
                     <span className="absolute -right-2 -top-2 flex h-5 min-w-5 animate-pulse items-center justify-center rounded-full border-2 border-bg-card bg-rose-500 px-1 text-[9px] font-black text-white">
                       {newOrdersCount > 9 ? "9+" : newOrdersCount}
                     </span>

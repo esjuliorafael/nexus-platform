@@ -80,9 +80,12 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
       ],
     },
     {
-      group: "Órdenes",
+      group: "Operaciones",
       items: [
-        { icon: <ClipboardList size={20} />, label: "Gestión de Órdenes" },
+        {
+          icon: <ClipboardList size={20} />,
+          label: "Gestión de Operaciones",
+        },
         {
           icon: <ChartNoAxesCombined size={20} />,
           label: "Resumen de Órdenes",
@@ -94,7 +97,10 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
       items: [
         { icon: <Ticket size={20} />, label: "Ver Rifas" },
         { icon: <BadgePercent size={20} />, label: "Cupones de Rifas" },
-        { icon: <ClipboardList size={20} />, label: "Participaciones" },
+        {
+          icon: <ClipboardList size={20} />,
+          label: "Gestión de Participaciones",
+        },
       ],
     },
     {

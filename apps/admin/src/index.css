@@ -81,6 +81,8 @@
   --size-quick-action-mobile: clamp(5.75rem, 27vw, 7rem); /* 92px to 112px */
   --size-slide-thumb-height: var(--size-card-thumb); /* Matches ProductCard thumbnail height */
   --size-slide-thumb-width: calc(var(--size-slide-thumb-height) * 16 / 9);
+  --width-operation-card-summary: 17.5rem;
+  --width-operation-card-total: 7rem;
 
   /* Modal Widths - Semantic desktop tiers */
   --width-modal-compact: 28rem;
@@ -132,6 +134,20 @@
   --space-2xl: calc(var(--space-lg) * 3); /* 72px-120px: Page vertical rhythm */
   --space-3xl: calc(var(--space-lg) * 4); /* 96px-160px: Empty states and overlays */
 
+  /* Page Closure - Mobile chrome compensation and desktop breathing */
+  --admin-h-mobile-nav-rail: 4rem;
+  --admin-inset-mobile-chrome-block: var(--space-md);
+  --admin-space-mobile-chrome-before: var(--space-md);
+  --admin-mobile-chrome-content-padding-bottom: calc(
+    var(--admin-h-mobile-nav-rail) +
+    var(--admin-inset-mobile-chrome-block) +
+    var(--admin-space-mobile-chrome-before) +
+    env(safe-area-inset-bottom)
+  );
+  --admin-page-content-padding-bottom: var(
+    --admin-mobile-chrome-content-padding-bottom
+  );
+
   /* Button Insets - Derived without changing the existing 24px / 32px geometry */
   --padding-button-card-inline: calc(var(--space-base) * 2);
   --padding-button-inline: calc((var(--space-base) * 2) + var(--space-sm));
@@ -177,6 +193,10 @@
 }
 
 @media (min-width: 768px) {
+  :root {
+    --admin-page-content-padding-bottom: var(--space-xl);
+  }
+
   html {
     scrollbar-gutter: stable;
   }

@@ -434,7 +434,7 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
       ) : filtered.length > 0 ? (
         <div
           className="flex flex-col max-w-6xl mx-auto"
-          style={{ gap: 'var(--space-md)', paddingBottom: 'var(--space-3xl)' }}
+          style={{ gap: 'var(--space-md)' }}
         >
           {paginatedProducts.map((product, idx) => (
             <div 
