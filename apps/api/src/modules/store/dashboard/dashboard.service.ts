@@ -1,22 +1,39 @@
 import { storePrisma } from "@nexus/db/store";
 import { rafflePrisma } from "@nexus/db/raffle";
 import {
+  addDays,
+  differenceInCalendarDays,
   subDays,
   startOfDay,
+  startOfWeek,
   startOfMonth,
   endOfDay,
+  endOfMonth,
+  endOfWeek,
   format,
 } from "date-fns";
 
 const SETTLED_ORDER_STATUSES = ["PAID", "SHIPPED", "DELIVERED"] as const;
-export type SalesOverviewPeriod = "TODAY" | "7D" | "30D" | "MONTH" | "ALL";
+export type SalesOverviewPeriod = "TODAY" | "7D" | "15D" | "MONTH" | "ALL";
+export type CommercialOverviewSource = "ALL" | "STORE" | "RAFFLES";
 
 const getSalesPeriodStart = (period: SalesOverviewPeriod, today: Date) => {
   if (period === "TODAY") return startOfDay(today);
   if (period === "7D") return startOfDay(subDays(today, 6));
-  if (period === "30D") return startOfDay(subDays(today, 29));
+  if (period === "15D") return startOfDay(subDays(today, 14));
   if (period === "MONTH") return startOfMonth(today);
   return null;
+};
+
+const getPreviousSalesRange = (periodStart: Date | null, periodEnd: Date) => {
+  if (!periodStart) return null;
+
+  const durationInDays =
+    differenceInCalendarDays(periodEnd, periodStart) + 1;
+  const previousEnd = endOfDay(subDays(periodStart, 1));
+  const previousStart = startOfDay(subDays(periodStart, durationInDays));
+
+  return { start: previousStart, end: previousEnd };
 };
 
 type PaidRaffleSale = {
@@ -25,9 +42,97 @@ type PaidRaffleSale = {
   paymentStatus: string;
   paymentMethod: string | null;
   mpPaidAmount: unknown;
+  mpRefundedAmount: unknown;
   discountTotal: unknown;
   createdAt: Date;
   raffle: { ticketPrice: unknown };
+};
+
+type SalesMetricOrder = {
+  total: unknown;
+  mpRefundedAmount: unknown;
+  items: Array<{
+    productType: string;
+    quantity: number;
+    unitPrice: unknown;
+  }>;
+};
+
+type ProductTypeMetricKey = "ALL" | "BIRD" | "ITEM";
+type SalesPaymentMethod = "ALL" | "TRANSFER" | "MERCADOPAGO";
+
+type CommercialOrder = {
+  status: string;
+  total: unknown;
+  mpRefundedAmount: unknown;
+  createdAt: Date;
+};
+
+const getProductTypeMetrics = (orders: SalesMetricOrder[]) => {
+  const metrics: Record<
+    ProductTypeMetricKey,
+    {
+      netRevenue: number;
+      refundedAmount: number;
+      orders: number;
+      units: number;
+    }
+  > = {
+    ALL: { netRevenue: 0, refundedAmount: 0, orders: 0, units: 0 },
+    BIRD: { netRevenue: 0, refundedAmount: 0, orders: 0, units: 0 },
+    ITEM: { netRevenue: 0, refundedAmount: 0, orders: 0, units: 0 },
+  };
+
+  for (const order of orders) {
+    const total = Number(order.total);
+    const refunded = Math.min(
+      total,
+      Math.max(0, Number(order.mpRefundedAmount || 0)),
+    );
+    const netRevenue = Math.max(0, total - refunded);
+    const grossByType = { BIRD: 0, ITEM: 0 };
+    const unitsByType = { BIRD: 0, ITEM: 0 };
+
+    for (const item of order.items) {
+      const type = item.productType === "BIRD" ? "BIRD" : "ITEM";
+      grossByType[type] += Number(item.unitPrice) * item.quantity;
+      unitsByType[type] += item.quantity;
+    }
+
+    const merchandiseGross = grossByType.BIRD + grossByType.ITEM;
+    metrics.ALL.netRevenue += netRevenue;
+    metrics.ALL.refundedAmount += refunded;
+    metrics.ALL.orders += 1;
+    metrics.ALL.units += unitsByType.BIRD + unitsByType.ITEM;
+
+    for (const type of ["BIRD", "ITEM"] as const) {
+      if (unitsByType[type] === 0) continue;
+      metrics[type].orders += 1;
+      metrics[type].units += unitsByType[type];
+      metrics[type].netRevenue +=
+        merchandiseGross > 0
+          ? netRevenue * (grossByType[type] / merchandiseGross)
+          : 0;
+      metrics[type].refundedAmount +=
+        merchandiseGross > 0
+          ? refunded * (grossByType[type] / merchandiseGross)
+          : 0;
+    }
+  }
+
+  return metrics;
+};
+
+const getComparisonDirection = (
+  current: number,
+  previous: number,
+  hasPreviousRange: boolean,
+) => {
+  if (!hasPreviousRange) return null;
+  if (previous === 0 && current > 0) return "NEW" as const;
+  if (current > previous) return "UP" as const;
+  if (current < previous) return "DOWN" as const;
+  return "FLAT" as const;
 };
 
 const getPaidRaffleRevenueByDay = (sales: PaidRaffleSale[]) => {
@@ -52,13 +157,148 @@ const getPaidRaffleRevenueByDay = (sales: PaidRaffleSale[]) => {
       first.paymentMethod === "MERCADOPAGO" && first.mpPaidAmount != null
         ? Number(first.mpPaidAmount)
         : calculatedTotal;
+    const refundedAmount = Math.min(
+      paidAmount,
+      Math.max(
+        0,
+        ...participation.map((sale) => Number(sale.mpRefundedAmount || 0)),
+      ),
+    );
     const dateKey = format(first.createdAt, "yyyy-MM-dd");
 
-    revenueByDay[dateKey] = (revenueByDay[dateKey] || 0) + paidAmount;
+    revenueByDay[dateKey] =
+      (revenueByDay[dateKey] || 0) + Math.max(0, paidAmount - refundedAmount);
   }
 
   return revenueByDay;
 };
+
+const getRaffleCommercialPulse = (sales: PaidRaffleSale[]) => {
+  const participations = new Map<string, PaidRaffleSale[]>();
+
+  for (const sale of sales) {
+    const participationId = sale.reservationId || `sale-${sale.id}`;
+    const participation = participations.get(participationId) || [];
+    participation.push(sale);
+    participations.set(participationId, participation);
+  }
+
+  const pulse = {
+    confirmed: { count: 0, amount: 0 },
+    pending: { count: 0, amount: 0 },
+    cancelled: { count: 0, amount: 0 },
+  };
+
+  for (const participation of Array.from(participations.values())) {
+    const first = participation[0];
+    const subtotal = Number(first.raffle.ticketPrice) * participation.length;
+    const discount = Math.max(
+      0,
+      ...participation.map((sale) => Number(sale.discountTotal || 0)),
+    );
+    const calculatedTotal = Math.max(0, subtotal - discount);
+    const isPaid = participation.every((sale) => sale.paymentStatus === "PAID");
+    const isPending = participation.some(
+      (sale) => sale.paymentStatus === "PENDING",
+    );
+
+    if (isPaid) {
+      const paidAmount =
+        first.paymentMethod === "MERCADOPAGO" && first.mpPaidAmount != null
+          ? Number(first.mpPaidAmount)
+          : calculatedTotal;
+      const refundedAmount = Math.min(
+        paidAmount,
+        Math.max(
+          0,
+          ...participation.map((sale) => Number(sale.mpRefundedAmount || 0)),
+        ),
+      );
+      pulse.confirmed.count += 1;
+      pulse.confirmed.amount += Math.max(0, paidAmount - refundedAmount);
+      continue;
+    }
+
+    if (isPending) {
+      pulse.pending.count += 1;
+      pulse.pending.amount += calculatedTotal;
+      continue;
+    }
+
+    pulse.cancelled.count += 1;
+    pulse.cancelled.amount += calculatedTotal;
+  }
+
+  return pulse;
+};
+
+const getPulseWithConversionRate = (pulse: {
+  confirmed: { count: number; amount: number };
+  pending: { count: number; amount: number };
+  cancelled: { count: number; amount: number };
+}) => {
+  const resolvedOperations = pulse.confirmed.count + pulse.cancelled.count;
+
+  return {
+    ...pulse,
+    conversionRate:
+      resolvedOperations > 0
+        ? (pulse.confirmed.count / resolvedOperations) * 100
+        : 0,
+  };
+};
+
+const getStoreCommercialPulse = (orders: CommercialOrder[]) =>
+  getPulseWithConversionRate(
+    orders.reduce(
+      (pulse, order) => {
+        const total = Number(order.total);
+        if (
+          SETTLED_ORDER_STATUSES.includes(
+            order.status as (typeof SETTLED_ORDER_STATUSES)[number],
+          )
+        ) {
+          const refunded = Math.min(
+            total,
+            Math.max(0, Number(order.mpRefundedAmount || 0)),
+          );
+          pulse.confirmed.count += 1;
+          pulse.confirmed.amount += Math.max(0, total - refunded);
+        } else if (order.status === "PENDING") {
+          pulse.pending.count += 1;
+          pulse.pending.amount += total;
+        } else if (order.status === "CANCELLED") {
+          pulse.cancelled.count += 1;
+          pulse.cancelled.amount += total;
+        }
+        return pulse;
+      },
+      {
+        confirmed: { count: 0, amount: 0 },
+        pending: { count: 0, amount: 0 },
+        cancelled: { count: 0, amount: 0 },
+      },
+    ),
+  );
+
+const combineCommercialPulses = (
+  storePulse: ReturnType<typeof getStoreCommercialPulse>,
+  rafflePulse: ReturnType<typeof getPulseWithConversionRate>,
+) =>
+  getPulseWithConversionRate({
+    confirmed: {
+      count: storePulse.confirmed.count + rafflePulse.confirmed.count,
+      amount: storePulse.confirmed.amount + rafflePulse.confirmed.amount,
+    },
+    pending: {
+      count: storePulse.pending.count + rafflePulse.pending.count,
+      amount: storePulse.pending.amount + rafflePulse.pending.amount,
+    },
+    cancelled: {
+      count: storePulse.cancelled.count + rafflePulse.cancelled.count,
+      amount: storePulse.cancelled.amount + rafflePulse.cancelled.amount,
+    },
+  });
 
 export const dashboardService = {
   async getStats() {
@@ -68,7 +308,8 @@ export const dashboardService = {
       activeCategories,
       totalMedia,
       latestMedia,
-      latestProducts
+      latestProducts,
+      allRaffleSales,
     ] = await Promise.all([
       storePrisma.product.groupBy({
         by: ['saleStatus'],
@@ -90,7 +331,20 @@ export const dashboardService = {
         where: { active: true },
         orderBy: { createdAt: 'desc' },
         take: 4
-      })
+      }),
+      rafflePrisma.ticketSale.findMany({
+        select: {
+          id: true,
+          reservationId: true,
+          paymentStatus: true,
+          paymentMethod: true,
+          mpPaidAmount: true,
+          mpRefundedAmount: true,
+          discountTotal: true,
+          createdAt: true,
+          raffle: { select: { ticketPrice: true } },
+        },
+      }),
     ]);
 
     const productStats = {
@@ -125,18 +379,23 @@ export const dashboardService = {
       totalGrossAmount,
       collectionRate: totalGrossAmount > 0 ? (paidStats.amount / totalGrossAmount) * 100 : 0
     };
+    const raffleParticipationStats = getRaffleCommercialPulse(allRaffleSales);
 
     // Combine settled store orders and fully paid raffle participations.
     const today = new Date();
     const periodStart = startOfDay(subDays(today, 6));
     const periodEnd = endOfDay(today);
-    const [settledOrders, raffleSales] = await Promise.all([
+    const [recentOrders, raffleSales] = await Promise.all([
       storePrisma.order.findMany({
         where: {
-          status: { in: [...SETTLED_ORDER_STATUSES] },
           createdAt: { gte: periodStart, lte: periodEnd }
         },
-        select: { total: true, createdAt: true }
+        select: {
+          status: true,
+          total: true,
+          mpRefundedAmount: true,
+          createdAt: true,
+        }
       }),
       rafflePrisma.ticketSale.findMany({
         where: { createdAt: { gte: periodStart, lte: periodEnd } },
@@ -146,6 +405,7 @@ export const dashboardService = {
           paymentStatus: true,
           paymentMethod: true,
           mpPaidAmount: true,
+          mpRefundedAmount: true,
           discountTotal: true,
           createdAt: true,
           raffle: { select: { ticketPrice: true } }
@@ -155,16 +415,52 @@ export const dashboardService = {
 
     const raffleRevenueByDay = getPaidRaffleRevenueByDay(raffleSales);
     const sales7Days: Record<string, number> = {};
+    const sales7DaysBySource: Record<
+      string,
+      { store: number; raffles: number }
+    > = {};
 
     for (let i = 6; i >= 0; i--) {
       const dateKey = format(subDays(today, i), "yyyy-MM-dd");
-      sales7Days[dateKey] = raffleRevenueByDay[dateKey] || 0;
+      const raffleRevenue = raffleRevenueByDay[dateKey] || 0;
+      sales7Days[dateKey] = raffleRevenue;
+      sales7DaysBySource[dateKey] = {
+        store: 0,
+        raffles: raffleRevenue,
+      };
     }
 
-    for (const order of settledOrders) {
+    for (const order of recentOrders) {
+      if (
+        !SETTLED_ORDER_STATUSES.includes(
+          order.status as (typeof SETTLED_ORDER_STATUSES)[number],
+        )
+      ) {
+        continue;
+      }
       const dateKey = format(order.createdAt, "yyyy-MM-dd");
-      sales7Days[dateKey] = (sales7Days[dateKey] || 0) + Number(order.total);
+      const total = Number(order.total);
+      const refunded = Math.min(
+        total,
+        Math.max(0, Number(order.mpRefundedAmount || 0)),
+      );
+      const storeRevenue = Math.max(0, total - refunded);
+      sales7Days[dateKey] = (sales7Days[dateKey] || 0) + storeRevenue;
+      sales7DaysBySource[dateKey].store += storeRevenue;
     }
+
+    const rafflePulse = getPulseWithConversionRate(
+      getRaffleCommercialPulse(raffleSales),
+    );
+    const storePulse = getStoreCommercialPulse(recentOrders);
+    const commercialPulse7DaysBySource = {
+      store: storePulse,
+      raffles: rafflePulse,
+    };
+    const commercialPulse7Days = combineCommercialPulses(
+      storePulse,
+      rafflePulse,
+    );
 
     return {
       activeProducts: productStats.available + productStats.reserved,
@@ -172,19 +468,182 @@ export const dashboardService = {
       activeCategories,
       totalMedia,
       orders: orderStats,
+      participations: {
+        paid: raffleParticipationStats.confirmed,
+        pending: raffleParticipationStats.pending,
+        cancelled: raffleParticipationStats.cancelled,
+      },
       latestMedia,
       latestProducts,
-      sales7Days
+      sales7Days,
+      sales7DaysBySource,
+      commercialPulse7Days,
+      commercialPulse7DaysBySource,
     };
   },
 
-  async getSalesOverview(period: SalesOverviewPeriod) {
+  async getCommercialOverview(
+    period: SalesOverviewPeriod,
+    source: CommercialOverviewSource = "ALL",
+    paymentMethod: SalesPaymentMethod = "ALL",
+  ) {
+    const today = new Date();
+    const pulseStart = getSalesPeriodStart(period, today);
+    const pulseEnd = endOfDay(today);
+    const chartStart =
+      period === "TODAY"
+        ? startOfWeek(today, { weekStartsOn: 1 })
+        : pulseStart;
+    const chartEnd =
+      period === "TODAY"
+        ? endOfWeek(today, { weekStartsOn: 1 })
+        : period === "MONTH"
+          ? endOfMonth(today)
+          : pulseEnd;
+    const dateFilter = chartStart
+      ? { createdAt: { gte: chartStart, lte: chartEnd } }
+      : {};
+    const paymentFilter =
+      paymentMethod === "ALL" ? {} : { paymentMethod };
+
+    const [storeOrders, raffleSales] = await Promise.all([
+      source === "RAFFLES"
+        ? Promise.resolve([] as CommercialOrder[])
+        : storePrisma.order.findMany({
+            where: { ...dateFilter, ...paymentFilter },
+            select: {
+              status: true,
+              total: true,
+              mpRefundedAmount: true,
+              createdAt: true,
+            },
+          }),
+      source === "STORE"
+        ? Promise.resolve([] as PaidRaffleSale[])
+        : rafflePrisma.ticketSale.findMany({
+            where: { ...dateFilter, ...paymentFilter },
+            select: {
+              id: true,
+              reservationId: true,
+              paymentStatus: true,
+              paymentMethod: true,
+              mpPaidAmount: true,
+              mpRefundedAmount: true,
+              discountTotal: true,
+              createdAt: true,
+              raffle: { select: { ticketPrice: true } },
+            },
+          }),
+    ]);
+
+    const isInsidePulse = (createdAt: Date) =>
+      (!pulseStart || createdAt >= pulseStart) && createdAt <= pulseEnd;
+    const pulseOrders = storeOrders.filter((order) =>
+      isInsidePulse(order.createdAt),
+    );
+    const pulseRaffleSales = raffleSales.filter((sale) =>
+      isInsidePulse(sale.createdAt),
+    );
+    const storePulse = getStoreCommercialPulse(pulseOrders);
+    const rafflePulse = getPulseWithConversionRate(
+      getRaffleCommercialPulse(pulseRaffleSales),
+    );
+    const pulse =
+      source === "STORE"
+        ? storePulse
+        : source === "RAFFLES"
+          ? rafflePulse
+          : combineCommercialPulses(storePulse, rafflePulse);
+
+    const salesBySource: Record<
+      string,
+      { store: number; raffles: number }
+    > = {};
+    const ensurePoint = (key: string) => {
+      salesBySource[key] ||= { store: 0, raffles: 0 };
+      return salesBySource[key];
+    };
+    const getChartKey = (date: Date) =>
+      period === "ALL" ? format(date, "yyyy-MM") : format(date, "yyyy-MM-dd");
+
+    if (period !== "ALL" && chartStart) {
+      for (
+        let cursor = chartStart;
+        cursor <= chartEnd;
+        cursor = addDays(cursor, 1)
+      ) {
+        ensurePoint(format(cursor, "yyyy-MM-dd"));
+      }
+    }
+
+    for (const order of storeOrders) {
+      if (
+        !SETTLED_ORDER_STATUSES.includes(
+          order.status as (typeof SETTLED_ORDER_STATUSES)[number],
+        )
+      ) {
+        continue;
+      }
+      const total = Number(order.total);
+      const refunded = Math.min(
+        total,
+        Math.max(0, Number(order.mpRefundedAmount || 0)),
+      );
+      ensurePoint(getChartKey(order.createdAt)).store += Math.max(
+        0,
+        total - refunded,
+      );
+    }
+
+    const raffleRevenueByDay = getPaidRaffleRevenueByDay(raffleSales);
+    for (const [date, amount] of Object.entries(raffleRevenueByDay)) {
+      const key =
+        period === "ALL"
+          ? date.slice(0, 7)
+          : date;
+      ensurePoint(key).raffles += amount;
+    }
+
+    return {
+      period,
+      source,
+      paymentMethod,
+      granularity: period === "ALL" ? "MONTH" : "DAY",
+      range: {
+        from: pulseStart?.toISOString() || null,
+        to: pulseEnd.toISOString(),
+      },
+      salesBySource,
+      pulse,
+    };
+  },
+
+  async getSalesOverview(
+    period: SalesOverviewPeriod,
+    productType: ProductTypeMetricKey = "ALL",
+    paymentMethod: SalesPaymentMethod = "ALL",
+    search = "",
+    page = 1,
+    pageSize = 8,
+  ) {
     const today = new Date();
     const periodStart = getSalesPeriodStart(period, today);
     const periodEnd = endOfDay(today);
+    const trendStart =
+      period === "TODAY"
+        ? startOfWeek(today, { weekStartsOn: 1 })
+        : periodStart;
+    const trendEnd =
+      period === "TODAY"
+        ? endOfWeek(today, { weekStartsOn: 1 })
+        : period === "MONTH"
+          ? endOfMonth(today)
+          : periodEnd;
+    const previousRange = getPreviousSalesRange(periodStart, periodEnd);
     const orders = await storePrisma.order.findMany({
       where: {
         status: { in: [...SETTLED_ORDER_STATUSES] },
+        ...(paymentMethod !== "ALL" ? { paymentMethod } : {}),
         ...(periodStart
           ? { createdAt: { gte: periodStart, lte: periodEnd } }
           : {}),
@@ -212,6 +671,62 @@ export const dashboardService = {
         },
       },
     });
+    const previousOrders = previousRange
+      ? await storePrisma.order.findMany({
+          where: {
+            status: { in: [...SETTLED_ORDER_STATUSES] },
+            ...(paymentMethod !== "ALL" ? { paymentMethod } : {}),
+            createdAt: {
+              gte: previousRange.start,
+              lte: previousRange.end,
+            },
+          },
+          select: {
+            total: true,
+            mpRefundedAmount: true,
+            items: {
+              select: {
+                productType: true,
+                quantity: true,
+                unitPrice: true,
+              },
+            },
+          },
+        })
+      : [];
+    const trendOrders =
+      period === "TODAY"
+        ? await storePrisma.order.findMany({
+            where: {
+              status: { in: [...SETTLED_ORDER_STATUSES] },
+              ...(paymentMethod !== "ALL" ? { paymentMethod } : {}),
+              createdAt: { gte: trendStart!, lte: trendEnd },
+            },
+            select: {
+              id: true,
+              customerName: true,
+              customerPhone: true,
+              createdAt: true,
+              status: true,
+              subtotal: true,
+              discountTotal: true,
+              total: true,
+              mpRefundedAmount: true,
+              mpRefundedAt: true,
+              items: {
+                select: {
+                  productId: true,
+                  productName: true,
+                  productType: true,
+                  quantity: true,
+                  unitPrice: true,
+                },
+              },
+            },
+          })
+        : orders;
+    const metricsByProductType = getProductTypeMetrics(orders);
+    const previousMetricsByProductType = getProductTypeMetrics(previousOrders);
 
     const productMap = new Map<
       number,
@@ -249,11 +764,8 @@ export const dashboardService = {
         (sum, item) => sum + Number(item.unitPrice) * item.quantity,
         0,
       );
-      const merchandiseNet =
-        Math.max(0, Number(order.subtotal) - Number(order.discountTotal || 0)) *
-        (orderTotal > 0 ? orderNet / orderTotal : 0);
       const allocationFactor =
-        merchandiseGross > 0 ? merchandiseNet / merchandiseGross : 0;
+        merchandiseGross > 0 ? orderNet / merchandiseGross : 0;
 
       for (const item of order.items) {
         const lineRevenue =
@@ -283,6 +795,43 @@ export const dashboardService = {
     }
 
     const netRevenue = Math.max(0, grossRevenue - refundedAmount);
+    const previousNetRevenue = previousMetricsByProductType.ALL.netRevenue;
+    const percentageChange =
+      previousRange && previousNetRevenue > 0
+        ? ((netRevenue - previousNetRevenue) / previousNetRevenue) * 100
+        : null;
+    const comparisonDirection = getComparisonDirection(
+      netRevenue,
+      previousNetRevenue,
+      Boolean(previousRange),
+    );
+    const productTypeMetrics = Object.fromEntries(
+      (["ALL", "BIRD", "ITEM"] as const).map((type) => {
+        const current = metricsByProductType[type];
+        const previous = previousMetricsByProductType[type];
+        return [
+          type,
+          {
+            netRevenue: current.netRevenue,
+            refundedAmount: current.refundedAmount,
+            orders: current.orders,
+            units: current.units,
+            previousNetRevenue: previous.netRevenue,
+            percentageChange:
+              previousRange && previous.netRevenue > 0
+                ? ((current.netRevenue - previous.netRevenue) /
+                    previous.netRevenue) *
+                  100
+                : null,
+            direction: getComparisonDirection(
+              current.netRevenue,
+              previous.netRevenue,
+              Boolean(previousRange),
+            ),
+          },
+        ];
+      }),
+    );
     const topProducts = Array.from(productMap.values())
       .sort(
         (left, right) =>
@@ -293,13 +842,134 @@ export const dashboardService = {
         ...product,
         orders: orderIds.size,
       }));
+    const mapOrderForSelection = (order: (typeof orders)[number]) => {
+      const grossByType = { BIRD: 0, ITEM: 0 };
+      const unitsByType = { BIRD: 0, ITEM: 0 };
+
+      for (const item of order.items) {
+        const type = item.productType === "BIRD" ? "BIRD" : "ITEM";
+        grossByType[type] += Number(item.unitPrice) * item.quantity;
+        unitsByType[type] += item.quantity;
+      }
+
+      if (productType !== "ALL" && unitsByType[productType] === 0) {
+        return null;
+      }
+
+      const orderTotal = Number(order.total);
+      const orderRefunded = Math.min(
+        orderTotal,
+        Math.max(0, Number(order.mpRefundedAmount || 0)),
+      );
+      const orderNet = Math.max(0, orderTotal - orderRefunded);
+      const merchandiseGross = grossByType.BIRD + grossByType.ITEM;
+      const selectedGross =
+        productType === "ALL" ? merchandiseGross : grossByType[productType];
+      const allocation =
+        productType === "ALL"
+          ? 1
+          : merchandiseGross > 0
+            ? selectedGross / merchandiseGross
+            : 0;
+      const selectedItems = order.items.filter(
+        (item) =>
+          productType === "ALL" || item.productType === productType,
+      );
+      const selectedTypes = new Set(
+        selectedItems.map((item) =>
+          item.productType === "BIRD" ? "BIRD" : "ITEM",
+        ),
+      );
+
+      return {
+        id: order.id,
+        customerName: order.customerName,
+        customerPhone: order.customerPhone,
+        createdAt: order.createdAt,
+        status: order.status,
+        total: orderTotal,
+        netRevenue: orderNet * allocation,
+        refundedAmount: orderRefunded * allocation,
+        itemCount: selectedItems.reduce(
+          (sum, item) => sum + item.quantity,
+          0,
+        ),
+        itemNames: Array.from(
+          new Set(
+            selectedItems.map(
+              (item) =>
+                item.productName || `Producto #${item.productId}`,
+            ),
+          ),
+        ),
+        productType:
+          selectedTypes.size > 1
+            ? "MIXED"
+            : selectedTypes.has("BIRD")
+              ? "BIRD"
+              : "ITEM",
+      };
+    };
+
+    const normalizedSearch = search.trim().toLocaleLowerCase("es-MX");
+    const eligibleOrders = orders
+      .map(mapOrderForSelection)
+      .filter((order): order is NonNullable<typeof order> => order !== null);
+    const filteredOrders = eligibleOrders
+      .filter((order) => {
+        if (!normalizedSearch) return true;
+
+        return [
+          String(order.id),
+          order.customerName,
+          order.customerPhone,
+          ...order.itemNames,
+        ].some((value) =>
+          value.toLocaleLowerCase("es-MX").includes(normalizedSearch),
+        );
+      });
+    const totalOrders = filteredOrders.length;
+    const totalPages = Math.max(1, Math.ceil(totalOrders / pageSize));
+    const currentPage = Math.min(page, totalPages);
+    const historyStart = (currentPage - 1) * pageSize;
+    const orderHistory = filteredOrders.slice(
+      historyStart,
+      historyStart + pageSize,
+    );
+    const filteredSalesByDay = trendOrders
+      .map(mapOrderForSelection)
+      .filter((order): order is NonNullable<typeof order> => order !== null)
+      .reduce<Record<string, number>>(
+      (result, order) => {
+        const dateKey = format(order.createdAt, "yyyy-MM-dd");
+        result[dateKey] = (result[dateKey] || 0) + order.netRevenue;
+        return result;
+      },
+      {},
+      );
 
     return {
       period,
+      productType,
+      paymentMethod,
       range: {
         from: periodStart?.toISOString() || null,
         to: periodEnd.toISOString(),
       },
+      trendRange: {
+        from: trendStart?.toISOString() || null,
+        to: trendEnd.toISOString(),
+      },
+      comparison: previousRange
+        ? {
+            from: previousRange.start.toISOString(),
+            to: previousRange.end.toISOString(),
+            previousNetRevenue,
+            percentageChange,
+            direction: comparisonDirection,
+          }
+        : null,
+      metricsByProductType: productTypeMetrics,
       metrics: {
         grossRevenue,
         refundedAmount,
@@ -316,20 +986,14 @@ export const dashboardService = {
         items: { units: itemUnitsSold, revenue: itemRevenue },
       },
       topProducts,
-      salesByDay,
-      recentOrders: orders.slice(0, 8).map((order) => ({
-        id: order.id,
-        customerName: order.customerName,
-        customerPhone: order.customerPhone,
-        createdAt: order.createdAt,
-        status: order.status,
-        total: Number(order.total),
-        refundedAmount: Number(order.mpRefundedAmount || 0),
-        itemCount: order.items.reduce((sum, item) => sum + item.quantity, 0),
-        itemNames: order.items.map(
-          (item) => item.productName || `Producto #${item.productId}`,
-        ),
-      })),
+      salesByDay: filteredSalesByDay,
+      orderHistory,
+      pagination: {
+        page: currentPage,
+        pageSize,
+        totalItems: totalOrders,
+        totalPages,
+      },
     };
   },
 };

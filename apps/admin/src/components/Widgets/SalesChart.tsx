@@ -1,33 +1,113 @@
 import React, { useMemo } from 'react';
-import { BarChart, Bar, Cell, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Rectangle,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts';
 import { TrendingUp } from 'lucide-react';
+import type {
+  DashboardCommercialSource,
+  SalesOverviewPeriod,
+} from '../../types';
 import { NexusAutonomousCard } from '../ui/NexusCard';
-import { NexusHeader } from '../ui/NexusHeader';
+import {
+  compactMoneyAxis,
+  SALES_CHART_AXIS_TICK,
+  SALES_CHART_BAR_RADIUS,
+  SALES_CHART_MARGIN,
+  SALES_CHART_MIN_TICK_GAP,
+  SALES_CHART_TOOLTIP_ITEM_STYLE,
+  SALES_CHART_TOOLTIP_LABEL_STYLE,
+  SALES_CHART_TOOLTIP_SEPARATOR,
+  SALES_CHART_TOOLTIP_STYLE,
+} from './salesChartSystem';
 
 interface SalesChartProps {
-  data?: Record<string, number>;
+  data?: Record<string, { store: number; raffles: number }>;
+  period?: SalesOverviewPeriod;
+  source?: DashboardCommercialSource;
+  totalAmount?: number;
   isLoading?: boolean;
+}
+
+interface ChartPoint {
+  date: string;
+  label: string;
+  store: number;
+  raffles: number;
+  isMuted: boolean;
 }
 
 const SKELETON_BARS = [55, 80, 40, 90, 65, 75, 100];
 
+const money = (value: number) =>
+  new Intl.NumberFormat('es-MX', {
+    style: 'currency',
+    currency: 'MXN',
+    minimumFractionDigits: 0,
+    maximumFractionDigits: 2,
+  }).format(value);
+
+const localDateKey = (value: Date) =>
+  [
+    value.getFullYear(),
+    String(value.getMonth() + 1).padStart(2, '0'),
+    String(value.getDate()).padStart(2, '0'),
+  ].join('-');
+
 const SalesChartSkeleton: React.FC = () => (
   <NexusAutonomousCard className="h-full min-h-[320px] animate-pulse">
-    <NexusHeader
-      title="Tendencia de Ventas"
-      subtitle="Tienda y rifas de los últimos 7 días"
-      icon={TrendingUp}
-    />
-    <div className="flex flex-col justify-between h-full">
-      <div className="flex items-baseline gap-2 mb-6">
-        <div className="h-10 w-40 bg-stone-100 rounded-full" />
-        <div className="h-4 w-10 bg-stone-100 rounded-full" />
+    <div
+      className="flex items-center"
+      style={{ gap: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}
+    >
+      <div
+        className="shrink-0 bg-bg-muted"
+        style={{
+          width: 'var(--size-button-autonomous)',
+          height: 'var(--size-button-autonomous)',
+          borderRadius: 'var(--radius-card-inner)',
+        }}
+      />
+      <div className="flex flex-1 flex-col" style={{ gap: 'var(--space-xs)' }}>
+        <div className="h-5 w-44 rounded-full bg-bg-muted" />
+        <div className="h-3 w-36 rounded-full bg-bg-muted" />
       </div>
-      <div className="flex-grow w-full min-h-[180px] flex items-end justify-between gap-2 pt-4">
-        {SKELETON_BARS.map((height, i) => (
-          <div key={i} className="flex-1 flex flex-col items-center gap-2">
-            <div className="w-full rounded-t-md bg-stone-100" style={{ height: `${height}%` }} />
-            <div className="h-2.5 w-5 bg-stone-50 rounded-full" />
+    </div>
+    <div className="flex h-full flex-col justify-between">
+      <div
+        className="flex flex-col sm:flex-row sm:items-end sm:justify-between"
+        style={{ gap: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}
+      >
+        <div className="h-9 w-40 rounded-full bg-bg-muted" />
+        <div className="flex items-center" style={{ gap: 'var(--space-base)' }}>
+          <div className="h-3 w-16 rounded-full bg-bg-muted" />
+          <div className="h-3 w-16 rounded-full bg-bg-muted" />
+        </div>
+      </div>
+      <div
+        className="flex min-h-[180px] flex-grow items-end justify-between pt-[var(--space-md)]"
+        style={{ gap: 'var(--space-sm)' }}
+      >
+        {SKELETON_BARS.map((height, index) => (
+          <div
+            key={index}
+            className="flex flex-1 flex-col items-center"
+            style={{ gap: 'var(--space-sm)' }}
+          >
+            <div
+              className="w-full bg-bg-muted"
+              style={{
+                height: `${height}%`,
+                borderRadius: 'var(--radius-card-nested-compact)',
+              }}
+            />
+            <div className="h-2.5 w-5 rounded-full bg-bg-muted" />
           </div>
         ))}
       </div>
@@ -35,90 +115,283 @@ const SalesChartSkeleton: React.FC = () => (
   </NexusAutonomousCard>
 );
 
-export const SalesChart: React.FC<SalesChartProps> = ({ data = {}, isLoading = false }) => {
+type StackedBarShapeProps = {
+  x?: number;
+  y?: number;
+  width?: number;
+  height?: number;
+  fill?: string;
+  opacity?: number;
+  payload?: ChartPoint;
+  source: 'store' | 'raffles';
+};
+
+const StackedBarShape = ({
+  payload,
+  source,
+  ...props
+}: StackedBarShapeProps) => {
+  if (!payload || !props.height || props.height <= 0) return null;
+
+  const hasOtherSource =
+    source === 'store' ? payload.raffles > 0 : payload.store > 0;
+  const radius: [number, number, number, number] =
+    !hasOtherSource
+      ? [
+          SALES_CHART_BAR_RADIUS,
+          SALES_CHART_BAR_RADIUS,
+          SALES_CHART_BAR_RADIUS,
+          SALES_CHART_BAR_RADIUS,
+        ]
+      : source === 'store'
+        ? [0, 0, SALES_CHART_BAR_RADIUS, SALES_CHART_BAR_RADIUS]
+        : [SALES_CHART_BAR_RADIUS, SALES_CHART_BAR_RADIUS, 0, 0];
+
+  return (
+    <Rectangle
+      {...props}
+      opacity={payload.isMuted ? 0.28 : 1}
+      radius={radius}
+    />
+  );
+};
+
+export const SalesChart: React.FC<SalesChartProps> = ({
+  data = {},
+  period = '7D',
+  source = 'ALL',
+  totalAmount,
+  isLoading = false,
+}) => {
   const chartData = useMemo(() => {
-    const days = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
     const today = new Date();
-    const result = [];
+    const todayKey = localDateKey(today);
 
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(today);
-      d.setDate(d.getDate() - i);
-      const dateString = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
-      result.push({
-        name: days[d.getDay()],
-        value: Number(data[dateString] || 0),
-        isToday: i === 0
+    return Object.entries(data)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([dateKey, values]) => {
+        const isMonthly = dateKey.length === 7;
+        const date = new Date(
+          `${isMonthly ? `${dateKey}-01` : dateKey}T12:00:00`,
+        );
+        const label = isMonthly
+          ? date.toLocaleDateString('es-MX', {
+              month: 'short',
+              year: '2-digit',
+            })
+          : period === 'TODAY'
+            ? date
+                .toLocaleDateString('es-MX', { weekday: 'short' })
+                .replace('.', '')
+            : period === 'MONTH'
+              ? date.toLocaleDateString('es-MX', { day: 'numeric' })
+              : date.toLocaleDateString('es-MX', {
+                  day: 'numeric',
+                  month: 'short',
+                });
+
+        return {
+          date: dateKey,
+          label,
+          store: Number(data[dateKey]?.store || 0),
+          raffles: Number(data[dateKey]?.raffles || 0),
+          isMuted: period === 'TODAY' && dateKey !== todayKey,
+        };
       });
-    }
-    return result;
-  }, [data]);
+  }, [data, period]);
 
-  const valuesArray: number[] = Object.values(data) as number[];
-  const totalVentas: number = valuesArray.reduce((acc: number, val: number) => acc + val, 0);
+  const chartRevenue = chartData.reduce(
+    (total, point) => total + point.store + point.raffles,
+    0,
+  );
+  const displayedRevenue = totalAmount ?? chartRevenue;
 
   if (isLoading) return <SalesChartSkeleton />;
 
+  const periodDescription =
+    period === 'TODAY'
+      ? 'Ingresos netos de hoy.'
+      : period === '7D'
+        ? 'Ingresos netos de los últimos 7 días.'
+        : period === '15D'
+          ? 'Ingresos netos de los últimos 15 días.'
+          : period === 'MONTH'
+            ? 'Ingresos netos de este mes.'
+            : 'Evolución histórica de los ingresos netos.';
+
   return (
     <NexusAutonomousCard className="h-full min-h-[320px]">
-      <div className="flex flex-col h-full">
-        <NexusHeader
-          title="Tendencia de Ventas"
-          subtitle="Tienda y rifas de los últimos 7 días"
-          icon={TrendingUp}
-          iconVariant="emerald"
-        />
-        
-        <div className="flex items-baseline mb-8" style={{ gap: 'var(--space-xs)' }}>
-          <div className="flex items-baseline text-display text-text-main">
-            <span className="text-secondary mr-0.5 opacity-50 font-bold">$</span>
-            <span className="font-bold tracking-tighter">
-              {Number(totalVentas).toLocaleString('es-MX', { minimumFractionDigits: 0 })}
-            </span>
+      <div className="flex h-full flex-col">
+        <div
+          className="flex min-w-0 items-center"
+          style={{ gap: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}
+        >
+          <div
+            className="grid shrink-0 place-items-center border border-emerald-200 bg-emerald-50 text-emerald-700"
+            style={{
+              width: 'var(--size-button-autonomous)',
+              height: 'var(--size-button-autonomous)',
+              borderRadius: 'var(--radius-card-inner)',
+            }}
+          >
+            <TrendingUp
+              style={{
+                width: 'var(--size-inner-icon-autonomous)',
+                height: 'var(--size-inner-icon-autonomous)',
+              }}
+              strokeWidth={2.2}
+            />
           </div>
-          <span className="text-label uppercase tracking-[0.15em] text-stone-400 font-bold">MXN</span>
+
+          <div
+            className="flex min-w-0 flex-1 flex-col"
+            style={{ gap: 'var(--space-xs)' }}
+          >
+            <h3 className="text-h1 text-text-main">Tendencia de Ventas</h3>
+            <p className="text-secondary text-text-muted">
+              {periodDescription}
+            </p>
+          </div>
         </div>
 
-        <div className="flex-grow w-full mt-auto min-h-[200px]">
-          <ResponsiveContainer width="100%" height={200}>
-            <BarChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border-main)" opacity={0.5} />
-              <XAxis 
-                dataKey="name" 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: 'var(--text-muted)', fontSize: 10, fontWeight: 600 }} 
-                dy={10}
+        <div
+          className="flex flex-col sm:flex-row sm:items-end sm:justify-between"
+          style={{ gap: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}
+        >
+          <div className="flex items-baseline" style={{ gap: 'var(--space-xs)' }}>
+            <strong className="text-display tabular-nums text-text-main">
+              {money(displayedRevenue)}
+            </strong>
+            <span className="text-label text-text-muted">MXN</span>
+          </div>
+
+          <div
+            className="flex flex-wrap items-center"
+            aria-label="Fuentes de ingreso"
+            style={{ gap: 'var(--space-base)' }}
+          >
+            {source !== 'RAFFLES' && (
+              <span
+                className="flex items-center text-secondary text-text-muted"
+                style={{ gap: 'var(--space-sm)' }}
+              >
+                <span
+                  aria-hidden="true"
+                  className="bg-brand-600"
+                  style={{
+                    width: 'var(--space-base)',
+                    height: 'var(--space-base)',
+                    borderRadius: 'var(--radius-circle)',
+                  }}
+                />
+                Tienda
+              </span>
+            )}
+            {source !== 'STORE' && (
+              <span
+                className="flex items-center text-secondary text-text-muted"
+                style={{ gap: 'var(--space-sm)' }}
+              >
+                <span
+                  aria-hidden="true"
+                  style={{
+                    width: 'var(--space-base)',
+                    height: 'var(--space-base)',
+                    borderRadius: 'var(--radius-circle)',
+                    backgroundColor: 'var(--chart-raffle)',
+                  }}
+                />
+                Rifas
+              </span>
+            )}
+          </div>
+        </div>
+
+        <div className="mt-auto min-h-[200px] w-full flex-grow">
+          {chartRevenue === 0 ? (
+            <div
+              className="flex h-[220px] items-center justify-center text-center"
+              style={{ paddingInline: 'var(--space-lg)' }}
+            >
+              <p className="max-w-md text-secondary text-text-muted">
+                No hay ingresos confirmados para los filtros seleccionados.
+              </p>
+            </div>
+          ) : (
+          <ResponsiveContainer width="100%" height={220}>
+            <BarChart
+              data={chartData}
+              margin={SALES_CHART_MARGIN}
+            >
+              <CartesianGrid
+                vertical={false}
+                stroke="var(--border-main)"
+                opacity={0.5}
               />
-              <YAxis 
-                axisLine={false} 
-                tickLine={false} 
-                tick={{ fill: 'var(--text-muted)', fontSize: 10, fontWeight: 600 }} 
-                tickFormatter={(value) => value > 0 ? `$${value}` : '0'}
+              <XAxis
+                dataKey="label"
+                axisLine={false}
+                tickLine={false}
+                tick={SALES_CHART_AXIS_TICK}
+                minTickGap={SALES_CHART_MIN_TICK_GAP}
               />
-              <Tooltip 
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={SALES_CHART_AXIS_TICK}
+                tickFormatter={(value) => compactMoneyAxis(Number(value))}
+              />
+              <Tooltip
                 cursor={{ fill: 'var(--bg-muted)', opacity: 0.4 }}
-                contentStyle={{ 
-                  backgroundColor: 'var(--bg-card)', 
-                  borderRadius: 'var(--radius-card-inner)', 
-                  border: '1px solid var(--border-main)', 
-                  boxShadow: '0 20px 40px -10px rgba(0,0,0,0.1)',
-                  padding: '12px'
-                }}
-                itemStyle={{ color: 'var(--brand-600)', fontWeight: 700, fontSize: '12px' }}
-                formatter={(value: number) => [`$${Number(value).toLocaleString('es-MX')}`, 'Ventas']}
+                separator={SALES_CHART_TOOLTIP_SEPARATOR}
+                contentStyle={SALES_CHART_TOOLTIP_STYLE}
+                labelStyle={SALES_CHART_TOOLTIP_LABEL_STYLE}
+                itemStyle={SALES_CHART_TOOLTIP_ITEM_STYLE}
+                formatter={(value: number, name: string) => [
+                  money(Number(value)),
+                  name === 'store' ? 'Tienda' : 'Rifas',
+                ]}
+                labelFormatter={(_, payload) =>
+                  payload?.[0]?.payload?.date
+                    ? new Date(
+                        `${payload[0].payload.date.length === 7 ? `${payload[0].payload.date}-01` : payload[0].payload.date}T12:00:00`,
+                      ).toLocaleDateString('es-MX', {
+                        ...(payload[0].payload.date.length === 7
+                          ? { month: 'long' as const, year: 'numeric' as const }
+                          : {
+                              day: 'numeric' as const,
+                              month: 'long' as const,
+                              year: 'numeric' as const,
+                            }),
+                      })
+                    : ''
+                }
               />
-              <Bar dataKey="value" radius={[6, 6, 0, 0]}>
-                {chartData.map((entry, index) => (
-                  <Cell 
-                    key={`cell-${index}`} 
-                    fill={entry.isToday ? 'var(--brand-600)' : 'var(--border-main)'} 
-                    className="transition-all duration-300 hover:opacity-80"
+              <Bar
+                dataKey="store"
+                stackId="revenue"
+                fill="var(--brand-600)"
+                shape={(props) => (
+                  <StackedBarShape
+                    {...(props as unknown as StackedBarShapeProps)}
+                    source="store"
                   />
-                ))}
-              </Bar>
+                )}
+              />
+              <Bar
+                dataKey="raffles"
+                stackId="revenue"
+                fill="var(--chart-raffle)"
+                shape={(props) => (
+                  <StackedBarShape
+                    {...(props as unknown as StackedBarShapeProps)}
+                    source="raffles"
+                  />
+                )}
+              />
             </BarChart>
           </ResponsiveContainer>
+          )}
         </div>
       </div>
     </NexusAutonomousCard>

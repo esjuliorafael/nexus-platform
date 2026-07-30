@@ -16,6 +16,7 @@ interface NexusViewToolbarProps<T extends string = string> {
   activeSegment?: T;
   onSegmentChange?: (value: T) => void;
   resultLabel?: string;
+  filterSummaries?: string[];
   filterLabel?: string;
   filterActive?: boolean;
   onFilterClick?: () => void;
@@ -31,6 +32,7 @@ export function NexusViewToolbar<T extends string = string>({
   activeSegment,
   onSegmentChange,
   resultLabel,
+  filterSummaries = [],
   filterLabel = "Filtros",
   filterActive = false,
   onFilterClick,
@@ -45,7 +47,7 @@ export function NexusViewToolbar<T extends string = string>({
       style={{ gap: "var(--space-md)" }}
       aria-label="Herramientas de vista"
     >
-      {(hasSegments || resultLabel) && (
+      {(hasSegments || resultLabel || filterSummaries.length > 0) && (
         <div className="flex min-w-0 flex-col" style={{ gap: "var(--space-sm)" }}>
           {resultLabel && (
             <p className="text-label font-black uppercase text-text-muted">
@@ -79,7 +81,7 @@ export function NexusViewToolbar<T extends string = string>({
                       className={`flex items-center whitespace-nowrap border text-button-section font-bold transition-all duration-300 ${
                         isActive
                           ? "border-brand-500 bg-brand-600 text-white hover:bg-brand-700"
-                          : "border-border-main bg-bg-card text-text-muted hover:text-text-main"
+                          : "border-transparent bg-transparent text-text-muted hover:text-text-main"
                       }`}
                       style={{
                         height: "var(--size-button-section)",
@@ -92,6 +94,33 @@ export function NexusViewToolbar<T extends string = string>({
                     </button>
                   );
                 })}
+              </div>
+            </div>
+          )}
+
+          {filterSummaries.length > 0 && (
+            <div
+              className="no-scrollbar ml-[calc(50%_-_50vw)] mr-[calc(50%_-_50vw)] w-screen overflow-x-auto pl-[max(var(--space-md),env(safe-area-inset-left))] pr-[max(var(--space-md),env(safe-area-inset-right))] lg:mx-0 lg:w-auto lg:overflow-visible lg:px-0"
+              style={{ scrollPaddingInline: "var(--space-md)" }}
+              aria-label="Filtros activos"
+            >
+              <div
+                className="flex w-max items-center"
+                style={{ gap: "var(--space-sm)" }}
+              >
+                {filterSummaries.map((summary) => (
+                  <span
+                    key={summary}
+                    className="flex items-center whitespace-nowrap border border-brand-500 bg-brand-600 text-button-section font-bold text-white"
+                    style={{
+                      height: "var(--size-button-section)",
+                      borderRadius: "var(--radius-inner-visual)",
+                      paddingInline: "var(--padding-button-inline)",
+                    }}
+                  >
+                    {summary}
+                  </span>
+                ))}
               </div>
             </div>
           )}

@@ -27,6 +27,7 @@ import {
   Store,
   BadgePercent,
   Megaphone,
+  ChartNoAxesCombined,
 } from "lucide-react";
 import { QuickActionGroup } from "../types";
 
@@ -75,6 +76,16 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
             <ClipboardList size={20} />
           ),
           label: isDetail ? "Volver" : "Ver Órdenes",
+        },
+      ],
+    },
+    {
+      group: "Órdenes",
+      items: [
+        { icon: <ClipboardList size={20} />, label: "Gestión de Órdenes" },
+        {
+          icon: <ChartNoAxesCombined size={20} />,
+          label: "Resumen de Órdenes",
         },
       ],
     },

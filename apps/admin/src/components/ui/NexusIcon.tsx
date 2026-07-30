@@ -4,7 +4,7 @@ import { iconSizes } from '../../constants';
 
 interface NexusIconProps {
   icon: LucideIcon;
-  variant?: 'brand' | 'muted' | 'blue' | 'emerald' | 'orange' | 'solid-brand';
+  variant?: 'brand' | 'muted' | 'blue' | 'emerald' | 'orange' | 'rose' | 'solid-brand';
   isMuted?: boolean;
   className?: string;
   hoverGroup?: string;
@@ -28,6 +28,7 @@ export const NexusSectionIcon: React.FC<NexusIconProps> = ({
     blue: 'bg-blue-50 text-blue-600 border-blue-100/50 shadow-sm',
     emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100/50 shadow-sm',
     orange: 'bg-orange-50 text-orange-600 border-orange-100/50 shadow-sm',
+    rose: 'bg-rose-50 text-rose-600 border-rose-100/50 shadow-sm',
     'solid-brand': 'bg-brand-500 text-white border-brand-600 shadow-lg shadow-brand-500/20'
   };
 
@@ -74,6 +75,7 @@ export const NexusCardIcon: React.FC<NexusIconProps> = ({
     blue: 'bg-blue-50 text-blue-600 border-blue-100/50 shadow-sm',
     emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100/50 shadow-sm',
     orange: 'bg-orange-50 text-orange-600 border-orange-100/50 shadow-sm',
+    rose: 'bg-rose-50 text-rose-600 border-rose-100/50 shadow-sm',
     'solid-brand': 'bg-brand-500 text-white border-brand-600 shadow-lg shadow-brand-500/20'
   };
 
@@ -160,6 +162,7 @@ export const NexusHeroIcon: React.FC<NexusIconProps & { size?: 'hero' }> = ({
     blue: 'bg-blue-50 text-blue-600 border-blue-100/50 shadow-sm',
     emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100/50 shadow-sm',
     orange: 'bg-orange-50 text-orange-600 border-orange-100/50 shadow-sm',
+    rose: 'bg-rose-50 text-rose-600 border-rose-100/50 shadow-sm',
     'solid-brand': 'bg-brand-500 text-white border-brand-600 shadow-lg shadow-brand-500/20'
   };
 
@@ -206,6 +209,7 @@ export const NexusAutonomousIcon: React.FC<NexusIconProps> = ({
     blue: 'bg-blue-50 text-blue-600 border-blue-100/50 shadow-sm',
     emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100/50 shadow-sm',
     orange: 'bg-orange-50 text-orange-600 border-orange-100/50 shadow-sm',
+    rose: 'bg-rose-50 text-rose-600 border-rose-100/50 shadow-sm',
     'solid-brand': 'bg-brand-500 text-white border-brand-600 shadow-lg shadow-brand-500/20'
   };
 

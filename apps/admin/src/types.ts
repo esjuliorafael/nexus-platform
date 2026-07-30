@@ -528,16 +528,89 @@ export interface DashboardStats {
     totalGrossAmount?: number;
     collectionRate?: number;
   };
+  participations: {
+    paid: { count: number; amount: number };
+    pending: { count: number; amount: number };
+    cancelled: { count: number; amount: number };
+  };
   latestMedia: any[];
   latestProducts: any[];
   sales7Days: Record<string, number>;
+  sales7DaysBySource: Record<
+    string,
+    { store: number; raffles: number }
+  >;
+  commercialPulse7Days: {
+    confirmed: { count: number; amount: number };
+    pending: { count: number; amount: number };
+    cancelled: { count: number; amount: number };
+    conversionRate: number;
+  };
+  commercialPulse7DaysBySource: {
+    store: {
+      confirmed: { count: number; amount: number };
+      pending: { count: number; amount: number };
+      cancelled: { count: number; amount: number };
+      conversionRate: number;
+    };
+    raffles: {
+      confirmed: { count: number; amount: number };
+      pending: { count: number; amount: number };
+      cancelled: { count: number; amount: number };
+      conversionRate: number;
+    };
+  };
 }
 
-export type SalesOverviewPeriod = "TODAY" | "7D" | "30D" | "MONTH" | "ALL";
+export type SalesOverviewPeriod = "TODAY" | "7D" | "15D" | "MONTH" | "ALL";
+export type SalesOverviewProductType = "ALL" | "BIRD" | "ITEM";
+export type SalesOverviewPaymentMethod =
+  | "ALL"
+  | "TRANSFER"
+  | "MERCADOPAGO";
+
+export type DashboardCommercialSource = "ALL" | "STORE" | "RAFFLES";
+
+export interface DashboardCommercialOverview {
+  period: SalesOverviewPeriod;
+  source: DashboardCommercialSource;
+  paymentMethod: SalesOverviewPaymentMethod;
+  granularity: "DAY" | "MONTH";
+  range: { from: string | null; to: string };
+  salesBySource: Record<string, { store: number; raffles: number }>;
+  pulse: {
+    confirmed: { count: number; amount: number };
+    pending: { count: number; amount: number };
+    cancelled: { count: number; amount: number };
+    conversionRate: number;
+  };
+}
 
 export interface SalesOverview {
   period: SalesOverviewPeriod;
+  productType: SalesOverviewProductType;
+  paymentMethod: SalesOverviewPaymentMethod;
   range: { from: string | null; to: string };
+  trendRange: { from: string | null; to: string };
+  comparison: {
+    from: string;
+    to: string;
+    previousNetRevenue: number;
+    percentageChange: number | null;
+    direction: "UP" | "DOWN" | "FLAT" | "NEW";
+  } | null;
+  metricsByProductType: Record<
+    SalesOverviewProductType,
+    {
+      netRevenue: number;
+      refundedAmount: number;
+      orders: number;
+      units: number;
+      previousNetRevenue: number;
+      percentageChange: number | null;
+      direction: "UP" | "DOWN" | "FLAT" | "NEW" | null;
+    }
+  >;
   metrics: {
     grossRevenue: number;
     refundedAmount: number;
@@ -562,17 +635,25 @@ export interface SalesOverview {
     orders: number;
   }>;
   salesByDay: Record<string, number>;
-  recentOrders: Array<{
+  orderHistory: Array<{
     id: number;
     customerName: string;
     customerPhone: string;
     createdAt: string;
     status: string;
     total: number;
+    netRevenue: number;
     refundedAmount: number;
     itemCount: number;
     itemNames: string[];
+    productType: "BIRD" | "ITEM" | "MIXED";
   }>;
+  pagination: {
+    page: number;
+    pageSize: number;
+    totalItems: number;
+    totalPages: number;
+  };
 }
 
 // --- NUEVOS TIPOS: RIFAS ---

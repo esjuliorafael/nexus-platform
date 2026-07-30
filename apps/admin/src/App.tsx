@@ -16,6 +16,7 @@ import {
   Package,
   ArrowRight,
   ArrowLeft,
+  Download,
   Pencil,
 } from "lucide-react";
 import { Header } from "./components/Header";
@@ -23,6 +24,16 @@ import { QuickActions } from "./components/QuickActions";
 import { PageHeader } from "./components/Layout/PageHeader";
 import { DashboardView } from "./components/Dashboard/DashboardView";
 import { SalesOverviewView } from "./components/Dashboard/SalesOverviewView";
+import {
+  DEFAULT_SALES_OVERVIEW_FILTERS,
+  SalesOverviewFiltersModal,
+  type SalesOverviewFilters,
+} from "./components/Dashboard/SalesOverviewFiltersModal";
+import {
+  DEFAULT_DASHBOARD_COMMERCIAL_FILTERS,
+  DashboardCommercialFiltersModal,
+  type DashboardCommercialFilters,
+} from "./components/Dashboard/DashboardCommercialFiltersModal";
 
 import { BottomNav } from "./components/BottomNav";
 import { GalleryView, GalleryViewRef } from "./components/Media/GalleryView";
@@ -112,6 +123,7 @@ import { SetupAccountView } from "./components/Auth/SetupAccountView";
 import {
   Order,
   DashboardStats,
+  DashboardCommercialOverview,
   AnnualService,
   ExtraCharge,
   BillingPayment,
@@ -208,6 +220,7 @@ type StoreModeType =
   | "coupon_create"
   | "coupon_edit"
   | "orders"
+  | "orders-overview"
   | "order-detail";
 
 type RaffleModeType =
@@ -675,7 +688,7 @@ function App() {
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const orderDetailOriginRef = React.useRef<
-    "orders-tab" | "store-orders" | "product-overview" | "sales-overview"
+    "orders-tab" | "store-orders" | "product-overview" | "orders-overview"
   >("orders-tab");
   const [selectedRaffleParticipation, setSelectedRaffleParticipation] =
     useState<RaffleParticipation | null>(null);
@@ -689,15 +702,25 @@ function App() {
   const [dashboardStats, setDashboardStats] = useState<DashboardStats | null>(
     null,
   );
+  const [dashboardCommercialOverview, setDashboardCommercialOverview] =
+    useState<DashboardCommercialOverview | null>(null);
+  const [dashboardCommercialFilters, setDashboardCommercialFilters] =
+    useState<DashboardCommercialFilters>(
+      DEFAULT_DASHBOARD_COMMERCIAL_FILTERS,
+    );
+  const [
+    isDashboardCommercialFiltersOpen,
+    setIsDashboardCommercialFiltersOpen,
+  ] = useState(false);
+  const [isLoadingDashboardCommercial, setIsLoadingDashboardCommercial] =
+    useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoadingDashboard, setIsLoadingDashboard] = useState(true);
-  const [dashboardViewMode, setDashboardViewMode] = useState<
-    "dashboard" | "sales-overview"
-  >("dashboard");
+  const [salesOverviewFilters, setSalesOverviewFilters] =
+    useState<SalesOverviewFilters>(DEFAULT_SALES_OVERVIEW_FILTERS);
+  const [isSalesOverviewFiltersOpen, setIsSalesOverviewFiltersOpen] =
+    useState(false);
 
-  useEffect(() => {
-    if (activeTab !== "Inicio") setDashboardViewMode("dashboard");
-  }, [activeTab]);
   const [billingServices, setBillingServices] = useState<AnnualService[]>([]);
   const [billingCharges, setBillingCharges] = useState<ExtraCharge[]>([]);
   const [billingPayments, setBillingPayments] = useState<BillingPayment[]>([]);
@@ -742,6 +765,41 @@ function App() {
     },
     [],
   );
+
+  useEffect(() => {
+    if (!token || activeTab !== "Inicio") return;
+
+    let cancelled = false;
+    setIsLoadingDashboardCommercial(true);
+    apiDashboard
+      .getCommercialOverview(
+        dashboardCommercialFilters.period,
+        dashboardCommercialFilters.source,
+        dashboardCommercialFilters.paymentMethod,
+      )
+      .then((overview) => {
+        if (!cancelled) setDashboardCommercialOverview(overview);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          showToast("No se pudo actualizar la vista comercial", "error");
+        }
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingDashboardCommercial(false);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    activeTab,
+    dashboardCommercialFilters.paymentMethod,
+    dashboardCommercialFilters.period,
+    dashboardCommercialFilters.source,
+    showToast,
+    token,
+  ]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -919,7 +977,11 @@ function App() {
   const isOrdersViewActive =
     isOrdersTab || (isStoreMode && storeViewMode === "orders");
   const isOrdersListViewActive =
-    isOrdersViewActive && storeViewMode !== "order-detail";
+    isOrdersViewActive &&
+    storeViewMode !== "order-detail" &&
+    storeViewMode !== "orders-overview";
+  const isOrdersOverviewActive =
+    isOrdersTab && storeViewMode === "orders-overview";
   const isStoreProductListViewActive = isStoreMode && storeViewMode === "list";
   const isMediaVaultListViewActive =
     isMediaMode && mediaViewMode === "vault_list";
@@ -1080,9 +1142,9 @@ function App() {
 
   const handleBackFromOrderDetail = () => {
     const origin = orderDetailOriginRef.current;
-    if (origin === "sales-overview") {
-      setActiveTab("Inicio");
-      setDashboardViewMode("sales-overview");
+    if (origin === "orders-overview") {
+      setActiveTab("Órdenes");
+      setStoreViewMode("orders-overview");
     } else if (origin === "product-overview") {
       setActiveTab("Tienda");
       setStoreViewMode("overview");
@@ -1136,6 +1198,14 @@ function App() {
         break;
       case "Ver Órdenes":
         navigateToOrders();
+        break;
+      case "Gestión de Órdenes":
+        navigateToOrders();
+        break;
+      case "Resumen de Órdenes":
+        setActiveTab("Órdenes");
+        setStoreViewMode("orders-overview");
+        window.scrollTo({ top: 0, behavior: "smooth" });
         break;
       case "Estado de Cuenta":
         navigateToSystem("billing");
@@ -1205,10 +1275,7 @@ function App() {
         navigateToSystem("identity");
         break;
       case "Volver":
-        if (isDashboardMode && dashboardViewMode === "sales-overview") {
-          setDashboardViewMode("dashboard");
-          window.scrollTo({ top: 0, behavior: "smooth" });
-        } else if (isSystemMode && systemViewMode === "channels") {
+        if (isSystemMode && systemViewMode === "channels") {
           setChannelsViewMode("hub");
           setSelectedChannelId(null);
           window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1292,7 +1359,7 @@ function App() {
   const handleViewSalesOrder = async (orderId: string) => {
     try {
       const order = await apiOrders.getById(orderId);
-      orderDetailOriginRef.current = "sales-overview";
+      orderDetailOriginRef.current = "orders-overview";
       setSelectedOrder(order);
       setActiveTab("Órdenes");
       setStoreViewMode("order-detail");
@@ -1403,17 +1470,16 @@ function App() {
   };
 
   const getActionAddon = () => {
-    if (isDashboardMode && dashboardViewMode === "sales-overview") {
+    if (isOrdersOverviewActive) {
       return (
         <NexusSectionButton
-          onClick={() => {
-            setDashboardViewMode("dashboard");
-            window.scrollTo({ top: 0, behavior: "smooth" });
-          }}
+          type="button"
           variant="secondary"
-          icon={ArrowLeft}
+          icon={Download}
+          disabled
+          title="La exportación estará disponible próximamente"
         >
-          Volver a Inicio
+          Exportar
         </NexusSectionButton>
       );
     }
@@ -1994,7 +2060,9 @@ function App() {
                   isStoreProductListViewActive ||
                   isRaffleParticipationsListViewActive ||
                   isMediaPanelListViewActive ||
-                  isMediaVaultListViewActive
+                  isMediaVaultListViewActive ||
+                  isDashboardMode ||
+                  isOrdersOverviewActive
                     ? "var(--space-md)"
                     : "var(--space-lg)",
               }}
@@ -2021,11 +2089,87 @@ function App() {
                 profileViewMode={profileViewMode}
                 shippingSubView={shippingSubView}
                 channelsViewMode={channelsViewMode}
-                dashboardViewMode={dashboardViewMode}
                 selectedOrderRecordType={selectedOrder?.recordType}
                 actionAddon={getActionAddon()}
               />
             </div>
+
+            {isDashboardMode && (
+              <div style={{ marginBottom: "var(--space-lg)" }}>
+                <NexusViewToolbar
+                  filterSummaries={[
+                    dashboardCommercialFilters.period === "TODAY"
+                      ? "Hoy"
+                      : dashboardCommercialFilters.period === "7D"
+                        ? "7 Días"
+                        : dashboardCommercialFilters.period === "15D"
+                          ? "15 Días"
+                          : dashboardCommercialFilters.period === "MONTH"
+                            ? "Este Mes"
+                            : "Histórico",
+                    dashboardCommercialFilters.source === "STORE"
+                      ? "Tienda"
+                      : dashboardCommercialFilters.source === "RAFFLES"
+                        ? "Rifas"
+                        : "Todo",
+                    dashboardCommercialFilters.paymentMethod === "TRANSFER"
+                      ? "Depósito / Transferencia"
+                      : dashboardCommercialFilters.paymentMethod ===
+                          "MERCADOPAGO"
+                        ? "Tarjeta"
+                        : "Todos los Métodos",
+                  ]}
+                  filterActive={
+                    dashboardCommercialFilters.period !==
+                      DEFAULT_DASHBOARD_COMMERCIAL_FILTERS.period ||
+                    dashboardCommercialFilters.source !==
+                      DEFAULT_DASHBOARD_COMMERCIAL_FILTERS.source ||
+                    dashboardCommercialFilters.paymentMethod !==
+                      DEFAULT_DASHBOARD_COMMERCIAL_FILTERS.paymentMethod
+                  }
+                  onFilterClick={() =>
+                    setIsDashboardCommercialFiltersOpen(true)
+                  }
+                />
+              </div>
+            )}
+
+            {isOrdersOverviewActive && (
+              <div style={{ marginBottom: "var(--space-lg)" }}>
+                <NexusViewToolbar
+                  filterSummaries={[
+                    salesOverviewFilters.period === "TODAY"
+                      ? "Hoy"
+                      : salesOverviewFilters.period === "7D"
+                        ? "7 Días"
+                        : salesOverviewFilters.period === "15D"
+                          ? "15 Días"
+                          : salesOverviewFilters.period === "MONTH"
+                            ? "Este Mes"
+                            : "Histórico",
+                    salesOverviewFilters.productType === "BIRD"
+                      ? "Aves"
+                      : salesOverviewFilters.productType === "ITEM"
+                        ? "Artículos"
+                        : "Todos los Productos",
+                    salesOverviewFilters.paymentMethod === "TRANSFER"
+                      ? "Depósito / Transferencia"
+                      : salesOverviewFilters.paymentMethod === "MERCADOPAGO"
+                        ? "Tarjeta"
+                        : "Todos los Métodos",
+                  ]}
+                  filterActive={
+                    salesOverviewFilters.period !==
+                      DEFAULT_SALES_OVERVIEW_FILTERS.period ||
+                    salesOverviewFilters.productType !==
+                      DEFAULT_SALES_OVERVIEW_FILTERS.productType ||
+                    salesOverviewFilters.paymentMethod !==
+                      DEFAULT_SALES_OVERVIEW_FILTERS.paymentMethod
+                  }
+                  onFilterClick={() => setIsSalesOverviewFiltersOpen(true)}
+                />
+              </div>
+            )}
 
             {isOrdersListViewActive && (
               <div style={{ marginBottom: "var(--space-lg)" }}>
@@ -2123,11 +2267,9 @@ function App() {
             >
               <div className="z-40 w-full flex-shrink-0 lg:w-fit">
                 <QuickActions
-                  context={isOrdersTab ? "Tienda" : activeTab}
+                  context={activeTab}
                   onAction={handleQuickAction}
                   isDetail={
-                    (isDashboardMode &&
-                      dashboardViewMode === "sales-overview") ||
                     storeViewMode === "order-detail" ||
                     (isStoreMode && storeViewMode === "overview") ||
                     (isRafflesMode &&
@@ -2198,8 +2340,16 @@ function App() {
                     />
                   )
                 ) : isStoreMode || isOrdersTab ? (
-                  (storeViewMode === "orders" || isOrdersTab) &&
-                  storeViewMode !== "order-detail" ? (
+                  isOrdersOverviewActive ? (
+                    <SalesOverviewView
+                      period={salesOverviewFilters.period}
+                      productType={salesOverviewFilters.productType}
+                      paymentMethod={salesOverviewFilters.paymentMethod}
+                      showToast={showToast}
+                      onOpenOrder={handleViewSalesOrder}
+                    />
+                  ) : (storeViewMode === "orders" || isOrdersTab) &&
+                    storeViewMode !== "order-detail" ? (
                     <OrdersView
                       orders={orders}
                       isLoading={isLoadingDashboard}
@@ -2409,15 +2559,12 @@ function App() {
                       </NexusAutonomousCard>
                     )}
                   </div>
-                ) : dashboardViewMode === "sales-overview" ? (
-                  <SalesOverviewView
-                    showToast={showToast}
-                    onOpenOrder={handleViewSalesOrder}
-                  />
                 ) : (
                   <DashboardView
                     isLoading={isLoadingDashboard}
+                    isLoadingCommercial={isLoadingDashboardCommercial}
                     stats={dashboardStats}
+                    commercialOverview={dashboardCommercialOverview}
                     orders={orders}
                     billingServices={billingServices}
                     billingCharges={billingCharges}
@@ -2425,8 +2572,9 @@ function App() {
                     onNavigateToSystem={navigateToSystem}
                     onNavigateToMedia={navigateToMedia}
                     onTabChange={setActiveTab as any}
-                    onOpenSalesOverview={() => {
-                      setDashboardViewMode("sales-overview");
+                    onOpenRaffleParticipations={() => {
+                      setActiveTab("Rifas");
+                      setRaffleViewMode("participations");
                       window.scrollTo({ top: 0, behavior: "smooth" });
                     }}
                   />
@@ -2482,6 +2630,34 @@ function App() {
             onClear={() => {
               setMediaVaultFilter(DEFAULT_MEDIA_VAULT_FILTER);
               setIsMediaVaultFiltersOpen(false);
+            }}
+          />
+          <SalesOverviewFiltersModal
+            isOpen={isSalesOverviewFiltersOpen}
+            value={salesOverviewFilters}
+            onClose={() => setIsSalesOverviewFiltersOpen(false)}
+            onApply={(filters) => {
+              setSalesOverviewFilters(filters);
+              setIsSalesOverviewFiltersOpen(false);
+            }}
+            onClear={() => {
+              setSalesOverviewFilters(DEFAULT_SALES_OVERVIEW_FILTERS);
+              setIsSalesOverviewFiltersOpen(false);
+            }}
+          />
+          <DashboardCommercialFiltersModal
+            isOpen={isDashboardCommercialFiltersOpen}
+            value={dashboardCommercialFilters}
+            onClose={() => setIsDashboardCommercialFiltersOpen(false)}
+            onApply={(filters) => {
+              setDashboardCommercialFilters(filters);
+              setIsDashboardCommercialFiltersOpen(false);
+            }}
+            onClear={() => {
+              setDashboardCommercialFilters(
+                DEFAULT_DASHBOARD_COMMERCIAL_FILTERS,
+              );
+              setIsDashboardCommercialFiltersOpen(false);
             }}
           />
           <OrderFiltersModal

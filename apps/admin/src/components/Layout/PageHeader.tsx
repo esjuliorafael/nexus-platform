@@ -23,7 +23,6 @@ interface PageHeaderProps {
   profileViewMode: string;
   shippingSubView: string;
   channelsViewMode: string;
-  dashboardViewMode?: "dashboard" | "sales-overview";
   selectedOrderRecordType?: "ORDER" | "PAYMENT_HOLD";
   actionAddon?: React.ReactNode;
 }
@@ -50,7 +49,6 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   profileViewMode,
   shippingSubView,
   channelsViewMode,
-  dashboardViewMode = "dashboard",
   selectedOrderRecordType = "ORDER",
   actionAddon,
 }) => {
@@ -66,13 +64,6 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       (storeViewMode === "orders" || storeViewMode === "order-detail"));
 
   const getTitle = () => {
-    if (activeTab === "Inicio" && dashboardViewMode === "sales-overview")
-      return (
-        <>
-          Resumen de <span className="text-text-muted">Ventas</span>
-        </>
-      );
-
     if (isCreatingMedia)
       return (
         <>
@@ -202,6 +193,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             <span className="text-text-muted">
               {selectedOrderRecordType === "PAYMENT_HOLD" ? "Intento" : "Orden"}
             </span>
+          </>
+        );
+      if (storeViewMode === "orders-overview")
+        return (
+          <>
+            Resumen de <span className="text-text-muted">Órdenes</span>
           </>
         );
       return (
@@ -432,9 +429,6 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   };
 
   const getDescription = () => {
-    if (activeTab === "Inicio" && dashboardViewMode === "sales-overview")
-      return "Consulta ingresos, unidades vendidas, productos y órdenes confirmadas.";
-
     if (isSystemMode && systemViewMode === "announcements") {
       if (announcementViewMode === "create" || announcementViewMode === "edit")
         return "Configura el contenido, destino, vigencia y frecuencia del mensaje.";
@@ -478,6 +472,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     if (isOrdersMode)
       return storeViewMode === "order-detail"
         ? "Revisa el detalle del pedido, productos, cliente, pagos y notificaciones asociadas."
+        : storeViewMode === "orders-overview"
+          ? "Consulta ingresos, unidades vendidas, productos y órdenes confirmadas."
         : "Administra las ventas, estados de pago y logística de envío.";
     if (isStoreMode) {
       if (storeViewMode === "overview")

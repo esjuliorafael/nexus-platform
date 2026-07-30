@@ -1,25 +1,28 @@
-import React, { useMemo } from 'react';
+import React from 'react';
 import { 
   ArrowRight, 
   Package, 
   ShoppingBag, 
-  CheckCircle2, 
-  Clock, 
-  XCircle, 
   Check, 
   Lock
 } from 'lucide-react';
 import {
-  DashboardStats, Order, AnnualService, ExtraCharge, BillingPayment
+  DashboardCommercialOverview,
+  DashboardStats,
+  Order,
+  AnnualService,
+  ExtraCharge,
+  BillingPayment,
 } from '../../types';
 import { SalesChart } from '../Widgets/SalesChart';
 import { OrderWidgetCard, OrderWidgetCardSkeleton } from '../Widgets/OrderWidgetCard';
 import { LatestProducts } from '../Widgets/LatestProducts';
 import { LatestMedia } from '../Widgets/LatestMedia';
 import { BillingAlertWidget } from '../Widgets/BillingAlertWidget';
-import { OrderDistributionWidget } from '../Widgets/OrderDistributionWidget';
 import { FinancialWeightWidget } from '../Widgets/FinancialWeightWidget';
-import { StatusMetricWidget } from '../Widgets/StatusMetricWidget';
+import {
+  OperationalAttentionWidget,
+} from '../Widgets/OperationalAttentionWidget';
 import { ProductMetricWidget } from '../Widgets/ProductMetricWidget';
 import { NexusAutonomousButton } from '../ui/NexusButton';
 import { NexusAutonomousCard } from '../ui/NexusCard';
@@ -28,6 +31,7 @@ import { NexusHeader } from '../ui/NexusHeader';
 interface DashboardViewProps {
   isLoading: boolean;
   stats: DashboardStats | null;
+  commercialOverview: DashboardCommercialOverview | null;
   orders: Order[];
   billingServices: AnnualService[];
   billingCharges: ExtraCharge[];
@@ -35,7 +39,8 @@ interface DashboardViewProps {
   onNavigateToSystem: (mode: any) => void;
   onNavigateToMedia: (mode: any) => void;
   onTabChange: (tab: any) => void;
-  onOpenSalesOverview: () => void;
+  onOpenRaffleParticipations: () => void;
+  isLoadingCommercial: boolean;
 }
 
 const EmptyOrdersState: React.FC = () => (
@@ -48,6 +53,7 @@ const EmptyOrdersState: React.FC = () => (
 export const DashboardView: React.FC<DashboardViewProps> = ({
   isLoading,
   stats,
+  commercialOverview,
   orders,
   billingServices,
   billingCharges,
@@ -55,7 +61,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigateToSystem,
   onNavigateToMedia,
   onTabChange,
-  onOpenSalesOverview,
+  onOpenRaffleParticipations,
+  isLoadingCommercial,
 }) => {
   const products = stats?.products;
   const activeProducts = stats?.activeProducts || 0;
@@ -63,14 +70,25 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const reservedProducts = products?.reserved || 0;
   const inventoryBase = activeProducts || 1;
 
-  const totalOrders = useMemo(() => {
-    if (!stats?.orders) return 0;
-    return (stats.orders.paid.count || 0) + 
-           (stats.orders.pending.count || 0) + 
-           (stats.orders.cancelled.count || 0);
-  }, [stats?.orders]);
-
   const orderStats = stats?.orders;
+  const commercialPeriod = commercialOverview?.period ?? '7D';
+  const commercialSource = commercialOverview?.source ?? 'ALL';
+  const commercialPeriodLabel =
+    commercialPeriod === 'TODAY'
+      ? 'hoy'
+      : commercialPeriod === '7D'
+        ? 'los últimos 7 días'
+        : commercialPeriod === '15D'
+          ? 'los últimos 15 días'
+          : commercialPeriod === 'MONTH'
+            ? 'este mes'
+            : 'el histórico disponible';
+  const pulseDescription =
+    commercialSource === 'STORE'
+      ? `Conversión de la tienda durante ${commercialPeriodLabel}.`
+      : commercialSource === 'RAFFLES'
+        ? `Conversión de las rifas durante ${commercialPeriodLabel}.`
+        : `Conversión de tienda y rifas durante ${commercialPeriodLabel}.`;
 
   return (
     <div className="flex flex-col pb-24 animate-in fade-in duration-300" style={{ gap: 'var(--space-lg)' }}>
@@ -84,50 +102,37 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       />
 
       {/* NIVEL B: ESTRATÉGICO (TENDENCIAS) */}
+      <section
+        className="grid min-w-0 grid-cols-1 items-stretch xl:grid-cols-2"
+        style={{ gap: 'var(--space-lg)' }}
+      >
+        <div className="min-w-0">
+          <SalesChart
+            data={commercialOverview?.salesBySource}
+            period={commercialPeriod}
+            source={commercialSource}
+            totalAmount={commercialOverview?.pulse.confirmed.amount}
+            isLoading={isLoadingCommercial}
+          />
+        </div>
+        <div className="min-w-0">
+          <FinancialWeightWidget
+            pulse={commercialOverview?.pulse}
+            description={pulseDescription}
+            isLoading={isLoadingCommercial}
+          />
+        </div>
+      </section>
+
+      {/* NIVEL C: OPERATIVO (SOLO CUANDO REQUIERE ATENCIÓN) */}
       <section className="min-w-0">
-        <SalesChart data={stats?.sales7Days} isLoading={isLoading} />
-      </section>
-
-      {/* NIVEL C: TÁCTICO (PULSO DE ESTADO) */}
-      <section className="grid grid-cols-1 md:grid-cols-3 items-stretch" style={{ gap: 'var(--space-md)' }}>
-        <StatusMetricWidget
-          label="Órdenes Pagadas"
-          count={orderStats?.paid.count || 0}
-          amount={orderStats?.paid.amount || 0}
-          percentage={((orderStats?.paid.count || 0) / (totalOrders || 1)) * 100}
-          icon={CheckCircle2}
-          variant="emerald"
+        <OperationalAttentionWidget
+          orders={orderStats?.pending}
+          participations={stats?.participations?.pending}
           isLoading={isLoading}
-          onClick={onOpenSalesOverview}
+          onOpenOrders={() => onTabChange('Órdenes')}
+          onOpenParticipations={onOpenRaffleParticipations}
         />
-        <StatusMetricWidget
-          label="Órdenes Pendientes"
-          count={orderStats?.pending.count || 0}
-          amount={orderStats?.pending.amount || 0}
-          percentage={((orderStats?.pending.count || 0) / (totalOrders || 1)) * 100}
-          icon={Clock}
-          variant="brand"
-          isLoading={isLoading}
-        />
-        <StatusMetricWidget
-          label="Órdenes Canceladas"
-          count={orderStats?.cancelled.count || 0}
-          amount={orderStats?.cancelled.amount || 0}
-          percentage={((orderStats?.cancelled.count || 0) / (totalOrders || 1)) * 100}
-          icon={XCircle}
-          variant="muted"
-          isLoading={isLoading}
-        />
-      </section>
-
-      {/* NIVEL D: CONTEXTO FINANCIERO (DISTRIBUCIÓN) */}
-      <section className="grid grid-cols-1 lg:grid-cols-12 items-stretch" style={{ gap: 'var(--space-md)' }}>
-        <div className="lg:col-span-4 flex flex-col">
-          <OrderDistributionWidget stats={orderStats} isLoading={isLoading} />
-        </div>
-        <div className="lg:col-span-8 flex flex-col">
-          <FinancialWeightWidget stats={orderStats} isLoading={isLoading} />
-        </div>
       </section>
 
       {/* NIVEL E: NÚCLEO OPERATIVO (ACCIÓN) */}

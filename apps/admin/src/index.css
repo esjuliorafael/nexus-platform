@@ -61,6 +61,16 @@
     0.5rem,
     calc(var(--radius-card-inner) - var(--space-base))
   );
+  --radius-card-nested-control: max(
+    0.375rem,
+    calc(var(--radius-card-nested-compact) - var(--padding-card-nested))
+  );
+  --radius-card-menu-option: max(
+    0.375rem,
+    calc(var(--radius-card-inner) - var(--space-xs))
+  );
+  --padding-card-inner: var(--space-base);
+  --padding-card-nested: var(--space-sm);
   --padding-card-micro: var(--space-base);
   --radius-card-micro-inner: calc(var(--radius-outer) - (var(--padding-card-micro) * 0.75));
   --padding-card-rail: var(--space-base);
@@ -95,6 +105,7 @@
 
   /* Icon Sizes - Linked to Component Scales */
   --size-icon-section: var(--h-button-section);
+  --size-icon-section-compact: var(--h-button-card);
   --size-icon-card: var(--h-button-card);
   --size-icon-autonomous: var(
     --h-button-section
@@ -102,8 +113,12 @@
 
   /* Internal Icon Sizes - For Buttons and technical UI elements */
   --size-inner-icon-section: 1.25rem; /* 20px */
+  --size-inner-icon-section-compact: var(--size-inner-icon-card);
   --size-inner-icon-autonomous: 1.25rem; /* 20px */
   --size-inner-icon-card: 1rem; /* 16px */
+  --size-icon-container-card-nested: calc(
+    var(--size-inner-icon-card) * 2
+  ); /* 32px */
   --size-inner-icon-metadata: 1rem; /* 16px */
   --size-inner-icon-badge: var(--space-base); /* 12px */
 
@@ -277,6 +292,8 @@
   --brand-700: #835049;
   --brand-800: #6e443f;
   --brand-900: #5c3a37;
+  --chart-raffle: #059669;
+  --shadow-chart-tooltip: 0 1.25rem 2.5rem -0.625rem rgb(15 23 42 / 0.12);
 }
 
 .dark {
@@ -298,6 +315,8 @@
   --brand-700: #d4a096;
   --brand-800: #e4b1a7;
   --brand-900: #f4c2b8;
+  --chart-raffle: #34d399;
+  --shadow-chart-tooltip: 0 1.25rem 2.5rem -0.625rem rgb(0 0 0 / 0.4);
 }
 
 /* 🛑 GLOBAL FORCED DARK MODE BORDERS */

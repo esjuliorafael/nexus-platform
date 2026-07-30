@@ -10,7 +10,11 @@ import {
   WhatsAppChannel,
   DashboardStats,
   SalesOverview,
+  DashboardCommercialOverview,
+  DashboardCommercialSource,
   SalesOverviewPeriod,
+  SalesOverviewPaymentMethod,
+  SalesOverviewProductType,
   AnnualService,
   ExtraCharge,
   Raffle,
@@ -217,11 +221,26 @@ export const apiDashboard = {
     const res = await api.get("/admin/dashboard/stats");
     return res.data;
   },
+  getCommercialOverview: async (
+    period: SalesOverviewPeriod = "7D",
+    source: DashboardCommercialSource = "ALL",
+    paymentMethod: SalesOverviewPaymentMethod = "ALL",
+  ): Promise<DashboardCommercialOverview> => {
+    const res = await api.get("/admin/dashboard/commercial-overview", {
+      params: { period, source, paymentMethod },
+    });
+    return res.data;
+  },
   getSalesOverview: async (
     period: SalesOverviewPeriod,
+    productType: SalesOverviewProductType = "ALL",
+    paymentMethod: SalesOverviewPaymentMethod = "ALL",
+    search = "",
+    page = 1,
+    pageSize = 8,
   ): Promise<SalesOverview> => {
     const res = await api.get("/admin/dashboard/sales-overview", {
-      params: { period },
+      params: { period, productType, paymentMethod, search, page, pageSize },
     });
     return res.data;
   },
