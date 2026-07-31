@@ -106,6 +106,13 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
             apiKey: globalKey,
           }
         : null;
+    // Specialized channels own their instance name; tenant-wide credentials are
+    // the default unless a channel explicitly provides dedicated credentials.
+    const resolvedWhatsappChannels = waChannels.map((channel) => ({
+      ...channel,
+      evolutionUrl: channel.evolutionUrl || globalUrl,
+      evolutionKey: channel.evolutionKey || globalKey,
+    }));
     const principalWhatsapp = {
       provider:
         !forceEvolution && getSetting("whatsapp_main_provider") === "KAPSO"
@@ -144,9 +151,9 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       const preferredChannel = isStore
         ? resolveChannels(
             resolvePaymentRecoveryOrderKind((hold as any).items),
-            waChannels,
+            resolvedWhatsappChannels,
           ).whatsappChannel
-        : waChannels.find(
+        : resolvedWhatsappChannels.find(
             (channel) =>
               channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
           ) || null;
@@ -234,7 +241,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       });
       if (!recipient) return;
 
-      const raffleChannel = waChannels.find(
+      const raffleChannel = resolvedWhatsappChannels.find(
         (channel) =>
           channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
       );
@@ -335,7 +342,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         where: { id: data.campaignRecipientId }, include: { campaign: true },
       });
       if (!recipient) return;
-      const raffleChannel = waChannels.find(
+      const raffleChannel = resolvedWhatsappChannels.find(
         (channel) => channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
       );
       const values = recipient.payload as Record<string, string>;
@@ -406,7 +413,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         });
       if (!recipient) return;
 
-      const raffleChannel = waChannels.find(
+      const raffleChannel = resolvedWhatsappChannels.find(
         (channel) =>
           channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
       );
@@ -507,7 +514,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       data.kind === "order-restored" ||
       data.kind === "order-reminder"
     ) {
-      const resolved = resolveChannels(data.orderKind, waChannels);
+      const resolved = resolveChannels(data.orderKind, resolvedWhatsappChannels);
       const wa = resolved.whatsappChannel;
 
       // Preserve the intended identity in configuration-error logs.
@@ -717,7 +724,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         return;
       }
 
-      const raffleChannel = waChannels.find(
+      const raffleChannel = resolvedWhatsappChannels.find(
         (channel) =>
           channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
       );
@@ -832,7 +839,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       data.kind === "reservation-refunded" ||
       data.kind === "reservation-reminder"
     ) {
-      const raffleChannel = waChannels.find(
+      const raffleChannel = resolvedWhatsappChannels.find(
         (c) => c.purpose.toUpperCase() === "RAFFLES" && c.active,
       );
 
