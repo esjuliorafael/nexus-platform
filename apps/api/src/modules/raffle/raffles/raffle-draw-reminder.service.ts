@@ -232,11 +232,19 @@ export const raffleDrawReminderService = {
     ]);
     if (!raffle) return null;
     const data = raffle.drawDate ? await buildRecipients(rafflePrisma, raffleId) : { recipients: [] as RecipientDraft[] };
+    // A reminder belongs to one specific scheduled draw. If the raffle date is
+    // corrected later, a prior campaign must remain as history and never block
+    // the reminder for the corrected date.
+    const campaign = raffle.drawDate
+      ? raffle.drawReminderCampaigns.find(
+          (candidate) => candidate.drawDate.getTime() === raffle.drawDate!.getTime(),
+        ) || null
+      : null;
     return {
       raffleId, drawDate: raffle.drawDate, templateConfigured,
       totalRecipients: data.recipients.length,
       invalidRecipients: data.recipients.filter((recipient) => recipient.status === RaffleResultRecipientStatus.FAILED).length,
-      campaign: raffle.drawReminderCampaigns[0] || null,
+      campaign,
     };
   },
 
