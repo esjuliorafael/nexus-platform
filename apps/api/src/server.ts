@@ -30,6 +30,7 @@ import { reconcileRaffleOpeningNotifications } from "./services/raffle-opening-n
 import { mediaVaultService } from "./modules/store/media-vault/media-vault.service";
 import { reconcileRecoverableWhatsappJobs } from "./services/whatsapp-recovery.service";
 import { inventoryIntegrityService } from "./modules/store/inventory/inventory-integrity.service";
+import { raffleDrawReminderService } from "./modules/raffle/raffles/raffle-draw-reminder.service";
 
 const server = fastify({
   logger: true,
@@ -261,6 +262,27 @@ async function bootstrap() {
         5 * 60 * 1000,
       );
       raffleOpeningReminderTimer.unref?.();
+
+      const reconcileRaffleDrawReminderSchedules = async () => {
+        try {
+          const result = await raffleDrawReminderService.reconcileScheduledCampaigns(
+            server.rafflePrisma,
+            server.storePrisma,
+          );
+          if (result.dispatched > 0) {
+            server.log.info(`Dispatched ${result.dispatched} scheduled raffle draw reminder(s).`);
+          }
+        } catch (error: any) {
+          server.log.error(`Raffle draw reminder reconciliation failed: ${error.message}`);
+        }
+      };
+
+      await reconcileRaffleDrawReminderSchedules();
+      const raffleDrawReminderScheduleTimer = setInterval(
+        reconcileRaffleDrawReminderSchedules,
+        60 * 1000,
+      );
+      raffleDrawReminderScheduleTimer.unref?.();
     }
 
     const refreshMercadoPagoConnections = async () => {

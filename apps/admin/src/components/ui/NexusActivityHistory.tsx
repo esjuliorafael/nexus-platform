@@ -125,10 +125,16 @@ export const NexusActivityHistory = ({
                 style={{
                   width: "var(--h-button-card)",
                   height: "var(--h-button-card)",
-                  borderRadius: "var(--radius-inner-visual)",
+                  borderRadius: "var(--radius-nested-simple)",
                 }}
               >
-                <Icon size={18} strokeWidth={2} />
+                <Icon
+                  strokeWidth={2}
+                  style={{
+                    width: "var(--size-inner-icon-card)",
+                    height: "var(--size-inner-icon-card)",
+                  }}
+                />
               </div>
 
               <div className="flex min-w-0 flex-1 flex-col" style={{ gap: "var(--space-xs)" }}>

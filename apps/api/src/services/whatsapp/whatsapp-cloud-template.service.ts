@@ -17,6 +17,7 @@ export type CloudTemplateType =
   | "RESTORED"
   | "REMINDER"
   | "OPENING"
+  | "DRAW_REMINDER"
   | "RAFFLE_INVITATION"
   | "RESULT_WINNER"
   | "RESULT_PARTICIPANTS";
@@ -56,6 +57,11 @@ export const CLOUD_TEMPLATE_SETTING_KEYS: Array<{
   { scope: "STORE", type: "REMINDER", key: "whatsapp_global_store_reminder" },
   { scope: "STORE", type: "RELEASE", key: "whatsapp_global_store_rel" },
   { scope: "RAFFLES", type: "OPENING", key: "whatsapp_global_raffle_opening" },
+  {
+    scope: "RAFFLES",
+    type: "DRAW_REMINDER",
+    key: "whatsapp_global_raffle_draw_reminder",
+  },
   { scope: "RAFFLES", type: "RESERVATION", key: "whatsapp_global_raffle_res" },
   { scope: "RAFFLES", type: "RESTORED", key: "whatsapp_global_raffle_restored" },
   {
@@ -131,6 +137,11 @@ const VARIABLE_EXAMPLES: Record<string, string> = {
   raffle_name: "Rifa Especial de Junio",
   raffle_url: "https://example.com/raffles/1",
   opening_date: "Lunes, 20 de julio de 2026, 8:00 a. m.",
+  raffle_date: "Hoy, 31 de julio de 2026 a las 8:00 p. m.",
+  participation_rule:
+    "Tu boleto participa con 8 números: el número que eliges y 7 oportunidades adicionales.",
+  winning_rule:
+    "El número ganador se determina con los últimos 3 dígitos del Premio Mayor de la Lotería Nacional.",
   ticket_price: "320.00",
   ticket_list:
     "002, 005 y 009\n\n✨ Oportunidades adicionales:\n\n002: 164, 246, 271",

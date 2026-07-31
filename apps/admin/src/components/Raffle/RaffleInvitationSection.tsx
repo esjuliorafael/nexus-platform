@@ -6,7 +6,7 @@ import type {
   RaffleAudience,
   RaffleInvitationOverview,
 } from "../../types";
-import { NexusAutonomousBadge } from "../ui/NexusBadge";
+import { NexusSectionBadge } from "../ui/NexusBadge";
 import { NexusSectionButton } from "../ui/NexusButton";
 import { NexusConfirmModal } from "../ui/NexusConfirmModal";
 import { NexusSelect } from "../ui/NexusInputs";
@@ -33,12 +33,16 @@ export const RaffleInvitationSection: React.FC<Props> = ({
   showToast,
 }) => {
   const [audiences, setAudiences] = React.useState<RaffleAudience[]>([]);
-  const [audienceId, setAudienceId] = React.useState("");
+  const [audienceSelection, setAudienceSelection] = React.useState("__paid__");
   const [overview, setOverview] =
     React.useState<RaffleInvitationOverview | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [submitting, setSubmitting] = React.useState(false);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const audienceId = audienceSelection.startsWith("__") ? "" : audienceSelection;
+  const audiencePreset = audienceSelection === "__authorized__"
+    ? "AUTHORIZED_PARTICIPANTS" as const
+    : "PAID_PARTICIPANTS" as const;
 
   const load = React.useCallback(async () => {
     try {
@@ -47,6 +51,7 @@ export const RaffleInvitationSection: React.FC<Props> = ({
         apiRaffleIntelligence.getAudiences(),
         apiRaffles.getInvitationOverview(raffle.id, {
           audienceId: audienceId || undefined,
+          audiencePreset,
           frequencyWindowDays: 0,
         }),
       ]);
@@ -61,7 +66,7 @@ export const RaffleInvitationSection: React.FC<Props> = ({
     } finally {
       setLoading(false);
     }
-  }, [audienceId, raffle.id, showToast]);
+  }, [audienceId, audiencePreset, raffle.id, showToast]);
 
   React.useEffect(() => {
     void load();
@@ -81,6 +86,7 @@ export const RaffleInvitationSection: React.FC<Props> = ({
       setSubmitting(true);
       await apiRaffles.createInvitationCampaign(raffle.id, {
         audienceId: audienceId || null,
+        audiencePreset,
         frequencyWindowDays: 0,
       });
       setConfirmOpen(false);
@@ -144,10 +150,11 @@ export const RaffleInvitationSection: React.FC<Props> = ({
           >
             <NexusSelect
               label="Audiencia"
-              value={audienceId}
-              onChange={(event) => setAudienceId(event.target.value)}
+              value={audienceSelection}
+              onChange={(event) => setAudienceSelection(event.target.value)}
             >
-              <option value="">Participantes pagados</option>
+              <option value="__paid__">Participantes pagados</option>
+              <option value="__authorized__">Participantes autorizados</option>
               {audiences.map((audience) => (
                 <option key={audience.id} value={audience.id}>
                   {audience.name}
@@ -162,12 +169,18 @@ export const RaffleInvitationSection: React.FC<Props> = ({
                 borderRadius: "var(--radius-inner-visual)",
               }}
             >
-              <UsersRound size={20} className="text-brand-600" />
+              <UsersRound
+                className="text-brand-600"
+                style={{
+                  width: "var(--size-inner-icon-section)",
+                  height: "var(--size-inner-icon-section)",
+                }}
+              />
               <div className="flex flex-col" style={{ gap: "var(--space-xs)" }}>
                 <span className="text-label uppercase text-text-muted">
                   Destinatarios
                 </span>
-                <strong className="text-h3 text-text-main tabular-nums">
+                <strong className="text-h1 text-text-main tabular-nums">
                   {loading ? "..." : eligible}
                 </strong>
               </div>
@@ -195,7 +208,7 @@ export const RaffleInvitationSection: React.FC<Props> = ({
                   <strong className="text-body text-text-main">
                     Última campaña
                   </strong>
-                  <NexusAutonomousBadge
+                  <NexusSectionBadge
                     variant={
                       latest.status === "FAILED"
                         ? "danger"
@@ -205,7 +218,7 @@ export const RaffleInvitationSection: React.FC<Props> = ({
                     }
                   >
                     {statusLabel[latest.status] || latest.status}
-                  </NexusAutonomousBadge>
+                  </NexusSectionBadge>
                 </div>
                 <span className="text-secondary text-text-muted">
                   {latest.sentCount} enviadas · {latest.failedCount} fallidas ·{" "}

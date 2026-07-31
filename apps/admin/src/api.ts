@@ -833,6 +833,8 @@ export const apiWhatsApp = {
     }),
   disconnect: async (instanceName: string) =>
     api.post(`/admin/whatsapp/disconnect/${instanceName}`),
+  configureWebhook: async (instanceName: string) =>
+    api.post(`/admin/whatsapp/webhook/${instanceName}`),
   getKapsoStatus: async (phoneNumberId: string, businessAccountId?: string) =>
     api.post("/admin/whatsapp/kapso/channel-diagnostics", {
       phoneNumberId,
@@ -1082,6 +1084,25 @@ export const apiRaffles = {
     );
     return response.data;
   },
+  getDrawReminder: async (id: string): Promise<import("./types").RaffleDrawReminderOverview> => {
+    const response = await api.get(`/raffles/admin/${encodeURIComponent(id)}/draw-reminder`);
+    return response.data;
+  },
+  createDrawReminderCampaign: async (id: string) => {
+    const response = await api.post(`/raffles/admin/${encodeURIComponent(id)}/draw-reminder/campaign`);
+    return response.data;
+  },
+  scheduleDrawReminderCampaign: async (id: string, scheduledFor: string) => {
+    const response = await api.post(
+      `/raffles/admin/${encodeURIComponent(id)}/draw-reminder/schedule`,
+      { scheduledFor },
+    );
+    return response.data;
+  },
+  cancelDrawReminderSchedule: async (id: string) => {
+    const response = await api.delete(`/raffles/admin/${encodeURIComponent(id)}/draw-reminder/schedule`);
+    return response.data;
+  },
   createResultCampaign: async (
     id: string,
     audience: RaffleResultCampaignAudience,
@@ -1100,7 +1121,11 @@ export const apiRaffles = {
   },
   getInvitationOverview: async (
     id: string,
-    params: { audienceId?: string; frequencyWindowDays?: number } = {},
+    params: {
+      audienceId?: string;
+      audiencePreset?: "PAID_PARTICIPANTS" | "AUTHORIZED_PARTICIPANTS";
+      frequencyWindowDays?: number;
+    } = {},
   ): Promise<RaffleInvitationOverview> => {
     const response = await api.get(
       `/raffles/admin/${encodeURIComponent(id)}/invitations`,
@@ -1110,7 +1135,11 @@ export const apiRaffles = {
   },
   createInvitationCampaign: async (
     id: string,
-    data: { audienceId?: string | null; frequencyWindowDays: number },
+    data: {
+      audienceId?: string | null;
+      audiencePreset?: "PAID_PARTICIPANTS" | "AUTHORIZED_PARTICIPANTS";
+      frequencyWindowDays: number;
+    },
   ) => {
     const response = await api.post(
       `/raffles/admin/${encodeURIComponent(id)}/invitations`,

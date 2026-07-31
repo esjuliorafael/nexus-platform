@@ -9,9 +9,12 @@ export type ChannelTemplateType =
   | "REMINDER"
   | "RELEASE"
   | "OPENING"
+  | "DRAW_REMINDER"
   | "RAFFLE_INVITATION"
   | "RESULT_WINNER"
-  | "RESULT_PARTICIPANTS";
+  | "RESULT_PARTICIPANTS"
+  | "MARKETING_SUBSCRIBED"
+  | "MARKETING_UNSUBSCRIBED";
 
 export type ChannelTemplateDefinition = {
   type: ChannelTemplateType;
@@ -139,23 +142,12 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
     ],
   },
   {
-    key: "raffle-promotion",
+    key: "raffle-opening",
     scope: "RAFFLES",
-    label: "Promoción y apertura",
-    description: "Invitación comercial y aviso de inicio de participación.",
+    label: "Apertura solicitada",
+    description:
+      "Aviso para personas que pidieron conocer el inicio de la participación.",
     templates: [
-      {
-        type: "RAFFLE_INVITATION",
-        key: "whatsapp_global_raffle_invitation",
-        label: "Invitación a una nueva rifa",
-        variables: [
-          "{{customer_name}}",
-          "{{raffle_name}}",
-          "{{opening_date}}",
-          "{{ticket_price}}",
-          "{{raffle_url}}",
-        ],
-      },
       {
         type: "OPENING",
         key: "whatsapp_global_raffle_opening",
@@ -236,19 +228,6 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
         ],
       },
       {
-        type: "PAYMENT_REFUNDED",
-        key: "whatsapp_global_raffle_refunded",
-        label: "Devolución de participación",
-        variables: [
-          "{{customer_name}}",
-          "{{ticket_list}}",
-          "{{raffle_name}}",
-          "{{refund_amount}}",
-          "{{refund_id}}",
-          "{{refunded_at}}",
-        ],
-      },
-      {
         type: "PAYMENT_RECOVERY",
         key: "whatsapp_global_raffle_payment_recovery",
         label: "Pago no concretado",
@@ -261,6 +240,19 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
           "{{recovery_url}}",
         ],
       },
+      {
+        type: "PAYMENT_REFUNDED",
+        key: "whatsapp_global_raffle_refunded",
+        label: "Devolución de participación",
+        variables: [
+          "{{customer_name}}",
+          "{{ticket_list}}",
+          "{{raffle_name}}",
+          "{{refund_amount}}",
+          "{{refund_id}}",
+          "{{refunded_at}}",
+        ],
+      },
     ],
   },
   {
@@ -270,6 +262,20 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
     description:
       "Comunicación a ganadores y participantes después de la resolución.",
     templates: [
+      {
+        type: "DRAW_REMINDER",
+        key: "whatsapp_global_raffle_draw_reminder",
+        label: "Recordatorio de la rifa",
+        variables: [
+          "{{customer_name}}",
+          "{{raffle_name}}",
+          "{{raffle_date}}",
+          "{{ticket_list}}",
+          "{{participation_rule}}",
+          "{{prize_list}}",
+          "{{winning_rule}}",
+        ],
+      },
       {
         type: "RESULT_WINNER",
         key: "whatsapp_global_raffle_winner",
@@ -296,6 +302,46 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
       },
     ],
   },
+  {
+    key: "raffle-preferences",
+    scope: "RAFFLES",
+    label: "Preferencias de WhatsApp",
+    description: "Confirmaciones automáticas al activar o detener novedades.",
+    templates: [
+      {
+        type: "MARKETING_SUBSCRIBED",
+        key: "whatsapp_global_marketing_subscribed",
+        label: "Confirmación de alta",
+        variables: ["{{customer_name}}"],
+      },
+      {
+        type: "MARKETING_UNSUBSCRIBED",
+        key: "whatsapp_global_marketing_unsubscribed",
+        label: "Confirmación de baja",
+        variables: ["{{customer_name}}"],
+      },
+    ],
+  },
+  {
+    key: "raffle-promotion",
+    scope: "RAFFLES",
+    label: "Promoción",
+    description: "Invitación comercial para audiencias autorizadas.",
+    templates: [
+      {
+        type: "RAFFLE_INVITATION",
+        key: "whatsapp_global_raffle_invitation",
+        label: "Invitación a una nueva rifa",
+        variables: [
+          "{{customer_name}}",
+          "{{raffle_name}}",
+          "{{opening_date}}",
+          "{{ticket_price}}",
+          "{{raffle_url}}",
+        ],
+      },
+    ],
+  },
 ];
 
 export const CHANNEL_TEMPLATE_SECTIONS: ChannelTemplateSection[] = [
@@ -308,7 +354,7 @@ export const CHANNEL_TEMPLATE_SECTIONS: ChannelTemplateSection[] = [
   {
     scope: "RAFFLES",
     label: "Rifas",
-    description: "Promoción, participaciones, pagos y resultados de rifas.",
+    description: "Apertura, participaciones, pagos, resultados y preferencias de rifas.",
     groups: CHANNEL_TEMPLATE_GROUPS.filter(
       (group) => group.scope === "RAFFLES",
     ),

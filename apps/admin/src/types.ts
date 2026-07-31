@@ -471,6 +471,7 @@ export type TemplateType =
   | "RESTORED"
   | "REMINDER"
   | "OPENING"
+  | "DRAW_REMINDER"
   | "RAFFLE_INVITATION"
   | "RESULT_WINNER"
   | "RESULT_PARTICIPANTS";
@@ -845,6 +846,7 @@ export interface RaffleOperationalOverview {
     participationId: string;
   }>;
   recentParticipations: RaffleParticipation[];
+  participationHistory: RaffleParticipation[];
   updatedAt: string;
 }
 
@@ -965,6 +967,27 @@ export interface RaffleResultCommunicationOverview {
     templateConfigured: boolean;
   }>;
   campaigns: RaffleResultCampaign[];
+}
+
+export interface RaffleDrawReminderCampaign {
+  id: string;
+  status: RaffleResultCampaignStatus;
+  totalRecipients: number;
+  sentCount: number;
+  failedCount: number;
+  scheduledFor: string | null;
+  initiatedByName: string | null;
+  completedAt: string | null;
+  createdAt: string;
+}
+
+export interface RaffleDrawReminderOverview {
+  raffleId: number;
+  drawDate: string | null;
+  templateConfigured: boolean;
+  totalRecipients: number;
+  invalidRecipients: number;
+  campaign: RaffleDrawReminderCampaign | null;
 }
 
 export type RaffleParticipantSegment =

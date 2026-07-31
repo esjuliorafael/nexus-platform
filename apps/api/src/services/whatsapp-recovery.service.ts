@@ -105,6 +105,20 @@ async function isJobStillRelevant(data: WhatsappJobData) {
     );
   }
 
+  if (data.kind === "raffle-draw-reminder") {
+    const recipient = await rafflePrisma.raffleDrawReminderRecipient.findUnique({
+      where: { id: data.campaignRecipientId },
+      select: { status: true },
+    });
+    return Boolean(
+      recipient && ["PENDING", "PROCESSING", "FAILED"].includes(recipient.status),
+    );
+  }
+
+  if (data.kind === "raffle-draw-reminder-dispatch") {
+    return false;
+  }
+
   if (
     data.kind === "store-payment-recovery" ||
     data.kind === "raffle-payment-recovery"

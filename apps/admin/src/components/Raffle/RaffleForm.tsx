@@ -76,6 +76,18 @@ const toDateTimeLocalValue = (value?: string | null) => {
   return new Date(date.getTime() - offset).toISOString().slice(0, 16);
 };
 
+const toRaffleDrawDateTimeLocalValue = (value?: string | null) => {
+  if (!value) return "";
+
+  // Before the time field existed, draw dates were persisted at midnight UTC.
+  // Preserve their calendar date so an administrator can explicitly set the official time.
+  if (/^\d{4}-\d{2}-\d{2}T00:00:00(?:\.000)?Z$/.test(value)) {
+    return `${value.slice(0, 10)}T00:00`;
+  }
+
+  return toDateTimeLocalValue(value);
+};
+
 export const RaffleForm: React.FC<RaffleFormProps> = ({
   initialData,
   onSave,
@@ -99,7 +111,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
     initialData?.prizeShippingPolicy ?? "",
   );
   const [drawDate, setDrawDate] = useState(
-    initialData?.drawDate ? new Date(initialData.drawDate).toISOString().split("T")[0] : "",
+    toRaffleDrawDateTimeLocalValue(initialData?.drawDate),
   );
   const [status, setStatus] = useState<Raffle["status"]>(initialData?.status ?? "ACTIVE");
   const [participationStartsAt, setParticipationStartsAt] = useState(
@@ -849,11 +861,12 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                 />
               </div>
               <NexusInput
-                label="Fecha de la Rifa"
+                label="Fecha y Hora de la Rifa"
                 icon={Calendar}
-                type="date"
+                type="datetime-local"
                 value={drawDate}
                 onChange={(event) => setDrawDate(event.target.value)}
+                helperText="Indica el momento oficial en que se define el resultado de la rifa."
               />
               <NexusSelect label="Estado Actual" value={status} onChange={(event) => setStatus(event.target.value as Raffle["status"])}>
                 <option value="ACTIVE">Activa</option>

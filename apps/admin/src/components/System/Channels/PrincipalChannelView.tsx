@@ -62,10 +62,19 @@ const previewMessage = (content: string) =>
       "002, 005, 009 y 010\n\n✨ Oportunidades adicionales:\n\n002: 164, 246, 271, 635, 701, 888, 986\n005: 171, 265, 534, 817, 929, 943, 976\n009: 212, 430, 516, 605, 626, 752, 882\n010: 405, 423, 436, 441, 538, 728, 963",
     )
     .replace(/\{\{raffle_name\}\}/g, "Rifa Especial de Junio")
+    .replace(/\{\{raffle_date\}\}/g, "Hoy, 31 de julio de 2026 a las 8:00 p. m.")
     .replace(/\{\{opening_date\}\}/g, "Lunes, 20 de julio de 2026, 8:00 a. m.")
     .replace(/\{\{ticket_price\}\}/g, "320.00")
     .replace(/\{\{raffle_url\}\}/g, "https://rancholastrojes.com.mx/raffles/1")
     .replace(/\{\{prize_list\}\}/g, "Primer lugar: Premio principal")
+    .replace(
+      /\{\{participation_rule\}\}/g,
+      "Tu boleto participa con 8 números: el número que eliges y 7 oportunidades adicionales.",
+    )
+    .replace(
+      /\{\{winning_rule\}\}/g,
+      "El número ganador se determina con los últimos 3 dígitos del Premio Mayor de la Lotería Nacional.",
+    )
     .replace(/\{\{winning_number_list\}\}/g, "Primer lugar: 922 (boleto 001)")
     .replace(/\{\{result_list\}\}/g, "Primer lugar: número 922, boleto 001")
     .replace(/\{\{amount\}\}/g, "1,250.00")
@@ -143,6 +152,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
     }
     setInstanceStatus("loading");
     try {
+      await apiWhatsApp.configureWebhook(name);
       const res = await apiWhatsApp.getStatus(name);
       const state = res.data.instance.state;
       setInstanceStatus(state);

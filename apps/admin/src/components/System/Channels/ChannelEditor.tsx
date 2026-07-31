@@ -137,6 +137,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
     }
     setInstanceStatus("loading");
     try {
+      await apiWhatsApp.configureWebhook(name);
       const res = await apiWhatsApp.getStatus(name);
       const state = res.data.instance.state;
       setInstanceExists(res.data.exists !== false);

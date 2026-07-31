@@ -89,6 +89,7 @@ const requiredTemplatesForPurpose = (purpose: string) =>
   purpose === "RAFFLES"
     ? [
         "OPENING",
+        "DRAW_REMINDER",
         "RESERVATION",
         "RESTORED",
         "PAYMENT_CONFIRMED",
@@ -119,6 +120,7 @@ const PRINCIPAL_TEMPLATE_KEYS: Record<string, string> = {
   "STORE:REMINDER": "whatsapp_global_store_reminder",
   "STORE:RELEASE": "whatsapp_global_store_rel",
   "RAFFLES:OPENING": "whatsapp_global_raffle_opening",
+  "RAFFLES:DRAW_REMINDER": "whatsapp_global_raffle_draw_reminder",
   "RAFFLES:RESERVATION": "whatsapp_global_raffle_res",
   "RAFFLES:RESTORED": "whatsapp_global_raffle_restored",
   "RAFFLES:PAYMENT_CONFIRMED": "whatsapp_global_raffle_pay",
@@ -344,9 +346,12 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
                   "whatsapp_global_raffle_payment_recovery",
                   "whatsapp_global_raffle_reminder",
                   "whatsapp_global_raffle_opening",
+                  "whatsapp_global_raffle_draw_reminder",
                   "whatsapp_global_raffle_invitation",
                   "whatsapp_global_raffle_winner",
                   "whatsapp_global_raffle_results",
+                  "whatsapp_global_marketing_subscribed",
+                  "whatsapp_global_marketing_unsubscribed",
                 ],
               },
             },
@@ -457,6 +462,7 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
                   ) ||
                   getSetting(settings, "whatsapp_global_raffle_reminder") ||
                   getSetting(settings, "whatsapp_global_raffle_opening") ||
+                  getSetting(settings, "whatsapp_global_raffle_draw_reminder") ||
                   getSetting(settings, "whatsapp_global_raffle_invitation") ||
                   getSetting(settings, "whatsapp_global_raffle_winner") ||
                   getSetting(settings, "whatsapp_global_raffle_results"),
@@ -479,6 +485,7 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
               getSetting(settings, "whatsapp_global_raffle_payment_recovery"),
               getSetting(settings, "whatsapp_global_raffle_reminder"),
               getSetting(settings, "whatsapp_global_raffle_opening"),
+              getSetting(settings, "whatsapp_global_raffle_draw_reminder"),
               getSetting(settings, "whatsapp_global_raffle_invitation"),
               getSetting(settings, "whatsapp_global_raffle_winner"),
               getSetting(settings, "whatsapp_global_raffle_results"),

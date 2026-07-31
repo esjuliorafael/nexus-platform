@@ -62,6 +62,7 @@ model Raffle {
   participationEvents    RaffleParticipationEvent[]
   resultEvents           RaffleResultEvent[]
   resultCampaigns        RaffleResultCampaign[]
+  drawReminderCampaigns  RaffleDrawReminderCampaign[]
   invitationCampaigns    RaffleInvitationCampaign[]
 
   @@index([featured, featuredOrder])
@@ -209,6 +210,52 @@ model RaffleResultRecipient {
   @@unique([campaignId, phone])
   @@index([campaignId, status])
   @@map("raffle_result_recipients")
+}
+
+model RaffleDrawReminderCampaign {
+  id                       String                       @id @default(uuid()) @db.Uuid
+  raffleId                 Int                          @map("raffle_id")
+  drawDate                 DateTime                     @map("draw_date")
+  status                   RaffleResultCampaignStatus   @default(QUEUED)
+  templateContent          String                       @map("template_content")
+  principalTemplateContent String                       @map("principal_template_content")
+  totalRecipients          Int                          @default(0) @map("total_recipients")
+  sentCount                Int                          @default(0) @map("sent_count")
+  failedCount              Int                          @default(0) @map("failed_count")
+  scheduledFor             DateTime?                    @map("scheduled_for")
+  initiatedByUserId        Int?                         @map("initiated_by_user_id")
+  initiatedByName          String?                      @map("initiated_by_name")
+  initiatedByRole          String?                      @map("initiated_by_role")
+  completedAt              DateTime?                    @map("completed_at")
+  createdAt                DateTime                     @default(now()) @map("created_at")
+  updatedAt                DateTime                     @updatedAt @map("updated_at")
+  raffle                   Raffle                       @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  recipients               RaffleDrawReminderRecipient[]
+
+  @@unique([raffleId, drawDate])
+  @@index([raffleId, createdAt])
+  @@map("raffle_draw_reminder_campaigns")
+}
+
+model RaffleDrawReminderRecipient {
+  id               String                      @id @default(uuid()) @db.Uuid
+  campaignId       String                      @map("campaign_id") @db.Uuid
+  phone            String
+  customerName     String                      @map("customer_name")
+  participationIds String[]                    @default([]) @map("participation_ids")
+  payload          Json
+  status           RaffleResultRecipientStatus @default(PENDING)
+  attempts         Int                         @default(0)
+  lastError        String?                     @map("last_error")
+  messageLogId     Int?                        @map("message_log_id")
+  sentAt           DateTime?                   @map("sent_at")
+  createdAt        DateTime                    @default(now()) @map("created_at")
+  updatedAt        DateTime                    @updatedAt @map("updated_at")
+  campaign         RaffleDrawReminderCampaign  @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, phone])
+  @@index([campaignId, status])
+  @@map("raffle_draw_reminder_recipients")
 }
 
 model RaffleInvitationCampaign {

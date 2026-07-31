@@ -141,12 +141,14 @@ const NexusCardBase: React.FC<NexusCardBaseProps> = ({
   return (
     <div className={`animate-in fade-in zoom-in-95 duration-300 [animation-fill-mode:both] ${className}`} style={{ animationDelay: delay, ...style }}>
       <div
-        className={`relative group/card h-full flex flex-col overflow-hidden ${
+        className={`relative group/card flex flex-col ${
           swipeable
-            ? `nexus-swipe-stage nexus-swipe-stage--${level === 1 ? 'autonomous' : 'nested'}`
-            : ''
+            ? `h-full overflow-hidden nexus-swipe-stage nexus-swipe-stage--${level === 1 ? 'autonomous' : 'nested'}`
+            : level === 1
+              ? 'h-full overflow-hidden'
+              : ''
         }`}
-        style={!swipeable || level === 2 ? { borderRadius: radiusToken } : undefined}
+        style={swipeable ? { borderRadius: radiusToken } : undefined}
       >
         {swipeable && (
           <div className="absolute inset-0 sm:hidden">
@@ -235,9 +237,8 @@ const NexusCardBase: React.FC<NexusCardBaseProps> = ({
             borderRadius: radiusToken,
             padding: paddingToken
           }}
-          className={`relative z-10 bg-bg-card border border-border-main transition-all duration-700 overflow-hidden flex-1 flex flex-col ${elevationClass} ${onClick ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2' : ''} ${innerClassName}`}
+          className={`relative z-10 flex flex-1 flex-col overflow-hidden border border-border-main bg-bg-card transition-all duration-700 ${elevationClass} ${onClick ? 'cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2' : ''} ${innerClassName}`}
         >
-          <div className="absolute inset-0 pointer-events-none opacity-[0.015]" style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)', backgroundSize: '20px 20px' }} />
           <div className={`relative z-10 flex-1 flex flex-col transition-opacity duration-500 ${isMuted ? 'opacity-60 grayscale-[0.5]' : 'opacity-100'}`}>
             {children}
           </div>
@@ -264,6 +265,7 @@ interface LegacyCardProps {
   className?: string;
   swipeable?: boolean;
   layout?: 'responsive' | 'horizontal';
+  stackActionsOnMobile?: boolean;
 }
 
 /**
@@ -356,7 +358,7 @@ export const NexusControlRow: React.FC<LegacyCardProps & { statusColor?: string 
  * Mantiene el espaciado y jerarquía visual de nivel medio.
  */
 export const NexusSectionCard: React.FC<LegacyCardProps> = ({
-  title, subtitle, icon, thumbnail, iconVariant, isMuted, delay, rightContent, actions, onEdit, onDelete, showActionsAlways, onClick, className, swipeable, layout = 'responsive'
+  title, subtitle, icon, thumbnail, iconVariant, isMuted, delay, rightContent, actions, onEdit, onDelete, showActionsAlways, onClick, className, swipeable, layout = 'responsive', stackActionsOnMobile = false
 }) => {
   const hasActionContent = Boolean(actions || onEdit || onDelete);
   const isHorizontal = layout === 'horizontal';
@@ -392,10 +394,10 @@ export const NexusSectionCard: React.FC<LegacyCardProps> = ({
           </div>
         </div>
         <div
-          className={`flex items-center justify-between shrink-0 border-border-main ${isHorizontal ? 'border-t-0 pt-0' : 'border-t pt-[var(--space-md)] md:justify-end md:border-t-0 md:pt-0'}`}
+          className={`flex shrink-0 border-border-main ${stackActionsOnMobile ? 'flex-col items-stretch' : 'items-center justify-between'} ${isHorizontal ? 'border-t-0 pt-0' : 'border-t pt-[var(--space-md)] md:flex-row md:items-center md:justify-end md:border-t-0 md:pt-0'}`}
           style={{ gap: isHorizontal ? 'var(--space-sm)' : 'var(--space-lg)' }}
         >
-          {rightContent && <div className="text-left md:text-right flex flex-col items-start md:items-end" style={{ gap: 'var(--space-xs)' }}>{rightContent}</div>}
+          {rightContent && <div className={`text-left md:text-right flex flex-col items-start md:items-end ${stackActionsOnMobile ? 'w-full' : ''}`} style={{ gap: 'var(--space-xs)' }}>{rightContent}</div>}
           {hasActionContent && (
             <div className="flex w-full items-center md:w-auto" style={{ gap: 'var(--space-sm)' }}>
               {actions}

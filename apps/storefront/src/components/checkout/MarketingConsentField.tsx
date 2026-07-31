@@ -24,10 +24,10 @@ export function MarketingConsentField({
     >
       <span className="flex min-w-0 flex-col" style={{ gap: 'var(--sf-space-2xs)' }}>
         <span className="sf-text-secondary font-bold text-stone-700">
-          Quiero recibir novedades y nuevas rifas por WhatsApp
+          Quiero recibir invitaciones y novedades por WhatsApp
         </span>
         <span className="sf-text-caption text-stone-500">
-          Es opcional. Puedes darte de baja en cualquier momento respondiendo BAJA.
+          Es opcional. Puedes cancelar cuando quieras respondiendo BAJA.
         </span>
       </span>
       <input

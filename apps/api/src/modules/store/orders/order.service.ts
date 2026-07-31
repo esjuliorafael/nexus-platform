@@ -1,7 +1,6 @@
 import { storePrisma } from "@nexus/db/store";
 import {
   OrderStatus,
-  WhatsappMarketingConsentSource,
 } from "@prisma/client-store";
 import { orderReleaseQueue } from "../../../queues/order-release.queue";
 import {
@@ -19,7 +18,6 @@ import {
   systemAuditActor,
   type AuditActor,
 } from "../../../utils/admin-authorization";
-import { whatsappMarketingConsentService } from "../../../services/whatsapp-marketing-consent.service";
 import { synchronizeItemAvailability } from "../products/product-inventory";
 
 const createOrderError = (message: string, statusCode = 400) => {
@@ -469,19 +467,6 @@ export const orderService = {
 
       return newOrder;
     });
-
-    if (data.marketingConsent === true) {
-      await whatsappMarketingConsentService
-        .grant(storePrisma, {
-          phone: order.customerPhone,
-          displayName: order.customerName,
-          source: WhatsappMarketingConsentSource.STORE_CHECKOUT,
-          metadata: { orderId: order.id, paymentMethod },
-        })
-        .catch((error) => {
-          console.error("[Marketing consent] Store checkout consent could not be recorded:", error);
-        });
-    }
 
     // Schedule auto-release. Mercado Pago uses a short silent hold while the customer pays.
     if (isMercadoPagoOrder && expiresAt) {

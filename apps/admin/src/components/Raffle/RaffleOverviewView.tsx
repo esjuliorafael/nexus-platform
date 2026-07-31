@@ -1,7 +1,9 @@
 import React from "react";
 import {
   Activity,
+  Calendar,
   CheckCircle2,
+  CircleX,
   Clock3,
   CreditCard,
   Eye,
@@ -11,12 +13,14 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Raffle, RaffleParticipation } from "../../types";
-import { NexusAutonomousBadge, type NexusBadgeVariant } from "../ui/NexusBadge";
+import { NexusCardBadge, type NexusBadgeVariant } from "../ui/NexusBadge";
 import { NexusSectionButton } from "../ui/NexusButton";
-import { NexusAutonomousCard, NexusSectionCard } from "../ui/NexusCard";
+import { NexusAutonomousCard } from "../ui/NexusCard";
 import { EmptyState } from "../ui/EmptyState";
 import { NexusAutonomousIcon } from "../ui/NexusIcon";
 import { NexusSection } from "../ui/NexusSection";
+import { NexusPaginator } from "../ui/NexusPaginator";
+import { NexusSectionSearch } from "../ui/NexusSearchInput";
 import { useRaffleOperationalOverview } from "./useRaffleOperationalOverview";
 import { RaffleResultSection } from "./RaffleResultSection";
 import { RaffleResultCommunicationSection } from "./RaffleResultCommunicationSection";
@@ -44,32 +48,41 @@ const formatCurrency = (value: number) =>
     maximumFractionDigits: 0,
   });
 
-const formatDateTime = (value: string) =>
-  new Date(value).toLocaleString("es-MX", {
-    day: "2-digit",
-    month: "short",
-    year: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+const formatParticipationCurrency = (value: number) =>
+  value.toLocaleString("es-MX", {
+    style: "currency",
+    currency: "MXN",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
   });
+
+const HISTORY_PAGE_SIZE = 8;
+
+const normalizeHistorySearch = (value: string) =>
+  value
+    .toLocaleLowerCase("es-MX")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .trim();
 
 const participationStatus = (
   participation: RaffleParticipation,
 ): {
   label: string;
   variant: NexusBadgeVariant;
+  icon: LucideIcon;
 } => {
   if (participation.status === "PAID")
-    return { label: "Pagada", variant: "success" };
+    return { label: "Pagada", variant: "success", icon: CheckCircle2 };
   if (participation.status === "PENDING")
-    return { label: "Apartada", variant: "warning" };
+    return { label: "Apartada", variant: "warning", icon: Clock3 };
   if (participation.status === "PAYMENT_REVIEW")
-    return { label: "En revisión", variant: "warning" };
+    return { label: "En revisión", variant: "warning", icon: Clock3 };
   if (participation.status === "CANCELLED")
-    return { label: "Cancelada", variant: "danger" };
+    return { label: "Cancelada", variant: "danger", icon: CircleX };
   if (participation.status === "NOT_COMPLETED")
-    return { label: "No concretada", variant: "danger" };
-  return { label: "Estado mixto", variant: "muted" };
+    return { label: "No concretada", variant: "danger", icon: CircleX };
+  return { label: "Estado mixto", variant: "muted", icon: Clock3 };
 };
 
 export const buildRaffleTicketNumbers = (raffle: Raffle) => {
@@ -88,6 +101,8 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
   onOpenTicketBoard,
   onOpenParticipation,
 }) => {
+  const [historySearch, setHistorySearch] = React.useState("");
+  const [historyPage, setHistoryPage] = React.useState(1);
   const { overview, isLoading } = useRaffleOperationalOverview(
     raffle.id,
     showToast,
@@ -117,7 +132,40 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
   };
 
   const visibleTickets = ticketNumbers.slice(0, 30);
-  const recentParticipations = overview?.recentParticipations || [];
+  const participationHistory = overview?.participationHistory || [];
+  const filteredParticipationHistory = React.useMemo(() => {
+    const query = normalizeHistorySearch(historySearch);
+    if (!query) return participationHistory;
+    return participationHistory.filter((participation) =>
+      normalizeHistorySearch(
+        [
+          participation.customerName,
+          participation.customerPhone,
+          participation.ticketNumbers.join(" "),
+          participation.paymentMethod,
+          participation.status,
+        ]
+          .filter(Boolean)
+          .join(" "),
+      ).includes(query),
+    );
+  }, [historySearch, participationHistory]);
+  const historyTotalPages = Math.max(
+    1,
+    Math.ceil(filteredParticipationHistory.length / HISTORY_PAGE_SIZE),
+  );
+  const visibleParticipationHistory = filteredParticipationHistory.slice(
+    (historyPage - 1) * HISTORY_PAGE_SIZE,
+    historyPage * HISTORY_PAGE_SIZE,
+  );
+
+  React.useEffect(() => {
+    setHistoryPage(1);
+  }, [historySearch, raffle.id]);
+
+  React.useEffect(() => {
+    if (historyPage > historyTotalPages) setHistoryPage(historyTotalPages);
+  }, [historyPage, historyTotalPages]);
 
   return (
     <div
@@ -264,13 +312,6 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
         </div>
       </NexusSection>
 
-      <RaffleResultSection
-        raffle={raffle}
-        canManageOperations={canManageOperations}
-        showToast={showToast}
-        onRaffleChange={onRaffleChange}
-      />
-
       <RaffleInvitationSection
         raffle={raffle}
         canManageOperations={canManageOperations}
@@ -281,57 +322,165 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
         raffle={raffle}
         canManageOperations={canManageOperations}
         showToast={showToast}
+        content="reminder"
+      />
+
+      <RaffleResultSection
+        raffle={raffle}
+        canManageOperations={canManageOperations}
+        showToast={showToast}
+        onRaffleChange={onRaffleChange}
+        content="resolution"
+      />
+
+      <RaffleResultCommunicationSection
+        raffle={raffle}
+        canManageOperations={canManageOperations}
+        showToast={showToast}
+        content="results"
+      />
+
+      <RaffleResultSection
+        raffle={raffle}
+        canManageOperations={canManageOperations}
+        showToast={showToast}
+        onRaffleChange={onRaffleChange}
+        content="history"
       />
 
       <NexusSection
-        title="Actividad Reciente"
-        subtitle="Últimas participaciones registradas en esta rifa"
+        title="Historial de Participaciones"
+        subtitle={`${participationHistory.length.toLocaleString("es-MX")} ${
+          participationHistory.length === 1 ? "participación" : "participaciones"
+        } registradas en esta rifa.`}
         icon={Clock3}
+        action={
+          <NexusSectionSearch
+            value={historySearch}
+            onValueChange={setHistorySearch}
+            placeholder="Buscar participante o boleto..."
+            aria-label="Buscar en el historial de participaciones"
+          />
+        }
       >
         {isLoading ? (
           <div
             className="h-36 animate-pulse bg-bg-muted"
             style={{ borderRadius: "var(--radius-inner-visual)" }}
           />
-        ) : recentParticipations.length === 0 ? (
+        ) : filteredParticipationHistory.length === 0 ? (
           <EmptyState
             level={2}
             icon={Ticket}
-            title="Sin participaciones"
-            description="La actividad aparecerá cuando se aparten o paguen boletos."
+            title={participationHistory.length ? "Sin resultados" : "Sin participaciones"}
+            description={
+              participationHistory.length
+                ? "Ajusta la búsqueda para consultar otra participación."
+                : "Los apartados y pagos de boletos aparecerán aquí."
+            }
           />
         ) : (
-          <div
-            className="grid grid-cols-1 lg:grid-cols-2"
-            style={{ gap: "var(--space-md)" }}
-          >
-            {recentParticipations.map((participation) => {
-              const status = participationStatus(participation);
-              return (
-                <NexusSectionCard
-                  key={participation.id}
-                  icon={Ticket}
-                  title={participation.customerName}
-                  subtitle={formatDateTime(participation.createdAt)}
-                  onClick={() => onOpenParticipation(participation)}
-                  rightContent={
+          <>
+            <div className="divide-y divide-border-main">
+              {visibleParticipationHistory.map((participation) => {
+                const status = participationStatus(participation);
+                const ticketPreview = participation.ticketNumbers.slice(0, 3).join(", ");
+                const remainingTickets = participation.ticketNumbers.length - 3;
+                return (
+                  <article
+                    key={participation.id}
+                    className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)] items-center py-[var(--space-md)] first:pt-0 last:pb-0 lg:grid-cols-[var(--size-icon-section-compact)_minmax(0,1.15fr)_minmax(0,1fr)_7.5rem_8rem_7.5rem]"
+                    style={{ gap: "var(--space-md)" }}
+                  >
                     <div
-                      className="flex flex-col items-end"
-                      style={{ gap: "var(--space-xs)" }}
+                      className="grid shrink-0 place-items-center border border-border-main bg-bg-muted text-brand-600"
+                      style={{
+                        width: "var(--size-icon-section-compact)",
+                        height: "var(--size-icon-section-compact)",
+                        borderRadius: "var(--radius-inner-visual)",
+                      }}
                     >
-                      <NexusAutonomousBadge variant={status.variant}>
-                        {status.label}
-                      </NexusAutonomousBadge>
-                      <span className="text-secondary font-bold text-text-main">
-                        {participation.ticketCount}{" "}
-                        {participation.ticketCount === 1 ? "boleto" : "boletos"}
+                      <Ticket
+                        style={{
+                          width: "var(--size-inner-icon-section-compact)",
+                          height: "var(--size-inner-icon-section-compact)",
+                        }}
+                        strokeWidth={2}
+                      />
+                    </div>
+
+                    <div className="flex min-w-0 flex-col" style={{ gap: "var(--space-sm)" }}>
+                      <div className="flex min-w-0 flex-wrap items-center" style={{ gap: "var(--space-xs)" }}>
+                        <NexusCardBadge variant={status.variant} icon={status.icon}>
+                          {status.label}
+                        </NexusCardBadge>
+                        <NexusCardBadge variant="muted" icon={CreditCard}>
+                          {participation.paymentMethod === "MERCADOPAGO" ? "Tarjeta" : "Dep. / Trans."}
+                        </NexusCardBadge>
+                      </div>
+                      <strong className="truncate text-body font-bold text-text-main" title={participation.customerName}>
+                        {participation.customerName}
+                      </strong>
+                    </div>
+
+                    <div className="col-span-2 flex min-w-0 items-center lg:col-span-1" style={{ gap: "var(--space-xs)" }}>
+                      <p className="min-w-0 flex-1 truncate text-secondary text-text-muted" title={participation.ticketNumbers.join(", ")}>
+                        {ticketPreview}
+                      </p>
+                      {remainingTickets > 0 && (
+                        <NexusCardBadge variant="muted">+{remainingTickets}</NexusCardBadge>
+                      )}
+                    </div>
+
+                    <div className="hidden min-w-0 flex-col lg:flex" style={{ gap: "var(--space-xs)" }}>
+                      <strong className="whitespace-nowrap text-body font-bold tabular-nums text-text-main">
+                        {new Date(participation.createdAt).toLocaleDateString("es-MX")}
+                      </strong>
+                      <span className="text-secondary tabular-nums text-text-muted">
+                        {new Date(participation.createdAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
                       </span>
                     </div>
-                  }
-                />
-              );
-            })}
-          </div>
+
+                    <div className="col-span-2 flex min-w-0 items-center justify-between lg:col-span-1 lg:flex-col lg:items-end" style={{ gap: "var(--space-sm)" }}>
+                      <div className="flex min-w-0 flex-col lg:hidden" style={{ gap: "var(--space-xs)" }}>
+                        <strong className="text-body font-bold tabular-nums text-text-main">
+                          {new Date(participation.createdAt).toLocaleDateString("es-MX")}
+                        </strong>
+                        <span className="text-secondary tabular-nums text-text-muted">
+                          {new Date(participation.createdAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
+                        </span>
+                      </div>
+                      <div className="flex min-w-0 flex-col items-end" style={{ gap: "var(--space-xs)" }}>
+                        <strong className="text-body font-bold tabular-nums text-text-main">
+                          {formatParticipationCurrency(participation.total)}
+                        </strong>
+                        <span className="text-secondary text-text-muted">
+                          {participation.ticketCount} {participation.ticketCount === 1 ? "boleto" : "boletos"}
+                        </span>
+                      </div>
+                    </div>
+
+                    <NexusSectionButton
+                      type="button"
+                      variant="secondary"
+                      icon={Eye}
+                      onClick={() => onOpenParticipation(participation)}
+                      className="col-span-2 w-full lg:col-span-1"
+                      aria-label={`Ver detalle de ${participation.customerName}`}
+                    >
+                      Ver
+                    </NexusSectionButton>
+                  </article>
+                );
+              })}
+            </div>
+            <NexusPaginator
+              currentPage={historyPage}
+              totalPages={historyTotalPages}
+              onPageChange={setHistoryPage}
+              context="section"
+            />
+          </>
         )}
       </NexusSection>
     </div>

@@ -40,16 +40,6 @@ export const NexusSection: React.FC<NexusSectionProps> = ({
         padding: 'var(--padding-outer)'
       }}
     >
-      {/* Technical Background Elements */}
-      <div className="absolute inset-0 pointer-events-none overflow-hidden">
-        {/* Subtle Mesh/Grid pattern */}
-        <div className="absolute inset-0 opacity-[0.02] dark:opacity-[0.04]" 
-             style={{ backgroundImage: 'radial-gradient(circle at 1px 1px, currentColor 1px, transparent 0)', backgroundSize: '24px 24px' }} />
-        
-        {/* Top-right subtle glow */}
-        <div className="absolute -top-12 -right-12 w-48 h-48 bg-brand-500/5 rounded-full blur-3xl transition-transform duration-1000 group-hover/section:scale-125" />
-      </div>
-
       {/* Header Area */}
       <div
         className="flex flex-col border-b border-border-main relative z-10 group/header"

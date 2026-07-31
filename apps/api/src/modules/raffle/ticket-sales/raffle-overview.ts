@@ -100,7 +100,7 @@ export function buildRaffleOperationalOverview(input: {
       (total, participation) => total + Number(participation.total || 0),
       0,
     );
-  const recentParticipations = [
+  const participationHistory = [
     ...input.participations,
     ...input.holds,
   ]
@@ -108,8 +108,7 @@ export function buildRaffleOperationalOverview(input: {
       (left, right) =>
         new Date(right.createdAt).getTime() -
         new Date(left.createdAt).getTime(),
-    )
-    .slice(0, 5);
+    );
 
   return {
     raffleId: input.raffleId,
@@ -126,7 +125,8 @@ export function buildRaffleOperationalOverview(input: {
           : 0,
     },
     ticketStatuses,
-    recentParticipations,
+    recentParticipations: participationHistory.slice(0, 5),
+    participationHistory,
     updatedAt: (input.now || new Date()).toISOString(),
   };
 }

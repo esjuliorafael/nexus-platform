@@ -11,6 +11,10 @@ import type { OrderKind } from "../services/evolution/channel.resolver";
 import { queueName } from "../queues/queue-name";
 import { formatRaffleTicketList } from "../utils/raffle-ticket-list";
 import { refreshRaffleResultCampaign } from "../modules/raffle/raffles/raffle-result-communication.service";
+import {
+  raffleDrawReminderService,
+  refreshRaffleDrawReminderCampaign,
+} from "../modules/raffle/raffles/raffle-draw-reminder.service";
 import { refreshRaffleInvitationCampaign } from "../modules/raffle/raffles/raffle-invitation-campaign.service";
 import { paymentRecoveryService } from "../services/payment-recovery.service";
 import { isKapsoTenantDeliveryEnabled } from "../services/whatsapp/whatsapp-delivery-policy";
@@ -22,6 +26,14 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
   queueName("whatsapp-notifications"),
   async (job: Job<WhatsappJobData>) => {
     const { data } = job;
+    if (data.kind === "raffle-draw-reminder-dispatch") {
+      await raffleDrawReminderService.dispatchScheduledCampaign(
+        rafflePrisma,
+        storePrisma,
+        data.campaignId,
+      );
+      return;
+    }
     const forcePrincipal = data.forcePrincipal === true;
     const forceEvolution = data.forceEvolution === true;
     const forceProvider =
@@ -56,6 +68,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
               "whatsapp_global_raffle_payment_recovery",
               "whatsapp_global_raffle_reminder",
               "whatsapp_global_raffle_opening",
+              "whatsapp_global_raffle_draw_reminder",
               "whatsapp_global_raffle_invitation",
               "whatsapp_global_raffle_winner",
               "whatsapp_global_raffle_results",
@@ -304,6 +317,66 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           },
         });
         await refreshRaffleResultCampaign(rafflePrisma, recipient.campaignId);
+        throw error;
+      }
+    }
+
+    if (data.kind === "raffle-draw-reminder") {
+      const claimed = await rafflePrisma.raffleDrawReminderRecipient.updateMany({
+        where: {
+          id: data.campaignRecipientId,
+          status: { in: data.fallbackOfMessageId ? ["PENDING", "FAILED", "PROCESSING"] : ["PENDING", "FAILED"] },
+        },
+        data: { status: "PROCESSING", attempts: { increment: 1 }, lastError: null },
+      });
+      if (claimed.count === 0) return;
+
+      const recipient = await rafflePrisma.raffleDrawReminderRecipient.findUnique({
+        where: { id: data.campaignRecipientId }, include: { campaign: true },
+      });
+      if (!recipient) return;
+      const raffleChannel = waChannels.find(
+        (channel) => channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
+      );
+      const values = recipient.payload as Record<string, string>;
+      const renderedText = renderTemplate(recipient.campaign.templateContent, values);
+      const principalRenderedText = renderTemplate(recipient.campaign.principalTemplateContent, values);
+      try {
+        const sent = await sendBusinessWhatsappNotification({
+          preferredChannel: forcePrincipal ? null : raffleChannel,
+          principal: principalWhatsapp,
+          scope: "RAFFLES",
+          type: "DRAW_REMINDER",
+          sourceContent: recipient.campaign.templateContent,
+          principalSourceContent: recipient.campaign.principalTemplateContent,
+          recipientPhone: recipient.phone,
+          renderedText,
+          principalRenderedText,
+          values,
+          templateName: "raffle_draw_reminder",
+          jobId: String(job.id ?? ""),
+          attempt: recipient.attempts,
+          forceProvider,
+          kapsoEnabled,
+        });
+        if (!sent) throw new Error("No existe un proveedor de WhatsApp preparado para esta notificación.");
+        const messageLog = await storePrisma.whatsappMessageLog.findFirst({
+          where: { jobId: String(job.id ?? "") }, orderBy: { id: "desc" },
+        });
+        const waitsForProviderResolution = messageLog?.provider === "KAPSO" && ["accepted", "pending"].includes(String(messageLog.providerStatus || messageLog.status).toLowerCase());
+        await rafflePrisma.raffleDrawReminderRecipient.update({
+          where: { id: recipient.id },
+          data: { status: waitsForProviderResolution ? "PROCESSING" : "SENT", sentAt: waitsForProviderResolution ? null : new Date(), messageLogId: messageLog?.id ?? null, lastError: null },
+        });
+        await refreshRaffleDrawReminderCampaign(rafflePrisma, recipient.campaignId);
+        return;
+      } catch (error: any) {
+        const messageLog = await storePrisma.whatsappMessageLog.findFirst({ where: { jobId: String(job.id ?? "") }, orderBy: { id: "desc" } });
+        await rafflePrisma.raffleDrawReminderRecipient.update({
+          where: { id: recipient.id },
+          data: { status: "FAILED", lastError: error?.message || "No se pudo enviar el aviso del día de la rifa.", messageLogId: messageLog?.id ?? null },
+        });
+        await refreshRaffleDrawReminderCampaign(rafflePrisma, recipient.campaignId);
         throw error;
       }
     }

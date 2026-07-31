@@ -5,6 +5,12 @@ import {
   invalidateWhatsappConnectionState,
   markWhatsappInstanceProviderRejected,
 } from "../../../services/evolution/whatsapp-delivery.service";
+import {
+  getEvolutionInboundMessage,
+  isEvolutionIncomingMessageEvent,
+} from "../../../services/evolution/evolution-inbound";
+import { getWhatsappMarketingOptInKeyword, getWhatsappMarketingOptOutKeyword, whatsappMarketingConsentService } from "../../../services/whatsapp-marketing-consent.service";
+import { sendMarketingConsentConfirmation } from "../../../services/whatsapp/whatsapp-marketing-consent-confirmation.service";
 import { buildWhatsappAsyncFallbackPatch } from "../../../services/whatsapp/whatsapp-async-fallback";
 
 const STATUS_PRIORITY: Record<string, number> = {
@@ -120,6 +126,60 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
         recoveryScheduled:
           instanceName !== "webhook" && connectionState === "open",
       });
+    }
+
+    if (isEvolutionIncomingMessageEvent(eventName)) {
+      const inbound = getEvolutionInboundMessage(payload);
+      if (inbound.fromMe || !inbound.messageId || !inbound.senderPhone) {
+        return reply.send({ ok: true, ignored: "non_contact_inbound_message" });
+      }
+
+      const externalEventId = `evolution:${String(instanceName)}:${inbound.messageId}`;
+      const baseMetadata = {
+        provider: "EVOLUTION",
+        instanceName: String(instanceName),
+        messageId: inbound.messageId,
+      };
+      const optOutKeyword = getWhatsappMarketingOptOutKeyword(inbound.text);
+      if (optOutKeyword) {
+        const outcome = await whatsappMarketingConsentService.optOut(server.storePrisma, {
+          phone: inbound.senderPhone,
+          keyword: optOutKeyword,
+          externalEventId,
+          metadata: baseMetadata,
+        });
+        if (outcome.changed) {
+          await sendMarketingConsentConfirmation({
+            recipientPhone: inbound.senderPhone,
+            kind: "OPTED_OUT",
+            transport: { provider: "EVOLUTION", instanceName: String(instanceName) },
+            inboundMessageId: inbound.messageId,
+          });
+        }
+        return reply.send({ ok: true, marketingConsent: "OPTED_OUT" });
+      }
+
+      const optInKeyword = getWhatsappMarketingOptInKeyword(inbound.text);
+      if (optInKeyword) {
+        const outcome = await whatsappMarketingConsentService.grant(server.storePrisma, {
+          phone: inbound.senderPhone,
+          source: "INBOUND_KEYWORD",
+          externalEventId,
+          keyword: optInKeyword,
+          metadata: { ...baseMetadata, keyword: optInKeyword },
+        });
+        if (outcome.changed) {
+          await sendMarketingConsentConfirmation({
+            recipientPhone: inbound.senderPhone,
+            kind: "GRANTED",
+            transport: { provider: "EVOLUTION", instanceName: String(instanceName) },
+            inboundMessageId: inbound.messageId,
+          });
+        }
+        return reply.send({ ok: true, marketingConsent: "GRANTED" });
+      }
+
+      return reply.send({ ok: true, ignored: "unrecognized_inbound_message" });
     }
 
     const messageId = firstValue(payload, [

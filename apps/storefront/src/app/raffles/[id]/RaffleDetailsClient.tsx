@@ -37,7 +37,6 @@ import {
 import { useToastStore } from '../../../store/toast.store';
 import { useRaffleSelectionUiStore } from '../../../store/raffle-selection-ui.store';
 import { formatPrice } from '../../../utils/formatters';
-import { formatCalendarDate, parseCalendarDate } from '../../../utils/calendarDate';
 import {
   clearRaffleCheckoutDraft,
   getRaffleCheckoutDraft,
@@ -50,6 +49,22 @@ import {
   STOREFRONT_MOTION_MS,
   toMotionSeconds,
 } from '../../../lib/motion';
+
+const formatRaffleDrawDate = (value: string | null) => {
+  if (!value) return 'Por definir';
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return 'Por definir';
+
+  return new Intl.DateTimeFormat('es-MX', {
+    day: 'numeric',
+    month: 'long',
+    year: 'numeric',
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+    timeZone: 'America/Mexico_City',
+  }).format(date);
+};
 
 interface RaffleDetailsClientProps {
   raffle: Raffle;
@@ -629,12 +644,8 @@ export function RaffleDetailsClient({ raffle, initialTicketAvailability, reserva
                     <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
                       <RaffleInfoItem
                         icon={Calendar}
-                        label="Fecha de la rifa"
-                        value={formatCalendarDate(raffle.drawDate, {
-                          day: 'numeric',
-                          month: 'long',
-                          year: 'numeric',
-                        })}
+                        label="Fecha y hora de la rifa"
+                        value={formatRaffleDrawDate(raffle.drawDate)}
                       />
                       <RaffleInfoItem
                         icon={Ticket}
@@ -1007,7 +1018,7 @@ function RaffleCountdown({
   status: Raffle['status'];
 }) {
   const [now, setNow] = useState(() => Date.now());
-  const drawTargetDate = parseCalendarDate(drawDate);
+  const drawTargetDate = drawDate ? new Date(drawDate) : null;
   const publicStartDate = participationStartsAt ? new Date(participationStartsAt) : null;
   const hasValidDrawDate = Boolean(drawTargetDate && !Number.isNaN(drawTargetDate.getTime()));
   const hasValidPublicStart = Boolean(publicStartDate && !Number.isNaN(publicStartDate.getTime()));
@@ -1027,7 +1038,7 @@ function RaffleCountdown({
   if (!hasValidTargetDate || !targetDate) return null;
 
   const remainingMs = Math.max(0, targetDate.getTime() - now);
-  const hasStarted = remainingMs === 0;
+  const hasReachedDrawTime = remainingMs === 0;
   const totalMinutes = Math.floor(remainingMs / 60_000);
   const days = Math.floor(totalMinutes / (60 * 24));
   const hours = Math.floor((totalMinutes % (60 * 24)) / 60);
@@ -1039,9 +1050,9 @@ function RaffleCountdown({
       ? 'La rifa fue cancelada'
       : isWaitingForPublicOpening
         ? 'La participación pública comienza en'
-      : hasStarted
-        ? 'La rifa está en curso'
-        : 'La rifa inicia en';
+      : hasReachedDrawTime
+        ? 'Resultado pendiente de publicar'
+        : 'El resultado se define en';
 
   return (
     <StorefrontAutonomousCard
@@ -1054,7 +1065,7 @@ function RaffleCountdown({
           <h3 className="sf-text-secondary-strong">{stateLabel}</h3>
         </div>
 
-        {status === 'ACTIVE' && !hasStarted && (
+        {status === 'ACTIVE' && !hasReachedDrawTime && (
           <div className="grid grid-cols-3" style={{ gap: 'var(--sf-space-md)' }}>
             <CountdownUnit value={days} label="Días" />
             <CountdownUnit value={hours} label="Horas" />

@@ -906,6 +906,7 @@ enum TemplateType {
   RESTORED            @map("restored")
   REMINDER            @map("reminder")
   OPENING             @map("opening")
+  DRAW_REMINDER       @map("draw_reminder")
   RAFFLE_INVITATION   @map("raffle_invitation")
   RESULT_WINNER       @map("result_winner")
   RESULT_PARTICIPANTS @map("result_participants")

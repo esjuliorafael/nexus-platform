@@ -15,6 +15,11 @@ import { deriveRaffleResultCampaignStatus } from "./raffle-result-communication.
 
 const DEFAULT_AUDIENCE_NAME = "Participantes pagados";
 const DEFAULT_AUDIENCE_RULES: RaffleAudienceRules = { minPaidParticipations: 1 };
+const AUTHORIZED_AUDIENCE_NAME = "Participantes autorizados";
+const AUTHORIZED_AUDIENCE_RULES: RaffleAudienceRules = {};
+export type RaffleInvitationAudiencePreset =
+  | "PAID_PARTICIPANTS"
+  | "AUTHORIZED_PARTICIPANTS";
 const TEMPLATE_KEY = "whatsapp_global_raffle_invitation";
 const DEFAULT_INVITATION_TEMPLATE = `¡Hola, {{customer_name}}! 🎟️
 
@@ -98,8 +103,16 @@ async function createWhatsappInvitationCover(
 async function resolveAudience(
   rafflePrisma: RafflePrismaClient,
   audienceId?: string | null,
+  audiencePreset: RaffleInvitationAudiencePreset = "PAID_PARTICIPANTS",
 ) {
   if (!audienceId) {
+    if (audiencePreset === "AUTHORIZED_PARTICIPANTS") {
+      return {
+        id: null,
+        name: AUTHORIZED_AUDIENCE_NAME,
+        rules: AUTHORIZED_AUDIENCE_RULES,
+      };
+    }
     return {
       id: null,
       name: DEFAULT_AUDIENCE_NAME,
@@ -249,10 +262,11 @@ export const raffleInvitationCampaignService = {
     raffleId: number,
     audienceId?: string | null,
     frequencyWindowDays = 0,
+    audiencePreset: RaffleInvitationAudiencePreset = "PAID_PARTICIPANTS",
   ) {
     const raffle = await rafflePrisma.raffle.findUnique({ where: { id: raffleId } });
     if (!raffle) return null;
-    const audience = await resolveAudience(rafflePrisma, audienceId);
+    const audience = await resolveAudience(rafflePrisma, audienceId, audiencePreset);
     const selection = await raffleAudienceService.selectEligible(
       rafflePrisma,
       storePrisma,
@@ -298,7 +312,11 @@ export const raffleInvitationCampaignService = {
     rafflePrisma: RafflePrismaClient,
     storePrisma: StorePrismaClient,
     raffleId: number,
-    input: { audienceId?: string | null; frequencyWindowDays: number },
+    input: {
+      audienceId?: string | null;
+      frequencyWindowDays: number;
+      audiencePreset?: RaffleInvitationAudiencePreset;
+    },
     actor: AuditActor,
   ) {
     const [raffle, audience, template] = await Promise.all([
@@ -314,7 +332,7 @@ export const raffleInvitationCampaignService = {
           imagePoster: true,
         },
       }),
-      resolveAudience(rafflePrisma, input.audienceId),
+      resolveAudience(rafflePrisma, input.audienceId, input.audiencePreset),
       resolveTemplate(storePrisma),
     ]);
     if (!raffle) throw new Error("RAFFLE_NOT_FOUND");

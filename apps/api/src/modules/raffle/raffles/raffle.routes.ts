@@ -38,6 +38,7 @@ import {
 import { requireAdminActor } from "../../../utils/admin-authorization";
 import { raffleResultService } from "./raffle-result.service";
 import { raffleResultCommunicationService } from "./raffle-result-communication.service";
+import { raffleDrawReminderService } from "./raffle-draw-reminder.service";
 import { raffleInvitationCampaignService } from "./raffle-invitation-campaign.service";
 
 const reserveTicketsBodySchema = z.object({
@@ -110,6 +111,10 @@ const raffleResultCampaignBodySchema = z.object({
   audience: z.enum(["WINNERS", "PARTICIPANTS"]),
 });
 
+const raffleDrawReminderScheduleBodySchema = z.object({
+  scheduledFor: z.string().datetime(),
+});
+
 const raffleResultCampaignParamsSchema = z.object({
   id: z.coerce.number().int().positive(),
   campaignId: z.string().uuid(),
@@ -117,11 +122,13 @@ const raffleResultCampaignParamsSchema = z.object({
 
 const raffleInvitationQuerySchema = z.object({
   audienceId: z.string().uuid().optional(),
+  audiencePreset: z.enum(["PAID_PARTICIPANTS", "AUTHORIZED_PARTICIPANTS"]).optional(),
   frequencyWindowDays: z.coerce.number().int().min(0).max(365).default(0),
 });
 
 const raffleInvitationCampaignBodySchema = z.object({
   audienceId: z.string().uuid().nullable().optional(),
+  audiencePreset: z.enum(["PAID_PARTICIPANTS", "AUTHORIZED_PARTICIPANTS"]).optional(),
   frequencyWindowDays: z.number().int().min(0).max(365).default(0),
 });
 
@@ -930,6 +937,112 @@ export async function raffleRoutes(server: FastifyInstance) {
   );
 
   server.post(
+    "/admin/:id/draw-reminder/campaign",
+    { preHandler: [server.authenticate] },
+    async (request, reply) => {
+      try {
+        const actor = await requireAdminActor(server, request, reply);
+        if (!actor) return;
+        const { id } = raffleResultParamsSchema.parse(request.params);
+        return await raffleDrawReminderService.createCampaign(
+          getPrisma(),
+          server.storePrisma,
+          id,
+          actor,
+        );
+      } catch (error: any) {
+        if (error?.issues) {
+          return reply.status(400).send({ message: "Validation error", errors: error.issues });
+        }
+        const errors: Record<string, { status: number; message: string }> = {
+          RAFFLE_NOT_FOUND: { status: 404, message: "La rifa no existe." },
+          RAFFLE_DRAW_DATE_MISSING: { status: 409, message: "Configura la fecha de la rifa antes de enviar este aviso." },
+          RAFFLE_DRAW_REMINDER_TEMPLATE_MISSING: { status: 409, message: "Configura la plantilla Recordatorio de la rifa antes de enviar." },
+        };
+        const mapped = errors[error?.message];
+        if (mapped) return reply.status(mapped.status).send({ message: mapped.message, code: error.message });
+        throw error;
+      }
+    },
+  );
+
+  server.post(
+    "/admin/:id/draw-reminder/schedule",
+    { preHandler: [server.authenticate] },
+    async (request, reply) => {
+      try {
+        const actor = await requireAdminActor(server, request, reply);
+        if (!actor) return;
+        const { id } = raffleResultParamsSchema.parse(request.params);
+        const { scheduledFor } = raffleDrawReminderScheduleBodySchema.parse(request.body);
+        return await raffleDrawReminderService.scheduleCampaign(
+          getPrisma(),
+          server.storePrisma,
+          id,
+          new Date(scheduledFor),
+          actor,
+        );
+      } catch (error: any) {
+        if (error?.issues) {
+          return reply.status(400).send({ message: "Validation error", errors: error.issues });
+        }
+        const errors: Record<string, { status: number; message: string }> = {
+          RAFFLE_NOT_FOUND: { status: 404, message: "La rifa no existe." },
+          RAFFLE_DRAW_DATE_MISSING: { status: 409, message: "Configura la fecha y hora de la rifa antes de programar el aviso." },
+          RAFFLE_DRAW_REMINDER_TEMPLATE_MISSING: { status: 409, message: "Configura la plantilla Recordatorio de la rifa antes de programar." },
+          RAFFLE_DRAW_REMINDER_SCHEDULE_IN_PAST: { status: 409, message: "Elige una hora futura para programar el aviso." },
+          RAFFLE_DRAW_REMINDER_SCHEDULE_AFTER_DRAW: { status: 409, message: "El aviso debe programarse antes de la fecha y hora de la rifa." },
+          RAFFLE_DRAW_REMINDER_ALREADY_DISPATCHED: { status: 409, message: "El aviso ya comenzó a enviarse y no puede reprogramarse." },
+        };
+        const mapped = errors[error?.message];
+        if (mapped) return reply.status(mapped.status).send({ message: mapped.message, code: error.message });
+        throw error;
+      }
+    },
+  );
+
+  server.delete(
+    "/admin/:id/draw-reminder/schedule",
+    { preHandler: [server.authenticate] },
+    async (request, reply) => {
+      try {
+        const actor = await requireAdminActor(server, request, reply);
+        if (!actor) return;
+        const { id } = raffleResultParamsSchema.parse(request.params);
+        await raffleDrawReminderService.cancelScheduledCampaign(getPrisma(), id, actor);
+        return { cancelled: true };
+      } catch (error: any) {
+        if (error?.issues) {
+          return reply.status(400).send({ message: "Validation error", errors: error.issues });
+        }
+        const errors: Record<string, { status: number; message: string }> = {
+          RAFFLE_NOT_FOUND: { status: 404, message: "La rifa no existe." },
+          RAFFLE_DRAW_REMINDER_NOT_SCHEDULED: { status: 409, message: "No existe una programación activa para este aviso." },
+        };
+        const mapped = errors[error?.message];
+        if (mapped) return reply.status(mapped.status).send({ message: mapped.message, code: error.message });
+        throw error;
+      }
+    },
+  );
+
+  server.get(
+    "/admin/:id/draw-reminder",
+    { preHandler: [server.authenticate] },
+    async (request, reply) => {
+      try {
+        const { id } = raffleResultParamsSchema.parse(request.params);
+        const overview = await raffleDrawReminderService.getOverview(getPrisma(), server.storePrisma, id);
+        if (!overview) return reply.status(404).send({ message: "La rifa no existe." });
+        return overview;
+      } catch (error: any) {
+        if (error?.issues) return reply.status(400).send({ message: "Validation error", errors: error.issues });
+        throw error;
+      }
+    },
+  );
+
+  server.post(
     "/admin/:id/result/campaigns",
     { preHandler: [server.authenticate] },
     async (request, reply) => {
@@ -1036,6 +1149,7 @@ export async function raffleRoutes(server: FastifyInstance) {
           id,
           query.audienceId,
           query.frequencyWindowDays,
+          query.audiencePreset,
         );
         if (!overview) {
           return reply.status(404).send({ message: "La rifa no existe." });

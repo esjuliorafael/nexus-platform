@@ -1,7 +1,6 @@
 import {
   Prisma,
   ProductType,
-  WhatsappMarketingConsentSource,
 } from "@prisma/client-store";
 import { storePrisma } from "@nexus/db/store";
 import { paymentHoldReleaseQueue } from "../../../queues/payment-hold-release.queue";
@@ -23,7 +22,6 @@ import {
   PAYMENT_RECONCILIATION_INTERVAL_MS,
   resolvePaymentHoldMinutes,
 } from "../payments/payment-hold-policy";
-import { whatsappMarketingConsentService } from "../../../services/whatsapp-marketing-consent.service";
 import { synchronizeItemAvailability } from "../products/product-inventory";
 
 const holdError = (message: string, statusCode = 400, code?: string) =>
@@ -206,22 +204,6 @@ export const storePaymentHoldService = {
       }
       return created;
     });
-
-    if (data.marketingConsent === true) {
-      await whatsappMarketingConsentService
-        .grant(storePrisma, {
-          phone: hold.customerPhone,
-          displayName: hold.customerName,
-          source: WhatsappMarketingConsentSource.STORE_CHECKOUT,
-          metadata: {
-            storePaymentHoldId: hold.id,
-            paymentMethod: "MERCADOPAGO",
-          },
-        })
-        .catch((error) => {
-          console.error("[Marketing consent] Store payment consent could not be recorded:", error);
-        });
-    }
 
     await paymentHoldReleaseQueue.add("store-hold", { kind: "store", holdId: hold.id }, { delay: holdMinutes * 60_000 });
     return { paymentHoldId: hold.id, expiresAt: hold.expiresAt.toISOString(), total: Number(hold.total) };

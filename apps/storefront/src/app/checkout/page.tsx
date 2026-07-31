@@ -55,7 +55,6 @@ import { useCheckoutTransitionReady } from "../../hooks/useCheckoutTransitionRea
 import { PaymentMethodCard } from "../../components/checkout/PaymentMethodCard";
 import { BankInfoCard } from "../../components/checkout/BankInfoCard";
 import { MercadoPagoCardPayment } from "../../components/checkout/MercadoPagoCardPayment";
-import { MarketingConsentField } from "../../components/checkout/MarketingConsentField";
 import {
   StorefrontCheckoutMotion,
   useStorefrontCheckoutMotionReady,
@@ -212,7 +211,6 @@ export default function CheckoutPage() {
     deliveryMethod: "" as DeliveryMethod | "",
     deliveryType: "SHIPPING" as DeliveryType,
   });
-  const [marketingConsent, setMarketingConsent] = useState(false);
 
   useEffect(() => {
     setMounted(true);
@@ -598,7 +596,6 @@ export default function CheckoutPage() {
       couponCode: coupon?.code || "",
       deliveryType: "SHIPPING",
       paymentMethod,
-      marketingConsent,
       items: items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
     };
   };
@@ -1177,10 +1174,6 @@ export default function CheckoutPage() {
                     <StorefrontNote icon={MessageCircle}>
                       Selecciona el código de país correcto e ingresa únicamente los dígitos de tu número de WhatsApp. Enviaremos ahí las confirmaciones y actualizaciones de tu pedido.
                     </StorefrontNote>
-                    <MarketingConsentField
-                      checked={marketingConsent}
-                      onChange={setMarketingConsent}
-                    />
                   </StorefrontCheckoutSection>
                 </div>
 

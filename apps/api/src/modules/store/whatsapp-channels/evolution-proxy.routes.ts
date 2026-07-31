@@ -55,7 +55,12 @@ export async function evolutionProxyRoutes(server: FastifyInstance) {
         enabled: true,
         url: getWebhookUrl(request),
         webhookByEvents: false,
-        events: ["SEND_MESSAGE_UPDATE", "MESSAGES_UPDATE", "CONNECTION_UPDATE"],
+        events: [
+          "SEND_MESSAGE_UPDATE",
+          "MESSAGES_UPDATE",
+          "MESSAGES_UPSERT",
+          "CONNECTION_UPDATE",
+        ],
         headers: webhookToken
           ? { "x-nexus-webhook-token": webhookToken }
           : undefined,
@@ -192,6 +197,7 @@ export async function evolutionProxyRoutes(server: FastifyInstance) {
           events: [
             "SEND_MESSAGE_UPDATE",
             "MESSAGES_UPDATE",
+            "MESSAGES_UPSERT",
             "CONNECTION_UPDATE",
           ],
           headers: webhookToken

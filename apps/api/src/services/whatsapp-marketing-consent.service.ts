@@ -11,6 +11,7 @@ export const WHATSAPP_MARKETING_OPT_OUT_KEYWORDS = new Set([
   "BAJA",
   "DETENER",
 ]);
+export const WHATSAPP_MARKETING_OPT_IN_KEYWORDS = new Set(["ALTA"]);
 
 type ConsentMetadata = Prisma.InputJsonValue;
 
@@ -26,6 +27,11 @@ const normalizeKeyword = (text: string) =>
 export const getWhatsappMarketingOptOutKeyword = (text: string) => {
   const keyword = normalizeKeyword(text);
   return WHATSAPP_MARKETING_OPT_OUT_KEYWORDS.has(keyword) ? keyword : null;
+};
+
+export const getWhatsappMarketingOptInKeyword = (text: string) => {
+  const keyword = normalizeKeyword(text);
+  return WHATSAPP_MARKETING_OPT_IN_KEYWORDS.has(keyword) ? keyword : null;
 };
 
 const writePreferenceEvent = async (
@@ -50,7 +56,7 @@ const writePreferenceEvent = async (
         where: { externalEventId: input.externalEventId },
         include: { preference: true },
       });
-      if (duplicate) return duplicate.preference;
+      if (duplicate) return { preference: duplicate.preference, changed: false };
     }
 
     const existing = await tx.whatsappMarketingPreference.findUnique({
@@ -117,7 +123,10 @@ const writePreferenceEvent = async (
       },
     });
 
-    return preference;
+    return {
+      preference,
+      changed: existing?.status !== input.nextStatus,
+    };
   });
 };
 
@@ -128,6 +137,8 @@ export const whatsappMarketingConsentService = {
       phone: string;
       displayName?: string | null;
       source: WhatsappMarketingConsentSource;
+      externalEventId?: string | null;
+      keyword?: string | null;
       metadata?: ConsentMetadata;
     },
   ) {
@@ -135,6 +146,8 @@ export const whatsappMarketingConsentService = {
       ...input,
       nextStatus: WhatsappMarketingConsentStatus.GRANTED,
       policyVersion: WHATSAPP_MARKETING_CONSENT_VERSION,
+      externalEventId: input.externalEventId,
+      keyword: input.keyword,
     });
   },
 

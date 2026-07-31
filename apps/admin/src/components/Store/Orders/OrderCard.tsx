@@ -142,6 +142,15 @@ export const OrderCard: React.FC<OrderCardProps> = ({
     }
   }, [order.status]);
 
+  const mobileStatusLabel =
+    statusConfig.label === 'Apartada'
+      ? 'Apart.'
+      : statusConfig.label === 'Pagada'
+        ? 'Pag.'
+        : statusConfig.label === 'Cancelada'
+          ? 'Cancel.'
+          : statusConfig.label;
+
   const isCardPayment = order.paymentMethod === 'MERCADOPAGO';
   const paymentMethodLabel = isCardPayment ? 'Tarjeta' : 'Dep. / Trans.';
 
@@ -194,7 +203,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                 variant={statusConfig.badgeVariant}
                 icon={statusConfig.icon}
               >
-                {statusConfig.label}
+                {mobileStatusLabel}
               </NexusAutonomousBadge>
               <NexusAutonomousBadge
                 variant="muted"

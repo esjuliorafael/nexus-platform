@@ -23,16 +23,16 @@ import {
 import { NexusActivityHistory } from "../ui/NexusActivityHistory";
 import {
   NexusCardBadge,
-  NexusSectionBadge,
   type NexusBadgeVariant,
 } from "../ui/NexusBadge";
-import { NexusSectionButton } from "../ui/NexusButton";
+import { NexusCardButton, NexusSectionButton } from "../ui/NexusButton";
 import { NexusConfirmModal } from "../ui/NexusConfirmModal";
 import {
   NexusInlineNotice,
   type NexusInlineNoticeVariant,
 } from "../ui/NexusInlineNotice";
 import { NexusInput } from "../ui/NexusInputs";
+import { NexusCardIcon } from "../ui/NexusIcon";
 import { NexusModal, NexusModalActions } from "../ui/NexusModal";
 import { NexusSection } from "../ui/NexusSection";
 import { downloadRaffleResultImage } from "../../utils/raffle-result-image";
@@ -42,6 +42,7 @@ interface RaffleResultSectionProps {
   canManageOperations: boolean;
   showToast: (message: string, type?: "success" | "error") => void;
   onRaffleChange: (raffle: Raffle) => void;
+  content?: "all" | "resolution" | "history";
 }
 
 type ResolutionPresentation = {
@@ -135,6 +136,7 @@ export const RaffleResultSection: React.FC<RaffleResultSectionProps> = ({
   canManageOperations,
   showToast,
   onRaffleChange,
+  content = "all",
 }) => {
   const [result, setResult] = React.useState<RaffleResultAdmin | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
@@ -337,10 +339,12 @@ export const RaffleResultSection: React.FC<RaffleResultSectionProps> = ({
       result.prizes.length > 0 &&
       result.prizes.every((prize) => prize.winningNumber),
   );
+  const showResolution = content !== "history";
+  const showHistory = content !== "resolution";
 
   return (
     <>
-      <NexusSection
+      {showResolution && <NexusSection
         title="Resolución de la Rifa"
         subtitle={
           published
@@ -389,10 +393,7 @@ export const RaffleResultSection: React.FC<RaffleResultSectionProps> = ({
           </div>
         ) : configuredPrizes.length > 0 &&
           raffle.status !== "CANCELLED" ? (
-          <div
-            className="grid grid-cols-1 md:grid-cols-2"
-            style={{ gap: "var(--space-md)" }}
-          >
+          <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
             {configuredPrizes.map((prize) =>
               prize.id ? (
                 <PrizeCaptureCard
@@ -417,9 +418,9 @@ export const RaffleResultSection: React.FC<RaffleResultSectionProps> = ({
                 : `Nexus tomará los últimos ${raffle.digits} dígitos de cada resultado oficial, localizará su boleto principal y verificará el pago de cada participación.`}
           </NexusInlineNotice>
         )}
-      </NexusSection>
+      </NexusSection>}
 
-      <NexusSection
+      {showHistory && <NexusSection
         title="Historial de la Rifa"
         subtitle="Registro de las acciones realizadas sobre los resultados"
         icon={History}
@@ -428,7 +429,7 @@ export const RaffleResultSection: React.FC<RaffleResultSectionProps> = ({
           events={result?.events}
           emptyMessage="Aún no hay acciones registradas sobre los resultados."
         />
-      </NexusSection>
+      </NexusSection>}
 
       <NexusModal
         isOpen={isModalOpen}
@@ -663,7 +664,7 @@ function PrizeCaptureCard({
   const captured = Boolean(capturedValue);
   return (
     <div
-      className="flex min-w-0 flex-col border border-border-main bg-bg-card"
+      className="group/card flex min-w-0 flex-col border border-border-main bg-bg-card md:flex-row md:items-center md:justify-between"
       style={{
         gap: "var(--space-md)",
         padding: "var(--space-md)",
@@ -671,72 +672,55 @@ function PrizeCaptureCard({
       }}
     >
       <div
-        className="flex min-w-0 items-center"
+        className="flex min-w-0 flex-1 items-center"
         style={{ gap: "var(--space-sm)" }}
       >
-        <div
-          className="flex shrink-0 items-center justify-center bg-bg-muted text-primary"
-          style={{
-            width: "var(--h-button-card)",
-            height: "var(--h-button-card)",
-            borderRadius: "var(--radius-nested-simple)",
-          }}
-        >
-          <Trophy
-            style={{
-              width: "var(--size-inner-icon-card)",
-              height: "var(--size-inner-icon-card)",
-            }}
-          />
-        </div>
+        <NexusCardIcon icon={Trophy} variant="brand" />
         <div
           className="flex min-w-0 flex-1 flex-col"
           style={{ gap: "var(--space-xs)" }}
         >
-          <span className="text-label uppercase text-text-muted">
+          <h4 className="text-h2 text-text-main">
             {getPlaceLabel(prize.position || 1)}
-          </span>
-          <strong className="truncate text-secondary text-text-main">
+          </h4>
+          <p className="text-secondary text-text-muted">
             {prize.title}
-          </strong>
+          </p>
         </div>
-        <NexusSectionBadge variant={captured ? "success" : "muted"}>
-          {captured ? "Capturado" : "Pendiente"}
-        </NexusSectionBadge>
       </div>
 
       <div
-        className="flex items-end justify-between border-t border-border-main"
-        style={{
-          gap: "var(--space-sm)",
-          paddingTop: "var(--space-md)",
-        }}
+        className="flex min-w-0 flex-col md:flex-row md:items-center md:justify-end"
+        style={{ gap: "var(--space-md)" }}
       >
-        <div
-          className="flex min-w-0 flex-col"
-          style={{ gap: "var(--space-xs)" }}
-        >
-          <span className="text-label uppercase text-text-muted">
-            Referencia
-          </span>
-          <span className="truncate text-body text-text-main">
-            {captured
-              ? capturedValue
-              : getResultSourceLabel(
-                  prize.resultSource,
-                  prize.resultSourceLabel,
-                )}
-          </span>
+        <div className="flex min-w-0 items-center justify-between md:justify-end" style={{ gap: "var(--space-md)" }}>
+          <NexusCardBadge variant={captured ? "success" : "muted"}>
+            {captured ? "Capturado" : "Pendiente"}
+          </NexusCardBadge>
+          <div className="flex min-w-0 flex-col items-end" style={{ gap: "var(--space-xs)" }}>
+            <span className="text-label uppercase text-text-muted">
+              {captured ? "Resultado oficial" : "Referencia"}
+            </span>
+            <span className="max-w-full truncate text-secondary text-text-main tabular-nums">
+              {captured
+                ? capturedValue
+                : getResultSourceLabel(
+                    prize.resultSource,
+                    prize.resultSourceLabel,
+                  )}
+            </span>
+          </div>
         </div>
-        <NexusSectionButton
+        <NexusCardButton
           type="button"
           variant={captured ? "secondary" : "brand"}
           icon={captured ? Search : Trophy}
+          className="w-full md:w-auto"
           disabled={disabled}
           onClick={onResolve}
         >
           {captured ? "Revisar" : "Resolver"}
-        </NexusSectionButton>
+        </NexusCardButton>
       </div>
     </div>
   );
@@ -836,7 +820,12 @@ function PrizeResolution({ prize }: { prize: RafflePrizeResultPreview }) {
             borderRadius: "var(--radius-nested-simple)",
           }}
         >
-          <Trophy size={18} />
+          <Trophy
+            style={{
+              width: "var(--size-inner-icon-card)",
+              height: "var(--size-inner-icon-card)",
+            }}
+          />
         </div>
         <div className="flex min-w-0 flex-col" style={{ gap: "var(--space-xs)" }}>
           <span className="text-label uppercase text-text-muted">

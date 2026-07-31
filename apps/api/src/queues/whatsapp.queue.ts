@@ -102,6 +102,15 @@ export type WhatsappJobData = (
       recipientPhone: string;
     }
   | {
+      kind: "raffle-draw-reminder";
+      campaignRecipientId: string;
+      recipientPhone: string;
+    }
+  | {
+      kind: "raffle-draw-reminder-dispatch";
+      campaignId: string;
+    }
+  | {
       kind: "raffle-invitation";
       campaignRecipientId: string;
       recipientPhone: string;

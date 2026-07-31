@@ -8,7 +8,10 @@ import {
   shouldAdvanceKapsoStatus,
   verifyKapsoWebhookSignature,
 } from "../src/services/kapso/kapso-webhook";
-import { getWhatsappMarketingOptOutKeyword } from "../src/services/whatsapp-marketing-consent.service";
+import {
+  getWhatsappMarketingOptInKeyword,
+  getWhatsappMarketingOptOutKeyword,
+} from "../src/services/whatsapp-marketing-consent.service";
 
 test("verifies Kapso webhook HMAC signatures", () => {
   const payload = { message: { id: "wamid.123" } };
@@ -74,4 +77,10 @@ test("recognizes only explicit global opt-out keywords", () => {
   assert.equal(getWhatsappMarketingOptOutKeyword("Detener"), "DETENER");
   assert.equal(getWhatsappMarketingOptOutKeyword("No, gracias"), null);
   assert.equal(getWhatsappMarketingOptOutKeyword("baja temporal"), null);
+});
+
+test("recognizes only the explicit marketing opt-in keyword", () => {
+  assert.equal(getWhatsappMarketingOptInKeyword(" alta "), "ALTA");
+  assert.equal(getWhatsappMarketingOptInKeyword("si"), null);
+  assert.equal(getWhatsappMarketingOptInKeyword("alta para rifas"), null);
 });

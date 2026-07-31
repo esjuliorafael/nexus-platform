@@ -36,6 +36,22 @@ const formatDate = (value: string) =>
 const formatCurrency = (value: number) =>
   value.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
 
+const useDesktopLayout = () => {
+  const [isDesktop, setIsDesktop] = React.useState(() =>
+    typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches,
+  );
+
+  React.useEffect(() => {
+    const mediaQuery = window.matchMedia("(min-width: 1024px)");
+    const syncLayout = () => setIsDesktop(mediaQuery.matches);
+    syncLayout();
+    mediaQuery.addEventListener("change", syncLayout);
+    return () => mediaQuery.removeEventListener("change", syncLayout);
+  }, []);
+
+  return isDesktop;
+};
+
 export const RaffleParticipationCard: React.FC<RaffleParticipationCardProps> = ({
   participation,
   canManageOperations,
@@ -44,6 +60,7 @@ export const RaffleParticipationCard: React.FC<RaffleParticipationCardProps> = (
   onCancel,
 }) => {
   const [isActionsOpen, setIsActionsOpen] = React.useState(false);
+  const isDesktop = useDesktopLayout();
   const status = useMemo<{
     label: string;
     icon: LucideIcon;
@@ -67,6 +84,15 @@ export const RaffleParticipationCard: React.FC<RaffleParticipationCardProps> = (
     }
     return { label: "Apartada", icon: Clock, iconVariant: "brand", badgeVariant: "warning" };
   }, [participation.status]);
+
+  const mobileStatusLabel =
+    status.label === "Apartada"
+      ? "Apart."
+      : status.label === "Pagada"
+        ? "Pag."
+        : status.label === "Cancelada"
+          ? "Cancel."
+          : status.label;
 
   const isPendingTransfer = participation.status === "PENDING" && participation.paymentMethod !== "MERCADOPAGO";
   const canManagePendingTransfer = canManageOperations && isPendingTransfer;
@@ -103,7 +129,7 @@ export const RaffleParticipationCard: React.FC<RaffleParticipationCardProps> = (
             onViewDetail();
           }
         }}
-        className="flex w-full flex-col text-left sm:flex-row sm:items-center"
+        className="flex w-full flex-col text-left lg:flex-row lg:items-center"
         style={{ gap: "var(--space-md)" }}
       >
         <div className="flex min-w-0 flex-1 items-center" style={{ gap: "var(--space-md)" }}>
@@ -117,16 +143,18 @@ export const RaffleParticipationCard: React.FC<RaffleParticipationCardProps> = (
           <div className="flex min-w-0 flex-1 flex-col" style={{ gap: "var(--space-sm)" }}>
             <div className="flex min-w-0 flex-wrap items-center" style={{ gap: "var(--space-xs)" }}>
               <NexusAutonomousBadge variant={status.badgeVariant} icon={status.icon}>
-                {status.label}
+                {isDesktop ? status.label : mobileStatusLabel}
               </NexusAutonomousBadge>
               <NexusAutonomousBadge variant="muted" icon={CreditCard}>
                 {methodLabel}
               </NexusAutonomousBadge>
-              <NexusAutonomousBadge variant="brand" icon={Hash} className="hidden sm:inline-flex">
+              {isDesktop && (
+                <NexusAutonomousBadge variant="brand" icon={Hash}>
                 {participation.ticketCount > 0
                   ? `${participation.ticketCount} ${participation.ticketCount === 1 ? "boleto" : "boletos"}`
                   : "Selección liberada"}
-              </NexusAutonomousBadge>
+                </NexusAutonomousBadge>
+              )}
             </div>
             <div className="flex min-w-0 flex-col" style={{ gap: "var(--space-xs)" }}>
               <h3 className="truncate text-h2 font-bold text-text-main">{participation.customerName}</h3>
@@ -135,16 +163,18 @@ export const RaffleParticipationCard: React.FC<RaffleParticipationCardProps> = (
           </div>
         </div>
 
-        <div className="flex w-full flex-wrap items-center sm:hidden" style={{ gap: "var(--space-xs)" }}>
+        {!isDesktop && (
+        <div className="flex w-full flex-wrap items-center" style={{ gap: "var(--space-xs)" }}>
           <NexusAutonomousBadge variant="brand" icon={Hash}>
             {participation.ticketCount > 0
               ? `${participation.ticketCount} ${participation.ticketCount === 1 ? "boleto" : "boletos"}`
               : "Selección liberada"}
           </NexusAutonomousBadge>
         </div>
+        )}
 
         <div
-          className="flex w-full items-center justify-between border-t border-border-main pt-[var(--space-md)] sm:hidden"
+          className="flex w-full items-center justify-between border-t border-border-main pt-[var(--space-md)] lg:hidden"
           style={{ gap: "var(--space-md)" }}
         >
           <div className="flex flex-col" style={{ gap: "var(--space-xs)" }}>
@@ -164,7 +194,7 @@ export const RaffleParticipationCard: React.FC<RaffleParticipationCardProps> = (
         </div>
 
         <div
-          className="nexus-card-divider-desktop relative hidden shrink-0 items-center pl-[var(--space-md)] sm:flex"
+          className="nexus-card-divider-desktop relative hidden shrink-0 items-center pl-[var(--space-md)] lg:flex"
           style={{ minWidth: "var(--width-operation-card-summary)", minHeight: "var(--size-button-card)" }}
         >
           {isActionsOpen ? (
