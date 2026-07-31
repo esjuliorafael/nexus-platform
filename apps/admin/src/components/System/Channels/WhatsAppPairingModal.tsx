@@ -4,7 +4,9 @@ import { NexusAutonomousButton } from "../../ui/NexusButton";
 import { NexusModal } from "../../ui/NexusModal";
 
 export type WhatsAppPairingMethod = "qr" | "pairing_code";
-export const WHATSAPP_PAIRING_WINDOW_SECONDS = 120;
+// Evolution rotates pairing codes in roughly 45 seconds. Keep the UI window
+// shorter so Admin never presents a code the provider has already replaced.
+export const WHATSAPP_PAIRING_WINDOW_SECONDS = 40;
 
 export interface WhatsAppPairingData {
   method: WhatsAppPairingMethod;
