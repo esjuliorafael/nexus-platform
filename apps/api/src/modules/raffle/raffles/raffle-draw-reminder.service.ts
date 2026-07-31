@@ -22,6 +22,7 @@ import {
 } from "./raffle-result-communication.utils";
 
 const TEMPLATE_KEY = "whatsapp_global_raffle_draw_reminder";
+const DRAW_REMINDER_DISPATCH_INTERVAL_MS = 30_000;
 
 type RecipientDraft = {
   phone: string;
@@ -186,14 +187,20 @@ export async function refreshRaffleDrawReminderCampaign(
 }
 
 async function enqueue(rafflePrisma: RafflePrismaClient, campaignId: string, recipientIds: string[]) {
-  for (const id of recipientIds) {
+  for (let index = 0; index < recipientIds.length; index += 1) {
+    const id = recipientIds[index];
     const recipient = await rafflePrisma.raffleDrawReminderRecipient.findUnique({
       where: { id }, select: { phone: true, attempts: true },
     });
     if (!recipient) continue;
     await whatsappQueue.add("raffle-draw-reminder", {
       kind: "raffle-draw-reminder", campaignRecipientId: id, recipientPhone: recipient.phone,
-    }, { jobId: `raffle-draw-reminder-${id}-${recipient.attempts + 1}` });
+    }, {
+      jobId: `raffle-draw-reminder-${id}-${recipient.attempts + 1}`,
+      // Evolution is not a bulk-notification provider. Keep this operational
+      // reminder sequential so an active instance is not flooded in a burst.
+      delay: index * DRAW_REMINDER_DISPATCH_INTERVAL_MS,
+    });
   }
 }
 
