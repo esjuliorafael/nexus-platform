@@ -1,11 +1,11 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { AlertCircle, Check, Copy, KeyRound, QrCode } from "lucide-react";
 import { NexusAutonomousButton } from "../../ui/NexusButton";
 import { NexusModal } from "../../ui/NexusModal";
 
 export type WhatsAppPairingMethod = "qr" | "pairing_code";
-// Evolution rotates pairing codes in roughly 45 seconds. Keep the UI window
-// shorter so Admin never presents a code the provider has already replaced.
+// Evolution rotates the underlying QR/pairing artifact in roughly 45 seconds.
+// This is the validity of each artifact, not the total time of the flow.
 export const WHATSAPP_PAIRING_WINDOW_SECONDS = 40;
 
 export interface WhatsAppPairingData {
@@ -30,8 +30,19 @@ export const WhatsAppPairingModal: React.FC<WhatsAppPairingModalProps> = ({
   zIndex = 300,
 }) => {
   const [copied, setCopied] = useState(false);
+  const renewedArtifact = useRef<string | null>(null);
 
   useEffect(() => setCopied(false), [data?.pairingCode]);
+
+  useEffect(() => {
+    if (!data || data.timeLeft !== 0) return;
+
+    const artifactId = `${data.method}:${data.pairingCode || data.base64 || ""}`;
+    if (!artifactId || renewedArtifact.current === artifactId) return;
+
+    renewedArtifact.current = artifactId;
+    void onRegenerate(data.method);
+  }, [data, onRegenerate]);
 
   const displayCode = useMemo(() => {
     const value = data?.pairingCode?.replace(/\s|-/g, "").toUpperCase() || "";
