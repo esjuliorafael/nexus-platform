@@ -57,7 +57,6 @@ import {
   useStorefrontRouteRevealEpoch,
 } from "../../components/layout/StorefrontRouteMotionContext";
 import { formatPrice } from "../../utils/formatters";
-import { formatCalendarDate } from "../../utils/calendarDate";
 import {
   HERO_MOTION_SEQUENCE_MS,
   STOREFRONT_EASING,
@@ -858,7 +857,7 @@ function FeaturedRaffleStage({
             {
               icon: Calendar,
               label: "Fecha",
-              value: formatCalendarDate(raffle.drawDate, {
+              value: formatRaffleDrawDate(raffle.drawDate, {
                 day: "numeric",
                 month: "short",
               }),
@@ -1307,7 +1306,7 @@ function RaffleCatalogCard({
             <RaffleCatalogFact
               icon={Calendar}
               label="Fecha"
-              value={formatCalendarDate(raffle.drawDate, {
+              value={formatRaffleDrawDate(raffle.drawDate, {
                 day: "numeric",
                 month: "short",
               })}
@@ -1785,7 +1784,7 @@ function RecentRaffleResultCard({ result }: { result: RaffleRecentResult }) {
           <RaffleCatalogFact
             icon={Calendar}
             label="Fecha"
-            value={formatCalendarDate(result.drawDate, {
+            value={formatRaffleDrawDate(result.drawDate, {
               day: "numeric",
               month: "short",
               year: "numeric",
@@ -1939,6 +1938,20 @@ async function copyTextToClipboard(value: string) {
 function isUpcomingRaffle(raffle: Raffle, now: number) {
   if (!raffle.participationStartsAt) return false;
   return now < new Date(raffle.participationStartsAt).getTime();
+}
+
+function formatRaffleDrawDate(
+  value: string | null,
+  options: Intl.DateTimeFormatOptions,
+) {
+  if (!value) return "Por definir";
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return "Por definir";
+
+  return new Intl.DateTimeFormat("es-MX", {
+    ...options,
+    timeZone: "America/Mexico_City",
+  }).format(date);
 }
 
 function formatOpeningDate(value: string | null) {
