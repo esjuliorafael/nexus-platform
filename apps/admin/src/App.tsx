@@ -2311,7 +2311,7 @@ function App() {
                   onSearchChange={(value) =>
                     setRaffleTicketBoardSearchQuery(value.replace(/\D/g, ""))
                   }
-                  searchPlaceholder="Buscar número de boleto..."
+                  searchPlaceholder="Buscar boleto u oportunidad..."
                   filterLabel="Filtros"
                   filterActive={hasRaffleTicketBoardFilter}
                   onFilterClick={() => setIsRaffleTicketBoardFiltersOpen(true)}

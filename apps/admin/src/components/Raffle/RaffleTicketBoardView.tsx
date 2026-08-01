@@ -105,6 +105,17 @@ export const RaffleTicketBoardView: React.FC<RaffleTicketBoardViewProps> = ({
 
     return { statusByNumber, participationByNumber };
   }, [overview?.ticketStatuses]);
+  const ticketByOpportunity = React.useMemo(() => {
+    const assignments = new Map<string, string>();
+
+    ticketAssignments.forEach((assignment) => {
+      assignment.extraOpportunities.forEach((opportunity) => {
+        assignments.set(opportunity, assignment.mainTicketNumber);
+      });
+    });
+
+    return assignments;
+  }, [ticketAssignments]);
 
   React.useEffect(() => {
     setSelectedTickets(new Set());
@@ -260,12 +271,27 @@ export const RaffleTicketBoardView: React.FC<RaffleTicketBoardViewProps> = ({
     const query = searchQuery.trim();
     return ticketNumbers.filter((number) => {
       const status = operationalData.statusByNumber.get(number) || "available";
+      const matchesOpportunity = Array.from(ticketByOpportunity.entries()).some(
+        ([opportunity, mainTicketNumber]) =>
+          mainTicketNumber === number && opportunity.includes(query),
+      );
       return (
-        (!query || number.includes(query)) &&
+        (!query || number.includes(query) || matchesOpportunity) &&
         (filter === "all" || status === filter)
       );
     });
-  }, [filter, operationalData.statusByNumber, searchQuery, ticketNumbers]);
+  }, [
+    filter,
+    operationalData.statusByNumber,
+    searchQuery,
+    ticketByOpportunity,
+    ticketNumbers,
+  ]);
+
+  const matchedOpportunityTicket = React.useMemo(() => {
+    const query = searchQuery.trim();
+    return query ? ticketByOpportunity.get(query) ?? null : null;
+  }, [searchQuery, ticketByOpportunity]);
 
   React.useEffect(() => {
     setCurrentPage(1);
@@ -355,6 +381,11 @@ export const RaffleTicketBoardView: React.FC<RaffleTicketBoardViewProps> = ({
             />
           ) : (
             <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+              {matchedOpportunityTicket && (
+                <p className="text-secondary text-text-muted">
+                  La oportunidad {searchQuery.trim()} pertenece al boleto {matchedOpportunityTicket}.
+                </p>
+              )}
               <div
                 className="grid grid-cols-5 sm:grid-cols-8 lg:grid-cols-10 xl:grid-cols-12"
                 style={{ gap: "var(--space-sm)" }}
