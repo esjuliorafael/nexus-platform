@@ -348,7 +348,8 @@ async function enqueueRecipients(
   campaignId: string,
   recipientIds: string[],
 ) {
-  for (const [index, recipientId] of recipientIds.entries()) {
+  for (let index = 0; index < recipientIds.length; index += 1) {
+    const recipientId = recipientIds[index];
     const recipient = await rafflePrisma.raffleResultRecipient.findUnique({
       where: { id: recipientId },
       select: { phone: true, attempts: true },
