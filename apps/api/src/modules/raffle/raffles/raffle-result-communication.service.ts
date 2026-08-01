@@ -39,6 +39,10 @@ const TEMPLATE_CONFIG = {
   },
 } as const;
 
+// Result communications are operational, but still fan out to a full raffle audience.
+// Stagger them to avoid treating a newly connected WhatsApp line as a bulk sender.
+const RESULT_CAMPAIGN_RECIPIENT_DELAY_MS = 90_000;
+
 async function reconcileKapsoResultLogs(
   storePrisma: StorePrismaClient,
   logs: Array<any>,
@@ -344,7 +348,7 @@ async function enqueueRecipients(
   campaignId: string,
   recipientIds: string[],
 ) {
-  for (const recipientId of recipientIds) {
+  for (const [index, recipientId] of recipientIds.entries()) {
     const recipient = await rafflePrisma.raffleResultRecipient.findUnique({
       where: { id: recipientId },
       select: { phone: true, attempts: true },
@@ -359,6 +363,7 @@ async function enqueueRecipients(
       },
       {
         jobId: `raffle-result-${recipientId}-${recipient.attempts + 1}`,
+        delay: index * RESULT_CAMPAIGN_RECIPIENT_DELAY_MS,
       },
     );
   }
