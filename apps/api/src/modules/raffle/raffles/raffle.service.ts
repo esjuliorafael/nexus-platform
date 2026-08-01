@@ -133,6 +133,7 @@ export const raffleService = {
         image: true,
         imagePoster: true,
         drawDate: true,
+        resultReferenceNumber: true,
         winningNumber: true,
         winningTicketNumber: true,
         resultResolutionStatus: true,

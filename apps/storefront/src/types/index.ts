@@ -206,6 +206,7 @@ export interface RaffleRecentResult {
   image: string | null;
   imagePoster: string | null;
   drawDate: string | null;
+  resultReferenceNumber: string | null;
   winningNumber: string;
   winningTicketNumber: string | null;
   resultResolutionStatus: Raffle["resultResolutionStatus"];

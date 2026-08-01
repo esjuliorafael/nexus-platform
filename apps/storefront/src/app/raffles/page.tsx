@@ -1661,8 +1661,8 @@ function RecentRaffleResults({ results }: { results: RaffleRecentResult[] }) {
     <section className="flex flex-col" style={{ gap: "var(--sf-space-md)" }}>
       <RaffleSectionHeading
         icon={Trophy}
-        title="Resultados recientes"
-        description="Consulta los números ganadores publicados de las rifas más recientes."
+        title="Resultados publicados"
+        description="Consulta los resultados oficiales de las rifas que ya finalizaron."
       />
 
       <div
@@ -1680,105 +1680,211 @@ function RecentRaffleResults({ results }: { results: RaffleRecentResult[] }) {
             amount={0.35}
             className="h-full"
           >
-            <Link href={`/raffles/${result.id}`} className="group block h-full">
-              <StorefrontCard
-                level={1}
-                density="compact"
-                interactive
-                className="flex h-full items-center"
-                style={{ gap: "var(--sf-space-md)" }}
-              >
-                <div
-                  className="shrink-0 overflow-hidden bg-stone-100"
-                  style={{
-                    width: "var(--sf-h-button-section)",
-                    height: "var(--sf-h-button-section)",
-                    borderRadius: "var(--sf-radius-card-inner)",
-                  }}
-                >
-                  {result.imagePoster || result.image ? (
-                    <img
-                      src={result.imagePoster || result.image || ""}
-                      alt=""
-                      className="h-full w-full object-cover transition-transform group-hover:scale-105"
-                      style={{
-                        transitionDuration:
-                          "var(--sf-motion-duration-standard)",
-                      }}
-                    />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center text-stone-400">
-                      <Trophy size={22} aria-hidden="true" />
-                    </div>
-                  )}
-                </div>
-
-                <div className="min-w-0 flex-1">
-                  <p className="sf-text-label text-brand-600">
-                    {(result.prizes || []).length > 1
-                      ? `${result.prizes.length} resultados publicados`
-                      : "Número ganador"}
-                  </p>
-                  <div
-                    className="flex flex-col"
-                    style={{ gap: "var(--sf-space-xs)" }}
-                  >
-                    {((result.prizes || []).length
-                      ? result.prizes
-                      : [
-                          {
-                            id: result.id,
-                            position: 1,
-                            winningNumber: result.winningNumber,
-                          },
-                        ]
-                    )
-                      .slice(0, 3)
-                      .map((prize) => (
-                        <div
-                          key={prize.id}
-                          className="flex items-baseline justify-between"
-                          style={{ gap: "var(--sf-space-sm)" }}
-                        >
-                          <span className="sf-text-caption text-stone-500">
-                            {rafflePlaceLabel(prize.position)}
-                          </span>
-                          <strong className="sf-text-secondary-strong tabular-nums text-stone-950">
-                            {prize.winningNumber}
-                          </strong>
-                        </div>
-                      ))}
-                  </div>
-                  <p className="sf-text-secondary-strong truncate text-stone-850">
-                    {result.title}
-                  </p>
-                  <p className="sf-text-label text-stone-400">
-                    {formatCalendarDate(result.drawDate, {
-                      day: "numeric",
-                      month: "short",
-                      year: "numeric",
-                    })}
-                  </p>
-                  <p className="sf-text-caption text-stone-500">
-                    Resultados oficiales publicados
-                  </p>
-                </div>
-
-                <ArrowRight
-                  className="shrink-0 text-stone-400 transition-transform group-hover:translate-x-1 group-hover:text-brand-500"
-                  size={18}
-                  style={{
-                    transitionDuration: "var(--sf-motion-duration-standard)",
-                  }}
-                  aria-hidden="true"
-                />
-              </StorefrontCard>
-            </Link>
+            <RecentRaffleResultCard result={result} />
           </StorefrontReveal>
         ))}
       </div>
     </section>
   );
+}
+
+function RecentRaffleResultCard({ result }: { result: RaffleRecentResult }) {
+  const prizes = result.prizes.length
+    ? result.prizes
+    : [{
+        id: result.id,
+        position: 1,
+        title: "Premio publicado",
+        winningNumber: result.winningNumber,
+        winningTicketNumber: result.winningTicketNumber,
+        resultResolutionStatus: result.resultResolutionStatus,
+      }];
+  const primaryPrize = prizes[0];
+  const additionalPrizeCount = prizes.length - 1;
+  const status = getPublicResultStatus(primaryPrize.resultResolutionStatus);
+
+  return (
+    <Link href={`/raffles/${result.id}`} className="group block h-full">
+      <StorefrontCard
+        level={1}
+        density="none"
+        interactive
+        className="flex h-full flex-col"
+        style={{
+          padding: "var(--sf-padding-inner)",
+          gap: "var(--sf-space-base)",
+        }}
+      >
+        <div
+          className="flex min-w-0 items-center"
+          style={{ gap: "var(--sf-space-md)" }}
+        >
+          <div
+            className="relative shrink-0 overflow-hidden bg-stone-50"
+            style={{
+              width: "var(--sf-size-stage-container)",
+              height: "var(--sf-size-stage-container)",
+              borderRadius: "var(--sf-radius-card-inner)",
+            }}
+          >
+            {result.imagePoster || result.image ? (
+              <img
+                src={result.imagePoster || result.image || ""}
+                alt=""
+                className="h-full w-full object-cover transition-transform ease-out group-hover:scale-[1.05]"
+                style={{
+                  transitionDuration: "var(--sf-motion-duration-editorial)",
+                }}
+              />
+            ) : (
+              <div className="flex h-full w-full items-center justify-center bg-stone-100/50 text-stone-300">
+                <Trophy
+                  strokeWidth={1.5}
+                  aria-hidden="true"
+                  style={{
+                    width: "var(--sf-size-stage-icon-compact)",
+                    height: "var(--sf-size-stage-icon-compact)",
+                  }}
+                />
+              </div>
+            )}
+          </div>
+
+          <div
+            className="flex min-w-0 flex-1 flex-col"
+            style={{ gap: "var(--sf-space-sm)" }}
+          >
+            <Badge variant="success" context="card" className="self-start">
+              Resultados publicados
+            </Badge>
+            <h3
+              className="sf-text-h2 line-clamp-2 text-stone-950 transition-colors group-hover:text-brand-600"
+              style={{ transitionDuration: "var(--sf-motion-duration-standard)" }}
+            >
+              {result.title}
+            </h3>
+          </div>
+        </div>
+
+        <div
+          className="grid grid-cols-2 border-t border-stone-100 pt-[var(--sf-space-base)]"
+          style={{ gap: "var(--sf-space-md)" }}
+        >
+          <RaffleCatalogFact
+            icon={Calendar}
+            label="Fecha"
+            value={formatCalendarDate(result.drawDate, {
+              day: "numeric",
+              month: "short",
+              year: "numeric",
+            })}
+          />
+          <RaffleCatalogFact
+            icon={Trophy}
+            label="Premios"
+            value={prizes.length === 1 ? "1 publicado" : `${prizes.length} publicados`}
+          />
+        </div>
+
+        <div className="border-t border-stone-100 pt-[var(--sf-space-base)]">
+          <div className="flex flex-col" style={{ gap: "var(--sf-space-sm)" }}>
+            <div
+              className="flex items-center justify-between"
+              style={{ gap: "var(--sf-space-sm)" }}
+            >
+              <p className="sf-text-label text-stone-400">
+                {rafflePlaceLabel(primaryPrize.position)}
+              </p>
+              <Badge variant={status.variant} context="card">
+                {status.label}
+              </Badge>
+            </div>
+            <p className="sf-text-secondary-strong truncate text-stone-850">
+              {primaryPrize.title}
+            </p>
+            <div className="flex flex-wrap items-center" style={{ gap: "var(--sf-space-md)" }}>
+              <ResultFact
+                icon={Hash}
+                label="Resultado oficial"
+                value={result.resultReferenceNumber || result.winningNumber}
+                variant="muted"
+              />
+              <ResultFact
+                icon={Trophy}
+                label="Número ganador"
+                value={primaryPrize.winningNumber || result.winningNumber}
+                variant="brand"
+              />
+              {primaryPrize.winningTicketNumber && (
+                <ResultFact
+                  icon={Ticket}
+                  label="Boleto ganador"
+                  value={primaryPrize.winningTicketNumber}
+                  variant="brand"
+                />
+              )}
+            </div>
+            {additionalPrizeCount > 0 && (
+              <p className="sf-text-secondary text-stone-500">
+                {additionalPrizeCount === 1
+                  ? "1 resultado adicional publicado"
+                  : `${additionalPrizeCount} resultados adicionales publicados`}
+              </p>
+            )}
+          </div>
+        </div>
+
+        <div
+          className="flex items-center justify-between border-t border-stone-100 pt-[var(--sf-space-base)]"
+          style={{ gap: "var(--sf-space-sm)" }}
+        >
+          <span className="sf-text-secondary-strong text-stone-850">
+            Consultar resultados
+          </span>
+          <ArrowRight
+            className="shrink-0 text-stone-400 transition-transform group-hover:translate-x-1 group-hover:text-brand-500"
+            size={18}
+            style={{ transitionDuration: "var(--sf-motion-duration-standard)" }}
+            aria-hidden="true"
+          />
+        </div>
+      </StorefrontCard>
+    </Link>
+  );
+}
+
+function ResultFact({
+  icon,
+  label,
+  value,
+  variant,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+  variant: "brand" | "muted";
+}) {
+  return (
+    <div className="flex items-center" style={{ gap: "var(--sf-space-sm)" }}>
+      <StorefrontIcon icon={icon} context="card" variant={variant} />
+      <div className="flex flex-col" style={{ gap: "var(--sf-space-xs)" }}>
+        <p className="sf-text-label text-stone-400">{label}</p>
+        <p className="sf-text-h2 tabular-nums text-stone-950">
+          {value}
+        </p>
+      </div>
+    </div>
+  );
+}
+
+function getPublicResultStatus(status: RaffleRecentResult["resultResolutionStatus"]) {
+  if (status === "ELIGIBLE_WINNER") {
+    return { label: "Ganador confirmado", variant: "success" as const };
+  }
+  if (status === "PAYMENT_REVIEW") {
+    return { label: "Pago en revisión", variant: "warning" as const };
+  }
+  return { label: "Sin ganador elegible", variant: "muted" as const };
 }
 
 function rafflePlaceLabel(position: number) {
