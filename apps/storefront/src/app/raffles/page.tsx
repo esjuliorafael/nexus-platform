@@ -341,11 +341,11 @@ export default function RafflesPage() {
         >
           <Spinner className="hidden h-12 w-12 md:block" />
         </div>
-      ) : raffles.length === 0 ? (
+      ) : raffles.length === 0 && recentResults.length === 0 ? (
         <EmptyState
           icon={Ticket}
-          title="Sin rifas activas"
-          description="Actualmente no tenemos ninguna rifa activa. Vuelve pronto para conocer nuestras próximas rifas."
+          title="Sin rifas publicadas"
+          description="Actualmente no tenemos rifas disponibles. Vuelve pronto para conocer nuestras próximas rifas."
         />
       ) : (
         <div className="flex flex-col gap-[var(--sf-space-lg)] md:gap-[var(--sf-space-xl)]">
@@ -365,10 +365,16 @@ export default function RafflesPage() {
               >
                 <h1 className="sf-text-display text-stone-950">Rifas</h1>
                 <p className="sf-text-body text-stone-500">
-                  Consulta las participaciones disponibles y elige tus números.
+                  {raffles.length > 0
+                    ? "Consulta las participaciones disponibles y elige tus números."
+                    : "Consulta los resultados oficiales de nuestras rifas finalizadas."}
                 </p>
               </header>
             </StorefrontReveal>
+          )}
+
+          {raffles.length === 0 && recentResults.length > 0 && (
+            <RecentRaffleResults results={recentResults} />
           )}
 
           {upcomingRaffles.length > 0 && !isExploringCatalog && (
@@ -378,72 +384,78 @@ export default function RafflesPage() {
             />
           )}
 
-          <section
-            className="flex flex-col"
-            style={{ gap: "var(--sf-space-md)" }}
-          >
-            <RaffleSectionHeading
-              icon={Compass}
-              title="Explorar rifas"
-              description="Consulta todas las rifas publicadas, busca por nombre o filtra por el tipo de participación."
-            />
-
-            <StorefrontCatalogToolbar
-              searchTerm={searchTerm}
-              searchLabel="Buscar rifas"
-              searchPlaceholder="Buscar rifa..."
-              filterLabel="Filtrar rifas"
-              hasActiveFilters={hasActiveFilters}
-              onSearchChange={setSearchTerm}
-              onOpenFilters={openFilters}
-            />
-
-            {filteredRaffles.length === 0 ? (
-              <EmptyState
-                icon={Search}
-                title={isExploringCatalog ? "Sin resultados" : "Sin más rifas"}
-                description={
-                  isExploringCatalog
-                    ? "No encontramos rifas que coincidan con la búsqueda o los filtros actuales."
-                    : "Actualmente no hay rifas publicadas en la cartelera."
-                }
-                actionText={isExploringCatalog ? "Limpiar filtros" : undefined}
-                onActionClick={isExploringCatalog ? clearFilters : undefined}
+          {raffles.length > 0 && (
+            <section
+              className="flex flex-col"
+              style={{ gap: "var(--sf-space-md)" }}
+            >
+              <RaffleSectionHeading
+                icon={Compass}
+                title="Explorar rifas"
+                description="Consulta todas las rifas publicadas, busca por nombre o filtra por el tipo de participación."
               />
-            ) : (
-              <div className="flex flex-col">
-                <div
-                  className="grid grid-cols-1 lg:grid-cols-2"
-                  style={{ gap: "var(--sf-space-md)" }}
-                >
-                  {visibleRaffles.map((raffle, index) => (
-                    <RaffleCatalogCard
-                      key={raffle.id}
-                      raffle={raffle}
-                      now={participationClock}
-                      index={index}
-                    />
-                  ))}
-                </div>
 
-                <StorefrontReveal
-                  cadence="standard"
-                  delayMs={STOREFRONT_MOTION_MS.pulse.full}
-                  className="pt-[var(--sf-space-lg)]"
-                >
-                  <StorefrontPaginator
-                    page={page}
-                    totalPages={totalPages}
-                    onPageChange={setPage}
-                  />
-                </StorefrontReveal>
-              </div>
-            )}
-          </section>
+              <StorefrontCatalogToolbar
+                searchTerm={searchTerm}
+                searchLabel="Buscar rifas"
+                searchPlaceholder="Buscar rifa..."
+                filterLabel="Filtrar rifas"
+                hasActiveFilters={hasActiveFilters}
+                onSearchChange={setSearchTerm}
+                onOpenFilters={openFilters}
+              />
+
+              {filteredRaffles.length === 0 ? (
+                <EmptyState
+                  icon={Search}
+                  title={
+                    isExploringCatalog ? "Sin resultados" : "Sin más rifas"
+                  }
+                  description={
+                    isExploringCatalog
+                      ? "No encontramos rifas que coincidan con la búsqueda o los filtros actuales."
+                      : "Actualmente no hay rifas publicadas en la cartelera."
+                  }
+                  actionText={
+                    isExploringCatalog ? "Limpiar filtros" : undefined
+                  }
+                  onActionClick={isExploringCatalog ? clearFilters : undefined}
+                />
+              ) : (
+                <div className="flex flex-col">
+                  <div
+                    className="grid grid-cols-1 lg:grid-cols-2"
+                    style={{ gap: "var(--sf-space-md)" }}
+                  >
+                    {visibleRaffles.map((raffle, index) => (
+                      <RaffleCatalogCard
+                        key={raffle.id}
+                        raffle={raffle}
+                        now={participationClock}
+                        index={index}
+                      />
+                    ))}
+                  </div>
+
+                  <StorefrontReveal
+                    cadence="standard"
+                    delayMs={STOREFRONT_MOTION_MS.pulse.full}
+                    className="pt-[var(--sf-space-lg)]"
+                  >
+                    <StorefrontPaginator
+                      page={page}
+                      totalPages={totalPages}
+                      onPageChange={setPage}
+                    />
+                  </StorefrontReveal>
+                </div>
+              )}
+            </section>
+          )}
 
           <HowRafflesWork />
 
-          {recentResults.length > 0 && (
+          {raffles.length > 0 && recentResults.length > 0 && (
             <RecentRaffleResults results={recentResults} />
           )}
         </div>
