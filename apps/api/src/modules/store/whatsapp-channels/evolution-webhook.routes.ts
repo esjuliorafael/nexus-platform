@@ -1,4 +1,5 @@
 import { FastifyInstance } from "fastify";
+import { rafflePrisma } from "@nexus/db/raffle";
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
 import { reconcileRecoverableWhatsappJobs } from "../../../services/whatsapp-recovery.service";
 import {
@@ -12,6 +13,7 @@ import {
 import { getWhatsappMarketingOptInKeyword, getWhatsappMarketingOptOutKeyword, whatsappMarketingConsentService } from "../../../services/whatsapp-marketing-consent.service";
 import { sendMarketingConsentConfirmation } from "../../../services/whatsapp/whatsapp-marketing-consent-confirmation.service";
 import { buildWhatsappAsyncFallbackPatch } from "../../../services/whatsapp/whatsapp-async-fallback";
+import { refreshRaffleDrawReminderCampaign } from "../../raffle/raffles/raffle-draw-reminder.service";
 
 const STATUS_PRIORITY: Record<string, number> = {
   failed: 0,
@@ -275,6 +277,33 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
             : existing.errorMessage,
         },
       });
+
+      // Evolution may accept a send request and emit its rejection afterward.
+      // Keep the raffle reminder recipient aligned with that definitive outcome.
+      if (
+        shouldAdvanceStatus &&
+        nextStatus === "failed" &&
+        existing.templateUsed === "raffle_draw_reminder"
+      ) {
+        const recipient = await rafflePrisma.raffleDrawReminderRecipient.findFirst({
+          where: { messageLogId: existing.id },
+          select: { id: true, campaignId: true },
+        });
+        if (recipient) {
+          await rafflePrisma.raffleDrawReminderRecipient.update({
+            where: { id: recipient.id },
+            data: {
+              status: "FAILED",
+              sentAt: null,
+              lastError: failureMessage,
+            },
+          });
+          await refreshRaffleDrawReminderCampaign(
+            rafflePrisma,
+            recipient.campaignId,
+          );
+        }
+      }
 
       let fallbackScheduled = false;
       if (shouldAdvanceStatus && nextStatus === "failed" && existing.jobId) {
