@@ -45,6 +45,7 @@ import { NexusSectionSearch } from "../ui/NexusSearchInput";
 import { NexusSpinner } from "../ui/NexusSpinner";
 import {
   compactMoneyAxis,
+  formatSalesChartLabel,
   SALES_CHART_AXIS_TICK,
   SALES_CHART_BAR_RADIUS,
   SALES_CHART_MARGIN,
@@ -179,10 +180,10 @@ export const SalesOverviewView = ({
           const date = `${month}-01`;
           return {
             date,
-            label: new Date(`${date}T12:00:00`).toLocaleDateString("es-MX", {
-              month: "short",
-              year: "2-digit",
-            }),
+            label: formatSalesChartLabel(
+              new Date(`${date}T12:00:00`),
+              period,
+            ),
             value,
             isCurrent: false,
           };
@@ -202,19 +203,9 @@ export const SalesOverviewView = ({
 
     while (cursor <= end) {
       const date = localDateKey(cursor);
-      const label =
-        period === "TODAY"
-          ? cursor.toLocaleDateString("es-MX", { weekday: "short" })
-          : period === "7D"
-            ? cursor.toLocaleDateString("es-MX", {
-                weekday: "short",
-                day: "numeric",
-              })
-            : cursor.toLocaleDateString("es-MX", { day: "numeric" });
-
       points.push({
         date,
-        label: label.replace(".", ""),
+        label: formatSalesChartLabel(cursor, period),
         value: salesByDay[date] || 0,
         isCurrent: date === todayKey,
       });
@@ -223,6 +214,7 @@ export const SalesOverviewView = ({
 
     return points;
   }, [overview?.salesByDay, overview?.trendRange, period]);
+  const hasChartRevenue = chartData.some((point) => point.value > 0);
 
   const selectedMetrics =
     overview?.metricsByProductType?.[productType] ??
@@ -300,7 +292,7 @@ export const SalesOverviewView = ({
         <>
           <div className="grid grid-cols-1 items-stretch gap-[var(--space-lg)] xl:grid-cols-2">
             <NexusAutonomousCard className="h-full">
-              <div className="flex h-full flex-col" style={{ gap: "var(--space-md)" }}>
+              <div className="flex h-full flex-col" style={{ gap: "var(--space-lg)" }}>
                 <div className="flex min-w-0 items-center">
                   <div className="flex min-w-0 items-center" style={{ gap: "var(--space-md)" }}>
                     <div
@@ -356,7 +348,7 @@ export const SalesOverviewView = ({
                 </div>
 
                 <div
-                  className="mt-auto grid grid-cols-2 border border-border-main bg-bg-muted"
+                  className="grid grid-cols-2 border border-border-main bg-bg-muted"
                   style={{
                     borderRadius: "var(--radius-card-inner)",
                     padding: "var(--padding-card-inner)",
@@ -499,8 +491,8 @@ export const SalesOverviewView = ({
                   </div>
                 </div>
 
-                {chartData.length > 0 ? (
-                  <div className="h-[260px] w-full flex-1">
+                {hasChartRevenue ? (
+                  <div className="min-h-[260px] w-full flex-1">
                     <ResponsiveContainer width="100%" height="100%">
                       <BarChart data={chartData} margin={SALES_CHART_MARGIN}>
                         <CartesianGrid vertical={false} stroke="var(--border-main)" opacity={0.5} />
@@ -561,12 +553,11 @@ export const SalesOverviewView = ({
                     </ResponsiveContainer>
                   </div>
                 ) : (
-                  <p
-                    className="text-center text-secondary text-text-muted"
-                    style={{ paddingBlock: "var(--space-lg)" }}
-                  >
-                    No hay ventas confirmadas en este periodo.
-                  </p>
+                  <div className="flex min-h-[220px] flex-1 items-center justify-center text-center">
+                    <p className="max-w-md text-secondary text-text-muted">
+                      No hay ingresos confirmados para los filtros seleccionados.
+                    </p>
+                  </div>
                 )}
               </div>
             </NexusAutonomousCard>

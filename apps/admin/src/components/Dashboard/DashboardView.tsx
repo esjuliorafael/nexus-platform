@@ -4,6 +4,7 @@ import {
   CircleX,
   Clock,
   CreditCard,
+  ListFilter,
   History,
   ReceiptText,
   ShoppingBag,
@@ -12,13 +13,12 @@ import {
 import {
   DashboardCommercialOverview,
   DashboardStats,
+  DashboardCommercialSource,
   AnnualService,
   ExtraCharge,
   BillingPayment,
 } from '../../types';
 import { SalesChart } from '../Widgets/SalesChart';
-import { LatestProducts } from '../Widgets/LatestProducts';
-import { LatestMedia } from '../Widgets/LatestMedia';
 import { BillingAlertWidget } from '../Widgets/BillingAlertWidget';
 import { FinancialWeightWidget } from '../Widgets/FinancialWeightWidget';
 import {
@@ -36,11 +36,14 @@ interface DashboardViewProps {
   billingCharges: ExtraCharge[];
   billingPayments: BillingPayment[];
   onNavigateToSystem: (mode: any) => void;
-  onNavigateToMedia: (mode: any) => void;
   onTabChange: (tab: any) => void;
   onOpenRaffleParticipations: () => void;
   onOpenOrder: (orderId: string) => void;
   onOpenParticipation: (participationId: string) => void;
+  onOpenCommercialHistory: (context: {
+    source: DashboardCommercialSource;
+    paymentMethod: DashboardCommercialOverview['paymentMethod'];
+  }) => void;
   isLoadingCommercial: boolean;
 }
 
@@ -71,11 +74,11 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   billingCharges,
   billingPayments,
   onNavigateToSystem,
-  onNavigateToMedia,
   onTabChange,
   onOpenRaffleParticipations,
   onOpenOrder,
   onOpenParticipation,
+  onOpenCommercialHistory,
   isLoadingCommercial,
 }) => {
   const orderStats = stats?.orders;
@@ -122,7 +125,21 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         onNavigate={() => onNavigateToSystem('billing')}
       />
 
-      {/* NIVEL B: ESTRATÉGICO (TENDENCIAS) */}
+      {/* NIVEL B: OPERATIVO (SOLO CUANDO REQUIERE ATENCIÓN) */}
+      <section className="min-w-0">
+        <OperationalAttentionWidget
+          orders={orderStats?.pending}
+          participations={stats?.participations?.pending}
+          attention={stats?.attention}
+          isLoading={isLoading}
+          onOpenOrders={() => onTabChange('Operaciones')}
+          onOpenParticipations={onOpenRaffleParticipations}
+          onOpenStore={() => onTabChange('Tienda')}
+          onOpenRaffles={() => onTabChange('Rifas')}
+        />
+      </section>
+
+      {/* NIVEL C: ESTRATÉGICO (TENDENCIAS) */}
       <section
         className="grid min-w-0 grid-cols-1 items-stretch xl:grid-cols-2"
         style={{ gap: 'var(--space-lg)' }}
@@ -145,23 +162,28 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </section>
 
-      {/* NIVEL C: OPERATIVO (SOLO CUANDO REQUIERE ATENCIÓN) */}
-      <section className="min-w-0">
-        <OperationalAttentionWidget
-          orders={orderStats?.pending}
-          participations={stats?.participations?.pending}
-          isLoading={isLoading}
-          onOpenOrders={() => onTabChange('Operaciones')}
-          onOpenParticipations={onOpenRaffleParticipations}
-        />
-      </section>
-
       {/* NIVEL E: HISTORIAL COMERCIAL */}
       <NexusSection
         title={historyTitle}
         subtitle={historySubtitle}
         icon={History}
         iconVariant="brand"
+        action={
+          <NexusSectionButton
+            type="button"
+            variant="brand"
+            icon={ListFilter}
+            onClick={() =>
+              onOpenCommercialHistory({
+                source: commercialSource,
+                paymentMethod:
+                  commercialOverview?.paymentMethod ?? 'ALL',
+              })
+            }
+          >
+            Ver Todo
+          </NexusSectionButton>
+        }
       >
         <div className="divide-y divide-border-main">
           {isLoadingCommercial ? (
@@ -320,23 +342,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </NexusSection>
 
-      {/* NIVEL F: CONTEXTO VISUAL (CATÁLOGO) */}
-      <section className="grid grid-cols-1 lg:grid-cols-2 items-stretch" style={{ gap: 'var(--space-md)' }}>
-        <div className="flex flex-col">
-          <LatestProducts
-            items={stats?.latestProducts || []}
-            isLoading={isLoading}
-            onViewGallery={() => onTabChange('Productos')}
-          />
-        </div>
-        <div className="flex flex-col">
-          <LatestMedia
-            items={stats?.latestMedia || []}
-            isLoading={isLoading}
-            onViewGallery={() => onNavigateToMedia('list')}
-          />
-        </div>
-      </section>
     </div>
   );
 };

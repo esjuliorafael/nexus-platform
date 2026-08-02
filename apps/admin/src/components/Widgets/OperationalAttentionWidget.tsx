@@ -1,12 +1,16 @@
 import React from 'react';
 import {
-  AlertCircle,
-  ArrowRight,
+  AlertTriangle,
+  ArrowUpRight,
+  BadgeAlert,
+  ClipboardCheck,
+  PackageSearch,
   ShoppingBag,
   Ticket,
+  Trophy,
 } from 'lucide-react';
 import { NexusAutonomousCard } from '../ui/NexusCard';
-import { NexusAutonomousIcon, NexusCardIcon } from '../ui/NexusIcon';
+import { NexusAutonomousIcon } from '../ui/NexusIcon';
 
 interface AttentionStatus {
   count: number;
@@ -16,9 +20,17 @@ interface AttentionStatus {
 interface OperationalAttentionWidgetProps {
   orders?: AttentionStatus;
   participations?: AttentionStatus;
+  attention?: {
+    paymentReviews: AttentionStatus;
+    inventoryIncidents: number;
+    rafflesAwaitingResolution: number;
+    prizesAwaitingFulfillment: number;
+  };
   isLoading?: boolean;
   onOpenOrders: () => void;
   onOpenParticipations: () => void;
+  onOpenStore: () => void;
+  onOpenRaffles: () => void;
 }
 
 const money = (value: number) =>
@@ -31,9 +43,12 @@ const money = (value: number) =>
 export const OperationalAttentionWidget = ({
   orders,
   participations,
+  attention,
   isLoading = false,
   onOpenOrders,
   onOpenParticipations,
+  onOpenStore,
+  onOpenRaffles,
 }: OperationalAttentionWidgetProps) => {
   const contexts = [
     {
@@ -41,6 +56,7 @@ export const OperationalAttentionWidget = ({
       description: 'Pedidos pendientes de confirmación.',
       status: orders ?? { count: 0, amount: 0 },
       icon: ShoppingBag,
+      tone: 'amber',
       onClick: onOpenOrders,
     },
     {
@@ -48,7 +64,40 @@ export const OperationalAttentionWidget = ({
       description: 'Boletos pendientes de confirmación.',
       status: participations ?? { count: 0, amount: 0 },
       icon: Ticket,
+      tone: 'amber',
       onClick: onOpenParticipations,
+    },
+    {
+      label: 'Pagos en revisión',
+      description: 'Mercado Pago aún no entrega una resolución definitiva.',
+      status: attention?.paymentReviews ?? { count: 0, amount: 0 },
+      icon: BadgeAlert,
+      tone: 'orange',
+      onClick: onOpenOrders,
+    },
+    {
+      label: 'Inventario por revisar',
+      description: 'Hay incidencias de disponibilidad que requieren validación.',
+      status: { count: attention?.inventoryIncidents ?? 0, amount: 0 },
+      icon: PackageSearch,
+      tone: 'rose',
+      onClick: onOpenStore,
+    },
+    {
+      label: 'Resultados pendientes',
+      description: 'Rifas cuya fecha pasó y todavía requieren publicación.',
+      status: { count: attention?.rafflesAwaitingResolution ?? 0, amount: 0 },
+      icon: Trophy,
+      tone: 'orange',
+      onClick: onOpenRaffles,
+    },
+    {
+      label: 'Premios por entregar',
+      description: 'Ganadores con seguimiento o entrega todavía pendientes.',
+      status: { count: attention?.prizesAwaitingFulfillment ?? 0, amount: 0 },
+      icon: ClipboardCheck,
+      tone: 'brand',
+      onClick: onOpenRaffles,
     },
   ].filter((context) => isLoading || context.status.count > 0);
 
@@ -61,7 +110,7 @@ export const OperationalAttentionWidget = ({
         style={{ gap: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}
       >
         <NexusAutonomousIcon
-          icon={AlertCircle}
+          icon={AlertTriangle}
           variant="orange"
           hoverGroup="group/attention"
         />
@@ -69,16 +118,30 @@ export const OperationalAttentionWidget = ({
           className="flex min-w-0 flex-1 flex-col"
           style={{ gap: 'var(--space-xs)' }}
         >
-          <h3 className="text-h1 text-text-main">Atención Pendiente</h3>
+          <h3 className="text-h1 text-text-main">Atención Operativa</h3>
           <p className="text-secondary text-text-muted">
-            Operaciones que todavía requieren seguimiento.
+            Excepciones que requieren seguimiento.
           </p>
         </div>
       </div>
 
-      <div className="flex flex-col">
-        {contexts.map((context, index) => {
+      <div
+        className="grid grid-cols-1 border border-border-main bg-bg-muted sm:grid-cols-2"
+        style={{
+          gap: 'var(--space-sm)',
+          padding: 'var(--padding-card-inner)',
+          borderRadius: 'var(--radius-card-inner)',
+        }}
+      >
+        {contexts.map((context) => {
           const ContextIcon = context.icon;
+          const hasAmount = context.status.amount > 0;
+          const amountTone =
+            context.tone === 'amber' || context.tone === 'orange'
+              ? 'text-amber-600'
+              : context.tone === 'rose'
+                ? 'text-rose-600'
+                : 'text-brand-600';
 
           return (
             <button
@@ -86,49 +149,64 @@ export const OperationalAttentionWidget = ({
               type="button"
               onClick={context.onClick}
               disabled={isLoading}
-              className="group/attention-row flex min-w-0 items-center text-left outline-none transition-colors duration-200 hover:text-brand-600 focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:pointer-events-none"
+              className="group/attention-row flex min-w-0 flex-col border border-border-main bg-bg-card text-left outline-none transition-colors duration-200 hover:border-brand-300 hover:bg-brand-50/30 focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2 disabled:pointer-events-none"
               style={{
                 gap: 'var(--space-md)',
-                paddingBlock: 'var(--space-md)',
-                borderTop:
-                  index > 0 ? '1px solid var(--border-main)' : undefined,
-                borderRadius: 'var(--radius-card-inner)',
+                padding: 'var(--padding-card-nested)',
+                borderRadius: 'var(--radius-card-nested-compact)',
               }}
             >
-              <NexusCardIcon
-                icon={ContextIcon}
-                variant="orange"
-                hoverGroup="group/attention-row"
-                isMuted={isLoading}
-              />
               <div
-                className="flex min-w-0 flex-1 flex-col"
-                style={{ gap: 'var(--space-xs)' }}
+                className="flex min-w-0 items-start justify-between"
+                style={{ gap: 'var(--space-sm)' }}
               >
-                <span className="text-button-card font-bold text-text-main">
-                  {context.label}
-                </span>
-                <span className="text-caption text-text-muted">
-                  {context.description}
-                </span>
+                <div
+                  className="flex min-w-0 items-center"
+                  style={{ gap: 'var(--space-sm)' }}
+                >
+                  <div
+                    className="grid shrink-0 place-items-center border border-border-main bg-bg-muted text-text-muted transition-colors duration-200 group-hover/attention-row:border-brand-200 group-hover/attention-row:bg-brand-50 group-hover/attention-row:text-brand-600"
+                    style={{
+                      width: 'var(--size-icon-container-card-nested)',
+                      height: 'var(--size-icon-container-card-nested)',
+                      borderRadius: 'var(--radius-card-nested-control)',
+                    }}
+                  >
+                    <ContextIcon
+                      style={{
+                        width: 'var(--size-inner-icon-card)',
+                        height: 'var(--size-inner-icon-card)',
+                      }}
+                      strokeWidth={2}
+                    />
+                  </div>
+                  <span className="text-secondary font-semibold text-text-main">
+                    {context.label}
+                  </span>
+                </div>
+                <ArrowUpRight
+                  aria-hidden="true"
+                  className="shrink-0 text-text-muted transition-transform duration-200 group-hover/attention-row:-translate-y-0.5 group-hover/attention-row:translate-x-0.5 group-hover/attention-row:text-brand-600"
+                  size={16}
+                  strokeWidth={2.2}
+                />
               </div>
+
+              <p className="text-label text-text-muted">{context.description}</p>
+
               <div
-                className="flex shrink-0 flex-col items-end"
-                style={{ gap: 'var(--space-xs)' }}
+                className="flex items-end justify-between"
+                style={{ gap: 'var(--space-sm)' }}
               >
-                <strong className="text-h2 tabular-nums text-text-main">
+                <strong className="text-h1 tabular-nums text-text-main">
                   {context.status.count.toLocaleString('es-MX')}
                 </strong>
-                <span className="text-caption tabular-nums text-amber-600">
-                  {money(context.status.amount)}
-                </span>
+                {hasAmount && (
+                  <span className={`text-label tabular-nums ${amountTone}`}>
+                    {money(context.status.amount)}
+                  </span>
+                )}
               </div>
-              <ArrowRight
-                aria-hidden="true"
-                className="shrink-0 text-text-muted transition-transform duration-200 group-hover/attention-row:translate-x-1 group-hover/attention-row:text-brand-600"
-                size={18}
-                strokeWidth={2.4}
-              />
             </button>
           );
         })}

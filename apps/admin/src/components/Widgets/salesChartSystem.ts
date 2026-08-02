@@ -1,5 +1,7 @@
 import type { CSSProperties } from 'react';
+import type { SalesOverviewPeriod } from '../../types';
 
+// Mirrors --radius-data-mark. Recharts Rectangle requires a numeric SVG radius.
 export const SALES_CHART_BAR_RADIUS = 8;
 export const SALES_CHART_MIN_TICK_GAP = 16;
 export const SALES_CHART_TOOLTIP_SEPARATOR = ': ';
@@ -34,6 +36,33 @@ export const SALES_CHART_TOOLTIP_ITEM_STYLE: CSSProperties = {
   color: 'var(--text-muted)',
   fontSize: 'var(--text-secondary)',
   fontWeight: 600,
+};
+
+export const formatSalesChartLabel = (
+  date: Date,
+  period: SalesOverviewPeriod,
+) => {
+  if (period === 'ALL') {
+    return date.toLocaleDateString('es-MX', {
+      month: 'short',
+      year: 'numeric',
+    });
+  }
+
+  if (period === 'TODAY') {
+    return date
+      .toLocaleDateString('es-MX', { weekday: 'short' })
+      .replace('.', '');
+  }
+
+  if (period === 'MONTH') {
+    return date.toLocaleDateString('es-MX', { day: 'numeric' });
+  }
+
+  return date.toLocaleDateString('es-MX', {
+    day: 'numeric',
+    month: 'short',
+  });
 };
 
 const compactNumber = (value: number) =>

@@ -8,7 +8,6 @@ import {
   startOfWeek,
   startOfMonth,
   endOfDay,
-  endOfMonth,
   endOfWeek,
   format,
 } from "date-fns";
@@ -317,9 +316,12 @@ export const dashboardService = {
       orderGroups,
       activeCategories,
       totalMedia,
-      latestMedia,
-      latestProducts,
       allRaffleSales,
+      storePaymentReviews,
+      rafflePaymentReviews,
+      inventoryIncidents,
+      rafflesAwaitingResolution,
+      prizesAwaitingFulfillment,
     ] = await Promise.all([
       storePrisma.product.groupBy({
         by: ['saleStatus'],
@@ -332,16 +334,6 @@ export const dashboardService = {
       }),
       storePrisma.category.count({ where: { active: true } }),
       storePrisma.media.count({ where: { active: true } }),
-      storePrisma.media.findMany({
-        where: { active: true },
-        orderBy: { createdAt: 'desc' },
-        take: 4
-      }),
-      storePrisma.product.findMany({
-        where: { active: true },
-        orderBy: { createdAt: 'desc' },
-        take: 4
-      }),
       rafflePrisma.ticketSale.findMany({
         select: {
           id: true,
@@ -353,6 +345,41 @@ export const dashboardService = {
           discountTotal: true,
           createdAt: true,
           raffle: { select: { ticketPrice: true } },
+        },
+      }),
+      storePrisma.storePaymentHold.findMany({
+        where: { status: "PROCESSING" },
+        select: { total: true },
+      }),
+      rafflePrisma.rafflePaymentHold.findMany({
+        where: { status: "PROCESSING" },
+        select: {
+          ticketNumbers: true,
+          discountTotal: true,
+          raffle: { select: { ticketPrice: true } },
+        },
+      }),
+      storePrisma.inventoryIntegrityIncident.count({
+        where: { status: "OPEN" },
+      }),
+      rafflePrisma.raffle.count({
+        where: {
+          status: "ACTIVE",
+          drawDate: { lt: new Date() },
+          resultPublishedAt: null,
+        },
+      }),
+      rafflePrisma.rafflePrize.count({
+        where: {
+          resultPublishedAt: { not: null },
+          OR: [
+            { fulfillmentStatus: null },
+            {
+              fulfillmentStatus: {
+                notIn: ["DELIVERED", "NOT_APPLICABLE"],
+              },
+            },
+          ],
         },
       }),
     ]);
@@ -390,6 +417,17 @@ export const dashboardService = {
       collectionRate: totalGrossAmount > 0 ? (paidStats.amount / totalGrossAmount) * 100 : 0
     };
     const raffleParticipationStats = getRaffleCommercialPulse(allRaffleSales);
+    const storePaymentReviewAmount = storePaymentReviews.reduce(
+      (total, hold) => total + Number(hold.total || 0),
+      0,
+    );
+    const rafflePaymentReviewAmount = rafflePaymentReviews.reduce(
+      (total, hold) => {
+        const gross = hold.ticketNumbers.length * Number(hold.raffle.ticketPrice || 0);
+        return total + Math.max(0, gross - Number(hold.discountTotal || 0));
+      },
+      0,
+    );
 
     // Combine settled store orders and fully paid raffle participations.
     const today = new Date();
@@ -483,8 +521,15 @@ export const dashboardService = {
         pending: raffleParticipationStats.pending,
         cancelled: raffleParticipationStats.cancelled,
       },
-      latestMedia,
-      latestProducts,
+      attention: {
+        paymentReviews: {
+          count: storePaymentReviews.length + rafflePaymentReviews.length,
+          amount: storePaymentReviewAmount + rafflePaymentReviewAmount,
+        },
+        inventoryIncidents,
+        rafflesAwaitingResolution,
+        prizesAwaitingFulfillment,
+      },
       sales7Days,
       sales7DaysBySource,
       commercialPulse7Days,
@@ -507,9 +552,7 @@ export const dashboardService = {
     const chartEnd =
       period === "TODAY"
         ? endOfWeek(today, { weekStartsOn: 1 })
-        : period === "MONTH"
-          ? endOfMonth(today)
-          : pulseEnd;
+        : pulseEnd;
     const dateFilter = chartStart
       ? { createdAt: { gte: chartStart, lte: chartEnd } }
       : {};
@@ -752,9 +795,7 @@ export const dashboardService = {
     const trendEnd =
       period === "TODAY"
         ? endOfWeek(today, { weekStartsOn: 1 })
-        : period === "MONTH"
-          ? endOfMonth(today)
-          : periodEnd;
+        : periodEnd;
     const previousRange = getPreviousSalesRange(periodStart, periodEnd);
     const orders = await storePrisma.order.findMany({
       where: {

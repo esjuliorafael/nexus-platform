@@ -534,8 +534,12 @@ export interface DashboardStats {
     pending: { count: number; amount: number };
     cancelled: { count: number; amount: number };
   };
-  latestMedia: any[];
-  latestProducts: any[];
+  attention?: {
+    paymentReviews: { count: number; amount: number };
+    inventoryIncidents: number;
+    rafflesAwaitingResolution: number;
+    prizesAwaitingFulfillment: number;
+  };
   sales7Days: Record<string, number>;
   sales7DaysBySource: Record<
     string,

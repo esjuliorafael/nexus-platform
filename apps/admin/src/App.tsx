@@ -2690,13 +2690,34 @@ function App() {
                     billingCharges={billingCharges}
                     billingPayments={billingPayments}
                     onNavigateToSystem={navigateToSystem}
-                    onNavigateToMedia={navigateToMedia}
                     onTabChange={setActiveTab as any}
                     onOpenOrder={handleViewDashboardOrder}
                     onOpenParticipation={handleViewDashboardParticipation}
                     onOpenRaffleParticipations={() => {
                       setActiveTab("Rifas");
                       setRaffleViewMode("participations");
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    onOpenCommercialHistory={({ source, paymentMethod }) => {
+                      setOperationsSearchQuery("");
+                      setOperationsFilters({
+                        source:
+                          source === "STORE"
+                            ? "store"
+                            : source === "RAFFLES"
+                              ? "raffles"
+                              : "all",
+                        status: "all",
+                        paymentMethod:
+                          paymentMethod === "MERCADOPAGO"
+                            ? "card"
+                            : paymentMethod === "TRANSFER"
+                              ? "transfer"
+                              : "all",
+                      });
+                      setSelectedOrder(null);
+                      setActiveTab("Operaciones");
+                      setStoreViewMode("list");
                       window.scrollTo({ top: 0, behavior: "smooth" });
                     }}
                   />

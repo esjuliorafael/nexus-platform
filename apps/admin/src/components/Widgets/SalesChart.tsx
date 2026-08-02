@@ -17,6 +17,7 @@ import type {
 import { NexusAutonomousCard } from '../ui/NexusCard';
 import {
   compactMoneyAxis,
+  formatSalesChartLabel,
   SALES_CHART_AXIS_TICK,
   SALES_CHART_BAR_RADIUS,
   SALES_CHART_MARGIN,
@@ -79,7 +80,7 @@ const SalesChartSkeleton: React.FC = () => (
         <div className="h-3 w-36 rounded-full bg-bg-muted" />
       </div>
     </div>
-    <div className="flex h-full flex-col justify-between">
+    <div className="flex h-full flex-col">
       <div
         className="flex flex-col sm:flex-row sm:items-end sm:justify-between"
         style={{ gap: 'var(--space-md)', marginBottom: 'var(--space-lg)' }}
@@ -158,7 +159,7 @@ const StackedBarShape = ({
 
 export const SalesChart: React.FC<SalesChartProps> = ({
   data = {},
-  period = '7D',
+  period = '7D' as SalesOverviewPeriod,
   source = 'ALL',
   totalAmount,
   isLoading = false,
@@ -174,21 +175,7 @@ export const SalesChart: React.FC<SalesChartProps> = ({
         const date = new Date(
           `${isMonthly ? `${dateKey}-01` : dateKey}T12:00:00`,
         );
-        const label = isMonthly
-          ? date.toLocaleDateString('es-MX', {
-              month: 'short',
-              year: '2-digit',
-            })
-          : period === 'TODAY'
-            ? date
-                .toLocaleDateString('es-MX', { weekday: 'short' })
-                .replace('.', '')
-            : period === 'MONTH'
-              ? date.toLocaleDateString('es-MX', { day: 'numeric' })
-              : date.toLocaleDateString('es-MX', {
-                  day: 'numeric',
-                  month: 'short',
-                });
+        const label = formatSalesChartLabel(date, period);
 
         return {
           date: dateKey,
@@ -310,7 +297,7 @@ export const SalesChart: React.FC<SalesChartProps> = ({
         <div className="mt-auto min-h-[200px] w-full flex-grow">
           {chartRevenue === 0 ? (
             <div
-              className="flex h-[220px] items-center justify-center text-center"
+              className="flex h-full min-h-[220px] items-center justify-center text-center"
               style={{ paddingInline: 'var(--space-lg)' }}
             >
               <p className="max-w-md text-secondary text-text-muted">
@@ -318,7 +305,7 @@ export const SalesChart: React.FC<SalesChartProps> = ({
               </p>
             </div>
           ) : (
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height="100%">
             <BarChart
               data={chartData}
               margin={SALES_CHART_MARGIN}
