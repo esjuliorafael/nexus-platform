@@ -1,5 +1,6 @@
 import type {
   KapsoConfig,
+  KapsoProjectWebhookEvent,
   KapsoSendMessageResult,
   KapsoTemplateDefinition,
   KapsoTemplateMessage,
@@ -288,6 +289,37 @@ export const kapsoClient = {
       config,
       "DELETE",
       `/platform/v1/whatsapp/phone_numbers/${encodeURIComponent(config.phoneNumberId)}/webhooks/${encodeURIComponent(webhookId)}`,
+    );
+  },
+
+  listProjectWebhooks(
+    config: Pick<KapsoConfig, "apiKey" | "apiBaseUrl">,
+  ) {
+    return kapsoRequest<{ data: Array<Record<string, unknown>> }>(
+      config as KapsoConfig,
+      "GET",
+      "/platform/v1/whatsapp/webhooks",
+    );
+  },
+
+  createProjectWebhook(
+    config: Pick<KapsoConfig, "apiKey" | "apiBaseUrl">,
+    url: string,
+    secretKey: string,
+    events: KapsoProjectWebhookEvent[],
+  ) {
+    return kapsoRequest<{ data: Record<string, unknown> }>(
+      config as KapsoConfig,
+      "POST",
+      "/platform/v1/whatsapp/webhooks",
+      {
+        whatsapp_webhook: {
+          kind: "kapso",
+          url,
+          secret_key: secretKey,
+          events,
+        },
+      },
     );
   },
 };

@@ -76,3 +76,7 @@ export type KapsoWebhookEvent =
   | "whatsapp.message.delivered"
   | "whatsapp.message.read"
   | "whatsapp.message.failed";
+
+export type KapsoProjectWebhookEvent =
+  | "whatsapp.phone_number.created"
+  | "whatsapp.phone_number.deleted";

@@ -79,6 +79,45 @@ function safeReturnUrl(value: string) {
   return value;
 }
 
+async function ensureKapsoPlatformWebhook(
+  server: FastifyInstance,
+  request: any,
+) {
+  const config = requireKapsoPlatformConfig();
+  if (!config.platformWebhookSecret) {
+    throw Object.assign(
+      new Error(
+        "KAPSO_PLATFORM_WEBHOOK_SECRET es obligatorio para vincular canales con Kapso.",
+      ),
+      { statusCode: 503 },
+    );
+  }
+
+  const webhookUrl = `${publicApiBase(request)}/api/v1/webhooks/kapso/platform`;
+  const current = await kapsoClient.listProjectWebhooks(config);
+  const events = [
+    "whatsapp.phone_number.created",
+    "whatsapp.phone_number.deleted",
+  ] as const;
+  const existing = current.data.find(
+    (item) =>
+      String(item.url || "") === webhookUrl &&
+      item.active !== false &&
+      events.every((event) =>
+        Array.isArray(item.events) && item.events.includes(event),
+      ),
+  );
+  if (existing) return existing;
+
+  const created = await kapsoClient.createProjectWebhook(
+    config,
+    webhookUrl,
+    config.platformWebhookSecret,
+    [...events],
+  );
+  return created.data;
+}
+
 async function tenantDisplayName(server: FastifyInstance) {
   const setting = await server.storePrisma.setting.findFirst({
     where: {
@@ -307,12 +346,20 @@ export async function kapsoOnboardingAdminRoutes(server: FastifyInstance) {
       }
 
       const customerId = await ensureKapsoCustomer(server);
+      await ensureKapsoPlatformWebhook(server, request);
       const token = randomBytes(32).toString("base64url");
       const returnUrl = safeReturnUrl(body.returnUrl);
       const expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
 
       await server.storePrisma.kapsoOnboardingSession.updateMany({
-        where: { customerId, status: "PENDING" },
+        where: {
+          customerId,
+          status: "PENDING",
+          target: body.target,
+          ...(body.target === "SPECIALIZED"
+            ? { channelId: body.channelId || null }
+            : {}),
+        },
         data: {
           status: "EXPIRED",
           errorMessage: "Reemplazada por una nueva vinculación.",
