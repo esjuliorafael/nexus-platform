@@ -21,6 +21,7 @@ import {
 import { SalesChart } from '../Widgets/SalesChart';
 import { BillingAlertWidget } from '../Widgets/BillingAlertWidget';
 import { FinancialWeightWidget } from '../Widgets/FinancialWeightWidget';
+import { MessagingCostWidget } from '../Widgets/MessagingCostWidget';
 import {
   OperationalAttentionWidget,
 } from '../Widgets/OperationalAttentionWidget';
@@ -160,6 +161,13 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             isLoading={isLoadingCommercial}
           />
         </div>
+      </section>
+
+      <section className="min-w-0">
+        <MessagingCostWidget
+          cost={commercialOverview?.messagingCost}
+          isLoading={isLoadingCommercial}
+        />
       </section>
 
       {/* NIVEL E: HISTORIAL COMERCIAL */}

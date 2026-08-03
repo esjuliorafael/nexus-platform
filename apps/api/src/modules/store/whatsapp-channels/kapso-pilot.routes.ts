@@ -33,6 +33,7 @@ import {
 } from "../../../services/whatsapp-marketing-consent.service";
 import { buildWhatsappAsyncFallbackPatch } from "../../../services/whatsapp/whatsapp-async-fallback";
 import { sendMarketingConsentConfirmation } from "../../../services/whatsapp/whatsapp-marketing-consent-confirmation.service";
+import { whatsappCustomerServiceWindowService } from "../../../services/whatsapp/whatsapp-customer-service-window.service";
 
 const testTemplateSchema = z.object({
   recipientPhone: z.string().trim().min(1),
@@ -552,6 +553,13 @@ export async function kapsoWebhookRoutes(server: FastifyInstance) {
 
       if (eventName === "whatsapp.message.received") {
         const inbound = getKapsoInboundMessage(payload);
+        if (inbound.senderPhone) {
+          await whatsappCustomerServiceWindowService.openKapsoWindow({
+            recipientPhone: inbound.senderPhone,
+            phoneNumberId: inbound.phoneNumberId,
+            inboundMessageId: inbound.messageId,
+          });
+        }
         const keyword = getWhatsappMarketingOptOutKeyword(inbound.text);
         if (keyword && inbound.senderPhone) {
           const outcome = await whatsappMarketingConsentService.optOut(server.storePrisma, {

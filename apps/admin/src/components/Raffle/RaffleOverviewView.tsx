@@ -8,6 +8,7 @@ import {
   CreditCard,
   Eye,
   Hash,
+  ReceiptText,
   Ticket,
   WalletCards,
   type LucideIcon,
@@ -54,6 +55,14 @@ const formatParticipationCurrency = (value: number) =>
     currency: "MXN",
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
+  });
+
+const formatMxn = (value: number) =>
+  value.toLocaleString("es-MX", {
+    style: "currency",
+    currency: "MXN",
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 4,
   });
 
 const HISTORY_PAGE_SIZE = 8;
@@ -272,6 +281,102 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
             />
           </div>
         </div>
+      </NexusSection>
+
+      <NexusSection
+        title="Costo de Mensajería Meta"
+        subtitle="Estimación de plantillas Cloud API entregadas para esta rifa. No incluye la mensualidad de Kapso."
+        icon={ReceiptText}
+        iconVariant="emerald"
+      >
+        {isLoading ? (
+          <div
+            className="h-28 animate-pulse bg-bg-muted"
+            style={{ borderRadius: "var(--radius-inner-visual)" }}
+          />
+        ) : (
+          <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+            <div
+              className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto] sm:items-end"
+              style={{ gap: "var(--space-md)" }}
+            >
+              <div className="flex flex-col" style={{ gap: "var(--space-xs)" }}>
+                <span className="text-label uppercase text-text-muted">
+                  Estimado acumulado
+                </span>
+                <span className="text-display font-black text-text-main tabular-nums">
+                  {formatMxn(overview?.messagingCost?.estimatedMxn || 0)}
+                </span>
+              </div>
+              <div className="text-secondary text-text-muted sm:text-right">
+                {(overview?.messagingCost?.totalDelivered || 0).toLocaleString("es-MX")} entregas Cloud API
+              </div>
+            </div>
+
+            {(overview?.messagingCost?.breakdown || []).length > 0 ? (
+              <div
+                className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3"
+                style={{ gap: "var(--space-sm)" }}
+              >
+                {overview?.messagingCost.breakdown.map((item) => (
+                  <div
+                    key={`${item.country}-${item.category}`}
+                    className="flex flex-col border border-border-main bg-bg-muted"
+                    style={{
+                      gap: "var(--space-xs)",
+                      padding: "var(--space-sm)",
+                      borderRadius: "var(--radius-inner-visual)",
+                    }}
+                  >
+                    <span className="text-label uppercase text-text-muted">
+                      {item.country === "UNKNOWN"
+                        ? "Destino sin tarifa"
+                        : item.country === "US"
+                          ? "Norteamérica"
+                          : item.country === "GT"
+                            ? "Resto de Latinoamérica"
+                          : item.country} · {item.category === "MARKETING" ? "Promocional" : "Operativa"}
+                    </span>
+                    <span className="text-secondary font-bold text-text-main tabular-nums">
+                      {item.delivered} {item.delivered === 1 ? "entrega" : "entregas"}
+                    </span>
+                    <span className="text-secondary font-bold text-emerald-700 tabular-nums">
+                      {formatMxn(item.estimatedMxn)}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <p className="text-secondary text-text-muted">
+                Aún no hay plantillas entregadas mediante Cloud API para esta rifa.
+              </p>
+            )}
+
+            {(overview?.messagingCost?.unpriced || 0) > 0 && (
+              <p className="text-secondary text-amber-700">
+                {overview?.messagingCost.unpriced} entregas no se incluyen porque su destino o tarifa Meta aún no está configurado.
+              </p>
+            )}
+            {(overview?.messagingCost?.exempt || 0) > 0 && (
+              <p className="text-secondary text-emerald-700">
+                {overview?.messagingCost.exempt} entregas operativas exentas por una conversación activa de 24 horas.
+              </p>
+            )}
+            {(overview?.messagingCost?.delivered || 0) > 0 && (
+              <p className="text-secondary text-text-muted">
+                {overview?.messagingCost.delivered} entregas estimadas como facturables.
+              </p>
+            )}
+            {(overview?.messagingCost?.legacy || 0) > 0 && (
+              <p className="text-secondary text-amber-700">
+                {overview?.messagingCost.legacy} entregas históricas no tenían snapshot y usan la tarifa de referencia actual.
+              </p>
+            )}
+            <p className="text-secondary text-text-muted">
+              Referencia de tarifas {overview?.messagingCost?.rateCardVersion}. Meta confirma el importe final en su facturación según mercado, categoría y condiciones de entrega.
+            </p>
+          </div>
+        )}
       </NexusSection>
 
       <NexusSection

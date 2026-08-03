@@ -333,6 +333,13 @@ function normalizeRemoteStatus(value: unknown) {
     : "PENDING";
 }
 
+function normalizeRemoteCategory(value: unknown): "UTILITY" | "MARKETING" | null {
+  const normalized = String(value || "").toUpperCase();
+  return normalized === "UTILITY" || normalized === "MARKETING"
+    ? normalized
+    : null;
+}
+
 export async function syncCloudTemplateCatalog(params: {
   owner: CloudTemplateOwner;
   config: KapsoConfig;
@@ -431,6 +438,9 @@ export async function syncCloudTemplateCatalog(params: {
           );
       const templateId = String(existing?.id || created?.id || "") || null;
       const status = normalizeRemoteStatus(existing?.status || created?.status);
+      const category =
+        normalizeRemoteCategory(existing?.category || created?.category) ||
+        getCloudTemplateCategory(source.type);
 
       await storePrisma.whatsappCloudTemplate.upsert({
         where: {
@@ -448,6 +458,7 @@ export async function syncCloudTemplateCatalog(params: {
           type: source.type,
           templateName,
           templateId,
+          category,
           languageCode,
           status,
           parameterNames,
@@ -459,6 +470,7 @@ export async function syncCloudTemplateCatalog(params: {
             params.owner.kind === "channel" ? params.owner.channelId : null,
           templateName,
           templateId,
+          category,
           languageCode,
           status,
           parameterNames,
@@ -529,7 +541,7 @@ export async function getApprovedCloudTemplate(params: {
   sourceContent: string;
   values: Record<string, string>;
   mediaHeaderUrl?: string;
-}): Promise<KapsoTemplateMessage | null> {
+}): Promise<{ message: KapsoTemplateMessage; category: "UTILITY" | "MARKETING" } | null> {
   let mapping = await storePrisma.whatsappCloudTemplate.findUnique({
     where: {
       ownerKey_scope_type: {
@@ -541,7 +553,7 @@ export async function getApprovedCloudTemplate(params: {
   });
   const shouldRefresh =
     mapping &&
-    mapping.status !== "APPROVED" &&
+    (mapping.status !== "APPROVED" || !normalizeRemoteCategory(mapping.category)) &&
     params.config &&
     (!mapping.lastSyncedAt ||
       Date.now() - mapping.lastSyncedAt.getTime() >= 5 * 60_000);
@@ -561,6 +573,8 @@ export async function getApprovedCloudTemplate(params: {
           where: { id: mapping.id },
           data: {
             templateId: String(template.id || "") || mapping.templateId,
+            category:
+              normalizeRemoteCategory(template.category) || mapping.category,
             status: normalizeRemoteStatus(template.status),
             lastError: null,
             lastSyncedAt: new Date(),
@@ -625,8 +639,13 @@ export async function getApprovedCloudTemplate(params: {
   }
 
   return {
-    name: mapping.templateName,
-    language: { code: mapping.languageCode },
-    ...(components.length ? { components } : {}),
+    category:
+      normalizeRemoteCategory(mapping.category) ||
+      getCloudTemplateCategory(params.type),
+    message: {
+      name: mapping.templateName,
+      language: { code: mapping.languageCode },
+      ...(components.length ? { components } : {}),
+    },
   };
 }

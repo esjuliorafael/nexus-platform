@@ -11,6 +11,7 @@ import {
   endOfWeek,
   format,
 } from "date-fns";
+import { getMetaMessagingCostOverview } from "../../../services/whatsapp/whatsapp-meta-messaging-cost.service";
 
 const SETTLED_ORDER_STATUSES = ["PAID", "SHIPPED", "DELIVERED"] as const;
 export type SalesOverviewPeriod = "TODAY" | "7D" | "15D" | "MONTH" | "ALL";
@@ -762,6 +763,15 @@ export const dashboardService = {
       )
       .slice(0, 5);
 
+    const messagingCost = await getMetaMessagingCostOverview({
+      storePrisma,
+      rafflePrisma,
+      from: pulseStart,
+      to: pulseEnd,
+      source,
+      paymentMethod,
+    });
+
     return {
       period,
       source,
@@ -774,6 +784,7 @@ export const dashboardService = {
       salesBySource,
       pulse,
       history,
+      messagingCost,
     };
   },
 

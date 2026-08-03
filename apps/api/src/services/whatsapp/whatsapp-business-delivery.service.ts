@@ -21,6 +21,12 @@ import {
 } from "./whatsapp-delivery-policy";
 import type { WhatsappProviderKind } from "./whatsapp-provider.types";
 import { sendWhatsappAndLog } from "./whatsapp-send.service";
+import { whatsappCustomerServiceWindowService } from "./whatsapp-customer-service-window.service";
+import {
+  getMetaRateMxn,
+  getMetaRecipientMarket,
+  META_RATE_CARD_VERSION,
+} from "./whatsapp-meta-pricing.service";
 
 export type PrincipalWhatsappConfig = {
   provider: "EVOLUTION" | "KAPSO";
@@ -92,7 +98,7 @@ async function sendKapso(params: {
   });
   if (!config) return false;
 
-  const cloudTemplate = await getApprovedCloudTemplate({
+  const approvedTemplate = await getApprovedCloudTemplate({
     owner: params.owner,
     config,
     scope: params.delivery.scope,
@@ -101,14 +107,23 @@ async function sendKapso(params: {
     values: params.delivery.values,
     mediaHeaderUrl: params.delivery.mediaHeaderUrl,
   });
-  if (!cloudTemplate) return false;
+  if (!approvedTemplate) return false;
+  const isMarketing = approvedTemplate.category === "MARKETING";
+  const market = getMetaRecipientMarket(params.delivery.recipientPhone);
+  const rateMxn = getMetaRateMxn(market, approvedTemplate.category);
+  const hasCustomerServiceWindow =
+    !isMarketing &&
+    (await whatsappCustomerServiceWindowService.hasActiveKapsoWindow({
+      recipientPhone: params.delivery.recipientPhone,
+      phoneNumberId: params.phoneNumberId,
+    }));
 
   await sendWhatsappAndLog({
     transport: { provider: "KAPSO", config },
     recipientPhone: params.delivery.recipientPhone,
     message: {
       text: params.delivery.renderedText,
-      cloudTemplate,
+      cloudTemplate: approvedTemplate.message,
     },
     templateName: params.delivery.templateName,
     orderId: params.delivery.orderId,
@@ -130,6 +145,16 @@ async function sendKapso(params: {
         })[0] === "EVOLUTION"
           ? "EVOLUTION"
           : undefined,
+      metaBilling: {
+        category: approvedTemplate.category,
+        market,
+        rateMxn,
+        estimatedChargeMxn: hasCustomerServiceWindow ? 0 : rateMxn,
+        rateCardVersion: META_RATE_CARD_VERSION,
+        status: hasCustomerServiceWindow
+          ? "EXEMPT_CUSTOMER_SERVICE_WINDOW"
+          : "ESTIMATED_BILLABLE",
+      },
     },
   });
   return true;

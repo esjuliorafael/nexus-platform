@@ -209,6 +209,17 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       });
       if (sent) {
         await paymentRecoveryService.markSent(recoveryKind, data.holdId);
+        if (!isStore) {
+          const messageLog = await storePrisma.whatsappMessageLog.findFirst({
+            where: { jobId: String(job.id ?? "") },
+            orderBy: { id: "desc" },
+            select: { id: true },
+          });
+          await rafflePrisma.rafflePaymentHold.update({
+            where: { id: data.holdId },
+            data: { recoveryMessageLogId: messageLog?.id ?? null },
+          });
+        }
       }
       return;
     }
@@ -808,6 +819,11 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           });
           return;
         }
+        const messageLog = await storePrisma.whatsappMessageLog.findFirst({
+          where: { jobId: String(job.id ?? "") },
+          orderBy: { id: "desc" },
+          select: { id: true },
+        });
         await rafflePrisma.raffleOpeningSubscription.update({
           where: { id: subscription.id },
           data: {
@@ -815,6 +831,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
             sentAt: new Date(),
             attempts: { increment: 1 },
             lastError: null,
+            messageLogId: messageLog?.id ?? null,
           },
         });
       } catch (error: any) {

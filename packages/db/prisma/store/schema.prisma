@@ -624,6 +624,7 @@ model WhatsappCloudTemplate {
   type           TemplateType
   templateName   String                     @map("template_name")
   templateId     String?                    @map("template_id")
+  category       String?                    @map("category")
   languageCode   String                     @default("es_MX") @map("language_code")
   status         String                     @default("PENDING")
   parameterNames Json                       @map("parameter_names")
@@ -706,6 +707,22 @@ model WhatsappMessageLog {
   ticketSaleId    Int?             @map("ticket_sale_id")
 
   @@map("whatsapp_message_logs")
+}
+
+model WhatsappCustomerServiceWindow {
+  id                     Int              @id @default(autoincrement())
+  recipientPhone         String           @map("recipient_phone")
+  channelIdentity        String           @map("channel_identity")
+  provider               WhatsappProvider @default(KAPSO)
+  lastInboundMessageId   String?          @map("last_inbound_message_id")
+  openedAt               DateTime         @default(now()) @map("opened_at")
+  expiresAt              DateTime         @map("expires_at")
+  createdAt              DateTime         @default(now()) @map("created_at")
+  updatedAt              DateTime         @updatedAt @map("updated_at")
+
+  @@unique([recipientPhone, channelIdentity, provider])
+  @@index([provider, channelIdentity, expiresAt])
+  @@map("whatsapp_customer_service_windows")
 }
 
 model WhatsappMarketingPreference {

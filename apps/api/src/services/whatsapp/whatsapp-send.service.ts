@@ -23,6 +23,14 @@ export type SendWhatsappAndLogParams = {
     policyClass?: WhatsappDeliveryClass;
     providerPriority?: readonly WhatsappProviderKind[];
     fallbackFromProvider?: WhatsappProviderKind;
+    metaBilling?: {
+      category: "UTILITY" | "MARKETING";
+      market: "MX" | "US" | "GT" | "UNKNOWN";
+      rateMxn: number | null;
+      estimatedChargeMxn: number | null;
+      rateCardVersion: string;
+      status: "ESTIMATED_BILLABLE" | "EXEMPT_CUSTOMER_SERVICE_WINDOW";
+    };
   };
 };
 

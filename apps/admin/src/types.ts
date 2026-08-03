@@ -604,6 +604,21 @@ export interface DashboardCommercialOverview {
     conversionRate: number;
   };
   history: DashboardCommercialHistoryItem[];
+  messagingCost: {
+    rateCardVersion: string;
+    estimatedMxn: number;
+    cloudDelivered: number;
+    billable: number;
+    exempt: number;
+    evolution: number;
+    unpriced: number;
+    breakdown: Array<{
+      market: "MX" | "US" | "GT" | "UNKNOWN";
+      category: "UTILITY" | "MARKETING";
+      delivered: number;
+      estimatedMxn: number;
+    }>;
+  };
 }
 
 export interface SalesOverview {
@@ -851,6 +866,23 @@ export interface RaffleOperationalOverview {
   }>;
   recentParticipations: RaffleParticipation[];
   participationHistory: RaffleParticipation[];
+  messagingCost: {
+    rateCardVersion: string;
+    provider: "KAPSO";
+    totalDelivered: number;
+    delivered: number;
+    exempt: number;
+    legacy: number;
+    unpriced: number;
+    estimatedMxn: number;
+    breakdown: Array<{
+      country: "MX" | "US" | "GT" | "UNKNOWN";
+      category: "UTILITY" | "MARKETING";
+      delivered: number;
+      estimatedMxn: number;
+      unpriced: number;
+    }>;
+  };
   updatedAt: string;
 }
 

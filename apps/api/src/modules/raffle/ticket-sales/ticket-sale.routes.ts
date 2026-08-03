@@ -9,6 +9,7 @@ import { mpService } from "../../store/payments/mercadopago.service";
 import { customerPhoneSchema } from "../../../utils/customer-phone";
 import { requireAdminActor } from "../../../utils/admin-authorization";
 import { RaffleCouponError } from "../coupons/raffle-coupon.service";
+import { getRaffleMetaMessagingCostOverview } from "./raffle-meta-messaging-cost.service";
 
 export async function ticketSaleRoutes(server: FastifyInstance) {
   const rafflePrisma = server.rafflePrisma;
@@ -44,14 +45,18 @@ export async function ticketSaleRoutes(server: FastifyInstance) {
     });
     try {
       const { raffleId } = paramsSchema.parse(request.params);
-      const overview = await ticketSaleService.getRaffleOverviewAdmin(
-        rafflePrisma,
-        raffleId,
-      );
+      const [overview, messagingCost] = await Promise.all([
+        ticketSaleService.getRaffleOverviewAdmin(rafflePrisma, raffleId),
+        getRaffleMetaMessagingCostOverview({
+          rafflePrisma,
+          storePrisma,
+          raffleId,
+        }),
+      ]);
       if (!overview) {
         return reply.status(404).send({ message: "Raffle not found" });
       }
-      return overview;
+      return { ...overview, messagingCost };
     } catch (error: any) {
       if (error?.issues) {
         return reply.status(400).send({
