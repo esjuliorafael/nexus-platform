@@ -6,6 +6,7 @@ import {
   getKapsoConfigForChannel,
   isKapsoPilotEnabled,
   requireKapsoConfig,
+  requireKapsoPlatformConfig,
 } from "../../../services/kapso/kapso.config";
 import { kapsoClient } from "../../../services/kapso/kapso.client";
 import {
@@ -519,8 +520,11 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
 
 export async function kapsoWebhookRoutes(server: FastifyInstance) {
   server.post("/kapso", async (request, reply) => {
-    const config = getKapsoConfig();
-    if (!config?.webhookSecret) {
+    // This endpoint receives events for every tenant phone number. The linked
+    // identity lives in channel settings, so a global phone number must not be
+    // required merely to verify Kapso's project webhook.
+    const config = requireKapsoPlatformConfig();
+    if (!config.webhookSecret) {
       return reply
         .status(503)
         .send({ message: "Kapso webhook is not configured." });
