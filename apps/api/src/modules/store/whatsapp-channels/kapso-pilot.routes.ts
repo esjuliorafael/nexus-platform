@@ -1,6 +1,9 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
+import sharp from "sharp";
+import { rafflePrisma } from "@nexus/db/raffle";
 import { toWhatsAppCloudPhoneNumber } from "../../../utils/customer-phone";
+import { storageService } from "../../../services/storage.service";
 import {
   getKapsoConfig,
   getKapsoConfigForChannel,
@@ -182,6 +185,33 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
     };
   };
 
+  const resolveRaffleInvitationHeaderHandle = async (
+    config: NonNullable<ReturnType<typeof getKapsoConfigForChannel>>,
+  ) => {
+    const raffle = await rafflePrisma.raffle.findFirst({
+      where: { image: { not: null } },
+      orderBy: { id: "desc" },
+      select: { id: true, image: true, imagePoster: true },
+    });
+    const sourceUrl = raffle?.imagePoster || raffle?.image;
+    if (!sourceUrl) return null;
+
+    const source = await fetch(sourceUrl);
+    if (!source.ok) return null;
+    const jpeg = await sharp(Buffer.from(await source.arrayBuffer()))
+      .rotate()
+      .resize({ width: 1200, height: 630, fit: "cover", position: "centre" })
+      .jpeg({ quality: 88, mozjpeg: true })
+      .toBuffer();
+    const publicUrl = await storageService.uploadObject(
+      jpeg,
+      `whatsapp/template-examples/raffle-invitation-${raffle.id}.jpg`,
+      "image/jpeg",
+    );
+    const uploaded = await kapsoClient.ingestResumableMedia(config, publicUrl);
+    return uploaded.data.target?.handle || null;
+  };
+
   server.post(
     "/channel-diagnostics",
     { preHandler: [server.authenticate] },
@@ -244,6 +274,8 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
         owner: target.owner,
         config: target.config,
         sources: target.sources,
+        resolveRichInvitationHeaderHandle: () =>
+          resolveRaffleInvitationHeaderHandle(target.config!),
       });
       const webhook = await ensureChannelWebhook(request, target.config);
       return {

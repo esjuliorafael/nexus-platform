@@ -65,6 +65,18 @@ function extractKapsoError(body: unknown, fallback: string) {
 }
 
 export const kapsoClient = {
+  ingestResumableMedia(config: KapsoConfig, source: string) {
+    return kapsoRequest<{
+      data: { target?: { kind?: string; handle?: string } };
+    }>(config, "POST", "/platform/v1/whatsapp/media", {
+      media_ingest: {
+        phone_number_id: config.phoneNumberId,
+        source,
+        delivery: "meta_resumable_asset",
+      },
+    });
+  },
+
   listCustomers(
     config: Pick<KapsoConfig, "apiKey" | "apiBaseUrl">,
     externalCustomerId?: string,

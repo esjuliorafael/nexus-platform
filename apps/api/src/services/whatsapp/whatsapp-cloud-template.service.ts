@@ -213,13 +213,6 @@ function isRichInvitation(type: CloudTemplateType) {
   return type === "RAFFLE_INVITATION";
 }
 
-function hasRichInvitationHeaderExample(type: CloudTemplateType) {
-  return (
-    isRichInvitation(type) &&
-    Boolean(process.env.KAPSO_RAFFLE_INVITATION_HEADER_HANDLE?.trim())
-  );
-}
-
 export function getCloudTemplateBodyContent(source: CloudTemplateSource) {
   if (!isRichInvitation(source.type)) return source.content.trim();
 
@@ -268,9 +261,8 @@ function buildTemplateDefinition(
   languageCode: string,
   category: "UTILITY" | "MARKETING",
   type: CloudTemplateType,
+  richInvitationHeaderHandle?: string | null,
 ): KapsoTemplateDefinition {
-  const invitationHeaderHandle =
-    process.env.KAPSO_RAFFLE_INVITATION_HEADER_HANDLE?.trim();
   const richInvitation = isRichInvitation(type);
 
   return {
@@ -284,7 +276,7 @@ function buildTemplateDefinition(
             {
               type: "HEADER" as const,
               format: "IMAGE" as const,
-              example: { header_handle: [invitationHeaderHandle!] },
+              example: { header_handle: [richInvitationHeaderHandle!] },
             },
           ]
         : []),
@@ -345,6 +337,7 @@ export async function syncCloudTemplateCatalog(params: {
   config: KapsoConfig;
   sources: CloudTemplateSource[];
   languageCode?: string;
+  resolveRichInvitationHeaderHandle?: () => Promise<string | null>;
 }) {
   const languageCode = params.languageCode || "es_MX";
   const ownerKey = getCloudTemplateOwnerKey(params.owner);
@@ -367,7 +360,7 @@ export async function syncCloudTemplateCatalog(params: {
 
     if (
       isRichInvitation(source.type) &&
-      !hasRichInvitationHeaderExample(source.type)
+      false
     ) {
       const lastError =
         "Configura KAPSO_RAFFLE_INVITATION_HEADER_HANDLE para sincronizar la invitación con portada.";
@@ -381,7 +374,9 @@ export async function syncCloudTemplateCatalog(params: {
         },
         create: {
           channelId:
-            params.owner.kind === "channel" ? params.owner.channelId : null,
+            params.owner.kind === "channel"
+              ? (params.owner as Extract<CloudTemplateOwner, { kind: "channel" }>).channelId
+              : null,
           ownerKey,
           scope: source.scope,
           type: source.type,
@@ -423,6 +418,15 @@ export async function syncCloudTemplateCatalog(params: {
           String(item.name) === templateName &&
           String(item.language) === languageCode,
       );
+      const richInvitationHeaderHandle =
+        existing || !isRichInvitation(source.type)
+          ? null
+          : await params.resolveRichInvitationHeaderHandle?.();
+      if (isRichInvitation(source.type) && !existing && !richInvitationHeaderHandle) {
+        throw new Error(
+          "No se pudo preparar una imagen de ejemplo para la invitación con portada.",
+        );
+      }
       const created = existing
         ? null
         : await kapsoClient.createTemplate(
@@ -434,6 +438,7 @@ export async function syncCloudTemplateCatalog(params: {
               languageCode,
               getCloudTemplateCategory(source.type),
               source.type,
+              richInvitationHeaderHandle,
             ),
           );
       const templateId = String(existing?.id || created?.id || "") || null;
