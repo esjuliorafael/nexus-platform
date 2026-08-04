@@ -132,12 +132,29 @@ export const kapsoClient = {
     );
   },
 
-  getPhoneNumber(config: KapsoConfig) {
-    return kapsoRequest<{ data: Record<string, unknown> }>(
-      config,
-      "GET",
-      `/platform/v1/whatsapp/phone_numbers/${encodeURIComponent(config.phoneNumberId)}`,
-    );
+  async getPhoneNumber(config: KapsoConfig) {
+    try {
+      return await kapsoRequest<{ data: Record<string, unknown> }>(
+        config,
+        "GET",
+        `/platform/v1/whatsapp/phone_numbers/${encodeURIComponent(config.phoneNumberId)}`,
+      );
+    } catch (error: any) {
+      // Kapso can list a valid Coexistence number while its per-number lookup
+      // temporarily returns 404 after a device migration or re-registration.
+      if (error?.statusCode !== 404) throw error;
+
+      const response = await kapsoRequest<{
+        data: Array<Record<string, unknown>>;
+      }>(config, "GET", "/platform/v1/whatsapp/phone_numbers");
+      const phoneNumber = response.data.find(
+        (item) =>
+          String(item.phone_number_id || item.id || "") ===
+          config.phoneNumberId,
+      );
+      if (!phoneNumber) throw error;
+      return { data: phoneNumber };
+    }
   },
 
   deletePhoneNumber(config: KapsoConfig) {
