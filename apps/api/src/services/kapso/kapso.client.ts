@@ -134,11 +134,21 @@ export const kapsoClient = {
 
   async getPhoneNumber(config: KapsoConfig) {
     try {
-      return await kapsoRequest<{ data: Record<string, unknown> }>(
+      const response = await kapsoRequest<{
+        data: { data?: Record<string, unknown> } | Record<string, unknown>;
+      }>(
         config,
         "GET",
         `/platform/v1/whatsapp/phone_numbers/${encodeURIComponent(config.phoneNumberId)}`,
       );
+      // Kapso's individual endpoint wraps the phone record in an additional
+      // `data` field, while the list endpoint returns the record directly.
+      const nested = response.data.data;
+      const phoneNumber: Record<string, unknown> =
+        nested && typeof nested === "object" && !Array.isArray(nested)
+          ? (nested as Record<string, unknown>)
+          : response.data;
+      return { data: phoneNumber };
     } catch (error: any) {
       // Kapso can list a valid Coexistence number while its per-number lookup
       // temporarily returns 404 after a device migration or re-registration.

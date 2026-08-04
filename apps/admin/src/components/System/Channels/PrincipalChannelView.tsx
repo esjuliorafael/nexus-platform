@@ -1101,7 +1101,9 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                   className="w-full"
                 >
                   {config.whatsapp_main_kapso_phone_number_id
-                    ? "Cambiar número vinculado"
+                    ? instanceStatus === "close"
+                      ? "Reconectar con Kapso"
+                      : "Cambiar número vinculado"
                     : "Vincular con Kapso"}
                 </NexusAutonomousButton>
                 {Boolean(config.whatsapp_main_kapso_phone_number_id) && (

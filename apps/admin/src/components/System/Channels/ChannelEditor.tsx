@@ -1084,7 +1084,9 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
                   className="w-full"
                 >
                   {whatsappData.kapsoPhoneNumberId
-                    ? "Cambiar número vinculado"
+                    ? instanceStatus === "close"
+                      ? "Reconectar con Kapso"
+                      : "Cambiar número vinculado"
                     : "Vincular con Kapso"}
                 </NexusAutonomousButton>
                 {Boolean(whatsappData.kapsoPhoneNumberId) && (
