@@ -328,6 +328,7 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
                   "whatsapp_evolution_instance",
                   "whatsapp_main_phone",
                   "whatsapp_main_provider",
+                  "whatsapp_main_delivery_strategy",
                   "whatsapp_kapso_delivery_enabled",
                   "whatsapp_main_kapso_phone_number_id",
                   "whatsapp_main_kapso_business_account_id",
@@ -422,6 +423,9 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
             phone: getSetting(settings, "whatsapp_main_phone"),
             provider:
               getSetting(settings, "whatsapp_main_provider") || "EVOLUTION",
+            deliveryStrategy:
+              getSetting(settings, "whatsapp_main_delivery_strategy") ||
+              "STANDARD",
             instanceName: getSetting(settings, "whatsapp_evolution_instance"),
             kapsoPhoneNumberId: getSetting(
               settings,

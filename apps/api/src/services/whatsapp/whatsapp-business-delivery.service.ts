@@ -33,6 +33,7 @@ export type PrincipalWhatsappConfig = {
   evolution: EvolutionInstance | null;
   kapsoPhoneNumberId: string;
   kapsoBusinessAccountId: string;
+  deliveryStrategy: import("./whatsapp-delivery-policy").WhatsappDeliveryStrategy;
 };
 
 export type SendBusinessWhatsappParams = {
@@ -74,7 +75,9 @@ function getPolicyRouting(params: SendBusinessWhatsappParams) {
       type: params.type,
       forceProvider: params.forceProvider,
       kapsoEnabled: params.kapsoEnabled,
-      deliveryStrategy: params.preferredChannel?.deliveryStrategy,
+      deliveryStrategy:
+        params.preferredChannel?.deliveryStrategy ||
+        params.principal.deliveryStrategy,
     }),
   };
 }
@@ -141,7 +144,8 @@ async function sendKapso(params: {
           forceProvider: params.delivery.forceProvider,
           kapsoEnabled: params.delivery.kapsoEnabled,
           deliveryStrategy:
-            params.delivery.preferredChannel?.deliveryStrategy,
+            params.delivery.preferredChannel?.deliveryStrategy ||
+            params.delivery.principal.deliveryStrategy,
         })[0] === "EVOLUTION"
           ? "EVOLUTION"
           : undefined,
@@ -197,7 +201,7 @@ export async function sendBusinessWhatsappNotification(
     type: params.type,
     forceProvider: params.forceProvider,
     kapsoEnabled: params.kapsoEnabled,
-    deliveryStrategy: preferred?.deliveryStrategy,
+    deliveryStrategy: preferred?.deliveryStrategy || params.principal.deliveryStrategy,
   });
   let fallbackReason = "";
   const principalDelivery: SendBusinessWhatsappParams = {

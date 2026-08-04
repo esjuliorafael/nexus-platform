@@ -694,7 +694,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
           <NexusSectionCard
             icon={MessageCircle}
             iconVariant={whatsappReady ? "emerald" : "muted"}
-            title="Mensajeria WhatsApp"
+            title="Mensajería Especializada"
             subtitle={
               whatsappData.phone
                 ? `${whatsappData.phone} / ${
@@ -965,7 +965,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       {modal === "whatsapp" && (
         <NexusModal
           isOpen
-          title="Mensajería WhatsApp"
+          title="Mensajería Especializada"
           eyebrow="Configurar Canal"
           icon={MessageCircle}
           onClose={() => setModal(null)}

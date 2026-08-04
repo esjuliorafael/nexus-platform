@@ -50,6 +50,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
               "whatsapp_evolution_key",
               "whatsapp_evolution_instance",
               "whatsapp_main_provider",
+              "whatsapp_main_delivery_strategy",
               "whatsapp_kapso_delivery_enabled",
               "whatsapp_main_kapso_phone_number_id",
               "whatsapp_main_kapso_business_account_id",
@@ -123,6 +124,12 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         getSetting("whatsapp_main_kapso_phone_number_id") || "",
       kapsoBusinessAccountId:
         getSetting("whatsapp_main_kapso_business_account_id") || "",
+      deliveryStrategy:
+        (getSetting("whatsapp_main_delivery_strategy") as
+          | "STANDARD"
+          | "KAPSO_PREFERRED"
+          | "EVOLUTION_ONLY"
+          | null) || "STANDARD",
     };
     const kapsoEnabled = isKapsoTenantDeliveryEnabled(
       getSetting("whatsapp_kapso_delivery_enabled"),

@@ -28,7 +28,7 @@ import {
   NexusCardButton,
   NexusSectionButton,
 } from "../../ui/NexusButton";
-import { NexusInput, NexusTextarea } from "../../ui/NexusInputs";
+import { NexusInput, NexusSelect, NexusTextarea } from "../../ui/NexusInputs";
 import { NexusModal, NexusModalActions } from "../../ui/NexusModal";
 import { NexusSwitch } from "../../ui/NexusSwitch";
 import { NexusConfirmModal } from "../../ui/NexusConfirmModal";
@@ -41,6 +41,7 @@ import {
 } from "./WhatsAppPairingModal";
 import { CHANNEL_TEMPLATE_SECTIONS } from "./channelTemplateCatalog";
 import { runKapsoOnboarding } from "./kapsoOnboarding";
+import type { WhatsAppDeliveryStrategy } from "../../../types";
 
 interface PrincipalChannelViewProps {
   showToast: (message: string, type?: "success" | "error") => void;
@@ -987,6 +988,8 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                   updateConfig({
                     whatsapp_main_phone: config.whatsapp_main_phone || "",
                     whatsapp_main_provider: whatsappProvider,
+                    whatsapp_main_delivery_strategy:
+                      config.whatsapp_main_delivery_strategy || "STANDARD",
                     whatsapp_evolution_instance:
                       config.whatsapp_evolution_instance || principalInstance,
                     whatsapp_main_kapso_phone_number_id:
@@ -1044,6 +1047,35 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                 context="section"
                 className="grid h-[var(--h-input)] w-full grid-cols-2"
               />
+            </div>
+            <div
+              className="flex w-full min-w-0 flex-col"
+              style={{ gap: "var(--space-xs)" }}
+            >
+              <NexusSelect
+                label="Estrategia de entrega"
+                value={config.whatsapp_main_delivery_strategy || "STANDARD"}
+                onChange={(event) =>
+                  setConfig({
+                    ...config,
+                    whatsapp_main_delivery_strategy: event.target
+                      .value as WhatsAppDeliveryStrategy,
+                  })
+                }
+              >
+                <option value="STANDARD">Estándar según la notificación</option>
+                <option value="KAPSO_PREFERRED">Kapso preferente</option>
+                <option value="EVOLUTION_ONLY">Solo Evolution API</option>
+              </NexusSelect>
+              <p className="px-1 text-secondary italic leading-relaxed text-text-muted">
+                {(config.whatsapp_main_delivery_strategy || "STANDARD") ===
+                "KAPSO_PREFERRED"
+                  ? "Usa Kapso primero para todas las notificaciones. Evolution API queda como respaldo."
+                  : (config.whatsapp_main_delivery_strategy || "STANDARD") ===
+                      "EVOLUTION_ONLY"
+                    ? "Todas las notificaciones usan Evolution API. Kapso queda deshabilitado para este canal."
+                    : "Nexus elige el proveedor según la importancia de cada notificación."}
+              </p>
             </div>
             {whatsappProvider === "EVOLUTION" && (
               <NexusInput
