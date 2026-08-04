@@ -198,8 +198,10 @@ export function normalizeCloudTemplateParameterValue(value: unknown) {
     .replace(/\r\n?/g, "\n")
     .split("\n")
     .map((line) => line.replace(/\t+/g, " ").replace(/ {2,}/g, " ").trim())
-    .join("\n")
-    .replace(/\n{3,}/g, "\n\n")
+    // Meta rejects line breaks and tabs within a template parameter. Keep the
+    // information readable without changing the original Evolution message.
+    .filter(Boolean)
+    .join(" · ")
     .trim();
 
   return normalized || "No disponible";
