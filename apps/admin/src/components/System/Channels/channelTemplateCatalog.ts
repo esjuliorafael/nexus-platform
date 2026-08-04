@@ -38,6 +38,14 @@ export type ChannelTemplateSection = {
   groups: ChannelTemplateGroup[];
 };
 
+const BANK_TEMPLATE_VARIABLES = [
+  "{{bank_name}}",
+  "{{bank_beneficiary}}",
+  "{{bank_account}}",
+  "{{bank_clabe}}",
+  "{{bank_card}}",
+];
+
 export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
   {
     key: "store-reservations",
@@ -56,7 +64,7 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
           "{{order_id}}",
           "{{item_list}}",
           "{{amount}}",
-          "{{bank_info}}",
+          ...BANK_TEMPLATE_VARIABLES,
           "{{time_store}}",
         ],
       },
@@ -70,7 +78,7 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
           "{{order_id}}",
           "{{item_list}}",
           "{{amount}}",
-          "{{bank_info}}",
+          ...BANK_TEMPLATE_VARIABLES,
           "{{time_remaining}}",
         ],
       },
@@ -90,7 +98,7 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
           "{{order_id}}",
           "{{item_list}}",
           "{{amount}}",
-          "{{bank_info}}",
+          ...BANK_TEMPLATE_VARIABLES,
           "{{time_store}}",
         ],
       },
@@ -171,7 +179,7 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
           "{{ticket_list}}",
           "{{raffle_name}}",
           "{{amount}}",
-          "{{bank_info}}",
+          ...BANK_TEMPLATE_VARIABLES,
           "{{time_raffle}}",
         ],
       },
@@ -184,7 +192,7 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
           "{{ticket_list}}",
           "{{raffle_name}}",
           "{{amount}}",
-          "{{bank_info}}",
+          ...BANK_TEMPLATE_VARIABLES,
           "{{time_raffle}}",
         ],
       },
@@ -197,7 +205,7 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
           "{{ticket_list}}",
           "{{raffle_name}}",
           "{{amount}}",
-          "{{bank_info}}",
+          ...BANK_TEMPLATE_VARIABLES,
           "{{time_remaining}}",
         ],
       },
@@ -354,7 +362,8 @@ export const CHANNEL_TEMPLATE_SECTIONS: ChannelTemplateSection[] = [
   {
     scope: "RAFFLES",
     label: "Rifas",
-    description: "Apertura, participaciones, pagos, resultados y preferencias de rifas.",
+    description:
+      "Apertura, participaciones, pagos, resultados y preferencias de rifas.",
     groups: CHANNEL_TEMPLATE_GROUPS.filter(
       (group) => group.scope === "RAFFLES",
     ),

@@ -347,25 +347,44 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
     }
 
     if (data.kind === "raffle-draw-reminder") {
-      const claimed = await rafflePrisma.raffleDrawReminderRecipient.updateMany({
-        where: {
-          id: data.campaignRecipientId,
-          status: { in: data.fallbackOfMessageId ? ["PENDING", "FAILED", "PROCESSING"] : ["PENDING", "FAILED"] },
+      const claimed = await rafflePrisma.raffleDrawReminderRecipient.updateMany(
+        {
+          where: {
+            id: data.campaignRecipientId,
+            status: {
+              in: data.fallbackOfMessageId
+                ? ["PENDING", "FAILED", "PROCESSING"]
+                : ["PENDING", "FAILED"],
+            },
+          },
+          data: {
+            status: "PROCESSING",
+            attempts: { increment: 1 },
+            lastError: null,
+          },
         },
-        data: { status: "PROCESSING", attempts: { increment: 1 }, lastError: null },
-      });
+      );
       if (claimed.count === 0) return;
 
-      const recipient = await rafflePrisma.raffleDrawReminderRecipient.findUnique({
-        where: { id: data.campaignRecipientId }, include: { campaign: true },
-      });
+      const recipient =
+        await rafflePrisma.raffleDrawReminderRecipient.findUnique({
+          where: { id: data.campaignRecipientId },
+          include: { campaign: true },
+        });
       if (!recipient) return;
       const raffleChannel = resolvedWhatsappChannels.find(
-        (channel) => channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
+        (channel) =>
+          channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
       );
       const values = recipient.payload as Record<string, string>;
-      const renderedText = renderTemplate(recipient.campaign.templateContent, values);
-      const principalRenderedText = renderTemplate(recipient.campaign.principalTemplateContent, values);
+      const renderedText = renderTemplate(
+        recipient.campaign.templateContent,
+        values,
+      );
+      const principalRenderedText = renderTemplate(
+        recipient.campaign.principalTemplateContent,
+        values,
+      );
       try {
         const sent = await sendBusinessWhatsappNotification({
           preferredChannel: forcePrincipal ? null : raffleChannel,
@@ -384,24 +403,54 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           forceProvider,
           kapsoEnabled,
         });
-        if (!sent) throw new Error("No existe un proveedor de WhatsApp preparado para esta notificación.");
+        if (!sent)
+          throw new Error(
+            "No existe un proveedor de WhatsApp preparado para esta notificación.",
+          );
         const messageLog = await storePrisma.whatsappMessageLog.findFirst({
-          where: { jobId: String(job.id ?? "") }, orderBy: { id: "desc" },
+          where: { jobId: String(job.id ?? "") },
+          orderBy: { id: "desc" },
         });
-        const waitsForProviderResolution = messageLog?.provider === "KAPSO" && ["accepted", "pending"].includes(String(messageLog.providerStatus || messageLog.status).toLowerCase());
+        const waitsForProviderResolution =
+          messageLog?.provider === "KAPSO" &&
+          ["accepted", "pending"].includes(
+            String(
+              messageLog.providerStatus || messageLog.status,
+            ).toLowerCase(),
+          );
         await rafflePrisma.raffleDrawReminderRecipient.update({
           where: { id: recipient.id },
-          data: { status: waitsForProviderResolution ? "PROCESSING" : "SENT", sentAt: waitsForProviderResolution ? null : new Date(), messageLogId: messageLog?.id ?? null, lastError: null },
+          data: {
+            status: waitsForProviderResolution ? "PROCESSING" : "SENT",
+            sentAt: waitsForProviderResolution ? null : new Date(),
+            messageLogId: messageLog?.id ?? null,
+            lastError: null,
+          },
         });
-        await refreshRaffleDrawReminderCampaign(rafflePrisma, recipient.campaignId);
+        await refreshRaffleDrawReminderCampaign(
+          rafflePrisma,
+          recipient.campaignId,
+        );
         return;
       } catch (error: any) {
-        const messageLog = await storePrisma.whatsappMessageLog.findFirst({ where: { jobId: String(job.id ?? "") }, orderBy: { id: "desc" } });
+        const messageLog = await storePrisma.whatsappMessageLog.findFirst({
+          where: { jobId: String(job.id ?? "") },
+          orderBy: { id: "desc" },
+        });
         await rafflePrisma.raffleDrawReminderRecipient.update({
           where: { id: recipient.id },
-          data: { status: "FAILED", lastError: error?.message || "No se pudo enviar el aviso del día de la rifa.", messageLogId: messageLog?.id ?? null },
+          data: {
+            status: "FAILED",
+            lastError:
+              error?.message ||
+              "No se pudo enviar el aviso del día de la rifa.",
+            messageLogId: messageLog?.id ?? null,
+          },
         });
-        await refreshRaffleDrawReminderCampaign(rafflePrisma, recipient.campaignId);
+        await refreshRaffleDrawReminderCampaign(
+          rafflePrisma,
+          recipient.campaignId,
+        );
         throw error;
       }
     }
@@ -424,11 +473,12 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       });
       if (claimed.count === 0) return;
 
-      const recipient =
-        await rafflePrisma.raffleInvitationRecipient.findUnique({
+      const recipient = await rafflePrisma.raffleInvitationRecipient.findUnique(
+        {
           where: { id: data.campaignRecipientId },
           include: { campaign: true },
-        });
+        },
+      );
       if (!recipient) return;
 
       const raffleChannel = resolvedWhatsappChannels.find(
@@ -452,8 +502,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           scope: "RAFFLES",
           type: "RAFFLE_INVITATION",
           sourceContent: recipient.campaign.templateContent,
-          principalSourceContent:
-            recipient.campaign.principalTemplateContent,
+          principalSourceContent: recipient.campaign.principalTemplateContent,
           recipientPhone: recipient.phone,
           renderedText,
           principalRenderedText,
@@ -532,7 +581,10 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       data.kind === "order-restored" ||
       data.kind === "order-reminder"
     ) {
-      const resolved = resolveChannels(data.orderKind, resolvedWhatsappChannels);
+      const resolved = resolveChannels(
+        data.orderKind,
+        resolvedWhatsappChannels,
+      );
       const wa = resolved.whatsappChannel;
 
       // Preserve the intended identity in configuration-error logs.
@@ -547,11 +599,11 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
             ? getSetting("whatsapp_global_store_pay") || ""
             : data.kind === "order-refunded"
               ? getSetting("whatsapp_global_store_refunded") || ""
-            : data.kind === "order-restored"
-              ? getSetting("whatsapp_global_store_restored") || ""
-              : data.kind === "order-reminder"
-                ? getSetting("whatsapp_global_store_reminder") || ""
-                : getSetting("whatsapp_global_store_rel") || "";
+              : data.kind === "order-restored"
+                ? getSetting("whatsapp_global_store_restored") || ""
+                : data.kind === "order-reminder"
+                  ? getSetting("whatsapp_global_store_reminder") || ""
+                  : getSetting("whatsapp_global_store_rel") || "";
 
       const template = principalTemplate;
 
@@ -654,11 +706,11 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
               ? "PAYMENT_CONFIRMED"
               : data.kind === "order-refunded"
                 ? "PAYMENT_REFUNDED"
-              : data.kind === "order-restored"
-                ? "RESTORED"
-                : data.kind === "order-reminder"
-                  ? "REMINDER"
-                  : "RELEASE",
+                : data.kind === "order-restored"
+                  ? "RESTORED"
+                  : data.kind === "order-reminder"
+                    ? "REMINDER"
+                    : "RELEASE",
         sourceContent: template,
         principalSourceContent: principalTemplate,
         recipientPhone: data.recipientPhone,
@@ -677,11 +729,11 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
               ? "order_paid"
               : data.kind === "order-refunded"
                 ? "order_refunded"
-              : data.kind === "order-restored"
-                ? "order_restored"
-                : data.kind === "order-reminder"
-                  ? "order_reminder"
-                  : "order_cancelled",
+                : data.kind === "order-restored"
+                  ? "order_restored"
+                  : data.kind === "order-reminder"
+                    ? "order_reminder"
+                    : "order_cancelled",
         orderId: data.orderId,
         jobId: String(job.id ?? ""),
         attempt: job.attemptsMade + 1,
@@ -888,13 +940,13 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           ? getSetting("whatsapp_global_raffle_res") || ""
           : data.kind === "reservation-restored"
             ? getSetting("whatsapp_global_raffle_restored") || ""
-          : data.kind === "reservation-paid"
-            ? getSetting("whatsapp_global_raffle_pay") || ""
-            : data.kind === "reservation-refunded"
-              ? getSetting("whatsapp_global_raffle_refunded") || ""
-            : data.kind === "reservation-reminder"
-              ? getSetting("whatsapp_global_raffle_reminder") || ""
-              : getSetting("whatsapp_global_raffle_rel") || "";
+            : data.kind === "reservation-paid"
+              ? getSetting("whatsapp_global_raffle_pay") || ""
+              : data.kind === "reservation-refunded"
+                ? getSetting("whatsapp_global_raffle_refunded") || ""
+                : data.kind === "reservation-reminder"
+                  ? getSetting("whatsapp_global_raffle_reminder") || ""
+                  : getSetting("whatsapp_global_raffle_rel") || "";
 
       const template = principalTemplate;
 
@@ -964,13 +1016,13 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
             ? "RESERVATION"
             : data.kind === "reservation-restored"
               ? "RESTORED"
-            : data.kind === "reservation-paid"
-              ? "PAYMENT_CONFIRMED"
-              : data.kind === "reservation-refunded"
-                ? "PAYMENT_REFUNDED"
-              : data.kind === "reservation-reminder"
-                ? "REMINDER"
-                : "RELEASE",
+              : data.kind === "reservation-paid"
+                ? "PAYMENT_CONFIRMED"
+                : data.kind === "reservation-refunded"
+                  ? "PAYMENT_REFUNDED"
+                  : data.kind === "reservation-reminder"
+                    ? "REMINDER"
+                    : "RELEASE",
         sourceContent: template,
         principalSourceContent: principalTemplate,
         recipientPhone: data.recipientPhone,
@@ -985,13 +1037,13 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
             ? "reservation_rifas"
             : data.kind === "reservation-restored"
               ? "reservation_restored_rifas"
-            : data.kind === "reservation-paid"
-              ? "reservation_paid_rifas"
-              : data.kind === "reservation-refunded"
-                ? "reservation_refunded_rifas"
-              : data.kind === "reservation-reminder"
-                ? "reservation_reminder_rifas"
-                : "reservation_cancelled_rifas",
+              : data.kind === "reservation-paid"
+                ? "reservation_paid_rifas"
+                : data.kind === "reservation-refunded"
+                  ? "reservation_refunded_rifas"
+                  : data.kind === "reservation-reminder"
+                    ? "reservation_reminder_rifas"
+                    : "reservation_cancelled_rifas",
         ticketSaleId: sales[0].id,
         jobId: String(job.id ?? ""),
         attempt: job.attemptsMade + 1,
@@ -1127,6 +1179,7 @@ function buildOrderNotification(
     refund_id: order.mpRefundId || "",
     refunded_at: formatNotificationDate(order.mpRefundedAt),
     bank_info: bankInfo,
+    ...getBankTemplateValues(bankInfo),
     time_store: timeLimit || "",
     time_remaining: timeRemaining || "",
   };
@@ -1169,6 +1222,23 @@ function formatBankInfo(data: BankData): string {
   return info;
 }
 
+function getBankTemplateValues(bankInfo: string) {
+  const valueFor = (label: string) => {
+    const line = bankInfo
+      .split(/\r?\n/)
+      .find((entry) => entry.startsWith(`${label}:`));
+    return line?.slice(label.length + 1).trim() || "N/A";
+  };
+
+  return {
+    bank_name: valueFor("Banco"),
+    bank_beneficiary: valueFor("Beneficiario"),
+    bank_account: valueFor("No. Cuenta"),
+    bank_clabe: valueFor("CLABE"),
+    bank_card: valueFor("Tarjeta"),
+  };
+}
+
 function buildReservationNotification(
   template: string,
   sales: any[],
@@ -1204,6 +1274,7 @@ function buildReservationNotification(
     refunded_at: formatNotificationDate(firstSale.mpRefundedAt),
     customer_phone: firstSale.customerPhone ?? "",
     bank_info: bankInfo,
+    ...getBankTemplateValues(bankInfo),
     time_raffle: timeLimit || "",
     time_remaining: timeRemaining || "",
   };

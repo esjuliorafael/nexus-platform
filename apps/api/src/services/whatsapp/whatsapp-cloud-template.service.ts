@@ -63,7 +63,11 @@ export const CLOUD_TEMPLATE_SETTING_KEYS: Array<{
     key: "whatsapp_global_raffle_draw_reminder",
   },
   { scope: "RAFFLES", type: "RESERVATION", key: "whatsapp_global_raffle_res" },
-  { scope: "RAFFLES", type: "RESTORED", key: "whatsapp_global_raffle_restored" },
+  {
+    scope: "RAFFLES",
+    type: "RESTORED",
+    key: "whatsapp_global_raffle_restored",
+  },
   {
     scope: "RAFFLES",
     type: "PAYMENT_CONFIRMED",
@@ -129,6 +133,11 @@ const VARIABLE_EXAMPLES: Record<string, string> = {
   refunded_at: "27 de julio de 2026, 2:30 p. m.",
   bank_info:
     "Banco: BBVA\nBeneficiario: Rancho Demo\nNo. Cuenta: 1234567890\nCLABE: 012345678901234567",
+  bank_name: "BBVA",
+  bank_beneficiary: "Rancho Demo",
+  bank_account: "1234567890",
+  bank_clabe: "012345678901234567",
+  bank_card: "1234 5678 9012 3456",
   time_store: "24 horas",
   time_raffle: "2 horas",
   time_remaining: "4 horas",
@@ -145,7 +154,8 @@ const VARIABLE_EXAMPLES: Record<string, string> = {
   ticket_price: "320.00",
   ticket_list:
     "002, 005 y 009\n\n✨ Oportunidades adicionales:\n\n002: 164, 246, 271",
-  prize_list: "Primer lugar: Premio principal\nSegundo lugar: Premio secundario",
+  prize_list:
+    "Primer lugar: Premio principal\nSegundo lugar: Premio secundario",
   winning_number_list:
     "Primer lugar: 922 (boleto 001)\nSegundo lugar: 577 (boleto 014)",
   result_list:
@@ -327,7 +337,9 @@ function normalizeRemoteStatus(value: unknown) {
     : "PENDING";
 }
 
-function normalizeRemoteCategory(value: unknown): "UTILITY" | "MARKETING" | null {
+function normalizeRemoteCategory(
+  value: unknown,
+): "UTILITY" | "MARKETING" | null {
   const normalized = String(value || "").toUpperCase();
   return normalized === "UTILITY" || normalized === "MARKETING"
     ? normalized
@@ -360,10 +372,71 @@ export async function syncCloudTemplateCatalog(params: {
     const parameterNames = extractCloudTemplateVariables(bodyContent);
     const templateName = buildTemplateName(params.owner, source, contentHash);
 
-    if (
-      isRichInvitation(source.type) &&
-      false
-    ) {
+    const activeMapping = await storePrisma.whatsappCloudTemplate.findUnique({
+      where: {
+        ownerKey_scope_type: {
+          ownerKey,
+          scope: source.scope,
+          type: source.type,
+        },
+      },
+    });
+    const isReplacement = Boolean(
+      activeMapping && activeMapping.contentHash !== contentHash,
+    );
+    const channelId =
+      params.owner.kind === "channel" ? params.owner.channelId : null;
+    const persist = async (data: {
+      templateId?: string | null;
+      category?: string | null;
+      status: string;
+      lastError?: string | null;
+    }) => {
+      const values = {
+        channelId,
+        ownerKey,
+        scope: source.scope,
+        type: source.type,
+        templateName,
+        templateId: data.templateId ?? null,
+        category: data.category ?? null,
+        languageCode,
+        status: data.status,
+        parameterNames,
+        contentHash,
+        lastError: data.lastError ?? null,
+        lastSyncedAt: new Date(),
+      };
+
+      if (isReplacement) {
+        return storePrisma.whatsappCloudTemplateCandidate.upsert({
+          where: {
+            ownerKey_scope_type_contentHash: {
+              ownerKey,
+              scope: source.scope,
+              type: source.type,
+              contentHash,
+            },
+          },
+          create: values,
+          update: values,
+        });
+      }
+
+      return storePrisma.whatsappCloudTemplate.upsert({
+        where: {
+          ownerKey_scope_type: {
+            ownerKey,
+            scope: source.scope,
+            type: source.type,
+          },
+        },
+        create: values,
+        update: values,
+      });
+    };
+
+    if (isRichInvitation(source.type) && false) {
       const lastError =
         "Configura KAPSO_RAFFLE_INVITATION_HEADER_HANDLE para sincronizar la invitación con portada.";
       await storePrisma.whatsappCloudTemplate.upsert({
@@ -377,7 +450,12 @@ export async function syncCloudTemplateCatalog(params: {
         create: {
           channelId:
             params.owner.kind === "channel"
-              ? (params.owner as Extract<CloudTemplateOwner, { kind: "channel" }>).channelId
+              ? (
+                  params.owner as Extract<
+                    CloudTemplateOwner,
+                    { kind: "channel" }
+                  >
+                ).channelId
               : null,
           ownerKey,
           scope: source.scope,
@@ -424,7 +502,11 @@ export async function syncCloudTemplateCatalog(params: {
         existing || !isRichInvitation(source.type)
           ? null
           : await params.resolveRichInvitationHeaderHandle?.();
-      if (isRichInvitation(source.type) && !existing && !richInvitationHeaderHandle) {
+      if (
+        isRichInvitation(source.type) &&
+        !existing &&
+        !richInvitationHeaderHandle
+      ) {
         throw new Error(
           "No se pudo preparar una imagen de ejemplo para la invitación con portada.",
         );
@@ -449,43 +531,7 @@ export async function syncCloudTemplateCatalog(params: {
         normalizeRemoteCategory(existing?.category || created?.category) ||
         getCloudTemplateCategory(source.type);
 
-      await storePrisma.whatsappCloudTemplate.upsert({
-        where: {
-          ownerKey_scope_type: {
-            ownerKey,
-            scope: source.scope,
-            type: source.type,
-          },
-        },
-        create: {
-          channelId:
-            params.owner.kind === "channel" ? params.owner.channelId : null,
-          ownerKey,
-          scope: source.scope,
-          type: source.type,
-          templateName,
-          templateId,
-          category,
-          languageCode,
-          status,
-          parameterNames,
-          contentHash,
-          lastSyncedAt: new Date(),
-        },
-        update: {
-          channelId:
-            params.owner.kind === "channel" ? params.owner.channelId : null,
-          templateName,
-          templateId,
-          category,
-          languageCode,
-          status,
-          parameterNames,
-          contentHash,
-          lastError: null,
-          lastSyncedAt: new Date(),
-        },
-      });
+      await persist({ templateId, category, status });
 
       results.push({
         scope: source.scope,
@@ -493,39 +539,12 @@ export async function syncCloudTemplateCatalog(params: {
         templateName,
         templateId,
         status,
+        replacement: isReplacement,
       });
     } catch (error: any) {
-      await storePrisma.whatsappCloudTemplate.upsert({
-        where: {
-          ownerKey_scope_type: {
-            ownerKey,
-            scope: source.scope,
-            type: source.type,
-          },
-        },
-        create: {
-          channelId:
-            params.owner.kind === "channel" ? params.owner.channelId : null,
-          ownerKey,
-          scope: source.scope,
-          type: source.type,
-          templateName,
-          languageCode,
-          status: "ERROR",
-          parameterNames,
-          contentHash,
-          lastError: error?.message || "No se pudo sincronizar la plantilla.",
-          lastSyncedAt: new Date(),
-        },
-        update: {
-          templateName,
-          languageCode,
-          status: "ERROR",
-          parameterNames,
-          contentHash,
-          lastError: error?.message || "No se pudo sincronizar la plantilla.",
-          lastSyncedAt: new Date(),
-        },
+      await persist({
+        status: "ERROR",
+        lastError: error?.message || "No se pudo sincronizar la plantilla.",
       });
       results.push({
         scope: source.scope,
@@ -548,7 +567,10 @@ export async function getApprovedCloudTemplate(params: {
   sourceContent: string;
   values: Record<string, string>;
   mediaHeaderUrl?: string;
-}): Promise<{ message: KapsoTemplateMessage; category: "UTILITY" | "MARKETING" } | null> {
+}): Promise<{
+  message: KapsoTemplateMessage;
+  category: "UTILITY" | "MARKETING";
+} | null> {
   let mapping = await storePrisma.whatsappCloudTemplate.findUnique({
     where: {
       ownerKey_scope_type: {
@@ -558,9 +580,91 @@ export async function getApprovedCloudTemplate(params: {
       },
     },
   });
+  const desiredContentHash = getCloudTemplateDefinitionHash({
+    scope: params.scope,
+    type: params.type,
+    content: params.sourceContent,
+  });
+
+  // A pending replacement must never interrupt an approved operational
+  // template. Promote it only after Meta has approved the exact definition.
+  if (mapping && mapping.contentHash !== desiredContentHash) {
+    let candidate = await storePrisma.whatsappCloudTemplateCandidate.findUnique(
+      {
+        where: {
+          ownerKey_scope_type_contentHash: {
+            ownerKey: getCloudTemplateOwnerKey(params.owner),
+            scope: params.scope,
+            type: params.type,
+            contentHash: desiredContentHash,
+          },
+        },
+      },
+    );
+    const shouldRefreshCandidate =
+      candidate &&
+      candidate.status !== "APPROVED" &&
+      params.config &&
+      (!candidate.lastSyncedAt ||
+        Date.now() - candidate.lastSyncedAt.getTime() >= 5 * 60_000);
+
+    if (shouldRefreshCandidate && candidate) {
+      try {
+        const remote = await kapsoClient.listTemplates(params.config!, {
+          name: candidate.templateName,
+          language: candidate.languageCode,
+        });
+        const template = remote.data.find(
+          (item) =>
+            String(item.name) === candidate!.templateName &&
+            String(item.language) === candidate!.languageCode,
+        );
+        if (template) {
+          candidate = await storePrisma.whatsappCloudTemplateCandidate.update({
+            where: { id: candidate.id },
+            data: {
+              templateId: String(template.id || "") || candidate.templateId,
+              category:
+                normalizeRemoteCategory(template.category) ||
+                candidate.category,
+              status: normalizeRemoteStatus(template.status),
+              lastError: null,
+              lastSyncedAt: new Date(),
+            },
+          });
+        }
+      } catch {
+        // Keep the approved active mapping available during a transient lookup failure.
+      }
+    }
+
+    if (candidate?.status === "APPROVED") {
+      mapping = await storePrisma.whatsappCloudTemplate.update({
+        where: { id: mapping.id },
+        data: {
+          channelId: candidate.channelId,
+          templateName: candidate.templateName,
+          templateId: candidate.templateId,
+          category: candidate.category,
+          languageCode: candidate.languageCode,
+          status: candidate.status,
+          parameterNames: Array.isArray(candidate.parameterNames)
+            ? candidate.parameterNames.map(String)
+            : [],
+          contentHash: candidate.contentHash,
+          lastError: null,
+          lastSyncedAt: candidate.lastSyncedAt || new Date(),
+        },
+      });
+      await storePrisma.whatsappCloudTemplateCandidate.delete({
+        where: { id: candidate.id },
+      });
+    }
+  }
   const shouldRefresh =
     mapping &&
-    (mapping.status !== "APPROVED" || !normalizeRemoteCategory(mapping.category)) &&
+    (mapping.status !== "APPROVED" ||
+      !normalizeRemoteCategory(mapping.category)) &&
     params.config &&
     (!mapping.lastSyncedAt ||
       Date.now() - mapping.lastSyncedAt.getTime() >= 5 * 60_000);
@@ -591,7 +695,9 @@ export async function getApprovedCloudTemplate(params: {
     } catch {
       if (mapping.status !== "APPROVED") {
         throw Object.assign(
-          new Error("Kapso no está disponible para validar la plantilla Cloud."),
+          new Error(
+            "Kapso no está disponible para validar la plantilla Cloud.",
+          ),
           {
             statusCode: 424,
             code: "KAPSO_TEMPLATE_STATUS_UNAVAILABLE",
@@ -601,27 +707,20 @@ export async function getApprovedCloudTemplate(params: {
       // An already approved local mapping remains usable during a transient lookup failure.
     }
   }
-  if (
-    !mapping ||
-    mapping.status !== "APPROVED" ||
-    mapping.contentHash !==
-      getCloudTemplateDefinitionHash({
-        scope: params.scope,
-        type: params.type,
-        content: params.sourceContent,
-      })
-  ) {
+  if (!mapping || mapping.status !== "APPROVED") {
     return null;
   }
 
   const parameterNames = Array.isArray(mapping.parameterNames)
     ? mapping.parameterNames.map(String)
     : [];
-  const components: KapsoTemplateMessage["components"] = [];
   if (
-    isRichInvitation(params.type) &&
-    params.mediaHeaderUrl?.trim()
+    !parameterNames.every((parameterName) => parameterName in params.values)
   ) {
+    return null;
+  }
+  const components: KapsoTemplateMessage["components"] = [];
+  if (isRichInvitation(params.type) && params.mediaHeaderUrl?.trim()) {
     components.push({
       type: "header",
       parameters: [

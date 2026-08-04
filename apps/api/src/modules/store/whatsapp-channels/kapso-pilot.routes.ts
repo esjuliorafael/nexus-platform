@@ -316,22 +316,44 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
       const mappings = await server.storePrisma.whatsappCloudTemplate.findMany({
         where: { ownerKey },
       });
+      const candidates =
+        await server.storePrisma.whatsappCloudTemplateCandidate.findMany({
+          where: { ownerKey },
+        });
       const templates = target.sources.map((source) => {
         const mapping = mappings.find(
           (item) => item.scope === source.scope && item.type === source.type,
         );
         const sourceReady = Boolean(source.content.trim());
+        const contentHash = sourceReady
+          ? getCloudTemplateDefinitionHash(source)
+          : null;
+        const candidate = contentHash
+          ? candidates.find(
+              (item) =>
+                item.scope === source.scope &&
+                item.type === source.type &&
+                item.contentHash === contentHash,
+            )
+          : null;
         const current =
           sourceReady &&
-          mapping?.contentHash === getCloudTemplateDefinitionHash(source);
+          (mapping?.contentHash === contentHash ||
+            candidate?.status === "APPROVED");
         return {
           scope: source.scope,
           type: source.type,
           sourceReady,
-          templateName: mapping?.templateName || null,
-          status: current ? mapping?.status || "NOT_SYNCED" : "NOT_SYNCED",
+          templateName:
+            candidate?.templateName || mapping?.templateName || null,
+          status:
+            candidate?.status ||
+            (current ? mapping?.status || "NOT_SYNCED" : "NOT_SYNCED"),
           current,
-          lastError: mapping?.lastError || null,
+          lastError: candidate?.lastError || mapping?.lastError || null,
+          replacementPending: Boolean(
+            candidate && candidate.status !== "APPROVED",
+          ),
         };
       });
       return {
@@ -598,43 +620,55 @@ export async function kapsoWebhookRoutes(server: FastifyInstance) {
         }
         const keyword = getWhatsappMarketingOptOutKeyword(inbound.text);
         if (keyword && inbound.senderPhone) {
-          const outcome = await whatsappMarketingConsentService.optOut(server.storePrisma, {
-            phone: inbound.senderPhone,
-            keyword,
-            externalEventId: `kapso:${messageId}`,
-            metadata: {
-              provider: "KAPSO",
-              phoneNumberId: inbound.phoneNumberId,
+          const outcome = await whatsappMarketingConsentService.optOut(
+            server.storePrisma,
+            {
+              phone: inbound.senderPhone,
+              keyword,
+              externalEventId: `kapso:${messageId}`,
+              metadata: {
+                provider: "KAPSO",
+                phoneNumberId: inbound.phoneNumberId,
+              },
             },
-          });
+          );
           optedOut += 1;
           if (outcome.changed) {
             await sendMarketingConsentConfirmation({
               recipientPhone: inbound.senderPhone,
               kind: "OPTED_OUT",
-              transport: { provider: "KAPSO", phoneNumberId: inbound.phoneNumberId },
+              transport: {
+                provider: "KAPSO",
+                phoneNumberId: inbound.phoneNumberId,
+              },
               inboundMessageId: messageId,
             });
           }
         }
         const optInKeyword = getWhatsappMarketingOptInKeyword(inbound.text);
         if (optInKeyword && inbound.senderPhone) {
-          const outcome = await whatsappMarketingConsentService.grant(server.storePrisma, {
-            phone: inbound.senderPhone,
-            source: "INBOUND_KEYWORD",
-            externalEventId: `kapso:${messageId}`,
-            keyword: optInKeyword,
-            metadata: {
-              provider: "KAPSO",
+          const outcome = await whatsappMarketingConsentService.grant(
+            server.storePrisma,
+            {
+              phone: inbound.senderPhone,
+              source: "INBOUND_KEYWORD",
+              externalEventId: `kapso:${messageId}`,
               keyword: optInKeyword,
-              phoneNumberId: inbound.phoneNumberId,
+              metadata: {
+                provider: "KAPSO",
+                keyword: optInKeyword,
+                phoneNumberId: inbound.phoneNumberId,
+              },
             },
-          });
+          );
           if (outcome.changed) {
             await sendMarketingConsentConfirmation({
               recipientPhone: inbound.senderPhone,
               kind: "GRANTED",
-              transport: { provider: "KAPSO", phoneNumberId: inbound.phoneNumberId },
+              transport: {
+                provider: "KAPSO",
+                phoneNumberId: inbound.phoneNumberId,
+              },
               inboundMessageId: messageId,
             });
           }

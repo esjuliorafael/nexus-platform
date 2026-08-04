@@ -572,6 +572,7 @@ model WhatsappChannel {
   updated_at             DateTime                @default(now()) @map("updated_at")
   templates              WhatsappTemplate[]
   cloudTemplates         WhatsappCloudTemplate[]
+  cloudTemplateCandidates WhatsappCloudTemplateCandidate[]
   kapsoOnboardingSessions KapsoOnboardingSession[]
 
   @@index([provider, active])
@@ -638,6 +639,30 @@ model WhatsappCloudTemplate {
   @@unique([ownerKey, scope, type])
   @@index([channelId, status])
   @@map("whatsapp_cloud_templates")
+}
+
+model WhatsappCloudTemplateCandidate {
+  id             Int                        @id @default(autoincrement())
+  channelId      Int?                       @map("channel_id")
+  ownerKey       String                     @map("owner_key")
+  scope          WhatsappCloudTemplateScope
+  type           TemplateType
+  templateName   String                     @map("template_name")
+  templateId     String?                    @map("template_id")
+  category       String?                    @map("category")
+  languageCode   String                     @default("es_MX") @map("language_code")
+  status         String                     @default("PENDING")
+  parameterNames Json                       @map("parameter_names")
+  contentHash    String                     @map("content_hash")
+  lastError      String?                    @map("last_error")
+  lastSyncedAt   DateTime?                  @map("last_synced_at")
+  createdAt      DateTime                   @default(now()) @map("created_at")
+  updatedAt      DateTime                   @updatedAt @map("updated_at")
+  channel        WhatsappChannel?           @relation(fields: [channelId], references: [id], onDelete: Cascade)
+
+  @@unique([ownerKey, scope, type, contentHash])
+  @@index([channelId, status])
+  @@map("whatsapp_cloud_template_candidates")
 }
 
 model ShippingZone {
