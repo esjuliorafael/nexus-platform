@@ -9,9 +9,32 @@ import bcrypt from "bcrypt";
 import { toPublicRaffle } from "./raffle-access";
 
 export const raffleService = {
-  async getAllActive(prisma: PrismaClient) {
+  async getAllActive(prisma: PrismaClient, options?: { catalogOnly?: boolean }) {
+    const now = new Date();
+    const catalogAvailabilityWhere = options?.catalogOnly
+      ? {
+          AND: [
+            {
+              OR: [
+                { participationStartsAt: null },
+                { participationStartsAt: { lte: now } },
+              ],
+            },
+            {
+              OR: [
+                { participationEndsAt: null },
+                { participationEndsAt: { gt: now } },
+              ],
+            },
+          ],
+        }
+      : {};
     const raffles = await prisma.raffle.findMany({
-      where: { status: RaffleStatus.ACTIVE, published: true },
+      where: {
+        status: RaffleStatus.ACTIVE,
+        published: true,
+        ...catalogAvailabilityWhere,
+      },
       include: { gallery: true, prizes: { orderBy: { position: "asc" } } },
       orderBy: [
         { featured: "desc" },

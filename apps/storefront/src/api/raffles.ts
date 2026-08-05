@@ -35,6 +35,7 @@ export interface RaffleOpeningReminderResponse {
 
 export const raffleApi = {
   getAll: () => client.get<Raffle[]>('/raffles').then(res => res.data),
+  getCatalog: () => client.get<Raffle[]>('/raffles/catalog').then(res => res.data),
   getRecentResults: () => client.get<RaffleRecentResult[]>('/raffles/results/recent').then(res => res.data),
   getCatalogAvailabilityEventsUrl: () =>
     `${client.defaults.baseURL}/raffles/ticket-availability/events`,

@@ -73,6 +73,7 @@ export default function RafflesPage() {
   const { isModuleEnabled, loading: settingsLoading } = useSettings();
   const routeRevealEpoch = useStorefrontRouteRevealEpoch();
   const [raffles, setRaffles] = useState<Raffle[]>([]);
+  const [catalogRaffles, setCatalogRaffles] = useState<Raffle[]>([]);
   const [recentResults, setRecentResults] = useState<RaffleRecentResult[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
@@ -113,11 +114,13 @@ export default function RafflesPage() {
       setLoading(true);
 
       try {
-        const [data, results] = await Promise.all([
+        const [data, catalog, results] = await Promise.all([
           raffleApi.getAll(),
+          raffleApi.getCatalog(),
           raffleApi.getRecentResults().catch(() => []),
         ]);
         setRaffles(Array.isArray(data) ? data : []);
+        setCatalogRaffles(Array.isArray(catalog) ? catalog : []);
         setRecentResults(Array.isArray(results) ? results : []);
       } catch (error) {
         console.error("Error loading raffles:", error);
@@ -136,8 +139,9 @@ export default function RafflesPage() {
     const refreshCatalog = () => {
       window.clearTimeout(refreshTimer);
       refreshTimer = window.setTimeout(() => {
-        void raffleApi.getAll().then((data) => {
+        void Promise.all([raffleApi.getAll(), raffleApi.getCatalog()]).then(([data, catalog]) => {
           if (Array.isArray(data)) setRaffles(data);
+          if (Array.isArray(catalog)) setCatalogRaffles(catalog);
         });
       }, 240);
     };
@@ -186,8 +190,32 @@ export default function RafflesPage() {
   const normalizedQuery = normalizeSearch(searchTerm);
   const isExploringCatalog =
     normalizedQuery.length > 0 || raffleType !== DEFAULT_RAFFLE_TYPE;
+  const availableCatalogRaffles = useMemo(
+    () =>
+      catalogRaffles.filter((raffle) =>
+        isPublicCatalogRaffle(raffle, participationClock),
+      ),
+    [catalogRaffles, participationClock],
+  );
+  const needsCatalogRefresh = useMemo(() => {
+    const catalogIds = new Set(catalogRaffles.map((raffle) => raffle.id));
+    return raffles.some(
+      (raffle) =>
+        isPublicCatalogRaffle(raffle, participationClock) &&
+        !catalogIds.has(raffle.id),
+    );
+  }, [catalogRaffles, participationClock, raffles]);
+
+  useEffect(() => {
+    if (!needsCatalogRefresh) return;
+
+    void raffleApi.getCatalog().then((catalog) => {
+      if (Array.isArray(catalog)) setCatalogRaffles(catalog);
+    });
+  }, [needsCatalogRefresh]);
+
   const filteredRaffles = useMemo(() => {
-    return raffles.filter((raffle) => {
+    return availableCatalogRaffles.filter((raffle) => {
       const isOpportunityRaffle = raffle.opportunities > 1;
       const matchesType =
         raffleType === "ALL" ||
@@ -201,7 +229,7 @@ export default function RafflesPage() {
 
       return matchesType && matchesSearch;
     });
-  }, [normalizedQuery, raffleType, raffles]);
+  }, [availableCatalogRaffles, normalizedQuery, raffleType]);
 
   const totalPages = Math.max(
     1,
@@ -383,7 +411,7 @@ export default function RafflesPage() {
             />
           )}
 
-          {raffles.length > 0 && (
+          {availableCatalogRaffles.length > 0 && (
             <section
               className="flex flex-col"
               style={{ gap: "var(--sf-space-md)" }}
@@ -1938,6 +1966,21 @@ async function copyTextToClipboard(value: string) {
 function isUpcomingRaffle(raffle: Raffle, now: number) {
   if (!raffle.participationStartsAt) return false;
   return now < new Date(raffle.participationStartsAt).getTime();
+}
+
+function isPublicCatalogRaffle(raffle: Raffle, now: number) {
+  const startsAt = raffle.participationStartsAt
+    ? new Date(raffle.participationStartsAt).getTime()
+    : null;
+  const endsAt = raffle.participationEndsAt
+    ? new Date(raffle.participationEndsAt).getTime()
+    : null;
+
+  return (
+    raffle.status === "ACTIVE" &&
+    (!startsAt || now >= startsAt) &&
+    (!endsAt || now < endsAt)
+  );
 }
 
 function formatRaffleDrawDate(

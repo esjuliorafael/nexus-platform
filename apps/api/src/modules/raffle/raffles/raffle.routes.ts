@@ -179,6 +179,10 @@ export async function raffleRoutes(server: FastifyInstance) {
     return raffleService.getAllActive(getPrisma());
   });
 
+  server.get("/catalog", async () => {
+    return raffleService.getAllActive(getPrisma(), { catalogOnly: true });
+  });
+
   server.get("/results/recent", async () => {
     return raffleService.getRecentResults(getPrisma());
   });
