@@ -82,11 +82,14 @@ export function StorefrontMediaRail({
         ref={railRef}
         className="-mx-[var(--sf-inset-page)] snap-x snap-mandatory overflow-x-auto scrollbar-hide [scroll-padding-inline:var(--sf-inset-page)]"
       >
+        {/* The section owning this rail already reveals on scroll. Animate its
+            thumbnails on mount so a nested viewport observer cannot leave a
+            horizontal rail hidden on mobile browsers. */}
         <StorefrontRevealGroup
           cadence="compact"
           className="flex w-max min-w-full px-[var(--sf-inset-page)] pb-[var(--sf-space-xs)]"
           style={{ gap: "var(--sf-space-base)" }}
-          amount={0.25}
+          revealOnMount
         >
           {children}
         </StorefrontRevealGroup>

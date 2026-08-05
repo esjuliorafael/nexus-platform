@@ -32,6 +32,7 @@ type StorefrontRevealGroupProps = {
   delayMs?: number;
   staggerMs?: number;
   amount?: number;
+  revealOnMount?: boolean;
 };
 
 type StorefrontRevealItemProps = {
@@ -90,6 +91,7 @@ export function StorefrontRevealGroup({
   delayMs,
   staggerMs,
   amount,
+  revealOnMount = false,
 }: StorefrontRevealGroupProps) {
   const prefersReducedMotion = useReducedMotion();
   const inheritedCadence = useContext(StorefrontRevealCadenceContext);
@@ -104,8 +106,12 @@ export function StorefrontRevealGroup({
       className={className}
       style={style}
       initial={prefersReducedMotion ? false : "hidden"}
-      whileInView="visible"
-      viewport={{ once: true, amount: resolvedAmount }}
+      {...(revealOnMount
+        ? { animate: "visible" }
+        : {
+            whileInView: "visible",
+            viewport: { once: true, amount: resolvedAmount },
+          })}
       variants={{
         hidden: {},
         visible: {
