@@ -5,13 +5,12 @@ import {
   RaffleResultRecipientStatus,
 } from "@prisma/client-raffle";
 import type { PrismaClient as StorePrismaClient } from "@prisma/client-store";
-import sharp from "sharp";
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
-import { storageService } from "../../../services/storage.service";
 import type { AuditActor } from "../../../utils/admin-authorization";
 import { raffleAudienceRulesSchema, type RaffleAudienceRules } from "../intelligence/raffle-audience.schema";
 import { raffleAudienceService } from "../intelligence/raffle-audience.service";
 import { deriveRaffleResultCampaignStatus } from "./raffle-result-communication.utils";
+import { ensureRaffleWhatsappHeader } from "./raffle-whatsapp-media.service";
 
 const DEFAULT_AUDIENCE_NAME = "Participantes pagados";
 const DEFAULT_AUDIENCE_RULES: RaffleAudienceRules = { minPaidParticipations: 1 };
@@ -65,40 +64,6 @@ const formatPrice = (value: unknown) =>
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
-
-async function createWhatsappInvitationCover(
-  raffleId: number,
-  sourceUrl: string | null,
-) {
-  if (!sourceUrl) return null;
-  try {
-    const response = await fetch(sourceUrl);
-    if (!response.ok) {
-      throw new Error(`No se pudo descargar la portada (${response.status}).`);
-    }
-    const jpeg = await sharp(Buffer.from(await response.arrayBuffer()))
-      .rotate()
-      .resize({
-        width: 1200,
-        height: 630,
-        fit: "cover",
-        position: "centre",
-      })
-      .jpeg({ quality: 88, mozjpeg: true })
-      .toBuffer();
-    return storageService.uploadObject(
-      jpeg,
-      `whatsapp/raffles/${raffleId}/invitation-cover.jpg`,
-      "image/jpeg",
-    );
-  } catch (error) {
-    console.warn(
-      `No se pudo preparar la portada de WhatsApp para la rifa ${raffleId}:`,
-      error,
-    );
-    return null;
-  }
-}
 
 async function resolveAudience(
   rafflePrisma: RafflePrismaClient,
@@ -330,6 +295,7 @@ export const raffleInvitationCampaignService = {
           image: true,
           imageType: true,
           imagePoster: true,
+          whatsappHeaderUrl: true,
         },
       }),
       resolveAudience(rafflePrisma, input.audienceId, input.audiencePreset),
@@ -364,10 +330,23 @@ export const raffleInvitationCampaignService = {
       raffle.imageType === "VIDEO"
         ? raffle.imagePoster || raffle.image
         : raffle.image;
-    const mediaHeaderUrl = await createWhatsappInvitationCover(
-      raffleId,
-      coverSource,
-    );
+    let mediaHeaderUrl = raffle.whatsappHeaderUrl;
+    if (!mediaHeaderUrl) {
+      try {
+        mediaHeaderUrl = await ensureRaffleWhatsappHeader(raffleId, coverSource);
+        if (mediaHeaderUrl) {
+          await rafflePrisma.raffle.update({
+            where: { id: raffleId },
+            data: { whatsappHeaderUrl: mediaHeaderUrl },
+          });
+        }
+      } catch (error) {
+        console.warn(
+          `No se pudo preparar la portada de WhatsApp para la rifa ${raffleId}:`,
+          error,
+        );
+      }
+    }
     const campaign = await rafflePrisma.$transaction(async (tx) => {
       const created = await tx.raffleInvitationCampaign.create({
         data: {

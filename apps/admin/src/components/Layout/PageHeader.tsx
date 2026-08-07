@@ -24,6 +24,13 @@ interface PageHeaderProps {
   shippingSubView: string;
   channelsViewMode: string;
   selectedOrderRecordType?: "ORDER" | "PAYMENT_HOLD";
+  principalTemplateEditor?: {
+    label: string;
+    provider: "EVOLUTION" | "CLOUD";
+    isDirty: boolean;
+    isSaving: boolean;
+    onSave: () => void;
+  } | null;
   actionAddon?: React.ReactNode;
 }
 
@@ -50,6 +57,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   shippingSubView,
   channelsViewMode,
   selectedOrderRecordType = "ORDER",
+  principalTemplateEditor = null,
   actionAddon,
 }) => {
   const isMediaMode = activeTab === "Medios";
@@ -62,8 +70,19 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     isOperationsTab ||
     (isStoreMode &&
       (storeViewMode === "orders" || storeViewMode === "order-detail"));
+  const isPrincipalTemplateEditor =
+    isSystemMode &&
+    systemViewMode === "channels" &&
+    channelsViewMode === "principal" &&
+    Boolean(principalTemplateEditor);
 
   const getTitle = () => {
+    if (isPrincipalTemplateEditor)
+      return (
+        <>
+          Editar <span className="text-text-muted">Plantilla</span>
+        </>
+      );
     if (isCreatingMedia)
       return (
         <>
@@ -326,6 +345,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
               Centro de <span className="text-text-muted">Canales</span>
             </>
           );
+        if (principalTemplateEditor)
+          return `Plantilla de ${principalTemplateEditor.label.toLowerCase()} de ${principalTemplateEditor.provider === "CLOUD" ? "Cloud API" : "Evolution API"}.`;
         if (channelsViewMode === "principal")
           return (
             <>

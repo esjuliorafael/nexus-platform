@@ -1,6 +1,10 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
-import { evolutionClient } from "../../../services/evolution/evolution.client";
+import {
+  evolutionClient,
+  getPairingCode,
+  hasQrPayload,
+} from "../../../services/evolution/evolution.client";
 import { getEvolutionConfigFromSettings } from "../../../services/evolution/evolution.config";
 
 const connectSchema = z.discriminatedUnion("method", [
@@ -14,7 +18,6 @@ const connectSchema = z.discriminatedUnion("method", [
 function normalizePairingPhone(value: string) {
   const digits = value.replace(/\D/g, "");
   if (digits.length === 10) return `52${digits}`;
-  if (/^521\d{10}$/.test(digits)) return `52${digits.slice(3)}`;
   return digits;
 }
 
@@ -116,15 +119,27 @@ export async function evolutionProxyRoutes(server: FastifyInstance) {
     try {
       const connection = await evolutionClient.getConnectionCode({ ...config, instanceName }, number);
       await configureInstanceWebhook(request, instanceName);
-      if (body.method === "pairing_code" && !connection.pairingCode) {
+      if (body.method === "pairing_code" && !getPairingCode(connection)) {
         return reply.status(409).send({
-          error: "La instancia ya esta generando un QR. Espera a que expire antes de solicitar un codigo.",
+          error: hasQrPayload(connection)
+            ? "Evolution ya genero un QR para esta instancia. Espera a que expire antes de solicitar un codigo."
+            : "Evolution no devolvio un codigo de emparejamiento. Revisa el estado de la instancia e intenta de nuevo.",
+          evolution: {
+            hasQr: hasQrPayload(connection),
+            count: connection.count ?? null,
+          },
         });
       }
-      if (body.method === "qr" && !connection.base64) {
+      if (body.method === "qr" && !hasQrPayload(connection)) {
         return reply.status(502).send({ error: "Evolution API no genero el codigo QR" });
       }
-      return { ...connection, method: body.method };
+      return {
+        ...connection,
+        ...(body.method === "pairing_code"
+          ? { pairingCode: getPairingCode(connection) }
+          : {}),
+        method: body.method,
+      };
     } catch (error: any) {
       if (isMissingInstanceError(error)) {
         try {
@@ -135,14 +150,28 @@ export async function evolutionProxyRoutes(server: FastifyInstance) {
 
           await configureInstanceWebhook(request, instanceName);
 
-          if (body.method === "pairing_code" && !connection?.pairingCode) {
-            return reply.status(502).send({ error: "Evolution API no genero el codigo de emparejamiento" });
+          if (body.method === "pairing_code" && !getPairingCode(connection)) {
+            return reply.status(502).send({
+              error: hasQrPayload(connection)
+                ? "Evolution genero un QR, pero no un codigo de emparejamiento para esta instancia."
+                : "Evolution API no genero el codigo de emparejamiento.",
+              evolution: {
+                hasQr: hasQrPayload(connection),
+                count: connection?.count ?? null,
+              },
+            });
           }
           if (body.method === "qr" && !connection?.base64) {
             return reply.status(502).send({ error: "Evolution API no genero el codigo QR" });
           }
 
-          return { ...connection, method: body.method };
+          return {
+            ...connection,
+            ...(body.method === "pairing_code"
+              ? { pairingCode: getPairingCode(connection) }
+              : {}),
+            method: body.method,
+          };
         } catch (createError: any) {
           return reply.status(500).send({ error: `Failed to create instance: ${createError.message}` });
         }

@@ -189,9 +189,16 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         hold,
         data.recoveryToken,
       );
-      const values = isStore
+      const values: Record<string, string> = isStore
         ? buildStorePaymentRecoveryValues(hold as any, recoveryUrl)
         : buildRafflePaymentRecoveryValues(hold as any, recoveryUrl);
+      if (!isStore) {
+        const raffleHold = hold as any;
+        values.opportunity_count = String(raffleHold.raffle?.opportunities || 1);
+        values.additional_opportunity_count = String(
+          Math.max(0, Number(raffleHold.raffle?.opportunities || 1) - 1),
+        );
+      }
       const sent = await sendBusinessWhatsappNotification({
         preferredChannel,
         principal: principalWhatsapp,
@@ -263,7 +270,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         (channel) =>
           channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
       );
-      const values = recipient.payload as Record<string, string>;
+      const values = { ...(recipient.payload as Record<string, string>) };
       const templateType =
         recipient.campaign.audience === "WINNERS"
           ? ("RESULT_WINNER" as const)
@@ -272,6 +279,12 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         recipient.campaign.audience === "WINNERS"
           ? "raffle_result_winner"
           : "raffle_result_participants";
+      if (templateType === "RESULT_WINNER") {
+        values.opportunity_count = String(recipient.campaign.raffle.opportunities || 1);
+        values.additional_opportunity_count = String(
+          Math.max(0, Number(recipient.campaign.raffle.opportunities || 1) - 1),
+        );
+      }
       const renderedText = renderTemplate(
         recipient.campaign.templateContent,
         values,
@@ -280,6 +293,16 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         recipient.campaign.principalTemplateContent,
         values,
       );
+      const winnerSales =
+        templateType === "RESULT_WINNER"
+          ? await rafflePrisma.ticketSale.findMany({
+              where: {
+                raffleId: recipient.campaign.raffleId,
+                reservationId: { in: recipient.participationIds },
+              },
+              orderBy: { ticketNumber: "asc" },
+            })
+          : [];
 
       try {
         const sent = await sendBusinessWhatsappNotification({
@@ -292,7 +315,13 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           recipientPhone: recipient.phone,
           renderedText,
           principalRenderedText,
-          values,
+          values:
+            templateType === "RESULT_WINNER"
+              ? {
+                  ...values,
+                  ticket_list: formatRaffleTicketList(winnerSales),
+                }
+              : values,
           templateName,
           jobId: String(job.id ?? ""),
           attempt: recipient.attempts,
@@ -369,14 +398,25 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       const recipient =
         await rafflePrisma.raffleDrawReminderRecipient.findUnique({
           where: { id: data.campaignRecipientId },
-          include: { campaign: true },
+          include: { campaign: { include: { raffle: true } } },
         });
       if (!recipient) return;
       const raffleChannel = resolvedWhatsappChannels.find(
         (channel) =>
           channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
       );
-      const values = recipient.payload as Record<string, string>;
+      const values = { ...(recipient.payload as Record<string, string>) };
+      values.opportunity_count = String(recipient.campaign.raffle.opportunities || 1);
+      values.additional_opportunity_count = String(
+        Math.max(0, Number(recipient.campaign.raffle.opportunities || 1) - 1),
+      );
+      const sales = await rafflePrisma.ticketSale.findMany({
+        where: {
+          raffleId: recipient.campaign.raffleId,
+          reservationId: { in: recipient.participationIds },
+        },
+        orderBy: { ticketNumber: "asc" },
+      });
       const renderedText = renderTemplate(
         recipient.campaign.templateContent,
         values,
@@ -396,7 +436,10 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           recipientPhone: recipient.phone,
           renderedText,
           principalRenderedText,
-          values,
+          values: {
+            ...values,
+            ticket_list: formatRaffleTicketList(sales),
+          },
           templateName: "raffle_draw_reminder",
           jobId: String(job.id ?? ""),
           attempt: recipient.attempts,
@@ -1006,6 +1049,10 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           ? data.timeRemaining
           : undefined,
       );
+      notification.values.opportunity_count = String(sales[0].raffle.opportunities || 1);
+      notification.values.additional_opportunity_count = String(
+        Math.max(0, Number(sales[0].raffle.opportunities || 1) - 1),
+      );
 
       await sendBusinessWhatsappNotification({
         preferredChannel: forcePrincipal ? null : raffleChannel,
@@ -1031,7 +1078,10 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           principalTemplate || template,
           notification.values,
         ),
-        values: notification.values,
+        values: {
+          ...notification.values,
+          ticket_list: formatRaffleTicketList(sales),
+        },
         templateName:
           data.kind === "reservation"
             ? "reservation_rifas"
@@ -1066,7 +1116,10 @@ function renderTemplate(
   return Object.entries(values).reduce(
     (message, [key, value]) =>
       message.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value),
-    template,
+    template.replace(
+      /\n*Consulta el detalle de tu participaci[^\n]*:\s*\n\s*\{\{participation_url\}\}\s*/i,
+      "",
+    ),
   );
 }
 
@@ -1163,7 +1216,7 @@ function buildOrderNotification(
   if (hour >= 12 && hour < 19) greeting = "Buena tarde";
   else if (hour >= 19 || hour < 6) greeting = "Buena noche";
 
-  const values = {
+  const values: Record<string, string> = {
     greeting,
     order_id: order.id.toString(),
     customer_name: order.customerName ?? "",
@@ -1255,7 +1308,7 @@ function buildReservationNotification(
   const discountTotal = parseFloat(firstSale.discountTotal?.toString() || "0");
   const totalAmount = Math.max(0, subtotal - discountTotal);
 
-  const values = {
+  const values: Record<string, string> = {
     customer_name: firstSale.customerName ?? "",
     ticket_list: ticketList,
     raffle_name: firstSale.raffle?.title ?? "",

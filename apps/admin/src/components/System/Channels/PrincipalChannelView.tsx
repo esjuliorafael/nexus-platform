@@ -1,6 +1,7 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   ArrowLeft,
+  ArrowLeftRight,
   Banknote,
   CheckCircle2,
   CreditCard,
@@ -8,6 +9,7 @@ import {
   FileText,
   Hash,
   KeyRound,
+  Layers3,
   Link as LinkIcon,
   LogOut,
   MessageCircle,
@@ -39,18 +41,42 @@ import {
   WhatsAppPairingModal,
   WHATSAPP_PAIRING_WINDOW_SECONDS,
 } from "./WhatsAppPairingModal";
-import { CHANNEL_TEMPLATE_SECTIONS } from "./channelTemplateCatalog";
+import {
+  CHANNEL_TEMPLATE_SECTIONS,
+  getChannelTemplateEditorContent,
+  getTemplateStorageKey,
+  getTemplateVariantContent,
+  getTemplateVariantVariables,
+  type ChannelTemplateScope,
+  type ChannelTemplateDefinition,
+  type ChannelTemplateVersion,
+} from "./channelTemplateCatalog";
 import { runKapsoOnboarding } from "./kapsoOnboarding";
 import type { WhatsAppDeliveryStrategy } from "../../../types";
 
 interface PrincipalChannelViewProps {
   showToast: (message: string, type?: "success" | "error") => void;
+  setConfirmDialog: (dialog: any) => void;
+  templateEditorResetToken?: number;
+  onTemplateEditorChange?: (editor: {
+    label: string;
+    provider: "EVOLUTION" | "CLOUD";
+    isDirty: boolean;
+    isSaving: boolean;
+    onSave: () => void;
+    canActivate: boolean;
+    activationLabel: string;
+    onActivate: () => void;
+  } | null) => void;
 }
 
 type ModalType = "bank" | "mercadopago" | "whatsapp" | null;
 
-const previewMessage = (content: string) =>
-  (
+const previewMessage = (content: string) => {
+  const ticketList =
+    "002, 005, 009 y 010\n\n\u2728 Oportunidades adicionales:\n\n002: 164, 246, 271, 635, 701, 888, 986\n005: 171, 265, 534, 817, 929, 943, 976\n009: 212, 430, 516, 605, 626, 752, 882\n010: 405, 423, 436, 441, 538, 728, 963";
+
+  return (
     content ||
     "Hola {{customer_name}}, este es un mensaje de ejemplo para validar variables y tono."
   )
@@ -58,15 +84,18 @@ const previewMessage = (content: string) =>
     .replace(/\{\{customer_name\}\}/g, "Carlos Ramirez")
     .replace(/\{\{order_id\}\}/g, "1284")
     .replace(/\{\{item_list\}\}/g, "1x Gallo colorado, 2x Alimento premium")
-    .replace(
-      /\{\{ticket_list\}\}/g,
-      "002, 005, 009 y 010\n\n✨ Oportunidades adicionales:\n\n002: 164, 246, 271, 635, 701, 888, 986\n005: 171, 265, 534, 817, 929, 943, 976\n009: 212, 430, 516, 605, 626, 752, 882\n010: 405, 423, 436, 441, 538, 728, 963",
-    )
+    .replace(/\{\{ticket_list\}\}/g, ticketList)
     .replace(/\{\{raffle_name\}\}/g, "Rifa Especial de Junio")
     .replace(/\{\{raffle_date\}\}/g, "Hoy, 31 de julio de 2026 a las 8:00 p. m.")
     .replace(/\{\{opening_date\}\}/g, "Lunes, 20 de julio de 2026, 8:00 a. m.")
     .replace(/\{\{ticket_price\}\}/g, "320.00")
     .replace(/\{\{raffle_url\}\}/g, "https://rancholastrojes.com.mx/raffles/1")
+    .replace(/\{\{participation_url\}\}/g, "https://rancholastrojes.com.mx/participations/demo")
+    .replace(/\{\{recovery_url\}\}/g, "https://rancholastrojes.com.mx/checkout/recovery/demo")
+    .replace(/\{\{expires_at\}\}/g, "hoy a las 8:00 p. m.")
+    .replace(/\{\{place\}\}/g, "Primer lugar")
+    .replace(/\{\{prize\}\}/g, "Premio principal")
+    .replace(/\{\{winning_number\}\}/g, "922")
     .replace(/\{\{prize_list\}\}/g, "Primer lugar: Premio principal")
     .replace(
       /\{\{participation_rule\}\}/g,
@@ -83,12 +112,27 @@ const previewMessage = (content: string) =>
       /\{\{bank_info\}\}/g,
       "Banco: BBVA\nBeneficiario: Rancho Demo\nNo. Cuenta: 1234567890\nCLABE: 012345678901234567\nTarjeta: 1234 5678 9012 3456",
     )
+    .replace(/\{\{bank_name\}\}/g, "BBVA")
+    .replace(/\{\{bank_beneficiary\}\}/g, "Rancho Demo")
+    .replace(/\{\{bank_account\}\}/g, "1234567890")
+    .replace(/\{\{bank_clabe\}\}/g, "012345678901234567")
+    .replace(/\{\{bank_card\}\}/g, "1234 5678 9012 3456")
     .replace(/\{\{time_store\}\}/g, "24 horas")
     .replace(/\{\{time_raffle\}\}/g, "12 horas")
-    .replace(/\{\{time_remaining\}\}/g, "4 horas");
+    .replace(/\{\{time_remaining\}\}/g, "4 horas")
+    .replace(/\{\{opportunity_count\}\}/g, "8")
+    .replace(/\{\{additional_opportunity_count\}\}/g, "7")
+    .replace(
+      /\n*Consulta el detalle de tu participaci[^\n]*:\s*\n\s*\{\{participation_url\}\}/i,
+      "",
+    );
+};
 
 export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
   showToast,
+  setConfirmDialog,
+  templateEditorResetToken = 0,
+  onTemplateEditorChange,
 }) => {
   const [config, setConfig] = useState<Record<string, string>>({});
   const [isLoading, setIsLoading] = useState(true);
@@ -96,6 +140,15 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
   const [isConnectingKapso, setIsConnectingKapso] = useState(false);
   const [isSyncingCloudTemplates, setIsSyncingCloudTemplates] = useState(false);
   const [cloudTemplatesReady, setCloudTemplatesReady] = useState(false);
+  const [templateProvider, setTemplateProvider] = useState<"EVOLUTION" | "CLOUD">("EVOLUTION");
+  const [templateVersion, setTemplateVersion] = useState<ChannelTemplateVersion>("LEGACY");
+  const [isTemplateDirty, setIsTemplateDirty] = useState(false);
+  const [isVersionsOpen, setIsVersionsOpen] = useState(false);
+  const [cloudTemplateStatus, setCloudTemplateStatus] = useState<any>(null);
+  const [isLoadingCloudTemplateStatus, setIsLoadingCloudTemplateStatus] =
+    useState(false);
+  const [specializedCloudChannels, setSpecializedCloudChannels] = useState<any[]>([]);
+  const [selectedSpecializedChannelIds, setSelectedSpecializedChannelIds] = useState<string[]>([]);
   const [modal, setModal] = useState<ModalType>(null);
   const [instanceStatus, setInstanceStatus] = useState<
     "open" | "close" | "connecting" | "loading"
@@ -104,9 +157,15 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
     null,
   );
   const [editingTemplate, setEditingTemplate] = useState<{
+    type: ChannelTemplateDefinition["type"];
+    scope: ChannelTemplateScope;
     key: string;
     label: string;
     variables: string[];
+    defaultContent?: string;
+    baseKey?: string;
+    isTemporaryFallback?: boolean;
+    version: ChannelTemplateVersion;
   } | null>(null);
   const [confirmDisconnectMP, setConfirmDisconnectMP] = useState(false);
   const [confirmDisconnectWhatsApp, setConfirmDisconnectWhatsApp] =
@@ -115,6 +174,8 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
   const [showMissingPhoneAlert, setShowMissingPhoneAlert] = useState(false);
   const [isDisconnectingMP, setIsDisconnectingMP] = useState(false);
   const [isDisconnectingKapso, setIsDisconnectingKapso] = useState(false);
+  const principalTemplatesScrollYRef = useRef(0);
+  const principalTemplateAnchorKeyRef = useRef<string | null>(null);
 
   const loadConfig = async () => {
     setIsLoading(true);
@@ -352,7 +413,10 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
     }
   };
 
-  const syncCloudTemplates = async () => {
+  const syncCloudTemplates = async (
+    manageLoading = true,
+    variant: ChannelTemplateVersion = "LEGACY",
+  ) => {
     const cloudConfig = {
       whatsapp_main_phone: config.whatsapp_main_phone || "",
       whatsapp_main_provider: "KAPSO",
@@ -371,11 +435,11 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       return;
     }
 
-    setIsSyncingCloudTemplates(true);
+    if (manageLoading) setIsSyncingCloudTemplates(true);
     try {
       await apiSystem.updateConfig(cloudConfig);
       setConfig((prev) => ({ ...prev, ...cloudConfig }));
-      const response = await apiWhatsApp.syncKapsoTemplates();
+      const response = await apiWhatsApp.syncKapsoTemplates(undefined, variant);
       const templates = response.data?.templates || [];
       const pending = templates.filter(
         (template: any) => template.status === "PENDING",
@@ -400,7 +464,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
         "error",
       );
     } finally {
-      setIsSyncingCloudTemplates(false);
+      if (manageLoading) setIsSyncingCloudTemplates(false);
     }
   };
 
@@ -462,6 +526,199 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
     return flat.filter((template) => Boolean(config[template.key])).length;
   }, [config]);
 
+  const openTemplateEditor = (
+    template: ChannelTemplateDefinition,
+    scope: ChannelTemplateScope,
+  ) => {
+    principalTemplatesScrollYRef.current = window.scrollY;
+    principalTemplateAnchorKeyRef.current = template.key;
+    setEditingTemplate({
+      ...template,
+      scope,
+      version: templateVersion,
+      variables: getTemplateVariantVariables(template, templateVersion, scope),
+    });
+    setTemplateProvider("EVOLUTION");
+    setIsTemplateDirty(false);
+    setCloudTemplateStatus(null);
+    setIsLoadingCloudTemplateStatus(false);
+    setIsVersionsOpen(false);
+    window.scrollTo(0, 0);
+  };
+
+  const loadVersionTargets = async () => {
+    try {
+      const channels = await apiWhatsApp.getAll();
+      const linked = channels.filter(
+        (channel) =>
+          channel.provider === "KAPSO" &&
+          Boolean(channel.kapsoPhoneNumberId && channel.kapsoBusinessAccountId),
+      );
+      setSpecializedCloudChannels(linked);
+      setSelectedSpecializedChannelIds(linked.map((channel) => channel.id));
+    } catch {
+      setSpecializedCloudChannels([]);
+      setSelectedSpecializedChannelIds([]);
+    }
+  };
+
+  const syncSelectedCloudTargets = async () => {
+    setIsSyncingCloudTemplates(true);
+    try {
+      await syncCloudTemplates(false, templateVersion);
+      for (const channelId of selectedSpecializedChannelIds) {
+        await apiWhatsApp.syncKapsoTemplates(channelId, templateVersion);
+      }
+      showToast(
+        selectedSpecializedChannelIds.length
+          ? "Plantillas sincronizadas en los canales seleccionados"
+          : "Plantillas del Canal Principal sincronizadas",
+      );
+    } catch (error: any) {
+      showToast(
+        error?.response?.data?.message || "No se pudieron sincronizar todos los canales",
+        "error",
+      );
+    } finally {
+      setIsSyncingCloudTemplates(false);
+    }
+  };
+
+  const editorContent = editingTemplate
+    ? getChannelTemplateEditorContent(
+        editingTemplate,
+        config,
+        editingTemplate.version,
+        editingTemplate.scope,
+      )
+    : "";
+
+  useEffect(() => {
+    if (!editingTemplate || templateProvider !== "CLOUD") {
+      setCloudTemplateStatus(null);
+      setIsLoadingCloudTemplateStatus(false);
+      return;
+    }
+    let cancelled = false;
+    setIsLoadingCloudTemplateStatus(true);
+    void apiWhatsApp
+      .getKapsoTemplateReadiness(
+        undefined,
+        editingTemplate.version,
+      )
+      .then((response) => {
+        if (cancelled) return;
+        const match = (response.data?.templates || []).find(
+          (item: any) =>
+            item.scope === editingTemplate.scope &&
+            item.type === editingTemplate.type &&
+            (item.variant || "LEGACY") === editingTemplate.version,
+        );
+        setCloudTemplateStatus(match || null);
+        setIsLoadingCloudTemplateStatus(false);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setCloudTemplateStatus(null);
+          setIsLoadingCloudTemplateStatus(false);
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [editingTemplate?.key, editingTemplate?.type, editingTemplate?.scope, templateProvider]);
+
+  useEffect(() => {
+    if (!onTemplateEditorChange) return;
+    if (!editingTemplate) {
+      onTemplateEditorChange(null);
+      return;
+    }
+    const activeVersionKey = `${editingTemplate.key}_active_version_${templateProvider.toLowerCase()}`;
+    const isActive = (config[activeVersionKey] || "LEGACY") === editingTemplate.version;
+    const canActivate =
+      !isTemplateDirty &&
+      Boolean(editorContent.trim()) &&
+      (templateProvider === "EVOLUTION" ||
+        (editingTemplate.version === "LEGACY" ||
+          (cloudTemplateStatus?.status === "APPROVED" && cloudTemplateStatus?.current)));
+    const activate = () => {
+      if (!canActivate || isActive) return;
+      setConfirmDialog({
+        isOpen: true,
+        title: editingTemplate.version === "SIMPLIFIED" ? "Activar versión simplificada" : "Restaurar versión Legacy",
+        message:
+          templateProvider === "CLOUD" && editingTemplate.version === "SIMPLIFIED"
+            ? "Solo se activará la versión simplificada si Cloud API ya la tiene aprobada. La versión anterior seguirá disponible como respaldo."
+            : "Esta versión se usará para las siguientes notificaciones de este tipo en el proveedor seleccionado.",
+        confirmLabel: editingTemplate.version === "SIMPLIFIED" ? "Activar Simplificada" : "Usar Legacy",
+        variant: "brand",
+        onConfirm: async () => {
+          await updateConfig({ [activeVersionKey]: editingTemplate.version }, false);
+          setConfirmDialog({ isOpen: false });
+        },
+      });
+    };
+    onTemplateEditorChange({
+      label: editingTemplate.label,
+      provider: templateProvider,
+      isDirty: isTemplateDirty,
+      isSaving,
+      canActivate: canActivate && !isActive,
+      activationLabel: isActive
+        ? "Versión Activa"
+        : editingTemplate.version === "SIMPLIFIED"
+          ? "Activar Simplificada"
+          : "Usar Legacy",
+      onActivate: activate,
+      onSave: () => {
+        if (!isTemplateDirty) return;
+        setConfirmDialog({
+          isOpen: true,
+          title: "Guardar plantilla",
+          message:
+            "Los cambios se guardarán en Nexus. La sincronización con Cloud API es una acción separada y no reemplazará la plantilla aprobada automáticamente.",
+          confirmLabel: "Guardar Plantilla",
+          variant: "brand",
+          onConfirm: async () => {
+            await updateConfig(
+              { [getTemplateStorageKey(editingTemplate, editingTemplate.version)]: editorContent },
+              false,
+            );
+            setIsTemplateDirty(false);
+            setConfirmDialog({ isOpen: false });
+          },
+        });
+      },
+    });
+  }, [editingTemplate?.key, editingTemplate?.label, editingTemplate?.version, templateProvider, isTemplateDirty, isSaving, editorContent, config, cloudTemplateStatus]);
+
+  useEffect(() => {
+    if (templateEditorResetToken === 0) return;
+    setEditingTemplate(null);
+    setIsTemplateDirty(false);
+    setIsVersionsOpen(false);
+    setCloudTemplateStatus(null);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        const anchorKey = principalTemplateAnchorKeyRef.current;
+        const anchor = anchorKey
+          ? document.getElementById(
+              `principal-template-${anchorKey.replace(/[^a-zA-Z0-9_-]/g, "-")}`,
+            )
+          : null;
+
+        if (anchor) {
+          anchor.scrollIntoView({ block: "center", inline: "nearest", behavior: "auto" });
+          anchor.focus({ preventScroll: true });
+          return;
+        }
+
+        window.scrollTo(0, principalTemplatesScrollYRef.current);
+      });
+    });
+  }, [templateEditorResetToken]);
+
   if (isLoading) {
     return (
       <div className="flex flex-col items-center justify-center py-40 animate-in fade-in duration-500">
@@ -477,61 +734,131 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
   }
 
   if (editingTemplate) {
+    const hasCloudReplacement = Boolean(cloudTemplateStatus?.replacementPending);
+    const currentTemplateStorageKey = getTemplateStorageKey(
+      editingTemplate,
+      editingTemplate.version,
+    );
+    const hasUnsyncedCloudVersion =
+      templateProvider === "CLOUD" &&
+      editingTemplate.version === "SIMPLIFIED" &&
+      Boolean(config[currentTemplateStorageKey]?.trim()) &&
+      !(cloudTemplateStatus?.current && cloudTemplateStatus.status === "APPROVED");
+    const hasPendingCloudSync =
+      isTemplateDirty || hasCloudReplacement || hasUnsyncedCloudVersion;
     return (
-      <div className="space-y-8 pb-20 animate-in fade-in duration-300">
-        <NexusCardButton
-          onClick={() => setEditingTemplate(null)}
-          variant="secondary"
-          icon={ArrowLeft}
-        >
-          Volver a Plantillas
-        </NexusCardButton>
-
+      <div className="pb-20 animate-in fade-in duration-300">
         <NexusSection
           title={editingTemplate.label}
-          subtitle="Plantilla canónica utilizada por el Canal Principal y todos los Canales Especializados"
+          subtitle={
+            editingTemplate.isTemporaryFallback
+              ? "Respaldo temporal de Cloud API mientras Meta aprueba las versiones can\u00f3nicas."
+              : "Plantilla can\u00f3nica utilizada por el Canal Principal y todos los Canales Especializados"
+          }
           icon={FileText}
           iconVariant="brand"
           action={
-            <NexusSectionButton
-              onClick={() =>
-                updateConfig({
-                  [editingTemplate.key]: config[editingTemplate.key] || "",
-                })
-              }
-              isLoading={isSaving}
-              icon={Save}
-            >
-              Guardar Plantilla
-            </NexusSectionButton>
+              <div className="flex flex-wrap items-center" style={{ gap: "var(--space-sm)" }}>
+                {templateProvider === "CLOUD" && (
+                  <NexusSectionButton
+                    variant="secondary"
+                    icon={Layers3}
+                    onClick={() => {
+                      setIsVersionsOpen(true);
+                      void loadVersionTargets();
+                    }}
+                  >
+                    Versiones
+                  </NexusSectionButton>
+                )}
+                <NexusSectionButton
+                  variant="brand"
+                  icon={ArrowLeftRight}
+                  onClick={() =>
+                    setTemplateProvider((current) =>
+                      current === "CLOUD" ? "EVOLUTION" : "CLOUD",
+                    )
+                  }
+                >
+                  {templateProvider === "CLOUD" ? "Ver Evolution API" : "Ver Cloud API"}
+                </NexusSectionButton>
+              </div>
           }
         >
+          {templateProvider === "CLOUD" && (
+            <div
+              className="flex flex-col border border-border-main bg-bg-muted"
+              style={{
+                gap: "var(--space-xs)",
+                padding: "var(--padding-card-inner)",
+                borderRadius: "var(--radius-inner-visual)",
+                marginBottom: "var(--space-lg)",
+              }}
+              role="status"
+            >
+              <p className="text-label font-bold text-text-main">
+                {isLoadingCloudTemplateStatus
+                  ? "Consultando estado de Cloud API"
+                  : cloudTemplateStatus?.status === "APPROVED"
+                  ? cloudTemplateStatus.current
+                    ? "Versión Cloud API activa"
+                    : "Versión Cloud API aprobada, pendiente de activar"
+                  : cloudTemplateStatus?.status === "PENDING"
+                    ? "Versión Cloud API en revisión de Meta"
+                    : cloudTemplateStatus?.status === "REJECTED"
+                      ? "Versión Cloud API rechazada"
+                      : "Versión Cloud API aún no sincronizada"}
+              </p>
+              <p className="text-secondary text-text-muted">
+                {isLoadingCloudTemplateStatus
+                  ? "Verificando la plantilla sincronizada y su estado en Meta."
+                  : cloudTemplateStatus?.replacementPending
+                  ? "La versión aprobada anterior permanece activa mientras esta versión se revisa."
+                  : "Guardar aquí solo actualiza Nexus. Sincronizar con Kapso/Meta es un paso separado."}
+              </p>
+            </div>
+          )}
           <div
             className="grid grid-cols-1 xl:grid-cols-2"
             style={{ gap: "var(--space-lg)" }}
           >
-            <div className="space-y-6">
+            <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
               <NexusTextarea
                 label="Mensaje del Canal Principal"
                 rows={12}
-                value={config[editingTemplate.key] || ""}
+                value={editorContent}
+                readOnly={editingTemplate.isTemporaryFallback}
                 onChange={(event) =>
-                  setConfig((prev) => ({
-                    ...prev,
-                    [editingTemplate.key]: event.target.value,
-                  }))
+                  (() => {
+                    setConfig((prev) => ({
+                      ...prev,
+                      [getTemplateStorageKey(editingTemplate, editingTemplate.version)]: event.target.value,
+                    }));
+                    setIsTemplateDirty(true);
+                  })()
                 }
                 placeholder="Escribe el mensaje que recibira el cliente..."
               />
-              <div className="bg-bg-muted border border-border-main rounded-[2rem] p-5">
-                <p className="text-label text-text-muted mb-3">
+              <div
+                className="bg-bg-muted border border-border-main"
+                style={{
+                  padding: "var(--padding-inner)",
+                  borderRadius: "var(--radius-inner-visual)",
+                }}
+              >
+                <p className="text-label text-text-muted" style={{ marginBottom: "var(--space-md)" }}>
                   Variables disponibles
                 </p>
-                <div className="flex flex-wrap gap-2">
+                <div className="flex flex-wrap" style={{ gap: "var(--space-sm)" }}>
                   {editingTemplate.variables.map((variable) => (
                     <span
                       key={variable}
-                      className="px-3 py-1.5 rounded-full bg-bg-card border border-border-main text-label text-text-muted"
+                      className="bg-bg-card border border-border-main text-label text-text-muted"
+                      style={{
+                        paddingInline: "var(--space-base)",
+                        paddingBlock: "var(--space-xs)",
+                        borderRadius: "var(--radius-pill)",
+                      }}
                     >
                       {variable}
                     </span>
@@ -540,18 +867,148 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
               </div>
             </div>
 
-            <NexusSection
-              title="Preview"
-              subtitle="Ejemplo con datos simulados"
-              icon={Variable}
-              iconVariant="muted"
-              animate={false}
+            <div
+              className="border border-border-main bg-bg-card"
+              style={{
+                padding: "var(--padding-inner)",
+                borderRadius: "var(--radius-inner-visual)",
+              }}
             >
-              <div className="bg-bg-muted border border-border-main rounded-[2rem] p-6 whitespace-pre-line text-secondary text-text-main leading-relaxed min-h-[20rem]">
-                {previewMessage(config[editingTemplate.key] || "")}
+              <div className="flex items-center" style={{ gap: "var(--space-md)" }}>
+                <div
+                  className="flex shrink-0 items-center justify-center bg-bg-muted text-text-muted"
+                  style={{
+                    width: "var(--size-icon-card)",
+                    height: "var(--size-icon-card)",
+                    borderRadius: "var(--radius-card-nested-compact)",
+                  }}
+                >
+                  <Variable size={18} />
+                </div>
+                <div className="min-w-0">
+                  <h4 className="text-h2 text-text-main">Preview</h4>
+                  <p className="text-secondary text-text-muted">Ejemplo con datos simulados</p>
+                </div>
               </div>
-            </NexusSection>
+              <div
+                className="whitespace-pre-line text-secondary text-text-main leading-relaxed min-h-[16rem]"
+                style={{
+                  marginTop: "var(--space-lg)",
+                  padding: "var(--padding-card-inner)",
+                  borderRadius: "var(--radius-nested-compact)",
+                  background: "var(--bg-muted)",
+                }}
+              >
+                {previewMessage(editorContent)}
+              </div>
+            </div>
           </div>
+          {isVersionsOpen && (
+            <NexusModal
+              isOpen
+              onClose={() => setIsVersionsOpen(false)}
+              title="Versiones de la plantilla"
+              eyebrow={editingTemplate.label}
+              icon={FileText}
+            >
+              <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+                <div
+                  className="flex flex-col border border-border-main bg-bg-muted"
+                  style={{
+                    gap: "var(--space-xs)",
+                    padding: "var(--padding-card-inner)",
+                    borderRadius: "var(--radius-inner-visual)",
+                  }}
+                >
+                  <p className="text-h2 font-semibold text-text-main">Versión Activa</p>
+                  <p className="text-secondary text-text-muted">
+                    {cloudTemplateStatus?.current && cloudTemplateStatus.status === "APPROVED"
+                      ? cloudTemplateStatus.templateName || "Aprobada en Cloud API"
+                      : "Nexus seguirá usando la versión aprobada anterior."}
+                  </p>
+                  <span className="text-label text-text-muted">
+                    {cloudTemplateStatus?.current && cloudTemplateStatus.status === "APPROVED"
+                      ? "Aprobada y activa"
+                      : "Sin cambios en el envío actual"}
+                  </span>
+                 </div>
+                 {hasCloudReplacement && (
+                   <div
+                     className="flex flex-col border border-border-main bg-bg-muted"
+                     style={{
+                       gap: "var(--space-xs)",
+                       padding: "var(--padding-card-inner)",
+                       borderRadius: "var(--radius-inner-visual)",
+                     }}
+                   >
+                  <p className="text-h2 font-semibold text-text-main">Nueva versión</p>
+                  <p className="text-secondary text-text-muted">
+                    {cloudTemplateStatus?.status === "PENDING"
+                      ? "En revisión de Meta"
+                      : cloudTemplateStatus?.status === "APPROVED"
+                        ? "Aprobada y lista para activar"
+                        : cloudTemplateStatus?.status === "REJECTED"
+                          ? cloudTemplateStatus.lastError || "Rechazada por Meta"
+                          : "Todavía no sincronizada"}
+                  </p>
+                 </div>
+                 )}
+                 <div
+                   className="flex flex-col border border-border-main bg-bg-muted"
+                   style={{
+                     gap: "var(--space-xs)",
+                     padding: "var(--padding-card-inner)",
+                     borderRadius: "var(--radius-inner-visual)",
+                   }}
+                 >
+                  <p className="text-h2 font-semibold text-text-main">Canales de sincronización</p>
+                  <p className="text-secondary text-text-muted">
+                    La versión nueva se enviará solo a los canales que selecciones.
+                  </p>
+                  <label className="flex items-center text-secondary text-text-main" style={{ gap: "var(--space-sm)", marginTop: "var(--space-md)" }}>
+                    <input type="checkbox" checked readOnly />
+                    Canal Principal
+                  </label>
+                  {specializedCloudChannels.length === 0 ? (
+                    <p className="text-label text-text-muted" style={{ marginTop: "var(--space-md)" }}>
+                      No hay Canales Especializados vinculados a Cloud API.
+                    </p>
+                  ) : (
+                    specializedCloudChannels.map((channel) => (
+                      <label key={channel.id} className="flex items-center text-secondary text-text-main" style={{ gap: "var(--space-sm)", marginTop: "var(--space-md)" }}>
+                        <input
+                          type="checkbox"
+                          checked={selectedSpecializedChannelIds.includes(channel.id)}
+                          onChange={(event) =>
+                            setSelectedSpecializedChannelIds((current) =>
+                              event.target.checked
+                                ? [...current, channel.id]
+                                : current.filter((id) => id !== channel.id),
+                            )
+                          }
+                        />
+                        {channel.name}
+                      </label>
+                    ))
+                  )}
+                </div>
+                <NexusModalActions className="w-full [&>button]:w-full">
+                  <NexusSectionButton
+                    variant="secondary"
+                    onClick={() => {
+                      setIsVersionsOpen(false);
+                      void syncSelectedCloudTargets();
+                    }}
+                     disabled={!hasPendingCloudSync}
+                     title={hasPendingCloudSync ? undefined : "No hay cambios pendientes"}
+                     isLoading={isSyncingCloudTemplates}
+                  >
+                    Sincronizar Cloud API
+                  </NexusSectionButton>
+                </NexusModalActions>
+              </div>
+            </NexusModal>
+          )}
         </NexusSection>
       </div>
     );
@@ -714,6 +1171,20 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
         subtitle="Contenido canónico utilizado en tienda, rifas y Canales Especializados"
         icon={FileText}
         iconVariant={templateCounts > 0 ? "brand" : "muted"}
+        action={
+          <NexusSectionButton
+            type="button"
+            variant="brand"
+            icon={ArrowLeftRight}
+            onClick={() =>
+              setTemplateVersion((version) =>
+                version === "LEGACY" ? "SIMPLIFIED" : "LEGACY",
+              )
+            }
+          >
+            {templateVersion === "LEGACY" ? "Ver Simplificadas" : "Ver Legacy"}
+          </NexusSectionButton>
+        }
       >
         <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
           {CHANNEL_TEMPLATE_SECTIONS.map((section) => (
@@ -750,32 +1221,87 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                       className="flex flex-col"
                       style={{ gap: "var(--space-base)" }}
                     >
-                      {group.templates.map((template) => (
-                        <NexusSectionCard
-                          key={template.key}
-                          icon={FileText}
-                          iconVariant={config[template.key] ? "brand" : "muted"}
-                          title={template.label}
-                          subtitle={
-                            config[template.key]
-                              ? "Plantilla configurada en Canal Principal"
-                              : "Sin plantilla principal configurada"
-                          }
-                          rightContent={
-                            <p className="text-label text-text-muted">
-                              {config[template.key] ? "Lista" : "Pendiente"}
-                            </p>
-                          }
-                          actions={
-                            <NexusCardButton
-                              onClick={() => setEditingTemplate(template)}
-                              icon={Edit2}
-                            >
-                              Editar
-                            </NexusCardButton>
-                          }
-                        />
-                      ))}
+                      {group.templates.map((template) => {
+                        const isSimplified = templateVersion === "SIMPLIFIED";
+                        const storageKey = getTemplateStorageKey(template, templateVersion);
+                        const simplifiedContent =
+                          section.scope === "RAFFLES"
+                            ? getTemplateVariantContent(
+                                template,
+                                "SIMPLIFIED",
+                                section.scope,
+                              )
+                            : "";
+                        const isCanonical = isSimplified
+                          ? Boolean(config[storageKey] || simplifiedContent)
+                          : Boolean(template.defaultContent);
+                        const isFallback = Boolean(template.isTemporaryFallback);
+                        const isMuted = isSimplified && !isCanonical;
+
+                        return (
+                          <div
+                            key={template.key}
+                            id={`principal-template-${template.key.replace(/[^a-zA-Z0-9_-]/g, "-")}`}
+                            tabIndex={-1}
+                            className="outline-none"
+                          >
+                            <NexusSectionCard
+                              isMuted={isMuted}
+                              icon={FileText}
+                              iconVariant={
+                                config[storageKey] || isCanonical
+                                  ? "brand"
+                                  : "muted"
+                              }
+                              title={template.label}
+                              subtitle={
+                                isSimplified
+                                  ? config[storageKey]
+                                    ? "Versi\u00f3n simplificada configurada en Nexus"
+                                    : isCanonical
+                                      ? "Borrador simplificado listo para revisar"
+                                      : "Todav\u00eda no actualizada"
+                                  : isFallback
+                                    ? "Respaldo temporal mientras Meta aprueba las versiones nuevas"
+                                    : config[storageKey]
+                                      ? "Plantilla configurada en Canal Principal"
+                                      : isCanonical
+                                        ? "Versi\u00f3n can\u00f3nica lista para sincronizar"
+                                        : "Sin plantilla principal configurada"
+                              }
+                              rightContent={
+                                <p className="text-label text-text-muted">
+                                  {isSimplified
+                                    ? config[storageKey]
+                                      ? "Configurada"
+                                      : isCanonical
+                                        ? "Borrador"
+                                        : "Pendiente"
+                                    : isFallback
+                                      ? "Respaldo"
+                                      : isCanonical
+                                        ? "Can\u00f3nica"
+                                        : config[storageKey]
+                                          ? "Lista"
+                                          : "Pendiente"}
+                                </p>
+                              }
+                              actions={
+                                <NexusCardButton
+                                  onClick={() => openTemplateEditor(template, section.scope)}
+                                  icon={Edit2}
+                                >
+                                  {isSimplified && !isCanonical
+                                    ? "Preparar"
+                                    : isFallback
+                                      ? "Ver"
+                                      : "Editar"}
+                                </NexusCardButton>
+                              }
+                            />
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
                 ))}

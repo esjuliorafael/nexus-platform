@@ -67,6 +67,15 @@ export type KapsoTemplateDefinition = {
         type: "FOOTER";
         text: string;
       }
+    | {
+        type: "BUTTONS";
+        buttons: Array<{
+          type: "URL";
+          text: string;
+          url: string;
+          example: string[];
+        }>;
+      }
   >;
 };
 

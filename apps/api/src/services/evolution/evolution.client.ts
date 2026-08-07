@@ -8,6 +8,45 @@ import type {
   EvolutionCreateInstanceResult,
 } from "./evolution.types";
 
+export function getPairingCode(payload: unknown): string | null {
+  if (!payload || typeof payload !== "object") return null;
+  const record = payload as Record<string, unknown>;
+  const nested =
+    record.data && typeof record.data === "object"
+      ? (record.data as Record<string, unknown>)
+      : null;
+  const qr =
+    record.qrcode && typeof record.qrcode === "object"
+      ? (record.qrcode as Record<string, unknown>)
+      : null;
+  const candidates = [
+    record.pairingCode,
+    nested?.pairingCode,
+    nested?.PairingCode,
+    qr?.pairingCode,
+  ];
+  const code = candidates.find(
+    (value): value is string => typeof value === "string" && value.trim().length > 0,
+  );
+  return code?.trim() || null;
+}
+
+export function hasQrPayload(payload: unknown): boolean {
+  if (!payload || typeof payload !== "object") return false;
+  const record = payload as Record<string, unknown>;
+  const nested =
+    record.data && typeof record.data === "object"
+      ? (record.data as Record<string, unknown>)
+      : null;
+  const qr =
+    record.qrcode && typeof record.qrcode === "object"
+      ? (record.qrcode as Record<string, unknown>)
+      : null;
+  return [record.base64, nested?.base64, qr?.base64].some(
+    (value) => typeof value === "string" && value.trim().length > 0,
+  );
+}
+
 async function evRequest<T>(
   instance: EvolutionInstance,
   method: string,

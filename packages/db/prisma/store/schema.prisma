@@ -623,6 +623,7 @@ model WhatsappCloudTemplate {
   ownerKey       String                     @map("owner_key")
   scope          WhatsappCloudTemplateScope
   type           TemplateType
+  variant        String                     @default("LEGACY")
   templateName   String                     @map("template_name")
   templateId     String?                    @map("template_id")
   category       String?                    @map("category")
@@ -636,7 +637,7 @@ model WhatsappCloudTemplate {
   updatedAt      DateTime                   @updatedAt @map("updated_at")
   channel        WhatsappChannel?           @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
-  @@unique([ownerKey, scope, type])
+  @@unique([ownerKey, scope, type, variant])
   @@index([channelId, status])
   @@map("whatsapp_cloud_templates")
 }
@@ -647,6 +648,7 @@ model WhatsappCloudTemplateCandidate {
   ownerKey       String                     @map("owner_key")
   scope          WhatsappCloudTemplateScope
   type           TemplateType
+  variant        String                     @default("LEGACY")
   templateName   String                     @map("template_name")
   templateId     String?                    @map("template_id")
   category       String?                    @map("category")
@@ -660,7 +662,7 @@ model WhatsappCloudTemplateCandidate {
   updatedAt      DateTime                   @updatedAt @map("updated_at")
   channel        WhatsappChannel?           @relation(fields: [channelId], references: [id], onDelete: Cascade)
 
-  @@unique([ownerKey, scope, type, contentHash])
+  @@unique([ownerKey, scope, type, variant, contentHash])
   @@index([channelId, status])
   @@map("whatsapp_cloud_template_candidates")
 }

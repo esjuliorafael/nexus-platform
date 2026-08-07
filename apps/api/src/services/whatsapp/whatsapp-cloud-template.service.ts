@@ -26,7 +26,10 @@ export type CloudTemplateSource = {
   scope: CloudTemplateScope;
   type: CloudTemplateType;
   content: string;
+  variant?: "LEGACY" | "SIMPLIFIED";
 };
+
+export type CloudTemplateVariant = "LEGACY" | "SIMPLIFIED";
 
 export type CloudTemplateOwner =
   | { kind: "principal" }
@@ -106,17 +109,62 @@ export const CLOUD_TEMPLATE_SETTING_KEYS: Array<{
   },
 ];
 
+export function getCanonicalCloudTemplateSettingKey(
+  scope: CloudTemplateScope,
+  type: CloudTemplateType,
+) {
+  return CLOUD_TEMPLATE_SETTING_KEYS.find(
+    (item) => item.scope === scope && item.type === type,
+  )?.key;
+}
+
+export function getTemplateActiveVersionSettingKey(
+  scope: CloudTemplateScope,
+  type: CloudTemplateType,
+  provider: "EVOLUTION" | "CLOUD",
+) {
+  const baseKey = getCanonicalCloudTemplateSettingKey(scope, type);
+  return baseKey ? `${baseKey}_active_version_${provider.toLowerCase()}` : null;
+}
+
+export async function getActiveCloudTemplateVariant(params: {
+  scope: CloudTemplateScope;
+  type: CloudTemplateType;
+  provider: "EVOLUTION" | "CLOUD";
+}): Promise<CloudTemplateVariant> {
+  const settingKey = getTemplateActiveVersionSettingKey(
+    params.scope,
+    params.type,
+    params.provider,
+  );
+  if (!settingKey) return "LEGACY";
+  const setting = await storePrisma.setting.findUnique({
+    where: { key: settingKey },
+    select: { value: true },
+  });
+  return setting?.value === "SIMPLIFIED" ? "SIMPLIFIED" : "LEGACY";
+}
+
 export function buildCanonicalCloudTemplateSources(
   settings: Record<string, string | null | undefined>,
   scopes: CloudTemplateScope[] = ["STORE", "RAFFLES"],
+  variant: CloudTemplateVariant = "LEGACY",
 ): CloudTemplateSource[] {
-  return CLOUD_TEMPLATE_SETTING_KEYS.filter((item) =>
+  const sources = CLOUD_TEMPLATE_SETTING_KEYS.filter((item) =>
     scopes.includes(item.scope),
-  ).map((item) => ({
-    scope: item.scope,
-    type: item.type,
-    content: settings[item.key] || "",
-  }));
+  )
+    .map((item) => ({
+      scope: item.scope,
+      type: item.type,
+      content:
+        variant === "SIMPLIFIED"
+          ? settings[`${item.key}_simplified`] || ""
+          : settings[item.key] || "",
+      variant,
+    }))
+    .filter((item) => variant === "LEGACY" || item.content.trim());
+
+  return sources;
 }
 
 const VARIABLE_PATTERN = /\{\{([a-z][a-z0-9_]*)\}\}/g;
@@ -225,11 +273,24 @@ function isRichInvitation(type: CloudTemplateType) {
   return type === "RAFFLE_INVITATION";
 }
 
-export function getCloudTemplateBodyContent(source: CloudTemplateSource) {
-  if (!isRichInvitation(source.type)) return source.content.trim();
+function hasParticipationButton(source: CloudTemplateSource) {
+  return (
+    source.variant === "SIMPLIFIED" &&
+    /\{\{participation_url\}\}/.test(source.content)
+  );
+}
 
-  return source.content
+export function getCloudTemplateBodyContent(source: CloudTemplateSource) {
+  const content = source.content
     .trim()
+    .replace(
+      /\n*Consulta el detalle de tu participaci[^\n]*:\s*\n\s*\{\{participation_url\}\}\s*/i,
+      "",
+    )
+    .trim();
+  if (!isRichInvitation(source.type)) return content;
+
+  return content
     .replace(
       /\n*\s*Si prefieres no recibir pr[oó]ximas invitaciones,\s*responde BAJA\.?\s*$/i,
       "",
@@ -239,7 +300,7 @@ export function getCloudTemplateBodyContent(source: CloudTemplateSource) {
 
 export function getCloudTemplateDefinitionHash(source: CloudTemplateSource) {
   if (!isRichInvitation(source.type)) {
-    return getCloudTemplateContentHash(source.content);
+    return getCloudTemplateContentHash(getCloudTemplateBodyContent(source));
   }
   return getCloudTemplateContentHash(
     `${getCloudTemplateBodyContent(source)}\n[nexus-layout:image-header-footer-v2]`,
@@ -268,11 +329,11 @@ function buildTemplateName(
 
 function buildTemplateDefinition(
   templateName: string,
-  content: string,
   parameterNames: string[],
   languageCode: string,
   category: "UTILITY" | "MARKETING",
   type: CloudTemplateType,
+  source: CloudTemplateSource,
   richInvitationHeaderHandle?: string | null,
 ): KapsoTemplateDefinition {
   const richInvitation = isRichInvitation(type);
@@ -294,11 +355,7 @@ function buildTemplateDefinition(
         : []),
       {
         type: "BODY",
-        text: getCloudTemplateBodyContent({
-          scope: "RAFFLES",
-          type,
-          content,
-        }),
+        text: getCloudTemplateBodyContent(source),
         ...(parameterNames.length
           ? {
               example: {
@@ -315,6 +372,21 @@ function buildTemplateDefinition(
             {
               type: "FOOTER" as const,
               text: "Responde BAJA para dejar de recibir invitaciones.",
+          },
+          ]
+        : []),
+      ...(hasParticipationButton(source)
+        ? [
+            {
+              type: "BUTTONS" as const,
+              buttons: [
+                {
+                  type: "URL" as const,
+                  text: "Ver participación",
+                  url: "{{participation_url}}",
+                  example: ["https://rancholastrojes.com.mx/participations/demo"],
+                },
+              ],
             },
           ]
         : []),
@@ -367,6 +439,7 @@ export async function syncCloudTemplateCatalog(params: {
       continue;
     }
 
+    const variant = source.variant || "LEGACY";
     const contentHash = getCloudTemplateDefinitionHash(source);
     const bodyContent = getCloudTemplateBodyContent(source);
     const parameterNames = extractCloudTemplateVariables(bodyContent);
@@ -374,10 +447,11 @@ export async function syncCloudTemplateCatalog(params: {
 
     const activeMapping = await storePrisma.whatsappCloudTemplate.findUnique({
       where: {
-        ownerKey_scope_type: {
+        ownerKey_scope_type_variant: {
           ownerKey,
           scope: source.scope,
           type: source.type,
+          variant,
         },
       },
     });
@@ -397,6 +471,7 @@ export async function syncCloudTemplateCatalog(params: {
         ownerKey,
         scope: source.scope,
         type: source.type,
+        variant,
         templateName,
         templateId: data.templateId ?? null,
         category: data.category ?? null,
@@ -411,10 +486,11 @@ export async function syncCloudTemplateCatalog(params: {
       if (isReplacement) {
         return storePrisma.whatsappCloudTemplateCandidate.upsert({
           where: {
-            ownerKey_scope_type_contentHash: {
+            ownerKey_scope_type_variant_contentHash: {
               ownerKey,
               scope: source.scope,
               type: source.type,
+              variant,
               contentHash,
             },
           },
@@ -425,10 +501,11 @@ export async function syncCloudTemplateCatalog(params: {
 
       return storePrisma.whatsappCloudTemplate.upsert({
         where: {
-          ownerKey_scope_type: {
+          ownerKey_scope_type_variant: {
             ownerKey,
             scope: source.scope,
             type: source.type,
+            variant,
           },
         },
         create: values,
@@ -441,10 +518,11 @@ export async function syncCloudTemplateCatalog(params: {
         "Configura KAPSO_RAFFLE_INVITATION_HEADER_HANDLE para sincronizar la invitación con portada.";
       await storePrisma.whatsappCloudTemplate.upsert({
         where: {
-          ownerKey_scope_type: {
+          ownerKey_scope_type_variant: {
             ownerKey,
             scope: source.scope,
             type: source.type,
+            variant,
           },
         },
         create: {
@@ -517,11 +595,11 @@ export async function syncCloudTemplateCatalog(params: {
             params.config,
             buildTemplateDefinition(
               templateName,
-              source.content,
               parameterNames,
               languageCode,
               getCloudTemplateCategory(source.type),
               source.type,
+              source,
               richInvitationHeaderHandle,
             ),
           );
@@ -567,16 +645,19 @@ export async function getApprovedCloudTemplate(params: {
   sourceContent: string;
   values: Record<string, string>;
   mediaHeaderUrl?: string;
+  variant?: CloudTemplateVariant;
 }): Promise<{
   message: KapsoTemplateMessage;
   category: "UTILITY" | "MARKETING";
 } | null> {
+  const variant = params.variant || "LEGACY";
   let mapping = await storePrisma.whatsappCloudTemplate.findUnique({
     where: {
-      ownerKey_scope_type: {
+      ownerKey_scope_type_variant: {
         ownerKey: getCloudTemplateOwnerKey(params.owner),
         scope: params.scope,
         type: params.type,
+        variant,
       },
     },
   });
@@ -584,6 +665,7 @@ export async function getApprovedCloudTemplate(params: {
     scope: params.scope,
     type: params.type,
     content: params.sourceContent,
+    variant,
   });
 
   // A pending replacement must never interrupt an approved operational
@@ -592,10 +674,11 @@ export async function getApprovedCloudTemplate(params: {
     let candidate = await storePrisma.whatsappCloudTemplateCandidate.findUnique(
       {
         where: {
-          ownerKey_scope_type_contentHash: {
+          ownerKey_scope_type_variant_contentHash: {
             ownerKey: getCloudTemplateOwnerKey(params.owner),
             scope: params.scope,
             type: params.type,
+            variant,
             contentHash: desiredContentHash,
           },
         },
@@ -741,6 +824,26 @@ export async function getApprovedCloudTemplate(params: {
         ),
         parameter_name: parameterName,
       })),
+    });
+  }
+  if (hasParticipationButton({
+    scope: params.scope,
+    type: params.type,
+    content: params.sourceContent,
+    variant,
+  })) {
+    components.push({
+      type: "button",
+      sub_type: "url",
+      index: "0",
+      parameters: [
+        {
+          type: "text",
+          text: normalizeCloudTemplateParameterValue(
+            params.values.participation_url,
+          ),
+        },
+      ],
     });
   }
 

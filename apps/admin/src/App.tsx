@@ -766,6 +766,18 @@ function App() {
     confirmLabel: "",
     onConfirm: () => {},
   });
+  const [principalTemplateEditor, setPrincipalTemplateEditor] = useState<{
+    label: string;
+    provider: "EVOLUTION" | "CLOUD";
+    isDirty: boolean;
+    isSaving: boolean;
+    onSave: () => void;
+    canActivate: boolean;
+    activationLabel: string;
+    onActivate: () => void;
+  } | null>(null);
+  const [principalTemplateEditorResetToken, setPrincipalTemplateEditorResetToken] =
+    useState(0);
 
   const showToast = useCallback(
     (message: string, type: "success" | "error" = "success") => {
@@ -1316,9 +1328,31 @@ function App() {
         break;
       case "Volver":
         if (isSystemMode && systemViewMode === "channels") {
-          setChannelsViewMode("hub");
-          setSelectedChannelId(null);
-          window.scrollTo({ top: 0, behavior: "smooth" });
+          if (channelsViewMode === "principal" && principalTemplateEditor) {
+            const leaveTemplateEditor = () => {
+              setPrincipalTemplateEditorResetToken((token) => token + 1);
+              setPrincipalTemplateEditor(null);
+              closeConfirm();
+            };
+            if (principalTemplateEditor.isDirty) {
+              setConfirmDialog({
+                isOpen: true,
+                title: "Descartar cambios?",
+                message:
+                  "Los cambios de esta plantilla no se han guardado y se perderan si vuelves ahora.",
+                confirmLabel: "Descartar cambios",
+                variant: "warning",
+                onConfirm: leaveTemplateEditor,
+                onCancel: closeConfirm,
+              });
+            } else {
+              leaveTemplateEditor();
+            }
+          } else {
+            setChannelsViewMode("hub");
+            setSelectedChannelId(null);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }
         } else if (isRafflesMode && raffleViewMode === "participation-detail") {
           if (raffleParticipationReturnMode === "dashboard") {
             setActiveTab("Inicio");
@@ -1547,6 +1581,37 @@ function App() {
   };
 
   const getActionAddon = () => {
+    if (
+      isSystemMode &&
+      systemViewMode === "channels" &&
+      channelsViewMode === "principal" &&
+      principalTemplateEditor
+    ) {
+      return (
+        <div className="flex flex-wrap items-center" style={{ gap: "var(--space-sm)" }}>
+          <NexusSectionButton
+            type="button"
+            variant="secondary"
+            icon={RefreshCw}
+            disabled={!principalTemplateEditor.canActivate || principalTemplateEditor.isSaving}
+            onClick={principalTemplateEditor.onActivate}
+          >
+            {principalTemplateEditor.activationLabel}
+          </NexusSectionButton>
+          <NexusSectionButton
+            type="button"
+            variant="brand"
+            icon={Save}
+            disabled={!principalTemplateEditor.isDirty || principalTemplateEditor.isSaving}
+            isLoading={principalTemplateEditor.isSaving}
+            onClick={principalTemplateEditor.onSave}
+          >
+            Guardar Plantilla
+          </NexusSectionButton>
+        </div>
+      );
+    }
+
     if (isOrdersOverviewActive) {
       return (
         <NexusSectionButton
@@ -2174,6 +2239,7 @@ function App() {
                 shippingSubView={shippingSubView}
                 channelsViewMode={channelsViewMode}
                 selectedOrderRecordType={selectedOrder?.recordType}
+                principalTemplateEditor={principalTemplateEditor}
                 actionAddon={getActionAddon()}
               />
             </div>
@@ -2602,7 +2668,12 @@ function App() {
                           setConfirmDialog={setConfirmDialog}
                         />
                       ) : channelsViewMode === "principal" ? (
-                        <PrincipalChannelView showToast={showToast} />
+                        <PrincipalChannelView
+                          showToast={showToast}
+                          setConfirmDialog={setConfirmDialog}
+                          templateEditorResetToken={principalTemplateEditorResetToken}
+                          onTemplateEditorChange={setPrincipalTemplateEditor}
+                        />
                       ) : channelsViewMode === "create" ? (
                         <ChannelForm
                           ref={channelFormRef}

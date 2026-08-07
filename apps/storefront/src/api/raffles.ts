@@ -33,6 +33,27 @@ export interface RaffleOpeningReminderResponse {
   message: string;
 }
 
+export interface RaffleParticipationAccessResponse {
+  raffle: {
+    id: number;
+    title: string;
+    image: string | null;
+    drawDate: string | null;
+    opportunities: number;
+    ticketPrice: number;
+    prizes: Array<{ position: number; title: string; description: string }>;
+  };
+  participations: Array<{
+    reference: string;
+    status: string;
+    paymentStatus: "PENDING" | "PAID" | "CANCELLED";
+    paymentMethod: string | null;
+    total: number;
+    tickets: Array<{ number: string; opportunities: string[] }>;
+  }>;
+  expiresAt: string | null;
+}
+
 export const raffleApi = {
   getAll: () => client.get<Raffle[]>('/raffles').then(res => res.data),
   getCatalog: () => client.get<Raffle[]>('/raffles/catalog').then(res => res.data),
@@ -40,6 +61,12 @@ export const raffleApi = {
   getCatalogAvailabilityEventsUrl: () =>
     `${client.defaults.baseURL}/raffles/ticket-availability/events`,
   getById: (id: number) => client.get<Raffle>(`/raffles/${id}`).then(res => res.data),
+  getParticipationAccess: (token: string) =>
+    client
+      .get<RaffleParticipationAccessResponse>(`/raffles/participations/${token}`, {
+        headers: { "Cache-Control": "no-store" },
+      })
+      .then((res) => res.data),
   getOccupiedTickets: (id: number) => client.get<string[]>(`/raffles/${id}/occupied-tickets`).then(res => res.data),
   getTicketAvailability: (id: number) => client.get<RaffleTicketAvailability[]>(`/raffles/${id}/ticket-availability`).then(res => res.data),
   getTicketAvailabilityEventsUrl: (id: number) =>

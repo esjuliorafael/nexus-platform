@@ -56,3 +56,10 @@ export function formatRaffleTicketList(sales: RaffleTicketSaleLike[]): string {
     opportunityLines.join("\n"),
   ].join("\n");
 }
+
+export function formatRaffleTicketNumbers(sales: RaffleTicketSaleLike[]): string {
+  return formatListWithConjunction(
+    Array.from(new Set(sales.map((sale) => String(sale.ticketNumber))))
+      .sort(compareTicketNumbers),
+  );
+}

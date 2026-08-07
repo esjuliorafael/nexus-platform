@@ -7,6 +7,10 @@ import { ticketService } from "../tickets/ticket.service";
 import { mediaAssetService } from "../../store/media-assets/media-asset.service";
 import bcrypt from "bcrypt";
 import { toPublicRaffle } from "./raffle-access";
+import {
+  ensureRaffleWhatsappHeader,
+  releaseRaffleWhatsappHeader,
+} from "./raffle-whatsapp-media.service";
 
 export const raffleService = {
   async getAllActive(prisma: PrismaClient, options?: { catalogOnly?: boolean }) {
@@ -287,7 +291,22 @@ export const raffleService = {
       });
     });
 
-    return toPublicRaffle(created);
+    let whatsappHeaderUrl: string | null = null;
+    try {
+      const sourceUrl =
+        created.imageType === "VIDEO"
+          ? created.imagePoster || created.image
+          : created.image;
+      whatsappHeaderUrl = await ensureRaffleWhatsappHeader(created.id, sourceUrl);
+    } catch (error) {
+      console.warn(`No se pudo preparar el header de WhatsApp para la rifa ${created.id}:`, error);
+    }
+    const persisted = await prisma.raffle.update({
+      where: { id: created.id },
+      data: { whatsappHeaderUrl },
+      include: { gallery: true, prizes: { orderBy: { position: "asc" } } },
+    });
+    return toPublicRaffle(persisted);
   },
 
   async updateFeatured(
@@ -493,6 +512,33 @@ export const raffleService = {
       });
     });
 
+    const coverChanged =
+      data.image !== undefined ||
+      data.imageType !== undefined ||
+      data.imagePoster !== undefined ||
+      coverPosterAssetId !== undefined;
+    if (coverChanged && current) {
+      let whatsappHeaderUrl: string | null = null;
+      try {
+        const sourceUrl =
+          updated.imageType === "VIDEO"
+            ? updated.imagePoster || updated.image
+            : updated.image;
+        whatsappHeaderUrl = await ensureRaffleWhatsappHeader(id, sourceUrl);
+      } catch (error) {
+        console.warn(`No se pudo actualizar el header de WhatsApp para la rifa ${id}:`, error);
+      }
+      const withWhatsappHeader = await prisma.raffle.update({
+        where: { id },
+        data: { whatsappHeaderUrl },
+        include: { gallery: true, prizes: { orderBy: { position: "asc" } } },
+      });
+      if (current.whatsappHeaderUrl && current.whatsappHeaderUrl !== whatsappHeaderUrl) {
+        await releaseRaffleWhatsappHeader(current.whatsappHeaderUrl);
+      }
+      return toPublicRaffle(withWhatsappHeader);
+    }
+
     if (
       data.image !== undefined &&
       current?.image &&
@@ -527,6 +573,7 @@ export const raffleService = {
       if (raffle.image) {
         await mediaAssetService.releaseByUrlIfUnreferenced(raffle.image);
       }
+      await releaseRaffleWhatsappHeader(raffle.whatsappHeaderUrl);
       // 3. Borrar galería de R2
       for (const item of raffle.gallery) {
         await mediaAssetService.releaseByUrlIfUnreferenced(item.filePath);

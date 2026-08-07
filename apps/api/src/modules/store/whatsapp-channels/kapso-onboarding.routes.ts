@@ -52,6 +52,14 @@ const disconnectSchema = z
     }
   });
 
+const KAPSO_MESSAGE_EVENTS = [
+  "whatsapp.message.received",
+  "whatsapp.message.sent",
+  "whatsapp.message.delivered",
+  "whatsapp.message.read",
+  "whatsapp.message.failed",
+] as const;
+
 const hashToken = (token: string) =>
   createHash("sha256").update(token).digest("hex");
 
@@ -77,6 +85,33 @@ function safeReturnUrl(value: string) {
     });
   }
   return value;
+}
+
+async function ensureKapsoMessageWebhook(
+  phoneNumberId: string,
+  request: any,
+) {
+  const config = getKapsoConfigForChannel({ phoneNumberId });
+  if (!config?.webhookSecret) return;
+
+  const webhookUrl = `${publicApiBase(request)}/api/v1/webhooks/kapso`;
+  const current = await kapsoClient.listWebhooks(config);
+  const existing = current.data.find(
+    (item) =>
+      String(item.url || "") === webhookUrl &&
+      item.active !== false &&
+      KAPSO_MESSAGE_EVENTS.every(
+        (event) => Array.isArray(item.events) && item.events.includes(event),
+      ),
+  );
+  if (existing) return;
+
+  await kapsoClient.createWebhook(
+    config,
+    webhookUrl,
+    config.webhookSecret,
+    [...KAPSO_MESSAGE_EVENTS],
+  );
 }
 
 async function ensureKapsoPlatformWebhook(
@@ -205,6 +240,7 @@ async function completeSession(
     displayPhoneNumber?: string;
     setupLinkId?: string;
   },
+  request: any,
 ) {
   const session = await server.storePrisma.kapsoOnboardingSession.findUnique({
     where: { id: sessionId },
@@ -277,6 +313,9 @@ async function completeSession(
       },
     });
   });
+
+  // Delivery callbacks are required for status reconciliation and fallback.
+  await ensureKapsoMessageWebhook(identity.phoneNumberId, request);
   return session;
 }
 
@@ -546,7 +585,7 @@ export async function kapsoOnboardingPublicRoutes(server: FastifyInstance) {
         displayPhoneNumber:
           query.display_phone_number || identity.displayPhoneNumber,
         setupLinkId: query.setup_link_id,
-      });
+      }, request);
     }
 
     const redirectUrl = new URL(session.returnUrl);
@@ -596,7 +635,7 @@ export async function kapsoOnboardingPublicRoutes(server: FastifyInstance) {
     if (!session || !phoneNumberId) return { ok: true, matched: false };
 
     const identity = await resolvePhoneIdentity(phoneNumberId);
-    await completeSession(server, session.id, identity);
+    await completeSession(server, session.id, identity, request);
     return { ok: true, matched: true };
   });
 }

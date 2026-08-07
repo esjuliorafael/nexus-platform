@@ -11,6 +11,8 @@ import {
 } from "../kapso/kapso.config";
 import {
   getApprovedCloudTemplate,
+  getActiveCloudTemplateVariant,
+  getCanonicalCloudTemplateSettingKey,
   resolveCloudTemplateOwner,
   type CloudTemplateScope,
   type CloudTemplateType,
@@ -42,8 +44,10 @@ export type SendBusinessWhatsappParams = {
   scope: CloudTemplateScope;
   type: CloudTemplateType;
   sourceContent: string;
+  legacySourceContent?: string;
   renderedText: string;
   principalSourceContent?: string;
+  principalLegacySourceContent?: string;
   principalRenderedText?: string;
   values: Record<string, string>;
   mediaHeaderUrl?: string;
@@ -57,6 +61,11 @@ export type SendBusinessWhatsappParams = {
   kapsoEnabled?: boolean;
 };
 
+const renderBusinessTemplate = (
+  content: string,
+  values: Record<string, string>,
+) => content.replace(/\{\{([a-z][a-z0-9_]*)\}\}/g, (_, key) => values[key] ?? "");
+
 function isSafeKapsoFallbackError(error: any) {
   const statusCode = Number(error?.statusCode || 0);
   return (
@@ -65,6 +74,52 @@ function isSafeKapsoFallbackError(error: any) {
     statusCode !== 409 &&
     statusCode !== 429
   );
+}
+
+async function resolveActiveTemplateContent(
+  delivery: SendBusinessWhatsappParams,
+  provider: "EVOLUTION" | "CLOUD",
+) {
+  const variant = await getActiveCloudTemplateVariant({
+    scope: delivery.scope,
+    type: delivery.type,
+    provider,
+  });
+  if (variant !== "SIMPLIFIED") {
+    return {
+      variant: "LEGACY" as const,
+      content: delivery.legacySourceContent || delivery.sourceContent,
+      renderedText: delivery.renderedText,
+    };
+  }
+
+  const baseKey = getCanonicalCloudTemplateSettingKey(
+    delivery.scope,
+    delivery.type,
+  );
+  if (!baseKey) {
+    return {
+      variant: "LEGACY" as const,
+      content: delivery.legacySourceContent || delivery.sourceContent,
+      renderedText: delivery.renderedText,
+    };
+  }
+  const simplified = await storePrisma.setting.findUnique({
+    where: { key: `${baseKey}_simplified` },
+    select: { value: true },
+  });
+  if (!simplified?.value?.trim()) {
+    return {
+      variant: "LEGACY" as const,
+      content: delivery.legacySourceContent || delivery.sourceContent,
+      renderedText: delivery.renderedText,
+    };
+  }
+  return {
+    variant: "SIMPLIFIED" as const,
+    content: simplified.value,
+    renderedText: renderBusinessTemplate(simplified.value, delivery.values),
+  };
 }
 
 function getPolicyRouting(params: SendBusinessWhatsappParams) {
@@ -101,15 +156,32 @@ async function sendKapso(params: {
   });
   if (!config) return false;
 
-  const approvedTemplate = await getApprovedCloudTemplate({
+  const ownerConfig = {
     owner: params.owner,
     config,
     scope: params.delivery.scope,
     type: params.delivery.type,
-    sourceContent: params.delivery.sourceContent,
-    values: params.delivery.values,
     mediaHeaderUrl: params.delivery.mediaHeaderUrl,
+  } as const;
+  const activeContent = await resolveActiveTemplateContent(params.delivery, "CLOUD");
+  let approvedTemplate = await getApprovedCloudTemplate({
+    ...ownerConfig,
+    values: params.delivery.values,
+    sourceContent: activeContent.content,
+    variant: activeContent.variant,
   });
+  let renderedText = activeContent.renderedText;
+  if (!approvedTemplate && activeContent.variant === "SIMPLIFIED") {
+    const legacyContent =
+      params.delivery.legacySourceContent || params.delivery.sourceContent;
+    approvedTemplate = await getApprovedCloudTemplate({
+      ...ownerConfig,
+      values: params.delivery.values,
+      sourceContent: legacyContent,
+      variant: "LEGACY",
+    });
+    renderedText = params.delivery.renderedText;
+  }
   if (!approvedTemplate) return false;
   const isMarketing = approvedTemplate.category === "MARKETING";
   const market = getMetaRecipientMarket(params.delivery.recipientPhone);
@@ -125,7 +197,7 @@ async function sendKapso(params: {
     transport: { provider: "KAPSO", config },
     recipientPhone: params.delivery.recipientPhone,
     message: {
-      text: params.delivery.renderedText,
+      text: renderedText,
       cloudTemplate: approvedTemplate.message,
     },
     templateName: params.delivery.templateName,
@@ -195,19 +267,26 @@ async function logMissingDeliveryConfiguration(
 export async function sendBusinessWhatsappNotification(
   params: SendBusinessWhatsappParams,
 ) {
-  const preferred = params.preferredChannel || null;
-  const principalEvolution = params.principal.evolution;
+  const deliveryParams = params;
+  const preferred = deliveryParams.preferredChannel || null;
+  const principalEvolution = deliveryParams.principal.evolution;
   const providerPriority = resolveWhatsappProviderPriority({
-    type: params.type,
-    forceProvider: params.forceProvider,
-    kapsoEnabled: params.kapsoEnabled,
-    deliveryStrategy: preferred?.deliveryStrategy || params.principal.deliveryStrategy,
+    type: deliveryParams.type,
+    forceProvider: deliveryParams.forceProvider,
+    kapsoEnabled: deliveryParams.kapsoEnabled,
+    deliveryStrategy: preferred?.deliveryStrategy || deliveryParams.principal.deliveryStrategy,
   });
   let fallbackReason = "";
   const principalDelivery: SendBusinessWhatsappParams = {
-    ...params,
-    sourceContent: params.principalSourceContent || params.sourceContent,
-    renderedText: params.principalRenderedText || params.renderedText,
+    ...deliveryParams,
+    sourceContent:
+      deliveryParams.principalSourceContent || deliveryParams.sourceContent,
+    legacySourceContent:
+      deliveryParams.principalLegacySourceContent ||
+      deliveryParams.legacySourceContent ||
+      deliveryParams.sourceContent,
+    renderedText:
+      deliveryParams.principalRenderedText || deliveryParams.renderedText,
   };
 
   const appendFallbackReason = (reason: string) => {
@@ -230,13 +309,13 @@ export async function sendBusinessWhatsappNotification(
             },
             channelBusinessAccountId: preferred.kapsoBusinessAccountId,
             principalBusinessAccountId:
-              params.principal.kapsoBusinessAccountId,
+              deliveryParams.principal.kapsoBusinessAccountId,
           });
           const sent = await sendKapso({
             owner,
             phoneNumberId: preferred.kapsoPhoneNumberId,
             businessAccountId: preferred.kapsoBusinessAccountId,
-            delivery: params,
+            delivery: deliveryParams,
             route: "DIRECT",
             fallbackReason,
           });
@@ -256,14 +335,14 @@ export async function sendBusinessWhatsappNotification(
     }
 
     if (
-      params.principal.kapsoPhoneNumberId &&
-      params.principal.kapsoBusinessAccountId
+      deliveryParams.principal.kapsoPhoneNumberId &&
+      deliveryParams.principal.kapsoBusinessAccountId
     ) {
       try {
         const sent = await sendKapso({
           owner: { kind: "principal" },
-          phoneNumberId: params.principal.kapsoPhoneNumberId,
-          businessAccountId: params.principal.kapsoBusinessAccountId,
+          phoneNumberId: deliveryParams.principal.kapsoPhoneNumberId,
+          businessAccountId: deliveryParams.principal.kapsoBusinessAccountId,
           delivery: principalDelivery,
           route: preferred ? "PRINCIPAL_FALLBACK" : "DIRECT",
           fallbackReason,
@@ -287,7 +366,7 @@ export async function sendBusinessWhatsappNotification(
 
   const tryEvolution = async () => {
     const policyRouting = {
-      ...getPolicyRouting(params),
+      ...getPolicyRouting(deliveryParams),
       fallbackFromProvider: fallbackFromProvider("EVOLUTION"),
     };
 
@@ -298,6 +377,7 @@ export async function sendBusinessWhatsappNotification(
       preferred.evolutionKey
     ) {
       try {
+        const activeContent = await resolveActiveTemplateContent(deliveryParams, "EVOLUTION");
         await sendWhatsappWithFailover({
           instance: {
             instanceName: preferred.instanceName,
@@ -305,13 +385,13 @@ export async function sendBusinessWhatsappNotification(
             apiKey: preferred.evolutionKey,
           },
           principalFallback: principalEvolution,
-          recipientPhone: params.recipientPhone,
-          message: params.renderedText,
-          templateName: params.templateName,
-          orderId: params.orderId,
-          ticketSaleId: params.ticketSaleId,
-          jobId: params.jobId,
-          attempt: params.attempt,
+          recipientPhone: deliveryParams.recipientPhone,
+          message: activeContent.renderedText,
+          templateName: deliveryParams.templateName,
+          orderId: deliveryParams.orderId,
+          ticketSaleId: deliveryParams.ticketSaleId,
+          jobId: deliveryParams.jobId,
+          attempt: deliveryParams.attempt,
           directRouting: {
             route: "DIRECT",
             preferredInstanceName: preferred.name,
@@ -339,15 +419,16 @@ export async function sendBusinessWhatsappNotification(
 
     if (principalEvolution) {
       try {
+        const activeContent = await resolveActiveTemplateContent(principalDelivery, "EVOLUTION");
         await sendWhatsappWithFailover({
           instance: principalEvolution,
-          recipientPhone: params.recipientPhone,
-          message: principalDelivery.renderedText,
-          templateName: params.templateName,
-          orderId: params.orderId,
-          ticketSaleId: params.ticketSaleId,
-          jobId: params.jobId,
-          attempt: params.attempt,
+          recipientPhone: deliveryParams.recipientPhone,
+          message: activeContent.renderedText,
+          templateName: deliveryParams.templateName,
+          orderId: deliveryParams.orderId,
+          ticketSaleId: deliveryParams.ticketSaleId,
+          jobId: deliveryParams.jobId,
+          attempt: deliveryParams.attempt,
           directRouting: {
             route: preferred ? "PRINCIPAL_FALLBACK" : "DIRECT",
             preferredInstanceName: preferred?.name,
@@ -373,7 +454,7 @@ export async function sendBusinessWhatsappNotification(
   }
 
   await logMissingDeliveryConfiguration(
-    params,
+    deliveryParams,
     fallbackReason ||
       "No existe un proveedor de WhatsApp preparado para esta notificación.",
   );

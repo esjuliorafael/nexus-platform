@@ -40,6 +40,7 @@ import { raffleResultService } from "./raffle-result.service";
 import { raffleResultCommunicationService } from "./raffle-result-communication.service";
 import { raffleDrawReminderService } from "./raffle-draw-reminder.service";
 import { raffleInvitationCampaignService } from "./raffle-invitation-campaign.service";
+import { getRaffleParticipationAccess } from "../ticket-sales/raffle-participation-access.service";
 
 const reserveTicketsBodySchema = z.object({
   tickets: z
@@ -375,6 +376,34 @@ export async function raffleRoutes(server: FastifyInstance) {
           ? "Ya registramos este número para avisarte"
           : "Te avisaremos por WhatsApp cuando la rifa esté disponible",
       };
+    },
+  );
+
+  server.get(
+    "/participations/:token",
+    {
+      config: {
+        rateLimit: { max: 20, timeWindow: "10 minutes" },
+      },
+    },
+    async (request, reply) => {
+      const tokenSchema = z.object({ token: z.string().min(32).max(180) });
+      try {
+        const { token } = tokenSchema.parse(request.params);
+        const access = await getRaffleParticipationAccess(getPrisma(), token);
+        if (!access) {
+          return reply.status(404).send({
+            message: "La consulta privada no est\u00e1 disponible o ha vencido.",
+          });
+        }
+        reply.header("Cache-Control", "private, no-store");
+        return access;
+      } catch (error: any) {
+        if (error?.issues) {
+          return reply.status(400).send({ message: "Validation error", errors: error.issues });
+        }
+        throw error;
+      }
     },
   );
 

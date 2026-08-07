@@ -1,9 +1,8 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
-import sharp from "sharp";
 import { rafflePrisma } from "@nexus/db/raffle";
 import { toWhatsAppCloudPhoneNumber } from "../../../utils/customer-phone";
-import { storageService } from "../../../services/storage.service";
+import { ensureRaffleWhatsappHeader } from "../../raffle/raffles/raffle-whatsapp-media.service";
 import {
   getKapsoConfig,
   getKapsoConfigForChannel,
@@ -64,6 +63,7 @@ const channelDiagnosticsSchema = z.object({
 
 const cloudTemplateTargetSchema = z.object({
   channelId: z.coerce.number().int().positive().optional(),
+  variant: z.enum(["LEGACY", "SIMPLIFIED"]).default("LEGACY"),
 });
 
 const KAPSO_MESSAGE_EVENTS = [
@@ -118,12 +118,16 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
     return { ready: true, webhookId: created.data.id || null };
   };
 
-  const resolveCloudTemplateTarget = async (channelId?: number) => {
+  const resolveCloudTemplateTarget = async (
+    channelId?: number,
+    variant: "LEGACY" | "SIMPLIFIED" = "LEGACY",
+  ) => {
     const settings = await server.storePrisma.setting.findMany({
       where: {
         key: {
           in: [
             ...CLOUD_TEMPLATE_SETTING_KEYS.map((item) => item.key),
+            ...CLOUD_TEMPLATE_SETTING_KEYS.map((item) => `${item.key}_simplified`),
             "whatsapp_main_kapso_phone_number_id",
             "whatsapp_main_kapso_business_account_id",
           ],
@@ -142,7 +146,7 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
           businessAccountId:
             settingsMap.whatsapp_main_kapso_business_account_id || undefined,
         }),
-        sources: buildCanonicalCloudTemplateSources(settingsMap),
+        sources: buildCanonicalCloudTemplateSources(settingsMap, ["STORE", "RAFFLES"], variant),
       };
     }
 
@@ -155,6 +159,7 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
     const sources: CloudTemplateSource[] = buildCanonicalCloudTemplateSources(
       settingsMap,
       scopes,
+      variant,
     );
 
     const channelOwner = {
@@ -191,23 +196,22 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
     const raffle = await rafflePrisma.raffle.findFirst({
       where: { image: { not: null } },
       orderBy: { id: "desc" },
-      select: { id: true, image: true, imagePoster: true },
+      select: { id: true, image: true, imageType: true, imagePoster: true, whatsappHeaderUrl: true },
     });
-    const sourceUrl = raffle?.imagePoster || raffle?.image;
-    if (!sourceUrl) return null;
-
-    const source = await fetch(sourceUrl);
-    if (!source.ok) return null;
-    const jpeg = await sharp(Buffer.from(await source.arrayBuffer()))
-      .rotate()
-      .resize({ width: 1200, height: 630, fit: "cover", position: "centre" })
-      .jpeg({ quality: 88, mozjpeg: true })
-      .toBuffer();
-    const publicUrl = await storageService.uploadObject(
-      jpeg,
-      `whatsapp/template-examples/raffle-invitation-${raffle.id}.jpg`,
-      "image/jpeg",
-    );
+    if (raffle?.whatsappHeaderUrl) {
+      const uploaded = await kapsoClient.ingestResumableMedia(
+        config,
+        raffle.whatsappHeaderUrl,
+      );
+      return uploaded.data.target?.handle || null;
+    }
+    const sourceUrl =
+      raffle?.imageType === "VIDEO"
+        ? raffle.imagePoster || raffle.image
+        : raffle?.image;
+    if (!raffle || !sourceUrl) return null;
+    const publicUrl = await ensureRaffleWhatsappHeader(raffle.id, sourceUrl);
+    if (!publicUrl) return null;
     const uploaded = await kapsoClient.ingestResumableMedia(config, publicUrl);
     return uploaded.data.target?.handle || null;
   };
@@ -259,7 +263,7 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
         throw error;
       }
 
-      const target = await resolveCloudTemplateTarget(body.channelId);
+      const target = await resolveCloudTemplateTarget(body.channelId, body.variant);
       if (!target) {
         return reply.status(404).send({ message: "Canal no encontrado." });
       }
@@ -308,7 +312,7 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
         throw error;
       }
 
-      const target = await resolveCloudTemplateTarget(query.channelId);
+      const target = await resolveCloudTemplateTarget(query.channelId, query.variant);
       if (!target) {
         return reply.status(404).send({ message: "Canal no encontrado." });
       }
@@ -322,7 +326,10 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
         });
       const templates = target.sources.map((source) => {
         const mapping = mappings.find(
-          (item) => item.scope === source.scope && item.type === source.type,
+          (item) =>
+            item.scope === source.scope &&
+            item.type === source.type &&
+            item.variant === source.variant,
         );
         const sourceReady = Boolean(source.content.trim());
         const contentHash = sourceReady
@@ -333,6 +340,7 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
               (item) =>
                 item.scope === source.scope &&
                 item.type === source.type &&
+                item.variant === source.variant &&
                 item.contentHash === contentHash,
             )
           : null;
@@ -343,6 +351,7 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
         return {
           scope: source.scope,
           type: source.type,
+          variant: source.variant,
           sourceReady,
           templateName:
             candidate?.templateName || mapping?.templateName || null,

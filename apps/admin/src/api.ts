@@ -840,13 +840,20 @@ export const apiWhatsApp = {
       phoneNumberId,
       businessAccountId,
     }),
-  syncKapsoTemplates: async (channelId?: string) =>
+  syncKapsoTemplates: async (
+    channelId?: string,
+    variant: "LEGACY" | "SIMPLIFIED" = "LEGACY",
+  ) =>
     api.post("/admin/whatsapp/kapso/sync-templates", {
       ...(channelId ? { channelId: Number(channelId) } : {}),
+      variant,
     }),
-  getKapsoTemplateReadiness: async (channelId?: string) =>
+  getKapsoTemplateReadiness: async (
+    channelId?: string,
+    variant: "LEGACY" | "SIMPLIFIED" = "LEGACY",
+  ) =>
     api.get("/admin/whatsapp/kapso/template-readiness", {
-      params: channelId ? { channelId: Number(channelId) } : {},
+      params: { ...(channelId ? { channelId: Number(channelId) } : {}), variant },
     }),
   createKapsoSetupLink: async (data: {
     target: "PRINCIPAL" | "SPECIALIZED";
