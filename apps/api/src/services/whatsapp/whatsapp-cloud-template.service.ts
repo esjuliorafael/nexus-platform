@@ -280,6 +280,36 @@ function hasParticipationButton(source: CloudTemplateSource) {
   );
 }
 
+function getParticipationButtonBaseUrl() {
+  const baseUrl = (
+    process.env.STOREFRONT_HTTPS_URL ||
+    process.env.STOREFRONT_URL ||
+    "https://rancholastrojes.com.mx"
+  ).replace(/\/+$/, "");
+
+  return `${baseUrl}/participations`;
+}
+
+function getParticipationButtonSuffix(value: unknown) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return rawValue;
+
+  try {
+    const parsed = new URL(rawValue);
+    const marker = "/participations/";
+    const markerIndex = parsed.pathname.indexOf(marker);
+    if (markerIndex >= 0) {
+      return parsed.pathname
+        .slice(markerIndex + marker.length)
+        .replace(/^\/+|\/+$/g, "");
+    }
+  } catch {
+    // Legacy callers may already provide only the token suffix.
+  }
+
+  return rawValue.replace(/^\/+/, "").replace(/^participations\//i, "");
+}
+
 export function getCloudTemplateBodyContent(source: CloudTemplateSource) {
   const content = source.content
     .trim()
@@ -383,8 +413,8 @@ function buildTemplateDefinition(
                 {
                   type: "URL" as const,
                   text: "Ver participación",
-                  url: "{{participation_url}}",
-                  example: ["https://rancholastrojes.com.mx/participations/demo"],
+                  url: `${getParticipationButtonBaseUrl()}/{{participation_url}}`,
+                  example: ["demo-access-token"],
                 },
               ],
             },
@@ -840,7 +870,7 @@ export async function getApprovedCloudTemplate(params: {
         {
           type: "text",
           text: normalizeCloudTemplateParameterValue(
-            params.values.participation_url,
+            getParticipationButtonSuffix(params.values.participation_url),
           ),
         },
       ],
