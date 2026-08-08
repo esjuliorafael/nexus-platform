@@ -843,10 +843,12 @@ export const apiWhatsApp = {
   syncKapsoTemplates: async (
     channelId?: string,
     variant: "LEGACY" | "SIMPLIFIED" = "LEGACY",
+    target?: { scope?: "STORE" | "RAFFLES"; type?: string },
   ) =>
     api.post("/admin/whatsapp/kapso/sync-templates", {
       ...(channelId ? { channelId: Number(channelId) } : {}),
       variant,
+      ...target,
     }),
   getKapsoTemplateReadiness: async (
     channelId?: string,

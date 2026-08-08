@@ -418,6 +418,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
   const syncCloudTemplates = async (
     manageLoading = true,
     variant: ChannelTemplateVersion = "LEGACY",
+    target?: { scope?: ChannelTemplateScope; type?: ChannelTemplateDefinition["type"] },
   ) => {
     const cloudConfig = {
       whatsapp_main_phone: config.whatsapp_main_phone || "",
@@ -441,7 +442,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
     try {
       await apiSystem.updateConfig(cloudConfig);
       setConfig((prev) => ({ ...prev, ...cloudConfig }));
-      const response = await apiWhatsApp.syncKapsoTemplates(undefined, variant);
+      const response = await apiWhatsApp.syncKapsoTemplates(undefined, variant, target);
       const templates = response.data?.templates || [];
       const pending = templates.filter(
         (template: any) => template.status === "PENDING",
@@ -558,7 +559,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       );
       setSpecializedCloudChannels(linked);
       setSelectedPrincipalChannel(true);
-      setSelectedSpecializedChannelIds(linked.map((channel) => channel.id));
+      setSelectedSpecializedChannelIds([]);
     } catch {
       setSpecializedCloudChannels([]);
       setSelectedPrincipalChannel(true);
@@ -569,11 +570,14 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
   const syncSelectedCloudTargets = async () => {
     setIsSyncingCloudTemplates(true);
     try {
+      const target = editingTemplate
+        ? { scope: editingTemplate.scope, type: editingTemplate.type }
+        : undefined;
       if (selectedPrincipalChannel) {
-        await syncCloudTemplates(false, templateVersion);
+        await syncCloudTemplates(false, templateVersion, target);
       }
       for (const channelId of selectedSpecializedChannelIds) {
-        await apiWhatsApp.syncKapsoTemplates(channelId, templateVersion);
+        await apiWhatsApp.syncKapsoTemplates(channelId, templateVersion, target);
       }
       showToast(
         selectedPrincipalChannel && selectedSpecializedChannelIds.length

@@ -27,6 +27,7 @@ import {
   resolveCloudTemplateOwner,
   syncCloudTemplateCatalog,
   type CloudTemplateSource,
+  type CloudTemplateType,
 } from "../../../services/whatsapp/whatsapp-cloud-template.service";
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
 import {
@@ -64,6 +65,11 @@ const channelDiagnosticsSchema = z.object({
 const cloudTemplateTargetSchema = z.object({
   channelId: z.coerce.number().int().positive().optional(),
   variant: z.enum(["LEGACY", "SIMPLIFIED"]).default("LEGACY"),
+});
+
+const cloudTemplateSyncSchema = cloudTemplateTargetSchema.extend({
+  scope: z.enum(["STORE", "RAFFLES"]).optional(),
+  type: z.string().trim().min(1).optional(),
 });
 
 const KAPSO_MESSAGE_EVENTS = [
@@ -121,6 +127,8 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
   const resolveCloudTemplateTarget = async (
     channelId?: number,
     variant: "LEGACY" | "SIMPLIFIED" = "LEGACY",
+    scope?: "STORE" | "RAFFLES",
+    type?: CloudTemplateType,
   ) => {
     const settings = await server.storePrisma.setting.findMany({
       where: {
@@ -139,6 +147,14 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
     );
 
     if (!channelId) {
+      const sources = buildCanonicalCloudTemplateSources(
+        settingsMap,
+        ["STORE", "RAFFLES"],
+        variant,
+      )
+        .filter((source) => !scope || source.scope === scope)
+        .filter((source) => !type || source.type === type);
+
       return {
         owner: { kind: "principal" as const },
         config: getKapsoConfigForChannel({
@@ -146,7 +162,7 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
           businessAccountId:
             settingsMap.whatsapp_main_kapso_business_account_id || undefined,
         }),
-        sources: buildCanonicalCloudTemplateSources(settingsMap, ["STORE", "RAFFLES"], variant),
+        sources,
       };
     }
 
@@ -160,7 +176,9 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
       settingsMap,
       scopes,
       variant,
-    );
+    )
+      .filter((source) => !scope || source.scope === scope)
+      .filter((source) => !type || source.type === type);
 
     const channelOwner = {
       kind: "channel" as const,
@@ -251,9 +269,9 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
     "/sync-templates",
     { preHandler: [server.authenticate] },
     async (request, reply) => {
-      let body: z.infer<typeof cloudTemplateTargetSchema>;
+      let body: z.infer<typeof cloudTemplateSyncSchema>;
       try {
-        body = cloudTemplateTargetSchema.parse(request.body || {});
+        body = cloudTemplateSyncSchema.parse(request.body || {});
       } catch (error: any) {
         if (error?.issues) {
           return reply
@@ -263,7 +281,12 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
         throw error;
       }
 
-      const target = await resolveCloudTemplateTarget(body.channelId, body.variant);
+      const target = await resolveCloudTemplateTarget(
+        body.channelId,
+        body.variant,
+        body.scope,
+        body.type as CloudTemplateType | undefined,
+      );
       if (!target) {
         return reply.status(404).send({ message: "Canal no encontrado." });
       }
@@ -271,6 +294,11 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
         return reply.status(409).send({
           message:
             "Configura Phone Number ID y Business Account ID antes de sincronizar.",
+        });
+      }
+      if ((body.scope || body.type) && target.sources.length === 0) {
+        return reply.status(400).send({
+          message: "La plantilla seleccionada no está disponible para este canal.",
         });
       }
 
