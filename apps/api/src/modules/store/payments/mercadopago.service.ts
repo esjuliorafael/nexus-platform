@@ -675,7 +675,7 @@ export const mpService = {
       } else if (!isRaffle && input.storePaymentHoldId) {
         await this.recordStoreHoldPayment(input.storePaymentHoldId, payment, sellerUserId || payment.collector_id?.toString() || null);
       }
-      if (outcome === "rejected") {
+      if (outcome === "rejected" && retryable) {
         const recoveryHoldId = isRaffle
           ? input.rafflePaymentHoldId
           : input.storePaymentHoldId;
@@ -749,7 +749,7 @@ export const mpService = {
       } else if (input.storePaymentHoldId) {
         await storePrisma.storePaymentHold.update({ where: { id: input.storePaymentHoldId }, data: holdState });
       }
-      if (!uncertain) {
+      if (!uncertain && retryable) {
         const recoveryHoldId = isRaffle
           ? input.rafflePaymentHoldId
           : input.storePaymentHoldId;
@@ -1590,6 +1590,21 @@ export const mpService = {
             payment,
             sellerId || payment.collector_id?.toString() || null,
           );
+        }
+        if (payment.status === "rejected") {
+          if (storeHoldReference) {
+            await paymentRecoveryService
+              .schedule("store", storeHoldReference[1])
+              .catch((error) =>
+                console.error("[Payment recovery] Webhook schedule failed:", error),
+              );
+          } else if (raffleHoldReference) {
+            await paymentRecoveryService
+              .schedule("raffle", raffleHoldReference[2])
+              .catch((error) =>
+                console.error("[Payment recovery] Webhook schedule failed:", error),
+              );
+          }
         }
         if (payment.status === "approved") {
           await this.applyApprovedPayment(payment, sellerId || payment.collector_id?.toString() || null);

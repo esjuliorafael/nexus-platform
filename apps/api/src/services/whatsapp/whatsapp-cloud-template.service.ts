@@ -276,7 +276,16 @@ function isRichInvitation(type: CloudTemplateType) {
 function hasParticipationButton(source: CloudTemplateSource) {
   return (
     source.variant === "SIMPLIFIED" &&
+    source.type !== "PAYMENT_RECOVERY" &&
     /\{\{participation_url\}\}/.test(source.content)
+  );
+}
+
+function hasRecoveryButton(source: CloudTemplateSource) {
+  return (
+    source.variant === "SIMPLIFIED" &&
+    source.type === "PAYMENT_RECOVERY" &&
+    /\{\{recovery_url\}\}/.test(source.content)
   );
 }
 
@@ -288,6 +297,16 @@ function getParticipationButtonBaseUrl() {
   ).replace(/\/+$/, "");
 
   return `${baseUrl}/participations`;
+}
+
+function getRecoveryButtonBaseUrl() {
+  const baseUrl = (
+    process.env.STOREFRONT_HTTPS_URL ||
+    process.env.STOREFRONT_URL ||
+    "https://rancholastrojes.com.mx"
+  ).replace(/\/+$/, "");
+
+  return baseUrl;
 }
 
 function getParticipationButtonSuffix(value: unknown) {
@@ -310,6 +329,18 @@ function getParticipationButtonSuffix(value: unknown) {
   return rawValue.replace(/^\/+/, "").replace(/^participations\//i, "");
 }
 
+function getRecoveryButtonSuffix(value: unknown) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return rawValue;
+
+  try {
+    const parsed = new URL(rawValue);
+    return `${parsed.pathname.replace(/^\/+/, "")}${parsed.search}${parsed.hash}`;
+  } catch {
+    return rawValue.replace(/^\/+/, "");
+  }
+}
+
 export function getCloudTemplateBodyContent(source: CloudTemplateSource) {
   const content = source.content
     .trim()
@@ -324,6 +355,13 @@ export function getCloudTemplateBodyContent(source: CloudTemplateSource) {
       "",
     )
     .replace(/\{\{participation_url\}\}/gi, "")
+    .replace(
+      source.variant === "SIMPLIFIED" && source.type === "PAYMENT_RECOVERY"
+        ? /(?:^|\n)[^\n]*\{\{recovery_url\}\}[^\n]*(?=\n|$)/gi
+        : /$^/,
+      "",
+    )
+    .replace(/\{\{recovery_url\}\}/gi, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
   if (!isRichInvitation(source.type)) return content;
@@ -423,6 +461,21 @@ function buildTemplateDefinition(
                   text: "Ver participación",
                   url: `${getParticipationButtonBaseUrl()}/{{participation_url}}`,
                   example: ["demo-access-token"],
+                },
+              ],
+            },
+          ]
+        : []),
+      ...(hasRecoveryButton(source)
+        ? [
+            {
+              type: "BUTTONS" as const,
+              buttons: [
+                {
+                  type: "URL" as const,
+                  text: "Reintentar pago",
+                  url: `${getRecoveryButtonBaseUrl()}/{{recovery_url}}`,
+                  example: ["checkout#recovery=demo-token"],
                 },
               ],
             },
@@ -879,6 +932,28 @@ export async function getApprovedCloudTemplate(params: {
           type: "text",
           text: normalizeCloudTemplateParameterValue(
             getParticipationButtonSuffix(params.values.participation_url),
+          ),
+        },
+      ],
+    });
+  }
+  if (
+    hasRecoveryButton({
+      scope: params.scope,
+      type: params.type,
+      content: params.sourceContent,
+      variant,
+    })
+  ) {
+    components.push({
+      type: "button",
+      sub_type: "url",
+      index: "0",
+      parameters: [
+        {
+          type: "text",
+          text: normalizeCloudTemplateParameterValue(
+            getRecoveryButtonSuffix(params.values.recovery_url),
           ),
         },
       ],

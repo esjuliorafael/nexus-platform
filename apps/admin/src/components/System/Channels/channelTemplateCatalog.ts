@@ -629,13 +629,10 @@ Tu pago fue confirmado correctamente. \u2705
 
 No pudimos confirmar el pago. No se realiz\u00f3 ning\u00fan cobro.
 
-\u{1F504} Puedes reintentar antes de {{expires_at}}:
+\u{1F504} Puedes reintentar antes de {{expires_at}} usando el bot\u00f3n Reintentar pago:
 
 {{recovery_url}}
-
-\u{1F50E} Consulta el detalle de tu participaci\u00f3n en Ver participaci\u00f3n:
-
-{{participation_url}}`,
+`,
   PAYMENT_REFUNDED: `Hola, {{customer_name}}. \u21a9\uFE0F
 
 La devoluci\u00f3n de tu participaci\u00f3n fue procesada correctamente.
