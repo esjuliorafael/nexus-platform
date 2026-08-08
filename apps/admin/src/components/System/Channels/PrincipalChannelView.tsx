@@ -32,6 +32,7 @@ import {
 } from "../../ui/NexusButton";
 import { NexusInput, NexusSelect, NexusTextarea } from "../../ui/NexusInputs";
 import { NexusModal, NexusModalActions } from "../../ui/NexusModal";
+import { NexusCheckboxRow } from "../../ui/NexusCheckboxRow";
 import { NexusSwitch } from "../../ui/NexusSwitch";
 import { NexusConfirmModal } from "../../ui/NexusConfirmModal";
 import { NexusSegmentedControl } from "../../ui/NexusSegmentedControl";
@@ -148,6 +149,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
   const [isLoadingCloudTemplateStatus, setIsLoadingCloudTemplateStatus] =
     useState(false);
   const [specializedCloudChannels, setSpecializedCloudChannels] = useState<any[]>([]);
+  const [selectedPrincipalChannel, setSelectedPrincipalChannel] = useState(true);
   const [selectedSpecializedChannelIds, setSelectedSpecializedChannelIds] = useState<string[]>([]);
   const [modal, setModal] = useState<ModalType>(null);
   const [instanceStatus, setInstanceStatus] = useState<
@@ -555,9 +557,11 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
           Boolean(channel.kapsoPhoneNumberId && channel.kapsoBusinessAccountId),
       );
       setSpecializedCloudChannels(linked);
+      setSelectedPrincipalChannel(true);
       setSelectedSpecializedChannelIds(linked.map((channel) => channel.id));
     } catch {
       setSpecializedCloudChannels([]);
+      setSelectedPrincipalChannel(true);
       setSelectedSpecializedChannelIds([]);
     }
   };
@@ -565,14 +569,18 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
   const syncSelectedCloudTargets = async () => {
     setIsSyncingCloudTemplates(true);
     try {
-      await syncCloudTemplates(false, templateVersion);
+      if (selectedPrincipalChannel) {
+        await syncCloudTemplates(false, templateVersion);
+      }
       for (const channelId of selectedSpecializedChannelIds) {
         await apiWhatsApp.syncKapsoTemplates(channelId, templateVersion);
       }
       showToast(
-        selectedSpecializedChannelIds.length
+        selectedPrincipalChannel && selectedSpecializedChannelIds.length
           ? "Plantillas sincronizadas en los canales seleccionados"
-          : "Plantillas del Canal Principal sincronizadas",
+          : selectedPrincipalChannel
+            ? "Plantillas del Canal Principal sincronizadas"
+            : "Plantillas del Canal Especializado sincronizadas",
       );
     } catch (error: any) {
       showToast(
@@ -965,30 +973,29 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                   <p className="text-secondary text-text-muted">
                     La versión nueva se enviará solo a los canales que selecciones.
                   </p>
-                  <label className="flex items-center text-secondary text-text-main" style={{ gap: "var(--space-sm)", marginTop: "var(--space-md)" }}>
-                    <input type="checkbox" checked readOnly />
-                    Canal Principal
-                  </label>
+                  <NexusCheckboxRow
+                    checked={selectedPrincipalChannel}
+                    onChange={() => setSelectedPrincipalChannel((selected) => !selected)}
+                    label="Canal Principal"
+                  />
                   {specializedCloudChannels.length === 0 ? (
                     <p className="text-label text-text-muted" style={{ marginTop: "var(--space-md)" }}>
                       No hay Canales Especializados vinculados a Cloud API.
                     </p>
                   ) : (
                     specializedCloudChannels.map((channel) => (
-                      <label key={channel.id} className="flex items-center text-secondary text-text-main" style={{ gap: "var(--space-sm)", marginTop: "var(--space-md)" }}>
-                        <input
-                          type="checkbox"
-                          checked={selectedSpecializedChannelIds.includes(channel.id)}
-                          onChange={(event) =>
-                            setSelectedSpecializedChannelIds((current) =>
-                              event.target.checked
-                                ? [...current, channel.id]
-                                : current.filter((id) => id !== channel.id),
-                            )
-                          }
-                        />
-                        {channel.name}
-                      </label>
+                      <NexusCheckboxRow
+                        key={channel.id}
+                        checked={selectedSpecializedChannelIds.includes(channel.id)}
+                        onChange={() =>
+                          setSelectedSpecializedChannelIds((current) =>
+                            current.includes(channel.id)
+                              ? current.filter((id) => id !== channel.id)
+                              : [...current, channel.id],
+                          )
+                        }
+                        label={channel.name}
+                      />
                     ))
                   )}
                 </div>
@@ -999,8 +1006,17 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                       setIsVersionsOpen(false);
                       void syncSelectedCloudTargets();
                     }}
-                     disabled={!hasPendingCloudSync}
-                     title={hasPendingCloudSync ? undefined : "No hay cambios pendientes"}
+                     disabled={
+                       !hasPendingCloudSync ||
+                       (!selectedPrincipalChannel && selectedSpecializedChannelIds.length === 0)
+                     }
+                     title={
+                       !hasPendingCloudSync
+                         ? "No hay cambios pendientes"
+                         : selectedPrincipalChannel || selectedSpecializedChannelIds.length
+                           ? undefined
+                           : "Selecciona al menos un canal"
+                     }
                      isLoading={isSyncingCloudTemplates}
                   >
                     Sincronizar Cloud API
