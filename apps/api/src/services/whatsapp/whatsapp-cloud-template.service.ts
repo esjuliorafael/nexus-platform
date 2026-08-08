@@ -317,6 +317,14 @@ export function getCloudTemplateBodyContent(source: CloudTemplateSource) {
       /\n*Consulta el detalle de tu participaci[^\n]*:\s*\n\s*\{\{participation_url\}\}\s*/i,
       "",
     )
+    // The URL is represented by the Cloud API button. Remove any remaining
+    // token-bearing line so custom wording cannot submit it twice to Meta.
+    .replace(
+      /(?:^|\n)[^\n]*\{\{participation_url\}\}[^\n]*(?=\n|$)/gi,
+      "",
+    )
+    .replace(/\{\{participation_url\}\}/gi, "")
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
   if (!isRichInvitation(source.type)) return content;
 
