@@ -100,6 +100,7 @@ const requiredTemplatesForPurpose = (purpose: string) =>
         "RAFFLE_INVITATION",
         "RESULT_WINNER",
         "RESULT_PARTICIPANTS",
+        "PARTICIPATION_LOOKUP_CODE",
       ]
     : [
         "RESERVATION",
@@ -131,6 +132,8 @@ const PRINCIPAL_TEMPLATE_KEYS: Record<string, string> = {
   "RAFFLES:RAFFLE_INVITATION": "whatsapp_global_raffle_invitation",
   "RAFFLES:RESULT_WINNER": "whatsapp_global_raffle_winner",
   "RAFFLES:RESULT_PARTICIPANTS": "whatsapp_global_raffle_results",
+  "RAFFLES:PARTICIPATION_LOOKUP_CODE":
+    "whatsapp_global_raffle_participation_lookup_code",
 };
 
 const getPrincipalTemplateContents = (

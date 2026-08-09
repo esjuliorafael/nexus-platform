@@ -17,6 +17,7 @@ const storefrontBaseUrl = () =>
 export async function createRaffleParticipationAccess(params: {
   rafflePrisma: RafflePrismaClient;
   raffleId: number;
+  participationId: string;
   phone: string;
 }) {
   const normalizedPhone = normalizeCustomerPhone(params.phone);
@@ -29,6 +30,7 @@ export async function createRaffleParticipationAccess(params: {
   await params.rafflePrisma.raffleParticipationAccessToken.create({
     data: {
       raffleId: params.raffleId,
+      participationId: params.participationId,
       phoneHash: hash(normalizedPhone),
       tokenHash: hash(token),
       expiresAt,
@@ -46,6 +48,17 @@ const paymentStatusLabel = (status: TicketStatus) => {
   if (status === TicketStatus.PAID) return "Pago confirmado";
   if (status === TicketStatus.CANCELLED) return "Participaci\u00f3n cancelada";
   return "Apartado pendiente de pago";
+};
+
+const participantDisplayName = (value: string | null | undefined) => {
+  const parts = String(value || "")
+    .trim()
+    .replace(/\s+/g, " ")
+    .split(" ")
+    .filter(Boolean);
+  if (parts.length <= 2) return parts.join(" ");
+  const last = parts.at(-1) || "";
+  return `${parts.slice(0, -1).join(" ")} ${last.charAt(0)}.`;
 };
 
 export async function getRaffleParticipationAccess(
@@ -70,8 +83,18 @@ export async function getRaffleParticipationAccess(
   // The database stores only a hash. Resolve sales with a separate candidate query
   // after checking each candidate hash, so the token never exposes the phone itself.
   if (!raffle) return null;
+  const legacySaleMatch = /^sale-(\d+)$/.exec(access.participationId);
+  const legacyToken = access.participationId.startsWith("legacy-");
+  const lookupToken = access.participationId.startsWith("lookup-");
   const sales = await rafflePrisma.ticketSale.findMany({
-    where: { raffleId: raffle.id },
+    where: {
+      raffleId: raffle.id,
+      ...(legacyToken || lookupToken
+        ? {}
+        : legacySaleMatch
+          ? { id: Number(legacySaleMatch[1]) }
+          : { reservationId: access.participationId }),
+    },
     orderBy: [{ reservationId: "asc" }, { ticketNumber: "asc" }],
   });
   const ownedSales = sales.filter((sale) => {
@@ -95,6 +118,7 @@ export async function getRaffleParticipationAccess(
   });
 
   return {
+    participantName: participantDisplayName(ownedSales[0]?.customerName),
     raffle: {
       id: raffle.id,
       title: raffle.title,

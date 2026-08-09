@@ -102,7 +102,10 @@ export async function ticketSaleRoutes(server: FastifyInstance) {
         rafflePrisma,
         reservation.reservationId,
       );
-      return reply.status(201).send(participation);
+      return reply.status(201).send({
+        ...participation,
+        participationUrl: reservation.participationUrl ?? null,
+      });
     } catch (error: any) {
       if (error?.issues) {
         return reply.status(400).send({

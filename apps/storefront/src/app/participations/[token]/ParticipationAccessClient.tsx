@@ -75,6 +75,11 @@ export function ParticipationAccessClient({ token }: { token: string }) {
           </div>
           <h1 className="sf-text-h1 text-stone-900">Mi participaci\u00f3n</h1>
           <p className="sf-text-secondary text-stone-500">{data.raffle.title}</p>
+          {data.participantName && (
+            <p className="sf-text-secondary text-stone-500">
+              Participante: <span className="font-semibold text-stone-700">{data.participantName}</span>
+            </p>
+          )}
         </header>
 
         <StorefrontAutonomousCard density="default">

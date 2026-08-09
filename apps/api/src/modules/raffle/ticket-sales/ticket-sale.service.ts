@@ -19,6 +19,7 @@ import {
 } from "../../../utils/admin-authorization";
 import { buildRaffleOperationalOverview } from "./raffle-overview";
 import { whatsappMarketingConsentService } from "../../../services/whatsapp-marketing-consent.service";
+import { createRaffleParticipationAccess } from "./raffle-participation-access.service";
 
 export class TicketAvailabilityConflictError extends Error {
   constructor(readonly ticketNumbers: string[]) {
@@ -969,6 +970,21 @@ export const ticketSaleService = {
         });
     }
 
+    let participationUrl: string | undefined;
+    try {
+      participationUrl = (
+        await createRaffleParticipationAccess({
+          rafflePrisma: prisma,
+          raffleId,
+          participationId: reservationId,
+          phone: customerPhone,
+        })
+      ).url;
+    } catch (error) {
+      // A private-link failure must not invalidate a completed reservation.
+      console.error("[Raffle participation access] Could not create access link:", error);
+    }
+
     // 3. Post-transaction actions
     void publishTicketAvailabilityChanged(raffleId).catch((error) => {
       console.error("[Raffle availability] Could not publish reservation change:", error);
@@ -1048,7 +1064,8 @@ export const ticketSaleService = {
             kind: "reservation",
             ticketSaleIds: sales.map(s => s.id),
             recipientPhone: sales[0].customerPhone,
-            timeLimit: `${releaseHours} horas`
+            timeLimit: `${releaseHours} horas`,
+            participationUrl,
           });
         }
       }
@@ -1068,6 +1085,7 @@ export const ticketSaleService = {
       reservationId,
       paymentMethod,
       paymentExpiresAt: paymentExpiresAt?.toISOString() ?? null,
+      participationUrl: participationUrl ?? null,
       rejected: [],
       partial: false,
     };

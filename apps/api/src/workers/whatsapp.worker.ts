@@ -18,6 +18,7 @@ import {
 import { refreshRaffleInvitationCampaign } from "../modules/raffle/raffles/raffle-invitation-campaign.service";
 import { paymentRecoveryService } from "../services/payment-recovery.service";
 import { isKapsoTenantDeliveryEnabled } from "../services/whatsapp/whatsapp-delivery-policy";
+import { createRaffleParticipationAccess } from "../modules/raffle/ticket-sales/raffle-participation-access.service";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
 const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
@@ -1040,6 +1041,26 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         );
       }
 
+      let participationUrl =
+        "participationUrl" in data ? data.participationUrl || "" : "";
+      if (!participationUrl && sales[0]?.raffle?.id && sales[0]?.customerPhone) {
+        try {
+          participationUrl = (
+            await createRaffleParticipationAccess({
+              rafflePrisma,
+              raffleId: sales[0].raffle.id,
+              participationId: sales[0].reservationId || `sale-${sales[0].id}`,
+              phone: sales[0].customerPhone,
+            })
+          ).url;
+        } catch (error) {
+          console.error(
+            "[Raffle participation access] Could not create notification link:",
+            error,
+          );
+        }
+      }
+
       const notification = buildReservationNotification(
         template,
         sales,
@@ -1048,6 +1069,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         "timeRemaining" in data && typeof data.timeRemaining === "string"
           ? data.timeRemaining
           : undefined,
+        participationUrl,
       );
       notification.values.opportunity_count = String(sales[0].raffle.opportunities || 1);
       notification.values.additional_opportunity_count = String(
@@ -1298,6 +1320,7 @@ function buildReservationNotification(
   bankInfo: string,
   timeLimit?: string,
   timeRemaining?: string,
+  participationUrl?: string,
 ) {
   const firstSale = sales[0];
   const ticketList = formatRaffleTicketList(sales);
@@ -1330,6 +1353,7 @@ function buildReservationNotification(
     ...getBankTemplateValues(bankInfo),
     time_raffle: timeLimit || "",
     time_remaining: timeRemaining || "",
+    participation_url: participationUrl || "",
   };
   return { message: renderTemplate(template, values), values };
 }

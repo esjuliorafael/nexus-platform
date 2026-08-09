@@ -954,6 +954,7 @@ enum TemplateType {
   RAFFLE_INVITATION   @map("raffle_invitation")
   RESULT_WINNER       @map("result_winner")
   RESULT_PARTICIPANTS @map("result_participants")
+  PARTICIPATION_LOOKUP_CODE @map("participation_lookup_code")
 }
 
 enum ShippingType {

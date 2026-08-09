@@ -20,7 +20,8 @@ export type CloudTemplateType =
   | "DRAW_REMINDER"
   | "RAFFLE_INVITATION"
   | "RESULT_WINNER"
-  | "RESULT_PARTICIPANTS";
+  | "RESULT_PARTICIPANTS"
+  | "PARTICIPATION_LOOKUP_CODE";
 
 export type CloudTemplateSource = {
   scope: CloudTemplateScope;
@@ -107,7 +108,17 @@ export const CLOUD_TEMPLATE_SETTING_KEYS: Array<{
     type: "RESULT_PARTICIPANTS",
     key: "whatsapp_global_raffle_results",
   },
+  {
+    scope: "RAFFLES",
+    type: "PARTICIPATION_LOOKUP_CODE",
+    key: "whatsapp_global_raffle_participation_lookup_code",
+  },
 ];
+
+const CLOUD_TEMPLATE_DEFAULT_CONTENTS: Partial<Record<CloudTemplateType, string>> = {
+  PARTICIPATION_LOOKUP_CODE:
+    "\u{1F510} Tu c\u00f3digo de consulta es {{verification_code}}.\n\n\u23F1\uFE0F Este c\u00f3digo vence en 10 minutos. Si no solicitaste esta consulta, puedes ignorar este mensaje.",
+};
 
 export function getCanonicalCloudTemplateSettingKey(
   scope: CloudTemplateScope,
@@ -158,11 +169,17 @@ export function buildCanonicalCloudTemplateSources(
       type: item.type,
       content:
         variant === "SIMPLIFIED"
-          ? settings[`${item.key}_simplified`] || ""
+          ? settings[`${item.key}_simplified`] ||
+            CLOUD_TEMPLATE_DEFAULT_CONTENTS[item.type] ||
+            ""
           : settings[item.key] || "",
       variant,
     }))
-    .filter((item) => variant === "LEGACY" || item.content.trim());
+    .filter(
+      (item) =>
+        item.content.trim() ||
+        (variant === "LEGACY" && item.type !== "PARTICIPATION_LOOKUP_CODE"),
+    );
 
   return sources;
 }
@@ -345,7 +362,7 @@ export function getCloudTemplateBodyContent(source: CloudTemplateSource) {
   const content = source.content
     .trim()
     .replace(
-      /\n*Consulta el detalle de tu participaci[^\n]*:\s*\n\s*\{\{participation_url\}\}\s*/i,
+      /\n*Consulta el detalle de tu participaci[\s\S]*?\{\{participation_url\}\}\s*/i,
       "",
     )
     // The URL is represented by the Cloud API button. Remove any remaining
@@ -407,19 +424,42 @@ function buildTemplateDefinition(
   templateName: string,
   parameterNames: string[],
   languageCode: string,
-  category: "UTILITY" | "MARKETING",
+  category: "UTILITY" | "MARKETING" | "AUTHENTICATION",
   type: CloudTemplateType,
   source: CloudTemplateSource,
   richInvitationHeaderHandle?: string | null,
 ): KapsoTemplateDefinition {
   const richInvitation = isRichInvitation(type);
+  const authentication = type === "PARTICIPATION_LOOKUP_CODE";
 
   return {
     name: templateName,
     language: languageCode,
     category,
-    parameter_format: "NAMED",
+    parameter_format: authentication ? "POSITIONAL" : "NAMED",
     components: [
+      ...(authentication
+        ? [
+            {
+              type: "BODY" as const,
+              add_security_recommendation: true,
+            },
+            {
+              type: "FOOTER" as const,
+              code_expiration_minutes: 10,
+            },
+            {
+              type: "BUTTONS" as const,
+              buttons: [
+                {
+                  type: "OTP" as const,
+                  otp_type: "COPY_CODE" as const,
+                  text: "Copiar código",
+                },
+              ],
+            },
+          ]
+        : []),
       ...(richInvitation
         ? [
             {
@@ -487,7 +527,8 @@ function buildTemplateDefinition(
 
 export function getCloudTemplateCategory(
   type: CloudTemplateType,
-): "UTILITY" | "MARKETING" {
+): "UTILITY" | "MARKETING" | "AUTHENTICATION" {
+  if (type === "PARTICIPATION_LOOKUP_CODE") return "AUTHENTICATION";
   return type === "RAFFLE_INVITATION" || type === "OPENING"
     ? "MARKETING"
     : "UTILITY";
@@ -502,9 +543,11 @@ function normalizeRemoteStatus(value: unknown) {
 
 function normalizeRemoteCategory(
   value: unknown,
-): "UTILITY" | "MARKETING" | null {
+): "UTILITY" | "MARKETING" | "AUTHENTICATION" | null {
   const normalized = String(value || "").toUpperCase();
-  return normalized === "UTILITY" || normalized === "MARKETING"
+  return normalized === "UTILITY" ||
+    normalized === "MARKETING" ||
+    normalized === "AUTHENTICATION"
     ? normalized
     : null;
 }
@@ -739,7 +782,7 @@ export async function getApprovedCloudTemplate(params: {
   variant?: CloudTemplateVariant;
 }): Promise<{
   message: KapsoTemplateMessage;
-  category: "UTILITY" | "MARKETING";
+  category: "UTILITY" | "MARKETING" | "AUTHENTICATION";
 } | null> {
   const variant = params.variant || "LEGACY";
   let mapping = await storePrisma.whatsappCloudTemplate.findUnique({
@@ -913,8 +956,21 @@ export async function getApprovedCloudTemplate(params: {
         text: normalizeCloudTemplateParameterValue(
           params.values[parameterName],
         ),
-        parameter_name: parameterName,
+        ...(params.type === "PARTICIPATION_LOOKUP_CODE"
+          ? {}
+          : { parameter_name: parameterName }),
       })),
+    });
+  }
+  if (params.type === "PARTICIPATION_LOOKUP_CODE") {
+    const code = normalizeCloudTemplateParameterValue(
+      params.values.verification_code,
+    );
+    components.push({
+      type: "button",
+      sub_type: "url",
+      index: "0",
+      parameters: [{ type: "text", text: code }],
     });
   }
   if (hasParticipationButton({

@@ -229,7 +229,9 @@ async function sendKapso(params: {
         rateCardVersion: META_RATE_CARD_VERSION,
         status: hasCustomerServiceWindow
           ? "EXEMPT_CUSTOMER_SERVICE_WINDOW"
-          : "ESTIMATED_BILLABLE",
+          : rateMxn === null
+            ? "REFERENCE_RATE_UNAVAILABLE"
+            : "ESTIMATED_BILLABLE",
       },
     },
   });

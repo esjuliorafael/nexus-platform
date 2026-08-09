@@ -41,6 +41,11 @@ import { raffleResultCommunicationService } from "./raffle-result-communication.
 import { raffleDrawReminderService } from "./raffle-draw-reminder.service";
 import { raffleInvitationCampaignService } from "./raffle-invitation-campaign.service";
 import { getRaffleParticipationAccess } from "../ticket-sales/raffle-participation-access.service";
+import {
+  createParticipationLookupAccess,
+  requestParticipationLookup,
+  verifyParticipationLookup,
+} from "../ticket-sales/raffle-participation-lookup.service";
 
 const reserveTicketsBodySchema = z.object({
   tickets: z
@@ -64,6 +69,15 @@ const earlyAccessBodySchema = z.object({
 
 const openingReminderBodySchema = z.object({
   phone: customerPhoneSchema,
+});
+
+const participationLookupRequestSchema = z.object({
+  phone: customerPhoneSchema,
+});
+
+const participationLookupVerifySchema = z.object({
+  phone: customerPhoneSchema,
+  code: z.string().trim().regex(/^\d{6}$/),
 });
 
 const convertPaymentHoldSchema = z.object({
@@ -402,6 +416,61 @@ export async function raffleRoutes(server: FastifyInstance) {
         if (error?.issues) {
           return reply.status(400).send({ message: "Validation error", errors: error.issues });
         }
+        throw error;
+      }
+    },
+  );
+
+  server.post(
+    "/:id/participation-lookup/request",
+    { config: { rateLimit: { max: 5, timeWindow: "10 minutes" } } },
+    async (request, reply) => {
+      const raffleId = Number((request.params as { id: string }).id);
+      try {
+        const body = participationLookupRequestSchema.parse(request.body);
+        const raffle = await getPrisma().raffle.findUnique({ where: { id: raffleId }, select: { id: true } });
+        if (!raffle) return reply.status(404).send({ message: "Raffle not found" });
+        await requestParticipationLookup({
+          rafflePrisma: getPrisma(),
+          storePrisma: server.storePrisma,
+          raffleId,
+          phone: body.phone,
+        });
+        return {
+          accepted: true,
+          message: "Si encontramos una participación, enviaremos un código por WhatsApp.",
+        };
+      } catch (error: any) {
+        if (error?.issues) return reply.status(400).send({ message: "Validation error", errors: error.issues });
+        return reply.status(error?.statusCode || 400).send({ message: error?.message || "No se pudo solicitar la consulta.", code: error?.code });
+      }
+    },
+  );
+
+  server.post(
+    "/:id/participation-lookup/verify",
+    { config: { rateLimit: { max: 10, timeWindow: "10 minutes" } } },
+    async (request, reply) => {
+      const raffleId = Number((request.params as { id: string }).id);
+      try {
+        const body = participationLookupVerifySchema.parse(request.body);
+        const verified = await verifyParticipationLookup({
+          rafflePrisma: getPrisma(),
+          raffleId,
+          phone: body.phone,
+          code: body.code,
+        });
+        if (!verified) return reply.status(401).send({ message: "El código no es válido o ya venció.", code: "INVALID_LOOKUP_CODE" });
+        const access = await createParticipationLookupAccess({
+          rafflePrisma: getPrisma(),
+          raffleId,
+          phone: verified.phone,
+        });
+        if (!access) return reply.status(404).send({ message: "La consulta no está disponible." });
+        reply.header("Cache-Control", "no-store");
+        return { url: access.url, expiresAt: access.expiresAt };
+      } catch (error: any) {
+        if (error?.issues) return reply.status(400).send({ message: "Validation error", errors: error.issues });
         throw error;
       }
     },

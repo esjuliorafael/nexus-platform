@@ -13,6 +13,7 @@ export type ChannelTemplateType =
   | "RAFFLE_INVITATION"
   | "RESULT_WINNER"
   | "RESULT_PARTICIPANTS"
+  | "PARTICIPATION_LOOKUP_CODE"
   | "MARKETING_SUBSCRIBED"
   | "MARKETING_UNSUBSCRIBED";
 
@@ -26,6 +27,7 @@ export type ChannelTemplateDefinition = {
   defaultContent?: string;
   baseKey?: string;
   isTemporaryFallback?: boolean;
+  simplifiedOnly?: boolean;
 };
 
 export type ChannelTemplateGroup = {
@@ -316,6 +318,22 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
     ],
   },
   {
+    key: "raffle-verification",
+    scope: "RAFFLES",
+    label: "Verificación",
+    description: "Código de un solo uso para consultar una participación.",
+    templates: [
+      {
+        type: "PARTICIPATION_LOOKUP_CODE",
+        key: "whatsapp_global_raffle_participation_lookup_code",
+        label: "Código de consulta de participación",
+        variables: ["{{verification_code}}"],
+        simplifiedOnly: true,
+        defaultContent: `\u{1F510} Tu código de consulta es {{verification_code}}.\n\n\u23F1\uFE0F Este código vence en 10 minutos. Si no solicitaste esta consulta, puedes ignorar este mensaje.`,
+      },
+    ],
+  },
+  {
     key: "raffle-preferences",
     scope: "RAFFLES",
     label: "Preferencias de WhatsApp",
@@ -568,6 +586,9 @@ const getRaffleCloudTemplateDefault = (
 const SIMPLIFIED_RAFFLE_TEMPLATE_CONTENT: Partial<
   Record<ChannelTemplateType, string>
 > = {
+  PARTICIPATION_LOOKUP_CODE: `\u{1F510} Tu c\u00f3digo de consulta es {{verification_code}}.
+
+\u23F1\uFE0F Este c\u00f3digo vence en 10 minutos. Si no solicitaste esta consulta, puedes ignorar este mensaje.`,
   RESERVATION: `\u00a1Hola, {{customer_name}}! \u{1F39F}\u{FE0F}
 
 Tu participaci\u00f3n qued\u00f3 apartada correctamente. \u2705
@@ -678,7 +699,9 @@ export const getTemplateVariantContent = (
   ? scope === "RAFFLES"
     ? SIMPLIFIED_RAFFLE_TEMPLATE_CONTENT[template.type] || ""
     : ""
-  : template.defaultContent || "";
+  : template.simplifiedOnly
+    ? ""
+    : template.defaultContent || "";
 
 export const getTemplateVariantVariables = (
   template: ChannelTemplateDefinition,
@@ -715,6 +738,7 @@ const TEMPLATE_ORDER_BY_GROUP: Record<string, ChannelTemplateType[]> = {
   "raffle-participations": ["RESERVATION", "RESTORED", "REMINDER", "RELEASE"],
   "raffle-payments": ["PAYMENT_CONFIRMED", "PAYMENT_RECOVERY", "PAYMENT_REFUNDED"],
   "raffle-results": ["DRAW_REMINDER", "RESULT_WINNER", "RESULT_PARTICIPANTS"],
+  "raffle-verification": ["PARTICIPATION_LOOKUP_CODE"],
   "raffle-preferences": ["MARKETING_SUBSCRIBED", "MARKETING_UNSUBSCRIBED"],
   "raffle-promotion": ["RAFFLE_INVITATION"],
 };
@@ -726,6 +750,7 @@ const TEMPLATE_GROUP_ORDER: Record<ChannelTemplateScope, string[]> = {
     "raffle-participations",
     "raffle-payments",
     "raffle-results",
+    "raffle-verification",
     "raffle-preferences",
     "raffle-promotion",
   ],

@@ -49,6 +49,7 @@ import {
 } from "../../../components/raffle/RaffleMobileChrome";
 import { RaffleOpportunityPeek } from "../../../components/raffle/RaffleOpportunityPeek";
 import { RaffleParticipationGate } from "../../../components/raffle/RaffleParticipationGate";
+import { RaffleParticipationLookupCard } from "../../../components/raffle/RaffleParticipationLookupCard";
 import {
   RaffleOpeningReminderCard,
   RaffleOpeningReminderContent,
@@ -969,6 +970,9 @@ export function RaffleDetailsClient({
               </div>
             </StorefrontReveal>
           )}
+          <StorefrontReveal cadence="editorial" amount={0.2}>
+            <RaffleParticipationLookupCard raffleId={raffle.id} />
+          </StorefrontReveal>
         </div>
       </div>
       {canParticipate ? (

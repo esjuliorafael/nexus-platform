@@ -474,7 +474,8 @@ export type TemplateType =
   | "DRAW_REMINDER"
   | "RAFFLE_INVITATION"
   | "RESULT_WINNER"
-  | "RESULT_PARTICIPANTS";
+  | "RESULT_PARTICIPANTS"
+  | "PARTICIPATION_LOOKUP_CODE";
 
 export interface WhatsAppTemplate {
   id: string;

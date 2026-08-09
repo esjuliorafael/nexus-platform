@@ -45,8 +45,8 @@ export type KapsoTemplateMessage = {
 export type KapsoTemplateDefinition = {
   name: string;
   language: string;
-  category: "UTILITY" | "MARKETING";
-  parameter_format: "NAMED";
+  category: "UTILITY" | "MARKETING" | "AUTHENTICATION";
+  parameter_format: "NAMED" | "POSITIONAL";
   components: Array<
     | {
         type: "HEADER";
@@ -55,7 +55,8 @@ export type KapsoTemplateDefinition = {
       }
     | {
         type: "BODY";
-        text: string;
+        text?: string;
+        add_security_recommendation?: boolean;
         example?: {
           body_text_named_params: Array<{
             param_name: string;
@@ -65,15 +66,17 @@ export type KapsoTemplateDefinition = {
       }
     | {
         type: "FOOTER";
-        text: string;
+        text?: string;
+        code_expiration_minutes?: number;
       }
     | {
         type: "BUTTONS";
         buttons: Array<{
-          type: "URL";
+          type: "URL" | "OTP";
+          otp_type?: "COPY_CODE" | "ONE_TAP";
           text: string;
-          url: string;
-          example: string[];
+          url?: string;
+          example?: string[];
         }>;
       }
   >;

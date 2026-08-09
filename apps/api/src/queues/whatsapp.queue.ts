@@ -29,6 +29,7 @@ export type WhatsappJobData = (
       ticketSaleIds: number[];
       recipientPhone: string;
       timeLimit?: string;
+      participationUrl?: string;
     }
   | {
       kind: "order-cancelled";
@@ -42,6 +43,7 @@ export type WhatsappJobData = (
       ticketSaleIds: number[];
       recipientPhone: string;
       timeLimit?: string;
+      participationUrl?: string;
     }
   | {
       kind: "order-paid";
@@ -73,23 +75,27 @@ export type WhatsappJobData = (
       kind: "reservation-paid";
       ticketSaleIds: number[];
       recipientPhone: string;
+      participationUrl?: string;
     }
   | {
       kind: "reservation-refunded";
       ticketSaleIds: number[];
       recipientPhone: string;
+      participationUrl?: string;
     }
   | {
       kind: "reservation-restored";
       ticketSaleIds: number[];
       recipientPhone: string;
       timeLimit: string;
+      participationUrl?: string;
     }
   | {
       kind: "reservation-reminder";
       ticketSaleIds: number[];
       recipientPhone: string;
       timeRemaining: string;
+      participationUrl?: string;
     }
   | {
       kind: "raffle-opening";

@@ -1,6 +1,6 @@
 import { normalizeCustomerPhone } from "../../utils/customer-phone";
 
-export type MetaMessageCategory = "UTILITY" | "MARKETING";
+export type MetaMessageCategory = "UTILITY" | "MARKETING" | "AUTHENTICATION";
 export type MetaRecipientMarket = "MX" | "US" | "GT" | "UNKNOWN";
 
 export const META_RATE_CARD_VERSION = "2026-08-03";
@@ -32,4 +32,3 @@ export function getMetaRateMxn(
     ? null
     : META_REFERENCE_RATES_MXN[market]?.[category] ?? null;
 }
-

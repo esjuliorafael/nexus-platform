@@ -559,6 +559,8 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       );
       setSpecializedCloudChannels(linked);
       setSelectedPrincipalChannel(true);
+      // Specialized channels require an explicit choice to avoid accidental
+      // propagation when editing a single canonical template.
       setSelectedSpecializedChannelIds([]);
     } catch {
       setSpecializedCloudChannels([]);
