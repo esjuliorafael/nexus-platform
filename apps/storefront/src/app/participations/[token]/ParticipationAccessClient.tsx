@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { CheckCircle2, CircleAlert, CreditCard, Ticket, Trophy } from "lucide-react";
+import { ArrowLeft, CheckCircle2, CircleAlert, CreditCard, Ticket, Trophy } from "lucide-react";
 import { raffleApi, type RaffleParticipationAccessResponse } from "../../../api/raffles";
 import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
@@ -69,6 +69,9 @@ export function ParticipationAccessClient({ token }: { token: string }) {
     <div className="mx-auto w-full max-w-5xl px-[var(--sf-inset-page)] pb-[var(--sf-space-2xl)] pt-[var(--sf-space-xl)] md:pt-[var(--sf-space-2xl)]">
       <div className="flex flex-col" style={{ gap: "var(--sf-space-lg)" }}>
         <header className="flex flex-col" style={{ gap: "var(--sf-space-xs)" }}>
+          <Button asChild context="section" variant="outline" icon={ArrowLeft} className="self-start">
+            <Link href={`/raffles/${data.raffle.id}`}>Volver a la rifa</Link>
+          </Button>
           <div className="flex items-center" style={{ gap: "var(--sf-space-sm)" }}>
             <StorefrontIcon icon={Ticket} variant="brand" />
             <p className="sf-text-eyebrow text-brand-600">Consulta privada</p>

@@ -924,6 +924,10 @@ export function RaffleDetailsClient({
             </StorefrontReveal>
           </div>
 
+          <StorefrontReveal cadence="editorial" amount={0.2}>
+            <RaffleParticipationLookupCard raffleId={raffle.id} />
+          </StorefrontReveal>
+
           {!hasPublishedResults && (
             <StorefrontReveal cadence="editorial" amount={0.2}>
               <div
@@ -970,9 +974,6 @@ export function RaffleDetailsClient({
               </div>
             </StorefrontReveal>
           )}
-          <StorefrontReveal cadence="editorial" amount={0.2}>
-            <RaffleParticipationLookupCard raffleId={raffle.id} />
-          </StorefrontReveal>
         </div>
       </div>
       {canParticipate ? (

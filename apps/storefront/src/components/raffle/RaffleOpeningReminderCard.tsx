@@ -108,10 +108,14 @@ export function RaffleOpeningReminderContent({
     handleSubmit,
   } = reminder;
   const HeaderIcon = isRegistered ? CheckCircle2 : BellRing;
+  const controlContext = showCardHeader ? "autonomous" : "section";
 
   return (
-    <div className="flex flex-col" style={{ gap: "var(--sf-space-lg)" }}>
-      <div className="flex flex-col" style={{ gap: "var(--sf-space-md)" }}>
+    <div
+      className="flex flex-col"
+      style={{ gap: showCardHeader ? "var(--sf-space-lg)" : "var(--sf-space-md)" }}
+    >
+      <div className={showCardHeader ? "flex flex-col" : "hidden"} style={{ gap: "var(--sf-space-md)" }}>
         {showCardHeader && (
           <div className="flex items-center" style={{ gap: "var(--sf-space-md)" }}>
             <div
@@ -133,57 +137,45 @@ export function RaffleOpeningReminderContent({
                 Aviso de apertura
               </span>
               <h2 className="sf-text-h2 text-stone-950">
-                {isRegistered ? "Aviso registrado" : "Avísame cuando comience"}
+                {isRegistered ? "Aviso registrado" : "¿Quieres que te avisemos?"}
               </h2>
             </div>
           </div>
         )}
 
-        {!showCardHeader && (
-          <div className="flex items-start" style={{ gap: "var(--sf-space-md)" }}>
-            {isRegistered && (
-              <CheckCircle2
-                className="shrink-0 text-emerald-600"
-                style={{
-                  width: "var(--sf-size-inner-icon-section)",
-                  height: "var(--sf-size-inner-icon-section)",
-                }}
-              />
-            )}
-            <h2 className="sf-text-h2 text-stone-950">
-              {isRegistered ? "Aviso registrado" : "Avísame cuando comience"}
-            </h2>
-          </div>
+        {showCardHeader && (
+          <p className="sf-text-secondary text-stone-600">
+            {isRegistered
+              ? "Te enviaremos un mensaje por WhatsApp cuando la boletera esté disponible."
+              : "Ingresa tu número de WhatsApp para recibir un aviso cuando comience la participación."}
+          </p>
         )}
-
-        <p className="sf-text-secondary text-stone-600">
-          {isRegistered
-            ? "Te enviaremos un mensaje por WhatsApp cuando la boletera esté disponible."
-            : "Déjanos tu WhatsApp y te enviaremos un único mensaje cuando la rifa abra su participación."}
-        </p>
       </div>
+
+      {!showCardHeader && !isRegistered && (
+        <p className="sf-text-secondary text-stone-600">
+          Ingresa tu número de WhatsApp para recibir un aviso cuando comience la participación.
+        </p>
+      )}
 
       {!isRegistered && (
         <form
           onSubmit={handleSubmit}
-          className="flex flex-col border-t border-stone-200"
-          style={{ gap: "var(--sf-space-md)", paddingTop: "var(--sf-space-lg)" }}
+          className="flex flex-col"
+          style={{ gap: "var(--sf-space-md)" }}
         >
-          <div className="flex flex-col" style={{ gap: "var(--sf-space-xs)" }}>
-            <h3 className="sf-text-secondary-strong text-stone-950">
-              ¿Quieres que te avisemos?
-            </h3>
-            <p className="sf-text-secondary text-stone-600">
-              Ingresa tu WhatsApp para recibir un aviso cuando comience la participación.
-            </p>
-          </div>
           <div
-            className="grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto]"
+            className={
+              showCardHeader
+                ? "grid grid-cols-1 sm:grid-cols-[minmax(0,1fr)_auto]"
+                : "flex flex-col"
+            }
             style={{ gap: "var(--sf-space-sm)" }}
           >
             <StorefrontPhoneField
               id={reminder.fieldId}
               label="WhatsApp"
+              context={controlContext}
               value={phone}
               onChange={(value) => {
                 setPhone(value);
@@ -193,11 +185,11 @@ export function RaffleOpeningReminderContent({
             />
             <Button
               type="submit"
-              context="section"
+              context={controlContext}
               icon={BellRing}
               isLoading={isSubmitting}
               aria-label={isSubmitting ? "Registrando aviso" : "Avísame"}
-              className="w-full self-end sm:w-auto"
+              className={showCardHeader ? "w-full self-end sm:w-auto" : "w-full"}
             >
               Avísame
             </Button>

@@ -113,18 +113,21 @@ export function StorefrontModal({
           }}
         >
           {/* Header Area */}
-          <div style={{ padding: 'var(--sf-padding-inner)', paddingBottom: 'var(--sf-space-sm)' }}>
-            <div className="flex items-start justify-between gap-4">
-              <div className="flex flex-col gap-6">
+          <div
+            className="border-b border-stone-100"
+            style={{ padding: 'var(--sf-padding-inner)', paddingBottom: 'var(--sf-space-md)' }}
+          >
+            <div className="flex items-center justify-between" style={{ gap: 'var(--sf-space-md)' }}>
+              <div className="flex min-w-0 items-center" style={{ gap: 'var(--sf-space-md)' }}>
                 <StorefrontIcon 
                   icon={icon} 
                   variant={variant === 'danger' ? 'warning' : variant} 
                   context="section"
                   className={variant === 'danger' ? 'bg-red-50 text-red-500 border-red-100 shadow-none' : ''}
                 />
-                <div className="space-y-2">
+                <div className="flex min-w-0 flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
                   {eyebrow && <p className="sf-text-label uppercase text-brand-600">{eyebrow}</p>}
-                  <h2 id="storefront-modal-title" className="sf-text-h1 tracking-tight text-stone-850 leading-none">{title}</h2>
+                  <h2 id="storefront-modal-title" className="sf-text-h2 tracking-tight text-stone-850 leading-none">{title}</h2>
                   {description && (
                     <p className="sf-text-body text-stone-500 font-medium">{description}</p>
                   )}
@@ -148,7 +151,13 @@ export function StorefrontModal({
           </div>
 
           {/* Content Area */}
-          <div style={{ paddingInline: 'var(--sf-padding-inner)', paddingBlock: 'var(--sf-space-md)' }}>
+          <div
+            style={{
+              paddingInline: 'var(--sf-padding-inner)',
+              paddingTop: 'var(--sf-space-md)',
+              paddingBottom: 'var(--sf-space-md)',
+            }}
+          >
             {children}
           </div>
 

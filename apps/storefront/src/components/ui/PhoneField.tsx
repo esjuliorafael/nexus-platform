@@ -13,6 +13,7 @@ import {
 
 interface StorefrontPhoneFieldProps {
   label?: string;
+  context?: "section" | "autonomous";
   value: string;
   onChange: (value: string) => void;
   error?: string;
@@ -23,6 +24,7 @@ interface StorefrontPhoneFieldProps {
 
 export function StorefrontPhoneField({
   label = "Teléfono (WhatsApp)",
+  context = "section",
   value,
   onChange,
   error,
@@ -57,7 +59,13 @@ export function StorefrontPhoneField({
       </span>
       <div
         className="flex h-[var(--sf-h-input)] min-w-0 items-center overflow-hidden border border-[var(--sf-border-field)] bg-[var(--sf-bg-field)] transition-all duration-300 focus-within:border-brand-500/50 focus-within:ring-4 focus-within:ring-brand-500/10"
-        style={{ borderRadius: "var(--sf-radius-inner)", transitionTimingFunction: "var(--sf-ease)" }}
+        style={{
+          borderRadius:
+            context === "autonomous"
+              ? "var(--sf-radius-card-inner)"
+              : "var(--sf-radius-inner)",
+          transitionTimingFunction: "var(--sf-ease)",
+        }}
       >
         <div className="relative h-full shrink-0 border-r border-[var(--sf-border-field)]">
           <select

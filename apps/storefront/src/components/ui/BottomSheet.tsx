@@ -156,7 +156,7 @@ export function BottomSheet({
               className="flex shrink-0 flex-col items-center border-b border-stone-100"
               style={{
                 paddingTop: 'var(--sf-space-md)',
-                paddingBottom: 'var(--sf-padding-inner)',
+                paddingBottom: 'var(--sf-space-md)',
                 gap: 'var(--sf-space-sm)',
               }}
             >
@@ -201,7 +201,7 @@ export function BottomSheet({
               className="min-h-0 flex-1 overflow-y-auto"
               style={{
                 paddingInline: 'var(--sf-inset-page-mobile)',
-                paddingBlock: 'var(--sf-padding-inner)',
+                paddingTop: 'var(--sf-space-md)',
                 paddingBottom: footer
                   ? 'var(--sf-padding-inner)'
                   : 'var(--sf-inset-mobile-chrome-block)',
