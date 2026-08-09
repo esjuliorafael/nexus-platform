@@ -447,7 +447,6 @@ function buildTemplateDefinition(
             {
               type: "OTP",
               otp_type: "COPY_CODE",
-              text: "Copiar cÃ³digo",
             },
           ],
         },

@@ -74,7 +74,7 @@ export type KapsoTemplateDefinition = {
         buttons: Array<{
           type: "URL" | "OTP";
           otp_type?: "COPY_CODE" | "ONE_TAP";
-          text: string;
+          text?: string;
           url?: string;
           example?: string[];
         }>;
