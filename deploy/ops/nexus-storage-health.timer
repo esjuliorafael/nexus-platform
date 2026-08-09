@@ -1,0 +1,10 @@
+[Unit]
+Description=Run Nexus storage, backup and service health check
+
+[Timer]
+OnBootSec=5min
+OnUnitActiveSec=15min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
