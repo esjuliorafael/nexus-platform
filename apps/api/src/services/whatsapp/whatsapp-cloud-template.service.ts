@@ -432,11 +432,34 @@ function buildTemplateDefinition(
   const richInvitation = isRichInvitation(type);
   const authentication = type === "PARTICIPATION_LOOKUP_CODE";
 
+  if (authentication) {
+    return {
+      name: templateName,
+      language: languageCode,
+      category,
+      parameter_format: "POSITIONAL",
+      components: [
+        { type: "BODY", add_security_recommendation: true },
+        { type: "FOOTER", code_expiration_minutes: 10 },
+        {
+          type: "BUTTONS",
+          buttons: [
+            {
+              type: "OTP",
+              otp_type: "COPY_CODE",
+              text: "Copiar cÃ³digo",
+            },
+          ],
+        },
+      ],
+    };
+  }
+
   return {
     name: templateName,
     language: languageCode,
     category,
-    parameter_format: authentication ? "POSITIONAL" : "NAMED",
+    parameter_format: "NAMED",
     components: [
       ...(authentication
         ? [
@@ -576,7 +599,10 @@ export async function syncCloudTemplateCatalog(params: {
     const variant = source.variant || "LEGACY";
     const contentHash = getCloudTemplateDefinitionHash(source);
     const bodyContent = getCloudTemplateBodyContent(source);
-    const parameterNames = extractCloudTemplateVariables(bodyContent);
+    const parameterNames =
+      source.type === "PARTICIPATION_LOOKUP_CODE"
+        ? []
+        : extractCloudTemplateVariables(bodyContent);
     const templateName = buildTemplateName(params.owner, source, contentHash);
 
     const activeMapping = await storePrisma.whatsappCloudTemplate.findUnique({
@@ -928,9 +954,12 @@ export async function getApprovedCloudTemplate(params: {
     return null;
   }
 
-  const parameterNames = Array.isArray(mapping.parameterNames)
-    ? mapping.parameterNames.map(String)
-    : [];
+  const parameterNames =
+    params.type === "PARTICIPATION_LOOKUP_CODE"
+      ? []
+      : Array.isArray(mapping.parameterNames)
+        ? mapping.parameterNames.map(String)
+        : [];
   if (
     !parameterNames.every((parameterName) => parameterName in params.values)
   ) {

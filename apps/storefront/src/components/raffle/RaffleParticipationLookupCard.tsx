@@ -191,7 +191,7 @@ export function RaffleParticipationLookupCard({ raffleId }: { raffleId: number }
             <StorefrontIcon icon={Search} variant="brand" context="autonomous" />
             <div className="flex min-w-0 flex-col" style={{ gap: "var(--sf-space-xs)" }}>
               <span className="sf-text-label text-brand-600">Consulta de participación</span>
-              <h2 className="sf-text-h2 text-stone-950">¿Ya tienes una participación?</h2>
+              <h2 className="sf-text-h2 text-stone-950">¿Ya tienes boletos?</h2>
             </div>
           </div>
           <p className="sf-text-secondary text-stone-600">

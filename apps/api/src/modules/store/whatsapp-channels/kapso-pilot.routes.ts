@@ -309,6 +309,23 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
         resolveRichInvitationHeaderHandle: () =>
           resolveRaffleInvitationHeaderHandle(target.config!),
       });
+      const failedTemplate = templates.find(
+        (item) => item.status === "ERROR",
+      );
+      if (failedTemplate) {
+        const message =
+          String(failedTemplate.error || failedTemplate.lastError || "").trim() ||
+          "Kapso rechazÃ³ la plantilla Cloud API.";
+        request.log.error(
+          { template: failedTemplate },
+          "Cloud template synchronization failed",
+        );
+        return reply.status(502).send({
+          ok: false,
+          message,
+          templates,
+        });
+      }
       const webhook = await ensureChannelWebhook(request, target.config);
       return {
         ok: true,
