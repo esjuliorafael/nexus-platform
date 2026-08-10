@@ -434,7 +434,7 @@ export function getCloudTemplateDefinitionHash(source: CloudTemplateSource) {
   const dynamicButtonLayout =
     source.variant === "SIMPLIFIED" &&
     (hasParticipationButton(source) || hasRecoveryButton(source))
-      ? "\n[nexus-layout:dynamic-url-button-v1]"
+      ? "\n[nexus-layout:dynamic-url-button-v2]"
       : "";
   if (!isRichInvitation(source.type)) {
     return getCloudTemplateContentHash(
