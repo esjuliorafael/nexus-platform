@@ -805,9 +805,8 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       isTemplateDirty || hasCloudReplacement || hasUnsyncedCloudVersion;
     const activateCloudOwner = (ownerKey: string, label: string, status: any) => {
       const scopedKey = getTemplateActiveVersionKey(editingTemplate, "CLOUD", ownerKey);
-      const principalKey = getTemplateActiveVersionKey(editingTemplate, "CLOUD", "principal");
       const isActive =
-        (config[scopedKey] || config[principalKey] || "LEGACY") === editingTemplate.version;
+        (config[scopedKey] || "LEGACY") === editingTemplate.version;
       const canActivate =
         !isTemplateDirty &&
         Boolean(editorContent.trim()) &&
@@ -901,12 +900,10 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                 </p>
               <div className="flex flex-col" style={{ gap: "var(--space-sm)", marginTop: "var(--space-sm)" }}>
                 {Object.entries(cloudTemplateStatuses)
-                  .filter(([ownerKey]) => ownerKey !== "principal")
                   .map(([ownerKey, status]) => {
                     const scopedKey = getTemplateActiveVersionKey(editingTemplate, "CLOUD", ownerKey);
-                    const principalKey = getTemplateActiveVersionKey(editingTemplate, "CLOUD", "principal");
                     const isActive =
-                      (config[scopedKey] || config[principalKey] || "LEGACY") ===
+                      (config[scopedKey] || "LEGACY") ===
                       editingTemplate.version;
                     const canActivate =
                       !isTemplateDirty &&
