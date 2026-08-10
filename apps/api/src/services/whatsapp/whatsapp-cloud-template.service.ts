@@ -431,11 +431,18 @@ export function getCloudTemplateBodyContent(source: CloudTemplateSource) {
 }
 
 export function getCloudTemplateDefinitionHash(source: CloudTemplateSource) {
+  const dynamicButtonLayout =
+    source.variant === "SIMPLIFIED" &&
+    (hasParticipationButton(source) || hasRecoveryButton(source))
+      ? "\n[nexus-layout:dynamic-url-button-v1]"
+      : "";
   if (!isRichInvitation(source.type)) {
-    return getCloudTemplateContentHash(getCloudTemplateBodyContent(source));
+    return getCloudTemplateContentHash(
+      `${getCloudTemplateBodyContent(source)}${dynamicButtonLayout}`,
+    );
   }
   return getCloudTemplateContentHash(
-    `${getCloudTemplateBodyContent(source)}\n[nexus-layout:image-header-footer-v2]`,
+    `${getCloudTemplateBodyContent(source)}\n[nexus-layout:image-header-footer-v2]${dynamicButtonLayout}`,
   );
 }
 
@@ -560,7 +567,7 @@ function buildTemplateDefinition(
                 {
                   type: "URL" as const,
                   text: "Ver participación",
-                  url: `${getParticipationButtonBaseUrl()}/{{participation_url}}`,
+                  url: `${getParticipationButtonBaseUrl()}/{{1}}`,
                   example: ["demo-access-token"],
                 },
               ],
@@ -575,7 +582,7 @@ function buildTemplateDefinition(
                 {
                   type: "URL" as const,
                   text: "Reintentar pago",
-                  url: `${getRecoveryButtonBaseUrl()}/{{recovery_url}}`,
+                  url: `${getRecoveryButtonBaseUrl()}/{{1}}`,
                   example: ["checkout#recovery=demo-token"],
                 },
               ],
