@@ -1,4 +1,4 @@
-import { PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
+import { DeleteObjectsCommand, ListObjectsV2Command, PutObjectCommand, S3Client } from "@aws-sdk/client-s3";
 import { createCipheriv, createDecipheriv, randomBytes } from "node:crypto";
 import { execFile } from "node:child_process";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
@@ -10,6 +10,16 @@ const execFileAsync = promisify(execFile);
 
 export type BackupSource = { tenantKey: string; storeDatabaseUrl: string; raffleDatabaseUrl: string };
 export type BackupResult = { tenantKey: string; database: "store" | "raffle"; key: string; bytes: number; completedAt: string };
+
+function monthKey(date: Date) { return date.toISOString().slice(0, 7); }
+
+function weekKey(date: Date) {
+  const copy = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  const day = copy.getUTCDay() || 7;
+  copy.setUTCDate(copy.getUTCDate() + 4 - day);
+  const yearStart = new Date(Date.UTC(copy.getUTCFullYear(), 0, 1));
+  return `${copy.getUTCFullYear()}-${Math.ceil((((copy.getTime() - yearStart.getTime()) / 86400000) + 1) / 7)}`;
+}
 
 function encryptionKey() {
   const key = Buffer.from(process.env.PLATFORM_ENCRYPTION_KEY || "", "hex");
@@ -59,6 +69,39 @@ export async function createBackup(args: {
     await rm(temp, { recursive: true, force: true });
     client.destroy();
   }
+}
+
+export async function pruneBackups(args: {
+  r2: { endpoint: string; bucket: string; accessKeyId: string; encryptedSecretAccessKey: string };
+  tenantKey: string;
+  now?: Date;
+  daily?: number;
+  weekly?: number;
+  monthly?: number;
+}) {
+  const now = args.now || new Date();
+  const client = new S3Client({ endpoint: args.r2.endpoint, region: "auto", credentials: { accessKeyId: args.r2.accessKeyId, secretAccessKey: decryptSecret(args.r2.encryptedSecretAccessKey) } });
+  const deleted: string[] = [];
+  try {
+    for (const database of ["store", "raffle"] as const) {
+      const response = await client.send(new ListObjectsV2Command({ Bucket: args.r2.bucket, Prefix: `${args.tenantKey}/${database}/` }));
+      const objects = (response.Contents || []).flatMap((item) => {
+        const match = item.Key?.match(/\/(\d{4}-\d{2}-\d{2})\.dump\.zst\.enc$/);
+        return item.Key && match ? [{ key: item.Key, date: new Date(`${match[1]}T00:00:00.000Z`) }] : [];
+      }).sort((a, b) => b.date.getTime() - a.date.getTime());
+      const keep = new Set<string>();
+      const recentDays = new Set(objects.filter((item) => (now.getTime() - item.date.getTime()) / 86400000 < (args.daily ?? 14)).map((item) => item.key));
+      const recentWeeks = new Set(objects.map((item) => weekKey(item.date)).slice(0, args.weekly ?? 8));
+      const recentMonths = new Set(objects.map((item) => monthKey(item.date)).slice(0, args.monthly ?? 6));
+      for (const item of objects) if (recentDays.has(item.key) || recentWeeks.has(weekKey(item.date)) || recentMonths.has(monthKey(item.date))) keep.add(item.key);
+      const remove = objects.filter((item) => !keep.has(item.key)).map((item) => item.key);
+      if (remove.length) {
+        await client.send(new DeleteObjectsCommand({ Bucket: args.r2.bucket, Delete: { Objects: remove.map((Key) => ({ Key })), Quiet: true } }));
+        deleted.push(...remove);
+      }
+    }
+    return deleted;
+  } finally { client.destroy(); }
 }
 
 export function configuredSources() {

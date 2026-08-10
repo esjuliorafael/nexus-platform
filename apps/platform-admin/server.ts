@@ -3,7 +3,7 @@ import { createCipheriv, randomBytes, scryptSync, timingSafeEqual } from "node:c
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
-import { configuredSources, createBackup, type BackupSource } from "./backup.js";
+import { configuredSources, createBackup, pruneBackups, type BackupSource } from "./backup.js";
 
 type Tenant = { key: string; name: string; status: string; backupEnabled: boolean; lastBackup: string | null; lastBackupError?: string | null };
 type R2Config = { endpoint: string; bucket: string; accessKeyId: string; secretAccessKey: string };
@@ -103,6 +103,7 @@ async function runEnabledBackups() {
       }
       try {
         const completed = await createBackup({ source, r2: { ...store.centralStorage, encryptedSecretAccessKey: store.centralStorage.secretAccessKey } });
+        await pruneBackups({ r2: { ...store.centralStorage, encryptedSecretAccessKey: store.centralStorage.secretAccessKey }, tenantKey: tenant.key, daily: Number(process.env.PLATFORM_BACKUP_RETENTION_DAILY || 14), weekly: Number(process.env.PLATFORM_BACKUP_RETENTION_WEEKLY || 8), monthly: Number(process.env.PLATFORM_BACKUP_RETENTION_MONTHLY || 6) });
         tenant.lastBackup = completed.at(-1)?.completedAt || new Date().toISOString();
         tenant.lastBackupError = null;
         results.push(...completed);
