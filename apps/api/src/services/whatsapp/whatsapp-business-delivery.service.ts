@@ -77,6 +77,13 @@ function isSafeKapsoFallbackError(error: any) {
   );
 }
 
+function isStaticUrlButtonParameterError(error: any) {
+  const details = String(
+    error?.responseBody?.error?.error_data?.details || error?.message || "",
+  ).toLowerCase();
+  return details.includes("button") && details.includes("does not require parameters");
+}
+
 async function resolveActiveTemplateContent(
   delivery: SendBusinessWhatsappParams,
   provider: "EVOLUTION" | "CLOUD",
@@ -200,48 +207,78 @@ async function sendKapso(params: {
       phoneNumberId: params.phoneNumberId,
     }));
 
-  await sendWhatsappAndLog({
-    transport: { provider: "KAPSO", config },
-    recipientPhone: params.delivery.recipientPhone,
-    message: {
-      text: renderedText,
-      cloudTemplate: approvedTemplate.message,
+  const routing = {
+    route: params.route,
+    preferredInstanceName: params.delivery.preferredChannel?.name,
+    fallbackReason: params.fallbackReason,
+    ...getPolicyRouting(params.delivery),
+    fallbackFromProvider:
+      resolveWhatsappProviderPriority({
+        type: params.delivery.type,
+        forceProvider: params.delivery.forceProvider,
+        kapsoEnabled: params.delivery.kapsoEnabled,
+        deliveryStrategy:
+          params.delivery.preferredChannel?.deliveryStrategy ||
+          params.delivery.principal.deliveryStrategy,
+      })[0] === "EVOLUTION"
+        ? "EVOLUTION"
+        : undefined,
+    metaBilling: {
+      category: approvedTemplate.category,
+      market,
+      rateMxn,
+      estimatedChargeMxn: hasCustomerServiceWindow ? 0 : rateMxn,
+      rateCardVersion: META_RATE_CARD_VERSION,
+      status: hasCustomerServiceWindow
+        ? "EXEMPT_CUSTOMER_SERVICE_WINDOW"
+        : rateMxn === null
+          ? "REFERENCE_RATE_UNAVAILABLE"
+          : "ESTIMATED_BILLABLE",
     },
-    templateName: params.delivery.templateName,
-    orderId: params.delivery.orderId,
-    ticketSaleId: params.delivery.ticketSaleId,
-    jobId: params.delivery.jobId,
-    attempt: params.delivery.attempt,
-    routing: {
-      route: params.route,
-      preferredInstanceName: params.delivery.preferredChannel?.name,
-      fallbackReason: params.fallbackReason,
-      ...getPolicyRouting(params.delivery),
-      fallbackFromProvider:
-        resolveWhatsappProviderPriority({
-          type: params.delivery.type,
-          forceProvider: params.delivery.forceProvider,
-          kapsoEnabled: params.delivery.kapsoEnabled,
-          deliveryStrategy:
-            params.delivery.preferredChannel?.deliveryStrategy ||
-            params.delivery.principal.deliveryStrategy,
-        })[0] === "EVOLUTION"
-          ? "EVOLUTION"
-          : undefined,
-      metaBilling: {
-        category: approvedTemplate.category,
-        market,
-        rateMxn,
-        estimatedChargeMxn: hasCustomerServiceWindow ? 0 : rateMxn,
-        rateCardVersion: META_RATE_CARD_VERSION,
-        status: hasCustomerServiceWindow
-          ? "EXEMPT_CUSTOMER_SERVICE_WINDOW"
-          : rateMxn === null
-            ? "REFERENCE_RATE_UNAVAILABLE"
-            : "ESTIMATED_BILLABLE",
+  } as const;
+  const message = {
+    text: renderedText,
+    cloudTemplate: approvedTemplate.message,
+  };
+  try {
+    await sendWhatsappAndLog({
+      transport: { provider: "KAPSO", config },
+      recipientPhone: params.delivery.recipientPhone,
+      message,
+      templateName: params.delivery.templateName,
+      orderId: params.delivery.orderId,
+      ticketSaleId: params.delivery.ticketSaleId,
+      jobId: params.delivery.jobId,
+      attempt: params.delivery.attempt,
+      routing,
+    });
+  } catch (error) {
+    if (!isStaticUrlButtonParameterError(error)) throw error;
+
+    const components = approvedTemplate.message.components?.filter(
+      (component) => component.type !== "button",
+    );
+    await sendWhatsappAndLog({
+      transport: { provider: "KAPSO", config },
+      recipientPhone: params.delivery.recipientPhone,
+      message: {
+        ...message,
+        cloudTemplate: {
+          ...approvedTemplate.message,
+          ...(components?.length ? { components } : { components: undefined }),
+        },
       },
-    },
-  });
+      templateName: params.delivery.templateName,
+      orderId: params.delivery.orderId,
+      ticketSaleId: params.delivery.ticketSaleId,
+      jobId: params.delivery.jobId,
+      attempt: params.delivery.attempt,
+      routing: {
+        ...routing,
+        fallbackReason: "Kapso rechazó los parámetros del botón URL; se reintentó sin parámetros de botón.",
+      },
+    });
+  }
   return true;
 }
 
