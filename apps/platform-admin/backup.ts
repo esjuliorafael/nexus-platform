@@ -43,7 +43,7 @@ export async function createBackup(args: {
       const compressed = join(temp, `${database}.dump.zst`);
       const encrypted = join(temp, `${database}.dump.zst.enc`);
       await execFileAsync("pg_dump", ["--format=custom", "--no-owner", "--no-acl", "--file", dump, url], { maxBuffer: 1024 * 1024 });
-      await execFileAsync("zstd", ["--threads=0", "--quiet", "--force", "--output", compressed, dump]);
+      await execFileAsync("zstd", ["-T0", "--quiet", "--force", "--output", compressed, dump]);
       const plaintext = await readFile(compressed);
       const iv = randomBytes(12);
       const cipher = createCipheriv("aes-256-gcm", encryptionKey(), iv);
