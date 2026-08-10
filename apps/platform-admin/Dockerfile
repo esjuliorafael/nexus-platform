@@ -3,18 +3,20 @@ WORKDIR /app
 RUN npm install -g pnpm
 COPY . .
 RUN pnpm install --frozen-lockfile
+RUN pnpm db:generate
 RUN pnpm turbo run build --filter=@nexus/platform-admin
 
-FROM nginx:alpine AS runner
-COPY <<EOF /etc/nginx/conf.d/default.conf
-server {
-  listen 80;
-  root /usr/share/nginx/html;
-  index index.html;
-  location /assets/ { try_files \$uri =404; add_header Cache-Control "public, max-age=31536000, immutable" always; }
-  location / { try_files \$uri \$uri/ /index.html; add_header Cache-Control "no-cache" always; }
-}
-EOF
-COPY --from=builder /app/apps/platform-admin/dist /usr/share/nginx/html
+FROM node:20-bookworm-slim AS runner
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends postgresql-client zstd ca-certificates && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/pnpm-lock.yaml ./
+COPY --from=builder /app/pnpm-workspace.yaml ./
+COPY --from=builder /app/turbo.json ./
+COPY --from=builder /app/apps/platform-admin ./apps/platform-admin
+COPY --from=builder /app/packages ./packages
+COPY --from=builder /app/node_modules ./node_modules
+RUN mkdir -p /data && chmod 700 /data
 EXPOSE 80
-CMD ["nginx", "-g", "daemon off;"]
+VOLUME ["/data"]
+CMD ["node", "apps/platform-admin/dist-server/server.js"]

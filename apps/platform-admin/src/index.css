@@ -3,7 +3,29 @@
 :root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #151b2d; background: #f4f4f1; font-synthesis: none; }
 * { box-sizing: border-box; }
 body { margin: 0; min-width: 320px; }
-button { font: inherit; }
+button, input { font: inherit; }
+button { cursor: pointer; }
+.loading-shell, .login-shell { min-height: 100vh; display: grid; place-items: center; padding: 24px; }
+.loading-shell { color: #746f68; }
+.login-card { width: min(100%, 420px); padding: 34px; border: 1px solid #dfded9; border-radius: 22px; background: #fbfbf9; box-shadow: 0 20px 60px rgba(21, 27, 45, .08); }
+.login-card .brand-mark { margin-bottom: 24px; }
+.login-card h1 { margin: 0 0 10px; font-size: 28px; letter-spacing: -.035em; }
+.muted { color: #746f68; line-height: 1.55; }
+.login-form, .config-form { display: grid; gap: 16px; margin-top: 26px; }
+label { display: grid; gap: 7px; color: #4f4b46; font-size: 12px; font-weight: 700; }
+input { width: 100%; padding: 12px 13px; border: 1px solid #d8d6d0; border-radius: 10px; background: #fff; color: #151b2d; outline: none; }
+input:focus { border-color: #a56a5b; box-shadow: 0 0 0 3px rgba(165, 106, 91, .14); }
+.primary-button, .secondary-button, .text-button { border-radius: 10px; padding: 11px 15px; font-size: 12px; font-weight: 700; }
+.primary-button { border: 1px solid #a56a5b; background: #a56a5b; color: #fff; }
+.primary-button:hover { background: #8d5548; }
+.primary-button:disabled { cursor: wait; opacity: .65; }
+.secondary-button { border: 1px solid #d8d6d0; background: #f0f0ed; color: #4f4b46; }
+.secondary-button:hover { background: #e7e5df; }
+.text-button { margin-left: auto; border: 0; background: transparent; color: #746f68; }
+.text-button:hover { color: #a56a5b; }
+.form-error { margin: 0; color: #a83232; font-size: 12px; line-height: 1.45; }
+.form-success { margin: 0; color: #087b58; font-size: 12px; line-height: 1.45; }
+.global-error { margin-top: 24px; }
 .platform-shell { max-width: 1180px; margin: 0 auto; padding: 32px 28px 64px; }
 .topbar { display: flex; align-items: center; gap: 14px; min-height: 72px; }
 .brand-mark { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 14px; background: #151b2d; color: #f4f4f1; font-weight: 700; font-size: 20px; }
@@ -26,6 +48,10 @@ h1 { margin-bottom: 0; font-size: 18px; line-height: 1.2; }
 .section-heading { display: flex; justify-content: space-between; align-items: end; padding-bottom: 16px; border-bottom: 1px solid #dfded9; }
 .section-heading h2 { margin-bottom: 0; font-size: 25px; letter-spacing: -.03em; }
 .section-note { color: #817b74; font-size: 12px; }
+.storage-summary { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 16px; padding: 20px; border: 1px solid #dfded9; border-radius: 18px; background: #fbfbf9; }
+.storage-summary h3 { margin: 0 0 4px; font-size: 15px; }
+.storage-summary p { margin: 0; color: #817b74; font-size: 12px; }
+.storage-summary small { grid-column: 2 / -1; color: #817b74; font-size: 12px; }
 .tenant-list { border: 1px solid #dfded9; border-radius: 18px; background: #fbfbf9; overflow: hidden; }
 .tenant-row { display: grid; grid-template-columns: auto minmax(150px, 1fr) minmax(150px, .8fr) auto auto; align-items: center; gap: 18px; padding: 18px 20px; }
 .tenant-row + .tenant-row { border-top: 1px solid #e5e3de; }
@@ -33,11 +59,21 @@ h1 { margin-bottom: 0; font-size: 18px; line-height: 1.2; }
 .tenant-main h3 { margin-bottom: 4px; font-size: 15px; }
 .tenant-main p { margin-bottom: 0; color: #817b74; font-size: 12px; }
 .tenant-detail strong { display: block; margin-top: 5px; font-weight: 500; }
-.tenant-row button { border: 1px solid #dedcd7; border-radius: 10px; padding: 9px 12px; background: #f0f0ed; color: #918c85; font-size: 12px; font-weight: 600; cursor: not-allowed; }
+.tenant-actions { display: inline-flex; align-items: center; gap: 12px; }
+.tenant-detail small { display: block; margin-top: 4px; color: #a39d95; font-size: 11px; }
+.switch { width: 38px; height: 22px; padding: 2px; border: 0; border-radius: 999px; background: #d5d3ce; }
+.switch span { display: block; width: 18px; height: 18px; border-radius: 50%; background: #fff; box-shadow: 0 1px 2px rgba(0,0,0,.16); transition: transform .18s ease; }
+.switch.on { background: #0a9b6f; }
+.switch.on span { transform: translateX(16px); }
 .notice { display: flex; align-items: start; gap: 14px; margin-top: 18px; padding: 18px 20px; border: 1px solid #e7d6b4; border-radius: 18px; background: #fff8e9; color: #735a31; }
 .notice-icon { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 11px; background: #f7e6bd; color: #8e6a30; }
 .notice h2 { margin: 2px 0 6px; color: #5e4928; font-size: 14px; }
 .notice p { margin-bottom: 0; font-size: 13px; line-height: 1.5; }
+.modal-backdrop { position: fixed; inset: 0; z-index: 10; display: grid; place-items: center; padding: 24px; background: rgba(21, 27, 45, .42); }
+.modal { position: relative; width: min(100%, 520px); max-height: min(90vh, 720px); overflow: auto; padding: 30px; border-radius: 20px; background: #fbfbf9; box-shadow: 0 24px 80px rgba(21, 27, 45, .24); }
+.modal h2 { margin: 0 0 8px; font-size: 25px; letter-spacing: -.03em; }
+.modal-close { position: absolute; top: 18px; right: 18px; width: 34px; height: 34px; border: 1px solid #dfded9; border-radius: 50%; background: #fff; color: #746f68; font-size: 22px; line-height: 1; }
+.modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 8px; }
 @media (max-width: 720px) {
   .platform-shell { padding: 20px 16px 40px; }
   .environment { display: none; }
@@ -46,5 +82,12 @@ h1 { margin-bottom: 0; font-size: 18px; line-height: 1.2; }
   .metrics { grid-template-columns: 1fr; }
   .tenant-row { grid-template-columns: auto 1fr auto; gap: 12px; }
   .tenant-detail { grid-column: 2 / -1; }
-  .tenant-row button { grid-column: 2 / -1; width: 100%; }
+  .tenant-actions { grid-column: 2 / -1; justify-content: space-between; }
+  .storage-summary { grid-template-columns: auto 1fr; }
+  .storage-summary .tenant-status { grid-column: 2; }
+  .storage-summary small { grid-column: 1 / -1; }
+  .modal-backdrop { align-items: end; padding: 0; }
+  .modal { width: 100%; max-height: 90vh; border-radius: 20px 20px 0 0; padding: 28px 20px 24px; }
+  .modal-actions { display: grid; grid-template-columns: 1fr 1.8fr; }
+  .modal-actions button { width: 100%; }
 }

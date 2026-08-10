@@ -5,10 +5,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "vite build",
+    "build": "vite build && tsc -p tsconfig.server.json",
     "lint": "tsc --noEmit"
   },
   "dependencies": {
+    "@aws-sdk/client-s3": "^3.1042.0",
     "@vitejs/plugin-react": "^5.0.0",
     "react": "^19.2.4",
     "react-dom": "^19.2.4"
