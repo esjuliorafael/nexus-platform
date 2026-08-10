@@ -438,7 +438,7 @@ export async function raffleRoutes(server: FastifyInstance) {
         });
         return {
           accepted: true,
-          message: "Si encontramos una participación, enviaremos un código por WhatsApp.",
+          message: "Si encontramos una participación, recibirás un enlace por WhatsApp.",
         };
       } catch (error: any) {
         if (error?.issues) return reply.status(400).send({ message: "Validation error", errors: error.issues });

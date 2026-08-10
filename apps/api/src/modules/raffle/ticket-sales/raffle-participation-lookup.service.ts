@@ -1,4 +1,4 @@
-import { createHash, randomInt } from "node:crypto";
+import { createHash } from "node:crypto";
 import type { PrismaClient as RafflePrismaClient } from "@prisma/client-raffle";
 import { storePrisma as defaultStorePrisma } from "@nexus/db/store";
 type StorePrismaClient = typeof defaultStorePrisma;
@@ -9,18 +9,12 @@ import { getApprovedCloudTemplate } from "../../../services/whatsapp/whatsapp-cl
 import { getKapsoConfigForChannel, isKapsoDeliveryEnabled } from "../../../services/kapso/kapso.config";
 import { createRaffleParticipationAccess } from "./raffle-participation-access.service";
 
-const CODE_TTL_MS = 10 * 60 * 1000;
-const MAX_ATTEMPTS = 5;
 const hash = (value: string) => createHash("sha256").update(value, "utf8").digest("hex");
 
-function createCode() {
-  return String(randomInt(100000, 1000000));
-}
-
-async function sendLookupCode(params: {
+async function sendLookupNotification(params: {
   storePrisma: StorePrismaClient;
   recipientPhone: string;
-  code: string;
+  participationUrl: string;
 }) {
   const evolution = await getEvolutionConfigFromSettings();
   const principalInstance = await params.storePrisma.setting.findUnique({
@@ -51,10 +45,10 @@ async function sendLookupCode(params: {
 
   const lookupContent =
     (await params.storePrisma.setting.findUnique({
-      where: { key: "whatsapp_global_raffle_participation_lookup_code_simplified" },
+      where: { key: "whatsapp_global_raffle_participation_lookup_simplified" },
       select: { value: true },
     }))?.value?.trim() ||
-    "Tu c\u00f3digo de consulta es {{verification_code}}.\n\nEste c\u00f3digo vence en 10 minutos. Si no solicitaste esta consulta, puedes ignorar este mensaje.";
+    "🔎 Recibimos tu solicitud para consultar tus participaciones.\n\nConsulta tus boletos y su estado desde el botón Ver participación:\n\n{{participation_url}}";
 
   const sendWithKapso = async (
     owner: { kind: "principal" } | { kind: "channel"; channelId: number; purpose: string },
@@ -70,7 +64,7 @@ async function sendLookupCode(params: {
       scope: "RAFFLES",
       type: "PARTICIPATION_LOOKUP_CODE",
       sourceContent: lookupContent,
-      values: { verification_code: params.code },
+      values: { participation_url: params.participationUrl },
       variant: "SIMPLIFIED",
     });
     if (!approved) return false;
@@ -78,10 +72,10 @@ async function sendLookupCode(params: {
       transport: { provider: "KAPSO", config },
       recipientPhone: params.recipientPhone,
       message: {
-        text: `C\u00f3digo de consulta de tu participaci\u00f3n: ${params.code}`,
+        text: `Consulta tus participaciones aquí: ${params.participationUrl}`,
         cloudTemplate: approved.message,
       },
-      templateName: "participation_lookup_code",
+      templateName: "participation_lookup",
       routing: {
         route: owner.kind === "channel" ? "DIRECT" : "PRINCIPAL_FALLBACK",
         preferredInstanceName:
@@ -162,9 +156,9 @@ async function sendLookupCode(params: {
     transport: { provider: "EVOLUTION", instance },
     recipientPhone: params.recipientPhone,
     message: {
-      text: `Código de consulta de tu participación: ${params.code}\n\nEste código vence en 10 minutos. Si no solicitaste esta consulta, puedes ignorar este mensaje.`,
+      text: `Consulta tus participaciones aquí: ${params.participationUrl}`,
     },
-    templateName: "participation_lookup_code",
+    templateName: "participation_lookup",
     routing: {
       route: "DIRECT",
       preferredInstanceName: instance.instanceName,
@@ -190,58 +184,41 @@ export async function requestParticipationLookup(params: {
 
   // Do not disclose whether the phone exists. The delivery side is only attempted
   // for known participants, while the API keeps the same public response shape.
-  if (!hasParticipation) return { accepted: true };
+  const genericResponse = {
+    accepted: true,
+    message: "Si encontramos una participación, recibirás un enlace por WhatsApp.",
+  };
+  if (!hasParticipation) return genericResponse;
 
-  const code = createCode();
-  await params.rafflePrisma.raffleParticipationLookupChallenge.create({
-    data: {
-      raffleId: params.raffleId,
-      phoneHash: hash(normalizedPhone),
-      codeHash: hash(code),
-      expiresAt: new Date(Date.now() + CODE_TTL_MS),
-    },
+  const access = await createParticipationLookupAccess({
+    rafflePrisma: params.rafflePrisma,
+    raffleId: params.raffleId,
+    phone: normalizedPhone,
   });
+  if (!access) return genericResponse;
+
   try {
-    await sendLookupCode({ storePrisma: params.storePrisma, recipientPhone: normalizedPhone, code });
+    await sendLookupNotification({
+      storePrisma: params.storePrisma,
+      recipientPhone: normalizedPhone,
+      participationUrl: access.url,
+    });
   } catch (error) {
-    console.error("[Raffle participation lookup] Could not deliver verification code:", error);
+    console.error("[Raffle participation lookup] Could not deliver participation link:", error);
   }
-  return { accepted: true };
+  return genericResponse;
 }
 
+// Kept temporarily for clients that may still have the previous two-step UI.
+// The storefront no longer calls this endpoint; new lookups use the direct
+// WhatsApp-link flow above.
 export async function verifyParticipationLookup(params: {
   rafflePrisma: RafflePrismaClient;
   raffleId: number;
   phone: string;
   code: string;
-}) {
-  const normalizedPhone = normalizeCustomerPhone(params.phone);
-  if (!normalizedPhone || !/^\d{6}$/.test(params.code)) return null;
-  const challenge = await params.rafflePrisma.raffleParticipationLookupChallenge.findFirst({
-    where: {
-      raffleId: params.raffleId,
-      phoneHash: hash(normalizedPhone),
-      consumedAt: null,
-      expiresAt: { gt: new Date() },
-      attempts: { lt: MAX_ATTEMPTS },
-    },
-    orderBy: { createdAt: "desc" },
-  });
-  if (!challenge) return null;
-
-  if (challenge.codeHash !== hash(params.code)) {
-    await params.rafflePrisma.raffleParticipationLookupChallenge.update({
-      where: { id: challenge.id },
-      data: { attempts: { increment: 1 } },
-    });
-    return null;
-  }
-
-  await params.rafflePrisma.raffleParticipationLookupChallenge.update({
-    where: { id: challenge.id },
-    data: { consumedAt: new Date() },
-  });
-  return { phone: normalizedPhone };
+}): Promise<{ phone: string } | null> {
+  return null;
 }
 
 export async function createParticipationLookupAccess(params: {

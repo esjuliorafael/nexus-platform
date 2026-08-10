@@ -38,11 +38,6 @@ export interface RaffleParticipationLookupResponse {
   message: string;
 }
 
-export interface RaffleParticipationLookupVerifyResponse {
-  url: string;
-  expiresAt: string | null;
-}
-
 export interface RaffleParticipationAccessResponse {
   participantName: string;
   raffle: {
@@ -90,8 +85,6 @@ export const raffleApi = {
       .then(res => res.data),
   requestParticipationLookup: (id: number, phone: string) =>
     client.post<RaffleParticipationLookupResponse>(`/raffles/${id}/participation-lookup/request`, { phone }).then(res => res.data),
-  verifyParticipationLookup: (id: number, phone: string, code: string) =>
-    client.post<RaffleParticipationLookupVerifyResponse>(`/raffles/${id}/participation-lookup/verify`, { phone, code }).then(res => res.data),
   reserveTickets: (id: number, data: { 
     tickets: string[]; 
     customerName: string; 

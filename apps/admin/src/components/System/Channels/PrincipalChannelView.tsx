@@ -899,7 +899,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                   : "Guardar aquí solo actualiza Nexus. Sincronizar con Kapso/Meta es un paso separado."}
                 </p>
               <div className="flex flex-col" style={{ gap: "var(--space-sm)", marginTop: "var(--space-sm)" }}>
-                {Object.entries(cloudTemplateStatuses)
+                {(Object.entries(cloudTemplateStatuses) as Array<[string, any]>)
                   .map(([ownerKey, status]) => {
                     const scopedKey = getTemplateActiveVersionKey(editingTemplate, "CLOUD", ownerKey);
                     const isActive =

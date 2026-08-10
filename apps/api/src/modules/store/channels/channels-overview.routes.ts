@@ -133,7 +133,7 @@ const PRINCIPAL_TEMPLATE_KEYS: Record<string, string> = {
   "RAFFLES:RESULT_WINNER": "whatsapp_global_raffle_winner",
   "RAFFLES:RESULT_PARTICIPANTS": "whatsapp_global_raffle_results",
   "RAFFLES:PARTICIPATION_LOOKUP_CODE":
-    "whatsapp_global_raffle_participation_lookup_code",
+    "whatsapp_global_raffle_participation_lookup",
 };
 
 const getPrincipalTemplateContents = (

@@ -320,16 +320,16 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
   {
     key: "raffle-verification",
     scope: "RAFFLES",
-    label: "Verificación",
-    description: "Código de un solo uso para consultar una participación.",
+    label: "Consulta",
+    description: "Enlace privado para consultar tus participaciones.",
     templates: [
       {
         type: "PARTICIPATION_LOOKUP_CODE",
-        key: "whatsapp_global_raffle_participation_lookup_code",
-        label: "Código de consulta de participación",
-        variables: ["{{verification_code}}"],
+        key: "whatsapp_global_raffle_participation_lookup",
+        label: "Consulta de participación",
+        variables: ["{{participation_url}}"],
         simplifiedOnly: true,
-        defaultContent: `\u{1F510} Tu código de consulta es {{verification_code}}.\n\n\u23F1\uFE0F Este código vence en 10 minutos. Si no solicitaste esta consulta, puedes ignorar este mensaje.`,
+        defaultContent: `\u{1F50E} Recibimos tu solicitud para consultar tus participaciones.\n\nConsulta tus boletos y su estado desde el botón Ver participación:\n\n{{participation_url}}`,
       },
     ],
   },
@@ -586,9 +586,11 @@ const getRaffleCloudTemplateDefault = (
 const SIMPLIFIED_RAFFLE_TEMPLATE_CONTENT: Partial<
   Record<ChannelTemplateType, string>
 > = {
-  PARTICIPATION_LOOKUP_CODE: `\u{1F510} Tu c\u00f3digo de consulta es {{verification_code}}.
+  PARTICIPATION_LOOKUP_CODE: `\u{1F50E} Recibimos tu solicitud para consultar tus participaciones.
 
-\u23F1\uFE0F Este c\u00f3digo vence en 10 minutos. Si no solicitaste esta consulta, puedes ignorar este mensaje.`,
+Consulta tus boletos y su estado desde el bot\u00f3n Ver participaci\u00f3n:
+
+{{participation_url}}`,
   RESERVATION: `\u00a1Hola, {{customer_name}}! \u{1F39F}\u{FE0F}
 
 Tu participaci\u00f3n qued\u00f3 apartada correctamente. \u2705

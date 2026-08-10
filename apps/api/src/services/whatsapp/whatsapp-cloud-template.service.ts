@@ -111,13 +111,13 @@ export const CLOUD_TEMPLATE_SETTING_KEYS: Array<{
   {
     scope: "RAFFLES",
     type: "PARTICIPATION_LOOKUP_CODE",
-    key: "whatsapp_global_raffle_participation_lookup_code",
+    key: "whatsapp_global_raffle_participation_lookup",
   },
 ];
 
 const CLOUD_TEMPLATE_DEFAULT_CONTENTS: Partial<Record<CloudTemplateType, string>> = {
   PARTICIPATION_LOOKUP_CODE:
-    "\u{1F510} Tu c\u00f3digo de consulta es {{verification_code}}.\n\n\u23F1\uFE0F Este c\u00f3digo vence en 10 minutos. Si no solicitaste esta consulta, puedes ignorar este mensaje.",
+    "\u{1F50E} Recibimos tu solicitud para consultar tus participaciones.\n\nConsulta tus boletos y su estado desde el bot\u00f3n Ver participaci\u00f3n:\n\n{{participation_url}}",
 };
 
 export function getCanonicalCloudTemplateSettingKey(
@@ -247,6 +247,7 @@ const VARIABLE_EXAMPLES: Record<string, string> = {
   time_remaining: "4 horas",
   expires_at: "24 de julio de 2026, 2:00 p. m.",
   recovery_url: "https://example.com/checkout#recovery=example",
+  participation_url: "https://example.com/participations/demo-access-token",
   raffle_name: "Rifa Especial de Junio",
   raffle_url: "https://example.com/raffles/1",
   opening_date: "Lunes, 20 de julio de 2026, 8:00 a. m.",
@@ -926,6 +927,12 @@ export async function getApprovedCloudTemplate(params: {
       await storePrisma.whatsappCloudTemplateCandidate.delete({
         where: { id: candidate.id },
       });
+    }
+
+    // The lookup template changed from an OTP code to a private-link request.
+    // Never send the old code template as an implicit fallback for this type.
+    if (params.type === "PARTICIPATION_LOOKUP_CODE" && mapping.contentHash !== desiredContentHash) {
+      mapping = null;
     }
   }
   const shouldRefresh =
