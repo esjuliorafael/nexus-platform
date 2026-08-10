@@ -476,30 +476,10 @@ function buildTemplateDefinition(
   richInvitationHeaderHandle?: string | null,
 ): KapsoTemplateDefinition {
   const richInvitation = isRichInvitation(type);
-  const authentication = type === "PARTICIPATION_LOOKUP_CODE";
-
-  if (authentication) {
-    return {
-      name: templateName,
-      language: languageCode,
-      category,
-      parameter_format: "POSITIONAL",
-      components: [
-        { type: "BODY", add_security_recommendation: true },
-        { type: "FOOTER", code_expiration_minutes: 10 },
-        {
-          type: "BUTTONS",
-          buttons: [
-            {
-              type: "OTP",
-              otp_type: "COPY_CODE",
-            },
-          ],
-        },
-      ],
-    };
-  }
-
+  // The lookup flow is intentionally a regular Utility template. The WABA
+  // connected through Kapso does not grant this application permission to
+  // create Authentication/OTP templates.
+  const authentication = category === "AUTHENTICATION";
   return {
     name: templateName,
     language: languageCode,
@@ -596,7 +576,6 @@ function buildTemplateDefinition(
 export function getCloudTemplateCategory(
   type: CloudTemplateType,
 ): "UTILITY" | "MARKETING" | "AUTHENTICATION" {
-  if (type === "PARTICIPATION_LOOKUP_CODE") return "AUTHENTICATION";
   return type === "RAFFLE_INVITATION" || type === "OPENING"
     ? "MARKETING"
     : "UTILITY";
@@ -999,12 +978,9 @@ export async function getApprovedCloudTemplate(params: {
     return null;
   }
 
-  const parameterNames =
-    params.type === "PARTICIPATION_LOOKUP_CODE"
-      ? []
-      : Array.isArray(mapping.parameterNames)
-        ? mapping.parameterNames.map(String)
-        : [];
+  const parameterNames = Array.isArray(mapping.parameterNames)
+    ? mapping.parameterNames.map(String)
+    : [];
   if (
     !parameterNames.every((parameterName) => parameterName in params.values)
   ) {
@@ -1030,21 +1006,8 @@ export async function getApprovedCloudTemplate(params: {
         text: normalizeCloudTemplateParameterValue(
           params.values[parameterName],
         ),
-        ...(params.type === "PARTICIPATION_LOOKUP_CODE"
-          ? {}
-          : { parameter_name: parameterName }),
+        parameter_name: parameterName,
       })),
-    });
-  }
-  if (params.type === "PARTICIPATION_LOOKUP_CODE") {
-    const code = normalizeCloudTemplateParameterValue(
-      params.values.verification_code,
-    );
-    components.push({
-      type: "button",
-      sub_type: "url",
-      index: "0",
-      parameters: [{ type: "text", text: code }],
     });
   }
   if (hasParticipationButton({

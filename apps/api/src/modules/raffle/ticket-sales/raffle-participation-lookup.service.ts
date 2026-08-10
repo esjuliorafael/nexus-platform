@@ -89,7 +89,7 @@ async function sendLookupCode(params: {
         policyClass: "OPERATIONAL",
         providerPriority: ["KAPSO", "EVOLUTION"],
         metaBilling: {
-          category: "AUTHENTICATION",
+          category: "UTILITY",
           market: "UNKNOWN",
           rateMxn: null,
           estimatedChargeMxn: null,
