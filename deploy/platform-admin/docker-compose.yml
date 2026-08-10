@@ -1,0 +1,14 @@
+version: "3.9"
+
+services:
+  platform-admin:
+    image: esjuliorafael/nexus-platform-admin:latest
+    container_name: platform-admin
+    restart: always
+    networks:
+      - nexus-network
+
+networks:
+  nexus-network:
+    external: true
+    name: nexus-network

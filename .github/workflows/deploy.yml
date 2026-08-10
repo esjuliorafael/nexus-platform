@@ -64,3 +64,16 @@ jobs:
             VITE_RAFFLE_ENABLED=true
           cache-from: type=gha
           cache-to: type=inline
+
+      # Build & Push Nexus Platform Admin
+      - name: Build and push Platform Admin
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: ./apps/platform-admin/Dockerfile
+          push: true
+          tags: |
+            ${{ secrets.DOCKERHUB_USERNAME }}/nexus-platform-admin:latest
+            ${{ secrets.DOCKERHUB_USERNAME }}/nexus-platform-admin:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=inline

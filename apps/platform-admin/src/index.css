@@ -1,0 +1,50 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap");
+
+:root { font-family: Inter, ui-sans-serif, system-ui, sans-serif; color: #151b2d; background: #f4f4f1; font-synthesis: none; }
+* { box-sizing: border-box; }
+body { margin: 0; min-width: 320px; }
+button { font: inherit; }
+.platform-shell { max-width: 1180px; margin: 0 auto; padding: 32px 28px 64px; }
+.topbar { display: flex; align-items: center; gap: 14px; min-height: 72px; }
+.brand-mark { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 14px; background: #151b2d; color: #f4f4f1; font-weight: 700; font-size: 20px; }
+.eyebrow { margin: 0 0 6px; color: #a56a5b; font-size: 11px; font-weight: 700; letter-spacing: .12em; }
+h1, h2, h3, p { margin-top: 0; }
+h1 { margin-bottom: 0; font-size: 18px; line-height: 1.2; }
+.environment { margin-left: auto; border: 1px solid #dddcd7; border-radius: 999px; padding: 9px 13px; color: #746f68; font-size: 12px; font-weight: 600; }
+.intro { display: flex; align-items: end; justify-content: space-between; gap: 24px; margin-top: 64px; }
+.intro h2 { margin-bottom: 10px; font-size: clamp(28px, 4vw, 44px); letter-spacing: -.04em; }
+.intro-copy { max-width: 590px; margin-bottom: 0; color: #746f68; font-size: 16px; line-height: 1.55; }
+.status-chip, .tenant-status { display: inline-flex; align-items: center; gap: 8px; color: #087b58; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.status-chip { padding: 10px 13px; border: 1px solid #b6ead6; border-radius: 999px; background: #effbf6; }
+.status-chip span, .tenant-status i { width: 8px; height: 8px; border-radius: 999px; background: #0a9b6f; }
+.metrics { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; margin-top: 32px; }
+.metrics article { padding: 20px; border: 1px solid #dfded9; border-radius: 18px; background: #fbfbf9; }
+.metric-label, .tenant-detail span { display: block; color: #817b74; font-size: 12px; font-weight: 600; }
+.metrics strong { display: block; margin: 10px 0 6px; font-size: 27px; letter-spacing: -.04em; }
+.metrics small, .tenant-detail strong { color: #817b74; font-size: 12px; }
+.section-block { margin-top: 48px; }
+.section-heading { display: flex; justify-content: space-between; align-items: end; padding-bottom: 16px; border-bottom: 1px solid #dfded9; }
+.section-heading h2 { margin-bottom: 0; font-size: 25px; letter-spacing: -.03em; }
+.section-note { color: #817b74; font-size: 12px; }
+.tenant-list { border: 1px solid #dfded9; border-radius: 18px; background: #fbfbf9; overflow: hidden; }
+.tenant-row { display: grid; grid-template-columns: auto minmax(150px, 1fr) minmax(150px, .8fr) auto auto; align-items: center; gap: 18px; padding: 18px 20px; }
+.tenant-row + .tenant-row { border-top: 1px solid #e5e3de; }
+.tenant-icon, .notice-icon { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 14px; background: #f1e9e5; color: #a56a5b; font-weight: 700; }
+.tenant-main h3 { margin-bottom: 4px; font-size: 15px; }
+.tenant-main p { margin-bottom: 0; color: #817b74; font-size: 12px; }
+.tenant-detail strong { display: block; margin-top: 5px; font-weight: 500; }
+.tenant-row button { border: 1px solid #dedcd7; border-radius: 10px; padding: 9px 12px; background: #f0f0ed; color: #918c85; font-size: 12px; font-weight: 600; cursor: not-allowed; }
+.notice { display: flex; align-items: start; gap: 14px; margin-top: 18px; padding: 18px 20px; border: 1px solid #e7d6b4; border-radius: 18px; background: #fff8e9; color: #735a31; }
+.notice-icon { flex: 0 0 auto; width: 34px; height: 34px; border-radius: 11px; background: #f7e6bd; color: #8e6a30; }
+.notice h2 { margin: 2px 0 6px; color: #5e4928; font-size: 14px; }
+.notice p { margin-bottom: 0; font-size: 13px; line-height: 1.5; }
+@media (max-width: 720px) {
+  .platform-shell { padding: 20px 16px 40px; }
+  .environment { display: none; }
+  .intro { display: block; margin-top: 48px; }
+  .status-chip { margin-top: 18px; }
+  .metrics { grid-template-columns: 1fr; }
+  .tenant-row { grid-template-columns: auto 1fr auto; gap: 12px; }
+  .tenant-detail { grid-column: 2 / -1; }
+  .tenant-row button { grid-column: 2 / -1; width: 100%; }
+}
