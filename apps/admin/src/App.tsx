@@ -1589,15 +1589,17 @@ function App() {
     ) {
       return (
         <div className="flex flex-wrap items-center" style={{ gap: "var(--space-sm)" }}>
-          <NexusSectionButton
-            type="button"
-            variant="secondary"
-            icon={RefreshCw}
-            disabled={!principalTemplateEditor.canActivate || principalTemplateEditor.isSaving}
-            onClick={principalTemplateEditor.onActivate}
-          >
-            {principalTemplateEditor.activationLabel}
-          </NexusSectionButton>
+          {principalTemplateEditor.provider === "EVOLUTION" && (
+            <NexusSectionButton
+              type="button"
+              variant="secondary"
+              icon={RefreshCw}
+              disabled={!principalTemplateEditor.canActivate || principalTemplateEditor.isSaving}
+              onClick={principalTemplateEditor.onActivate}
+            >
+              {principalTemplateEditor.activationLabel}
+            </NexusSectionButton>
+          )}
           <NexusSectionButton
             type="button"
             variant="brand"
