@@ -137,3 +137,31 @@ El archivo `.env` en el servidor debe contener al menos:
 - **No usar `localhost`:** Dentro de los contenedores, siempre referenciar a los servicios globales por su nombre de red (`nexus-postgres-global`, `nexus-redis-global`).
 - **Reseteo de Esquemas:** Si una base de datos modular entra en conflicto de tipos, usar `npx prisma db push --force-reset` solo en la base de datos afectada.
 - **Sincronización Admin:** La pestaña de Rifas en el Admin es 100% dinámica; depende del valor `raffle_enabled` en la tabla `settings` de la DB de la tienda.
+
+## 6. DNS y Platform Admin (estado real)
+
+Los subdominios no se crean en Nginx Proxy Manager. Primero se crea un registro
+DNS en el proveedor del dominio, normalmente un registro `A` hacia la IP
+pública de Contabo. Después Nginx Proxy Manager recibe ese hostname y decide
+a qué contenedor enviarlo.
+
+Ejemplo de publicación del panel de plataforma:
+
+```text
+admin.link-nex.us A -> IP pública de Contabo
+admin.link-nex.us -> http://platform-admin:80 en Nginx Proxy Manager
+```
+
+El contenedor `platform-admin` debe conectarse a la red Docker real
+`nexus-network`, junto con `nexus-nginx`, `trojes-admin`, `trojes-api` y el
+resto de servicios. En la instalación actual el contenedor de Nginx Proxy
+Manager se llama `nexus-nginx`; el nombre anterior `nexus-nginx-proxy-manager`
+queda como referencia histórica.
+
+Nginx Proxy Manager escucha los puertos públicos 80, 81 y 443. Los servicios
+de aplicación no necesitan publicar sus puertos al exterior: NPM los alcanza
+por nombre de contenedor y puerto interno.
+
+El Platform Admin es un servicio de plataforma, no un tenant. No debe incluir
+Tienda, Rifas, Medios u Órdenes. Sus credenciales de R2 para backups deben ser
+independientes de las credenciales de medios de cada tenant.
