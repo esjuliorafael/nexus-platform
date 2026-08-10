@@ -450,8 +450,7 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
         const current =
           sourceReady &&
           (mapping?.contentHash === contentHash ||
-            candidate?.status === "APPROVED" ||
-            remoteStatus === "APPROVED");
+            candidate?.status === "APPROVED");
         return {
           scope: source.scope,
           type: source.type,
