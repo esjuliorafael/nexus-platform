@@ -80,6 +80,13 @@ const KAPSO_MESSAGE_EVENTS = [
   "whatsapp.message.failed",
 ] as const;
 
+function normalizeKapsoTemplateStatus(value: unknown) {
+  const normalized = String(value || "PENDING").toUpperCase();
+  return ["APPROVED", "PENDING", "REJECTED"].includes(normalized)
+    ? normalized
+    : "PENDING";
+}
+
 export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
   const getPublicWebhookUrl = (request: any) => {
     const configuredBaseUrl =
@@ -369,7 +376,20 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
         await server.storePrisma.whatsappCloudTemplateCandidate.findMany({
           where: { ownerKey },
         });
-      const templates = target.sources.map((source) => {
+      let remoteTemplates: Array<Record<string, unknown>> = [];
+      if (target.config?.businessAccountId) {
+        try {
+          const remote = await kapsoClient.listTemplates(target.config);
+          remoteTemplates = remote.data || [];
+        } catch (error) {
+          request.log.warn(
+            { error, ownerKey },
+            "Could not refresh Cloud API template readiness from Kapso",
+          );
+        }
+      }
+
+      const templates = await Promise.all(target.sources.map(async (source) => {
         const mapping = mappings.find(
           (item) =>
             item.scope === source.scope &&
@@ -389,18 +409,58 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
                 item.contentHash === contentHash,
             )
           : null;
+        const remoteTemplate = remoteTemplates.find(
+          (item) =>
+            String(item.name || "") ===
+              String(candidate?.templateName || mapping?.templateName || "") &&
+            String(item.language || "") ===
+              String(candidate?.languageCode || mapping?.languageCode || ""),
+        );
+        const remoteStatus = remoteTemplate
+          ? normalizeKapsoTemplateStatus(remoteTemplate.status)
+          : null;
+
+        if (remoteTemplate && candidate) {
+          await server.storePrisma.whatsappCloudTemplateCandidate.update({
+            where: { id: candidate.id },
+            data: {
+              templateId:
+                String(remoteTemplate.id || "") || candidate.templateId,
+              status: remoteStatus!,
+              category: String(remoteTemplate.category || candidate.category),
+              lastError: null,
+              lastSyncedAt: new Date(),
+            },
+          });
+        }
+        if (remoteTemplate && mapping) {
+          await server.storePrisma.whatsappCloudTemplate.update({
+            where: { id: mapping.id },
+            data: {
+              templateId:
+                String(remoteTemplate.id || "") || mapping.templateId,
+              status: remoteStatus!,
+              category: String(remoteTemplate.category || mapping.category),
+              lastError: null,
+              lastSyncedAt: new Date(),
+            },
+          });
+        }
+
         const current =
           sourceReady &&
           (mapping?.contentHash === contentHash ||
-            candidate?.status === "APPROVED");
+            candidate?.status === "APPROVED" ||
+            remoteStatus === "APPROVED");
         return {
           scope: source.scope,
           type: source.type,
           variant: source.variant,
           sourceReady,
           templateName:
-            candidate?.templateName || mapping?.templateName || null,
+            candidate?.templateName || mapping?.templateName || remoteTemplate?.name || null,
           status:
+            remoteStatus ||
             candidate?.status ||
             (current ? mapping?.status || "NOT_SYNCED" : "NOT_SYNCED"),
           current,
@@ -409,7 +469,7 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
             candidate && candidate.status !== "APPROVED",
           ),
         };
-      });
+      }));
       return {
         catalogMode: target.catalogMode || "DEDICATED",
         ownerKey,
