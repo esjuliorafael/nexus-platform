@@ -45,6 +45,7 @@ import {
 import {
   CHANNEL_TEMPLATE_SECTIONS,
   getChannelTemplateEditorContent,
+  getTemplateActiveVersionKey,
   getTemplateStorageKey,
   getTemplateVariantContent,
   getTemplateVariantVariables,
@@ -146,6 +147,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
   const [isTemplateDirty, setIsTemplateDirty] = useState(false);
   const [isVersionsOpen, setIsVersionsOpen] = useState(false);
   const [cloudTemplateStatus, setCloudTemplateStatus] = useState<any>(null);
+  const [cloudTemplateStatuses, setCloudTemplateStatuses] = useState<Record<string, any>>({});
   const [isLoadingCloudTemplateStatus, setIsLoadingCloudTemplateStatus] =
     useState(false);
   const [specializedCloudChannels, setSpecializedCloudChannels] = useState<any[]>([]);
@@ -610,30 +612,64 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
   useEffect(() => {
     if (!editingTemplate || templateProvider !== "CLOUD") {
       setCloudTemplateStatus(null);
+      setCloudTemplateStatuses({});
       setIsLoadingCloudTemplateStatus(false);
       return;
     }
     let cancelled = false;
     setIsLoadingCloudTemplateStatus(true);
-    void apiWhatsApp
-      .getKapsoTemplateReadiness(
-        undefined,
-        editingTemplate.version,
-      )
-      .then((response) => {
-        if (cancelled) return;
-        const match = (response.data?.templates || []).find(
-          (item: any) =>
-            item.scope === editingTemplate.scope &&
-            item.type === editingTemplate.type &&
-            (item.variant || "LEGACY") === editingTemplate.version,
+    const findMatch = (data: any) =>
+      (data?.templates || []).find(
+        (item: any) =>
+          item.scope === editingTemplate.scope &&
+          item.type === editingTemplate.type &&
+          (item.variant || "LEGACY") === editingTemplate.version,
+      ) || null;
+    void Promise.all([
+      apiWhatsApp.getKapsoTemplateReadiness(undefined, editingTemplate.version),
+      apiWhatsApp.getAll(),
+    ])
+      .then(async ([principalResponse, channels]) => {
+        const linked = channels.filter(
+          (channel: any) =>
+            channel.provider === "KAPSO" &&
+            Boolean(channel.kapsoPhoneNumberId && channel.kapsoBusinessAccountId),
         );
-        setCloudTemplateStatus(match || null);
+        const specializedResponses = await Promise.all(
+          linked.map(async (channel: any) => ({
+            channel,
+            response: await apiWhatsApp.getKapsoTemplateReadiness(
+              String(channel.id),
+              editingTemplate.version,
+            ),
+          })),
+        );
+        if (cancelled) return;
+        const statuses: Record<string, any> = {};
+        statuses.principal = {
+          ...findMatch(principalResponse.data),
+          ownerKey: principalResponse.data?.ownerKey || "principal",
+          label: "Canal Principal",
+        };
+        for (const item of specializedResponses) {
+          const ownerKey = item.response.data?.ownerKey || `channel:${item.channel.id}`;
+          if (ownerKey === "principal") continue;
+          statuses[ownerKey] = {
+            ...findMatch(item.response.data),
+            ownerKey,
+            label: item.channel.name || `Canal Especializado ${item.channel.id}`,
+            channelId: item.channel.id,
+          };
+        }
+        setSpecializedCloudChannels(linked);
+        setCloudTemplateStatuses(statuses);
+        setCloudTemplateStatus(statuses.principal || null);
         setIsLoadingCloudTemplateStatus(false);
       })
       .catch(() => {
         if (!cancelled) {
           setCloudTemplateStatus(null);
+          setCloudTemplateStatuses({});
           setIsLoadingCloudTemplateStatus(false);
         }
       });
@@ -648,8 +684,15 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       onTemplateEditorChange(null);
       return;
     }
-    const activeVersionKey = `${editingTemplate.key}_active_version_${templateProvider.toLowerCase()}`;
-    const isActive = (config[activeVersionKey] || "LEGACY") === editingTemplate.version;
+    const legacyActiveVersionKey = `${editingTemplate.key}_active_version_${templateProvider.toLowerCase()}`;
+    const activeVersionKey = getTemplateActiveVersionKey(
+      editingTemplate,
+      templateProvider,
+      "principal",
+    );
+    const isActive =
+      (config[activeVersionKey] || config[legacyActiveVersionKey] || "LEGACY") ===
+      editingTemplate.version;
     const canActivate =
       !isTemplateDirty &&
       Boolean(editorContent.trim()) &&
@@ -760,6 +803,32 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       !(cloudTemplateStatus?.current && cloudTemplateStatus.status === "APPROVED");
     const hasPendingCloudSync =
       isTemplateDirty || hasCloudReplacement || hasUnsyncedCloudVersion;
+    const activateCloudOwner = (ownerKey: string, label: string, status: any) => {
+      const scopedKey = getTemplateActiveVersionKey(editingTemplate, "CLOUD", ownerKey);
+      const principalKey = getTemplateActiveVersionKey(editingTemplate, "CLOUD", "principal");
+      const isActive =
+        (config[scopedKey] || config[principalKey] || "LEGACY") === editingTemplate.version;
+      const canActivate =
+        !isTemplateDirty &&
+        Boolean(editorContent.trim()) &&
+        (editingTemplate.version === "LEGACY" ||
+          (status?.status === "APPROVED" && status?.current));
+      if (!canActivate || isActive) return;
+      setConfirmDialog({
+        isOpen: true,
+        title: editingTemplate.version === "SIMPLIFIED" ? "Activar versión simplificada" : "Restaurar versión Legacy",
+        message:
+          editingTemplate.version === "SIMPLIFIED"
+            ? `Se activará únicamente en ${label}. La versión aprobada anterior permanecerá disponible como respaldo.`
+            : `Esta versión se usará únicamente en ${label}.`,
+        confirmLabel: editingTemplate.version === "SIMPLIFIED" ? `Activar en ${label}` : `Usar Legacy en ${label}`,
+        variant: "brand",
+        onConfirm: async () => {
+          await updateConfig({ [scopedKey]: editingTemplate.version }, false);
+          setConfirmDialog({ isOpen: false });
+        },
+      });
+    };
     return (
       <div className="pb-20 animate-in fade-in duration-300">
         <NexusSection
@@ -829,7 +898,49 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                   : cloudTemplateStatus?.replacementPending
                   ? "La versión aprobada anterior permanece activa mientras esta versión se revisa."
                   : "Guardar aquí solo actualiza Nexus. Sincronizar con Kapso/Meta es un paso separado."}
-              </p>
+                </p>
+              <div className="flex flex-col" style={{ gap: "var(--space-sm)", marginTop: "var(--space-sm)" }}>
+                {Object.entries(cloudTemplateStatuses)
+                  .filter(([ownerKey]) => ownerKey !== "principal")
+                  .map(([ownerKey, status]) => {
+                    const scopedKey = getTemplateActiveVersionKey(editingTemplate, "CLOUD", ownerKey);
+                    const principalKey = getTemplateActiveVersionKey(editingTemplate, "CLOUD", "principal");
+                    const isActive =
+                      (config[scopedKey] || config[principalKey] || "LEGACY") ===
+                      editingTemplate.version;
+                    const canActivate =
+                      !isTemplateDirty &&
+                      Boolean(editorContent.trim()) &&
+                      (editingTemplate.version === "LEGACY" ||
+                        (status?.status === "APPROVED" && status?.current));
+                    return (
+                      <div key={ownerKey} className="flex flex-wrap items-center justify-between border-t border-border-main" style={{ gap: "var(--space-sm)", paddingTop: "var(--space-sm)" }}>
+                        <div className="min-w-0">
+                          <p className="text-label font-bold text-text-main">{status?.label || ownerKey}</p>
+                          <p className="text-label text-text-muted">
+                            {isActive
+                              ? "Versión activa en este canal"
+                              : status?.status === "APPROVED" && status?.current
+                                ? "Aprobada y lista para activar"
+                                : status?.status === "PENDING"
+                                  ? "En revisión de Meta"
+                                  : status?.status === "REJECTED"
+                                    ? "Rechazada por Meta"
+                                    : "No aprobada en este canal"}
+                          </p>
+                        </div>
+                        <NexusSectionButton
+                          variant="secondary"
+                          icon={RefreshCw}
+                          disabled={!canActivate || isActive}
+                          onClick={() => activateCloudOwner(ownerKey, status?.label || ownerKey, status)}
+                        >
+                          {isActive ? "Versión Activa" : "Activar en este canal"}
+                        </NexusSectionButton>
+                      </div>
+                    );
+                  })}
+              </div>
             </div>
           )}
           <div

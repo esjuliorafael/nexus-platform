@@ -691,6 +691,12 @@ export const getTemplateStorageKey = (
   version: ChannelTemplateVersion,
 ) => version === "SIMPLIFIED" ? `${template.key}_simplified` : template.key;
 
+export const getTemplateActiveVersionKey = (
+  template: ChannelTemplateDefinition,
+  provider: "EVOLUTION" | "CLOUD",
+  ownerKey: string,
+) => `${template.key}_active_version_${provider.toLowerCase()}_${ownerKey === "principal" ? "principal" : ownerKey.replace(/^channel:/, "channel_")}`;
+
 export const getTemplateVariantContent = (
   template: ChannelTemplateDefinition,
   version: ChannelTemplateVersion,

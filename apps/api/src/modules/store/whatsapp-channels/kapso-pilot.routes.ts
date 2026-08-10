@@ -412,6 +412,7 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
       });
       return {
         catalogMode: target.catalogMode || "DEDICATED",
+        ownerKey,
         ready:
           templates.length > 0 &&
           templates.every(

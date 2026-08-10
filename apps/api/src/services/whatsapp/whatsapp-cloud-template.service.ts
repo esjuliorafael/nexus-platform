@@ -133,26 +133,65 @@ export function getTemplateActiveVersionSettingKey(
   scope: CloudTemplateScope,
   type: CloudTemplateType,
   provider: "EVOLUTION" | "CLOUD",
+  owner?: CloudTemplateOwner,
 ) {
   const baseKey = getCanonicalCloudTemplateSettingKey(scope, type);
-  return baseKey ? `${baseKey}_active_version_${provider.toLowerCase()}` : null;
+  if (!baseKey) return null;
+  const ownerSuffix = owner
+    ? owner.kind === "principal"
+      ? "_principal"
+      : `_channel_${owner.channelId}`
+    : "";
+  return `${baseKey}_active_version_${provider.toLowerCase()}${ownerSuffix}`;
 }
 
 export async function getActiveCloudTemplateVariant(params: {
   scope: CloudTemplateScope;
   type: CloudTemplateType;
   provider: "EVOLUTION" | "CLOUD";
+  owner?: CloudTemplateOwner;
 }): Promise<CloudTemplateVariant> {
   const settingKey = getTemplateActiveVersionSettingKey(
     params.scope,
     params.type,
     params.provider,
+    params.owner,
   );
   if (!settingKey) return "LEGACY";
-  const setting = await storePrisma.setting.findUnique({
+  let setting = await storePrisma.setting.findUnique({
     where: { key: settingKey },
     select: { value: true },
   });
+  // A specialized channel inherits the Principal activation until it gets an
+  // explicit channel override. Keep the old global key as a final fallback so
+  // existing installations remain compatible after this migration.
+  if (!setting && params.owner?.kind === "channel") {
+    const principalKey = getTemplateActiveVersionSettingKey(
+      params.scope,
+      params.type,
+      params.provider,
+      { kind: "principal" },
+    );
+    if (principalKey) {
+      setting = await storePrisma.setting.findUnique({
+        where: { key: principalKey },
+        select: { value: true },
+      });
+    }
+  }
+  if (!setting) {
+    const legacyKey = getTemplateActiveVersionSettingKey(
+      params.scope,
+      params.type,
+      params.provider,
+    );
+    if (legacyKey) {
+      setting = await storePrisma.setting.findUnique({
+        where: { key: legacyKey },
+        select: { value: true },
+      });
+    }
+  }
   return setting?.value === "SIMPLIFIED" ? "SIMPLIFIED" : "LEGACY";
 }
 

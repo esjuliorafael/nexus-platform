@@ -15,6 +15,7 @@ import {
   getCanonicalCloudTemplateSettingKey,
   resolveCloudTemplateOwner,
   type CloudTemplateScope,
+  type CloudTemplateOwner,
   type CloudTemplateType,
 } from "./whatsapp-cloud-template.service";
 import {
@@ -79,11 +80,13 @@ function isSafeKapsoFallbackError(error: any) {
 async function resolveActiveTemplateContent(
   delivery: SendBusinessWhatsappParams,
   provider: "EVOLUTION" | "CLOUD",
+  owner?: CloudTemplateOwner,
 ) {
   const variant = await getActiveCloudTemplateVariant({
     scope: delivery.scope,
     type: delivery.type,
     provider,
+    owner,
   });
   if (variant !== "SIMPLIFIED") {
     return {
@@ -163,7 +166,11 @@ async function sendKapso(params: {
     type: params.delivery.type,
     mediaHeaderUrl: params.delivery.mediaHeaderUrl,
   } as const;
-  const activeContent = await resolveActiveTemplateContent(params.delivery, "CLOUD");
+  const activeContent = await resolveActiveTemplateContent(
+    params.delivery,
+    "CLOUD",
+    params.owner,
+  );
   let approvedTemplate = await getApprovedCloudTemplate({
     ...ownerConfig,
     values: params.delivery.values,
@@ -379,7 +386,17 @@ export async function sendBusinessWhatsappNotification(
       preferred.evolutionKey
     ) {
       try {
-        const activeContent = await resolveActiveTemplateContent(deliveryParams, "EVOLUTION");
+        const activeContent = await resolveActiveTemplateContent(
+          deliveryParams,
+          "EVOLUTION",
+          preferred
+            ? {
+                kind: "channel",
+                channelId: preferred.id,
+                purpose: preferred.purpose,
+              }
+            : { kind: "principal" },
+        );
         await sendWhatsappWithFailover({
           instance: {
             instanceName: preferred.instanceName,
@@ -421,7 +438,11 @@ export async function sendBusinessWhatsappNotification(
 
     if (principalEvolution) {
       try {
-        const activeContent = await resolveActiveTemplateContent(principalDelivery, "EVOLUTION");
+        const activeContent = await resolveActiveTemplateContent(
+          principalDelivery,
+          "EVOLUTION",
+          { kind: "principal" },
+        );
         await sendWhatsappWithFailover({
           instance: principalEvolution,
           recipientPhone: deliveryParams.recipientPhone,
