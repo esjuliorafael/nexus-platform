@@ -1,5 +1,6 @@
 import { createHash, randomBytes } from "node:crypto";
 import { TicketStatus, type PrismaClient as RafflePrismaClient } from "@prisma/client-raffle";
+import { storePrisma } from "@nexus/db/store";
 import { normalizeCustomerPhone } from "../../../utils/customer-phone";
 
 const ACCESS_TOKEN_TTL_DAYS = 180;
@@ -61,6 +62,60 @@ const participantDisplayName = (value: string | null | undefined) => {
   return `${parts.slice(0, -1).join(" ")} ${last.charAt(0)}.`;
 };
 
+async function getRaffleBankInfo() {
+  const [raffleChannel, settings] = await Promise.all([
+    storePrisma.paymentChannel.findFirst({
+      where: { purpose: "RAFFLES" },
+      select: {
+        bank: true,
+        beneficiary: true,
+        accountNumber: true,
+        clabe: true,
+        card: true,
+      },
+    }),
+    storePrisma.setting.findMany({
+      where: {
+        key: {
+          in: [
+            "bank_main_name",
+            "bank_main_beneficiary",
+            "bank_main_account",
+            "bank_main_clabe",
+            "bank_main_card",
+          ],
+        },
+      },
+      select: { key: true, value: true },
+    }),
+  ]);
+
+  const main = Object.fromEntries(settings.map((item) => [item.key, item.value]));
+  const specializedReady = Boolean(raffleChannel?.bank?.trim() && raffleChannel?.beneficiary?.trim());
+  const mainReady = Boolean(main.bank_main_name?.trim() && main.bank_main_beneficiary?.trim());
+  if (!specializedReady && !mainReady) return null;
+
+  return specializedReady
+    ? {
+        source: "SPECIALIZED" as const,
+        label: "Canal de Rifas",
+        bank: raffleChannel!.bank,
+        beneficiary: raffleChannel!.beneficiary,
+        accountNumber: raffleChannel!.accountNumber,
+        clabe: raffleChannel!.clabe,
+        card: raffleChannel!.card,
+      }
+    : {
+        source: "MAIN" as const,
+        label: "Canal Principal, respaldo",
+        bank: main.bank_main_name!,
+        beneficiary: main.bank_main_beneficiary!,
+        accountNumber: main.bank_main_account || null,
+        clabe: main.bank_main_clabe || null,
+        card: main.bank_main_card || null,
+      };
+}
+
 export async function getRaffleParticipationAccess(
   rafflePrisma: RafflePrismaClient,
   token: string,
@@ -102,6 +157,11 @@ export async function getRaffleParticipationAccess(
     return normalized ? hash(normalized) === access.phoneHash : false;
   });
   if (!ownedSales.length) return null;
+  const bankInfo = ownedSales.some(
+    (sale) => sale.paymentStatus === TicketStatus.PENDING && sale.paymentMethod === "TRANSFER",
+  )
+    ? await getRaffleBankInfo()
+    : null;
 
   const opportunitiesByTicket = new Map(
     raffle.extraOpportunities.map((item) => [
@@ -118,6 +178,7 @@ export async function getRaffleParticipationAccess(
   });
 
   return {
+    bankInfo,
     participantName: participantDisplayName(ownedSales[0]?.customerName),
     raffle: {
       id: raffle.id,

@@ -39,6 +39,15 @@ export interface RaffleParticipationLookupResponse {
 }
 
 export interface RaffleParticipationAccessResponse {
+  bankInfo: {
+    source: "SPECIALIZED" | "MAIN";
+    label: string;
+    bank: string;
+    beneficiary: string;
+    accountNumber: string | null;
+    clabe: string | null;
+    card: string | null;
+  } | null;
   participantName: string;
   raffle: {
     id: number;

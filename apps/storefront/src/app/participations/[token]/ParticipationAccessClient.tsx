@@ -8,6 +8,7 @@ import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
 import { StorefrontAutonomousCard, StorefrontCard } from "../../../components/ui/Card";
 import { StorefrontIcon } from "../../../components/ui/Icon";
+import { BankInfoCard } from "../../../components/checkout/BankInfoCard";
 import { formatPrice } from "../../../utils/formatters";
 
 export function ParticipationAccessClient({
@@ -169,6 +170,23 @@ export function ParticipationAccessClient({
             </div>
           </StorefrontCard>
         ))}
+
+        {data.bankInfo && data.participations.some((participation) => participation.paymentStatus === "PENDING") && (
+          <BankInfoCard
+            bankInfo={{
+              source: data.bankInfo.source,
+              label: data.bankInfo.label,
+              bank: data.bankInfo.bank,
+              beneficiary: data.bankInfo.beneficiary,
+              accountNumber: data.bankInfo.accountNumber,
+              clabe: data.bankInfo.clabe,
+              card: data.bankInfo.card,
+            }}
+            onCopy={(value) => {
+              void navigator.clipboard?.writeText(value);
+            }}
+          />
+        )}
 
         <StorefrontCard level={2} density="default">
           <div className="flex items-start" style={{ gap: "var(--sf-space-sm)" }}>
