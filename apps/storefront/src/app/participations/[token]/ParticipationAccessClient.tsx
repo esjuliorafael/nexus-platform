@@ -10,11 +10,18 @@ import { StorefrontAutonomousCard, StorefrontCard } from "../../../components/ui
 import { StorefrontIcon } from "../../../components/ui/Icon";
 import { formatPrice } from "../../../utils/formatters";
 
-export function ParticipationAccessClient({ token }: { token: string }) {
-  const [data, setData] = useState<RaffleParticipationAccessResponse | null>(null);
+export function ParticipationAccessClient({
+  token,
+  initialData,
+}: {
+  token: string;
+  initialData: RaffleParticipationAccessResponse | null;
+}) {
+  const [data, setData] = useState<RaffleParticipationAccessResponse | null>(initialData);
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
+    if (initialData) return;
     let cancelled = false;
     const load = async () => {
       for (let attempt = 0; attempt < 3; attempt += 1) {
@@ -34,7 +41,7 @@ export function ParticipationAccessClient({ token }: { token: string }) {
     return () => {
       cancelled = true;
     };
-  }, [token]);
+  }, [initialData, token]);
 
   if (!data && !failed) {
     return <div className="mx-auto min-h-[58vh] max-w-5xl px-[var(--sf-inset-page)]" aria-busy="true" />;
