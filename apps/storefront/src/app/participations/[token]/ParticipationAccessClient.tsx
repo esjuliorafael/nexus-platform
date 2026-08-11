@@ -46,7 +46,7 @@ export function ParticipationAccessClient({ token }: { token: string }) {
         <StorefrontAutonomousCard className="w-full text-center" density="default">
           <StorefrontIcon icon={CircleAlert} variant="warning" className="mx-auto" />
           <h1 className="sf-text-h2 mt-[var(--sf-space-md)] text-stone-900">Consulta no disponible</h1>
-          <p className="sf-text-secondary mt-[var(--sf-space-xs)] text-stone-500">Este enlace es privado, pudo vencer o ya no est\u00e1 disponible.</p>
+          <p className="sf-text-secondary mt-[var(--sf-space-xs)] text-stone-500">Este enlace es privado, pudo vencer o ya no está disponible.</p>
           <Button asChild context="section" className="mt-[var(--sf-space-lg)]"><Link href="/raffles">Ver rifas</Link></Button>
         </StorefrontAutonomousCard>
       </div>
