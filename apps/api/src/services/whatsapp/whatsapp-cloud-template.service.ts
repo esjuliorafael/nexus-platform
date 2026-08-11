@@ -437,13 +437,21 @@ export function getCloudTemplateDefinitionHash(source: CloudTemplateSource) {
     (hasParticipationButton(source) || hasRecoveryButton(source))
       ? "\n[nexus-layout:dynamic-url-button-v2]"
       : "";
+  // The lookup template used to be named with the obsolete `_code` purpose.
+  // Include a naming revision in its definition hash so the corrected Meta
+  // template is tracked as a replacement and the old approved one remains a
+  // fallback until the new one is approved and activated per channel.
+  const namingRevision =
+    source.type === "PARTICIPATION_LOOKUP_CODE"
+      ? "\n[nexus-template-name:participation-lookup-v2]"
+      : "";
   if (!isRichInvitation(source.type)) {
     return getCloudTemplateContentHash(
-      `${getCloudTemplateBodyContent(source)}${dynamicButtonLayout}`,
+      `${getCloudTemplateBodyContent(source)}${dynamicButtonLayout}${namingRevision}`,
     );
   }
   return getCloudTemplateContentHash(
-    `${getCloudTemplateBodyContent(source)}\n[nexus-layout:image-header-footer-v2]${dynamicButtonLayout}`,
+    `${getCloudTemplateBodyContent(source)}\n[nexus-layout:image-header-footer-v2]${dynamicButtonLayout}${namingRevision}`,
   );
 }
 
@@ -464,7 +472,13 @@ function buildTemplateName(
     owner.kind === "principal"
       ? "principal"
       : `${slug(owner.purpose)}_${owner.channelId}`;
-  return `nexus_${ownerPart}_${source.scope.toLowerCase()}_${source.type.toLowerCase()}_${contentHash.slice(0, 8)}`;
+  // Keep the persisted type stable, but expose the current user-facing
+  // purpose in Meta's template name. This template no longer sends a code.
+  const typePart =
+    source.type === "PARTICIPATION_LOOKUP_CODE"
+      ? "participation_lookup"
+      : source.type.toLowerCase();
+  return `nexus_${ownerPart}_${source.scope.toLowerCase()}_${typePart}_${contentHash.slice(0, 8)}`;
 }
 
 function buildTemplateDefinition(
