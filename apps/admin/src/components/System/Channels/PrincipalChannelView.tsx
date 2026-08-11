@@ -850,7 +850,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                       void loadVersionTargets();
                     }}
                   >
-                    Versiones
+                    Sincronizar Cloud API
                   </NexusSectionButton>
                 )}
                 <NexusSectionButton
@@ -1041,31 +1041,11 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
             <NexusModal
               isOpen
               onClose={() => setIsVersionsOpen(false)}
-              title="Versiones de la plantilla"
+              title="Sincronizar Cloud API"
               eyebrow={editingTemplate.label}
               icon={FileText}
             >
               <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
-                <div
-                  className="flex flex-col border border-border-main bg-bg-muted"
-                  style={{
-                    gap: "var(--space-xs)",
-                    padding: "var(--padding-card-inner)",
-                    borderRadius: "var(--radius-inner-visual)",
-                  }}
-                >
-                  <p className="text-h2 font-semibold text-text-main">Versión Activa</p>
-                  <p className="text-secondary text-text-muted">
-                    {cloudTemplateStatus?.current && cloudTemplateStatus.status === "APPROVED"
-                      ? cloudTemplateStatus.templateName || "Aprobada en Cloud API"
-                      : "Nexus seguirá usando la versión aprobada anterior."}
-                  </p>
-                  <span className="text-label text-text-muted">
-                    {cloudTemplateStatus?.current && cloudTemplateStatus.status === "APPROVED"
-                      ? "Aprobada y activa"
-                      : "Sin cambios en el envío actual"}
-                  </span>
-                 </div>
                  {hasCloudReplacement && (
                    <div
                      className="flex flex-col border border-border-main bg-bg-muted"
