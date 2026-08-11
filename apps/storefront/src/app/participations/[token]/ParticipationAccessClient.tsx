@@ -66,7 +66,7 @@ export function ParticipationAccessClient({
   );
   const overallStatus = paid
     ? {
-        title: "Participaci\u00f3n confirmada",
+        title: "Participación confirmada",
         description: "Tus boletos ya participan en la rifa.",
         badge: "Pago confirmado",
         icon: CheckCircle2,
@@ -74,15 +74,15 @@ export function ParticipationAccessClient({
       }
     : cancelled
       ? {
-          title: "Participaci\u00f3n cancelada",
-          description: "Esta participaci\u00f3n ya no conserva sus boletos.",
+          title: "Participación cancelada",
+          description: "Esta participación ya no conserva sus boletos.",
           badge: "Cancelada",
           icon: CircleAlert,
           variant: "muted" as const,
         }
       : {
-          title: "Participaci\u00f3n pendiente",
-          description: "Confirma tu pago para conservar tu participaci\u00f3n.",
+          title: "Participación pendiente",
+          description: "Confirma tu pago para conservar tu participación.",
           badge: "Pago pendiente",
           icon: CreditCard,
           variant: "warning" as const,
@@ -98,7 +98,7 @@ export function ParticipationAccessClient({
             <StorefrontIcon icon={Ticket} variant="brand" />
             <p className="sf-text-eyebrow text-brand-600">Consulta privada</p>
           </div>
-          <h1 className="sf-text-h1 text-stone-900">Mi participaci\u00f3n</h1>
+          <h1 className="sf-text-h1 text-stone-900">Mi participación</h1>
           <p className="sf-text-secondary text-stone-500">{data.raffle.title}</p>
           {data.participantName && (
             <p className="sf-text-secondary text-stone-500">
@@ -155,7 +155,7 @@ export function ParticipationAccessClient({
                         <StorefrontIcon icon={Ticket} variant="muted" />
                         <span className="sf-text-h3 text-stone-900">{ticket.number}</span>
                       </div>
-                      {ticket.opportunities.length > 0 && <Badge variant="muted">{ticket.opportunities.length + 1} n\u00fameros</Badge>}
+                      {ticket.opportunities.length > 0 && <Badge variant="muted">{ticket.opportunities.length + 1} números</Badge>}
                     </div>
                     {ticket.opportunities.length > 0 && (
                       <div className="mt-[var(--sf-space-sm)]">

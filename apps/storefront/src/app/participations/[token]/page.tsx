@@ -3,7 +3,7 @@ import type { RaffleParticipationAccessResponse } from "../../../api/raffles";
 import { ParticipationAccessClient } from "./ParticipationAccessClient";
 
 export const metadata: Metadata = {
-  title: "Mi participaci\u00f3n",
+  title: "Mi participación",
   robots: { index: false, follow: false },
 };
 
