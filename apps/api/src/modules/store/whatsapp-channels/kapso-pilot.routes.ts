@@ -24,6 +24,7 @@ import {
   getCloudTemplateDefinitionHash,
   getCloudTemplateOwnerKey,
   getCloudTemplateScopesForPurpose,
+  getTemplateActiveVersionSettingKey,
   resolveCloudTemplateOwner,
   syncCloudTemplateCatalog,
   type CloudTemplateSource,
@@ -420,6 +421,33 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
           ? normalizeKapsoTemplateStatus(remoteTemplate.status)
           : null;
 
+        const activeVersionKey = getTemplateActiveVersionSettingKey(
+          source.scope,
+          source.type,
+          "CLOUD",
+          target.owner,
+        );
+        const activeVersionSetting = activeVersionKey
+          ? await server.storePrisma.setting.findUnique({
+              where: { key: activeVersionKey },
+              select: { value: true },
+            })
+          : null;
+        const activeVersion = activeVersionSetting?.value || "LEGACY";
+        const activeMapping = mappings.find(
+          (item) =>
+            item.scope === source.scope &&
+            item.type === source.type &&
+            item.variant === activeVersion,
+        );
+        const activeCandidate = candidates.find(
+          (item) =>
+            item.scope === source.scope &&
+            item.type === source.type &&
+            item.variant === activeVersion &&
+            item.status === "APPROVED",
+        );
+
         if (remoteTemplate && candidate) {
           await server.storePrisma.whatsappCloudTemplateCandidate.update({
             where: { id: candidate.id },
@@ -463,6 +491,12 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
             candidate?.status ||
             (current ? mapping?.status || "NOT_SYNCED" : "NOT_SYNCED"),
           current,
+          activeVersion,
+          contentHash: candidate?.contentHash || mapping?.contentHash || null,
+          activeContentHash:
+            activeCandidate?.contentHash || activeMapping?.contentHash || null,
+          activeTemplateName:
+            activeCandidate?.templateName || activeMapping?.templateName || null,
           lastError: candidate?.lastError || mapping?.lastError || null,
           replacementPending: Boolean(
             candidate && candidate.status !== "APPROVED",

@@ -883,7 +883,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                   ? "Consultando estado de Cloud API"
                   : cloudTemplateStatus?.status === "APPROVED"
                   ? cloudTemplateStatus.current
-                    ? "Versión Cloud API activa"
+                    ? "Estado de la versión Cloud API"
                     : "Versión Cloud API aprobada, pendiente de activar"
                   : cloudTemplateStatus?.status === "PENDING"
                     ? "Versión Cloud API en revisión de Meta"
@@ -923,8 +923,20 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                                   ? "En revisión de Meta"
                                   : status?.status === "REJECTED"
                                     ? "Rechazada por Meta"
-                                    : "No aprobada en este canal"}
+                                  : "No aprobada en este canal"}
                           </p>
+                          <div className="flex flex-wrap items-center" style={{ gap: "var(--space-xs)", marginTop: "var(--space-xs)" }}>
+                            {status?.contentHash && (
+                              <span className="text-label text-text-muted" title={status.contentHash}>
+                                Hash de esta version: {String(status.contentHash).slice(0, 8)}
+                              </span>
+                            )}
+                            {status?.activeContentHash && (
+                              <span className="text-label text-text-muted" title={status.activeContentHash}>
+                                Hash activo: {String(status.activeContentHash).slice(0, 8)}
+                              </span>
+                            )}
+                          </div>
                         </div>
                         <NexusSectionButton
                           variant="secondary"
@@ -932,7 +944,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                           disabled={!canActivate || isActive}
                           onClick={() => activateCloudOwner(ownerKey, status?.label || ownerKey, status)}
                         >
-                          {isActive ? "Versión Activa" : "Activar en este canal"}
+                          {isActive ? "Activa en este canal" : "Activar en este canal"}
                         </NexusSectionButton>
                       </div>
                     );
