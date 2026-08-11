@@ -15,10 +15,25 @@ export function ParticipationAccessClient({ token }: { token: string }) {
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
-    raffleApi
-      .getParticipationAccess(token)
-      .then(setData)
-      .catch(() => setFailed(true));
+    let cancelled = false;
+    const load = async () => {
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        try {
+          const access = await raffleApi.getParticipationAccess(token);
+          if (!cancelled) setData(access);
+          return;
+        } catch (error: any) {
+          const status = error?.response?.status;
+          if (status === 429 || attempt === 2) break;
+          await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
+        }
+      }
+      if (!cancelled) setFailed(true);
+    };
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, [token]);
 
   if (!data && !failed) {

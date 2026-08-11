@@ -69,7 +69,7 @@ export const raffleApi = {
   getById: (id: number) => client.get<Raffle>(`/raffles/${id}`).then(res => res.data),
   getParticipationAccess: (token: string) =>
     client
-      .get<RaffleParticipationAccessResponse>(`/raffles/participations/${token}`, {
+      .get<RaffleParticipationAccessResponse>(`/raffles/participations/${token}?access_ts=${Date.now()}`, {
         headers: { "Cache-Control": "no-store" },
       })
       .then((res) => res.data),

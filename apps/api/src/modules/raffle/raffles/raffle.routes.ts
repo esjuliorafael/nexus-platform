@@ -404,13 +404,15 @@ export async function raffleRoutes(server: FastifyInstance) {
       const tokenSchema = z.object({ token: z.string().min(32).max(180) });
       try {
         const { token } = tokenSchema.parse(request.params);
+        reply.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+        reply.header("Pragma", "no-cache");
+        reply.header("Vary", "Origin");
         const access = await getRaffleParticipationAccess(getPrisma(), token);
         if (!access) {
           return reply.status(404).send({
             message: "La consulta privada no est\u00e1 disponible o ha vencido.",
           });
         }
-        reply.header("Cache-Control", "private, no-store");
         return access;
       } catch (error: any) {
         if (error?.issues) {
