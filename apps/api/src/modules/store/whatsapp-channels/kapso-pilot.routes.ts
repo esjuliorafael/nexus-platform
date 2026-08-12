@@ -22,6 +22,9 @@ import {
   buildCanonicalCloudTemplateSources,
   CLOUD_TEMPLATE_SETTING_KEYS,
   getCloudTemplateDefinitionHash,
+  buildTemplateName,
+  extractCloudTemplateVariables,
+  getCloudTemplateBodyContent,
   getCloudTemplateOwnerKey,
   getCloudTemplateScopesForPurpose,
   getTemplateActiveVersionSettingKey,
@@ -410,12 +413,22 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
                 item.contentHash === contentHash,
             )
           : null;
-        const remoteTemplate = remoteTemplates.find(
-          (item) =>
-            String(item.name || "") ===
-              String(candidate?.templateName || mapping?.templateName || "") &&
-            String(item.language || "") ===
-              String(candidate?.languageCode || mapping?.languageCode || ""),
+        const expectedTemplateName = buildTemplateName(
+          target.owner,
+          source,
+          contentHash || "",
+        );
+        const remoteNames = new Set(
+          [candidate?.templateName, mapping?.templateName, expectedTemplateName]
+            .map((value) => String(value || "").trim())
+            .filter(Boolean),
+        );
+        // Kapso can return the locale as `es` or `es_MX` depending on the
+        // connected WABA. The template name and remote status are the
+        // authoritative identity here; a locale spelling difference must not
+        // hide an already approved template.
+        const remoteTemplate = remoteTemplates.find((item) =>
+          remoteNames.has(String(item.name || "").trim()),
         );
         const remoteStatus = remoteTemplate
           ? normalizeKapsoTemplateStatus(remoteTemplate.status)
@@ -454,6 +467,8 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
             data: {
               templateId:
                 String(remoteTemplate.id || "") || candidate.templateId,
+              languageCode:
+                String(remoteTemplate.language || "") || candidate.languageCode,
               status: remoteStatus!,
               category: String(remoteTemplate.category || candidate.category),
               lastError: null,
@@ -467,9 +482,57 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
             data: {
               templateId:
                 String(remoteTemplate.id || "") || mapping.templateId,
+              languageCode:
+                String(remoteTemplate.language || "") || mapping.languageCode,
               status: remoteStatus!,
               category: String(remoteTemplate.category || mapping.category),
               lastError: null,
+              lastSyncedAt: new Date(),
+            },
+          });
+        }
+
+        // Recover a mapping if Kapso already contains the approved template
+        // but a previous sync did not persist it locally. This makes the
+        // activation action and the runtime sender converge on the same
+        // approved remote template.
+        if (remoteTemplate && !candidate && !mapping) {
+          await server.storePrisma.whatsappCloudTemplate.upsert({
+            where: {
+              ownerKey_scope_type_variant: {
+                ownerKey,
+                scope: source.scope,
+                type: source.type,
+                variant: source.variant || query.variant,
+              },
+            },
+            create: {
+              channelId:
+                target.owner.kind === "channel" ? target.owner.channelId : null,
+              ownerKey,
+              scope: source.scope,
+              type: source.type,
+              variant: source.variant,
+              templateName: String(remoteTemplate.name || expectedTemplateName),
+              templateId: String(remoteTemplate.id || "") || null,
+              category: String(remoteTemplate.category || "UTILITY"),
+              languageCode:
+                String(remoteTemplate.language || "") || "es_MX",
+              status: normalizeKapsoTemplateStatus(remoteTemplate.status),
+              parameterNames: extractCloudTemplateVariables(
+                getCloudTemplateBodyContent(source),
+              ),
+              contentHash: contentHash || "",
+              lastSyncedAt: new Date(),
+            },
+            update: {
+              templateName: String(remoteTemplate.name || expectedTemplateName),
+              templateId: String(remoteTemplate.id || "") || null,
+              category: String(remoteTemplate.category || "UTILITY"),
+              languageCode:
+                String(remoteTemplate.language || "") || "es_MX",
+              status: normalizeKapsoTemplateStatus(remoteTemplate.status),
+              contentHash: contentHash || "",
               lastSyncedAt: new Date(),
             },
           });
@@ -490,7 +553,12 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
             remoteStatus ||
             candidate?.status ||
             (current ? mapping?.status || "NOT_SYNCED" : "NOT_SYNCED"),
-          current,
+          current:
+            current ||
+            Boolean(
+              remoteTemplate &&
+                normalizeKapsoTemplateStatus(remoteTemplate.status) === "APPROVED",
+            ),
           activeVersion,
           contentHash: candidate?.contentHash || mapping?.contentHash || null,
           activeContentHash:

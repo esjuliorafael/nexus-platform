@@ -463,7 +463,7 @@ function slug(value: string) {
     .slice(0, 40);
 }
 
-function buildTemplateName(
+export function buildTemplateName(
   owner: CloudTemplateOwner,
   source: CloudTemplateSource,
   contentHash: string,
