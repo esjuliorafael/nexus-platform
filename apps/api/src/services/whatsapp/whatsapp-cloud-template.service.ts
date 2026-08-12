@@ -419,6 +419,13 @@ export function getCloudTemplateBodyContent(source: CloudTemplateSource) {
       "",
     )
     .replace(/\{\{recovery_url\}\}/gi, "")
+    .replace(
+      source.variant === "SIMPLIFIED" && source.type === "RESULT_PARTICIPANTS"
+        ? /(?:^|\n)[^\n]*\{\{raffle_url\}\}[^\n]*(?=\n|$)/gi
+        : /$^/,
+      "",
+    )
+    .replace(/\{\{raffle_url\}\}/gi, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
   if (!isRichInvitation(source.type)) return content;
@@ -434,8 +441,10 @@ export function getCloudTemplateBodyContent(source: CloudTemplateSource) {
 export function getCloudTemplateDefinitionHash(source: CloudTemplateSource) {
   const dynamicButtonLayout =
     source.variant === "SIMPLIFIED" &&
-    (hasParticipationButton(source) || hasRecoveryButton(source))
-      ? "\n[nexus-layout:dynamic-url-button-v2]"
+    (hasParticipationButton(source) ||
+      hasRecoveryButton(source) ||
+      hasResultsButton(source))
+      ? "\n[nexus-layout:dynamic-url-button-v3]"
       : "";
   // The lookup template used to be named with the obsolete `_code` purpose.
   // Include a naming revision in its definition hash so the corrected Meta
@@ -452,6 +461,44 @@ export function getCloudTemplateDefinitionHash(source: CloudTemplateSource) {
   }
   return getCloudTemplateContentHash(
     `${getCloudTemplateBodyContent(source)}\n[nexus-layout:image-header-footer-v2]${dynamicButtonLayout}${namingRevision}`,
+  );
+}
+
+function getResultsButtonBaseUrl() {
+  const baseUrl = (
+    process.env.STOREFRONT_HTTPS_URL ||
+    process.env.STOREFRONT_URL ||
+    "https://rancholastrojes.com.mx"
+  ).replace(/\/+$/, "");
+
+  return `${baseUrl}/raffles`;
+}
+
+function getResultsButtonSuffix(value: unknown) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return rawValue;
+
+  try {
+    const parsed = new URL(rawValue);
+    const marker = "/raffles/";
+    const markerIndex = parsed.pathname.indexOf(marker);
+    if (markerIndex >= 0) {
+      return parsed.pathname
+        .slice(markerIndex + marker.length)
+        .replace(/^\/+|\/+$/g, "");
+    }
+  } catch {
+    // Legacy callers may already provide only the raffle id.
+  }
+
+  return rawValue.replace(/^\/+/, "").replace(/^raffles\//i, "");
+}
+
+function hasResultsButton(source: CloudTemplateSource) {
+  return (
+    source.variant === "SIMPLIFIED" &&
+    source.type === "RESULT_PARTICIPANTS" &&
+    /\{\{raffle_url\}\}/.test(source.content)
   );
 }
 
@@ -579,6 +626,21 @@ function buildTemplateDefinition(
                   text: "Reintentar pago",
                   url: `${getRecoveryButtonBaseUrl()}/{{1}}`,
                   example: ["checkout#recovery=demo-token"],
+                },
+              ],
+            },
+          ]
+        : []),
+      ...(hasResultsButton(source)
+        ? [
+            {
+              type: "BUTTONS" as const,
+              buttons: [
+                {
+                  type: "URL" as const,
+                  text: "Ver resultados",
+                  url: `${getResultsButtonBaseUrl()}/{{1}}`,
+                  example: ["1"],
                 },
               ],
             },
@@ -1068,6 +1130,28 @@ export async function getApprovedCloudTemplate(params: {
           type: "text",
           text: normalizeCloudTemplateParameterValue(
             getRecoveryButtonSuffix(params.values.recovery_url),
+          ),
+        },
+      ],
+    });
+  }
+  if (
+    hasResultsButton({
+      scope: params.scope,
+      type: params.type,
+      content: params.sourceContent,
+      variant,
+    })
+  ) {
+    components.push({
+      type: "button",
+      sub_type: "url",
+      index: "0",
+      parameters: [
+        {
+          type: "text",
+          text: normalizeCloudTemplateParameterValue(
+            getResultsButtonSuffix(params.values.raffle_url),
           ),
         },
       ],

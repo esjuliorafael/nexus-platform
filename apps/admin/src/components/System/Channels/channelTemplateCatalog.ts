@@ -668,24 +668,24 @@ La devoluci\u00f3n de tu participaci\u00f3n fue procesada correctamente.
 {{participation_url}}`,
   RESULT_WINNER: `\u00a1Felicidades, {{customer_name}}! \u{1F3C6}
 
-Tu participaci\u00f3n result\u00f3 ganadora en "{{raffle_name}}". \ud83c\udfc6
+Tu participaci\u00f3n result\u00f3 ganadora en "{{raffle_name}}". \u2705
 
-\ud83e\udd47 Lugar: {{place}}
-\ud83c\udf81 Premio: {{prize}}
-\ud83c\udfaf N\u00famero ganador: {{winning_number}}
+Lugar: {{place}}
+Premio: {{prize}}
+N\u00famero ganador: {{winning_number}}
 
-\u{1F50E} Consulta tu participaci\u00f3n en Ver participaci\u00f3n:
+\u{1F50E} Consulta los detalles de tu participaci\u00f3n en el bot\u00f3n Ver participaci\u00f3n:
 
 {{participation_url}}`,
   RESULT_PARTICIPANTS: `Hola, {{customer_name}}. \ud83d\udce3
 
-El resultado de la rifa "{{raffle_name}}" ya fue publicado. \u2705
+Los resultados de la rifa "{{raffle_name}}" ya fueron publicados. \u2705
 
-{{result_list}}
+Consulta el resultado oficial y los n\u00fameros ganadores en el bot\u00f3n Ver resultados:
 
-\u{1F50E} Consulta el detalle de tu participaci\u00f3n:
+{{raffle_url}}
 
-{{participation_url}}`,
+Gracias por participar.`,
 };
 
 export const getTemplateStorageKey = (
