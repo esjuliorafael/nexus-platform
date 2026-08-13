@@ -18,6 +18,7 @@ export type CloudTemplateType =
   | "REMINDER"
   | "OPENING"
   | "DRAW_REMINDER"
+  | "DATE_CHANGE"
   | "RAFFLE_INVITATION"
   | "RESULT_WINNER"
   | "RESULT_PARTICIPANTS"
@@ -65,6 +66,11 @@ export const CLOUD_TEMPLATE_SETTING_KEYS: Array<{
     scope: "RAFFLES",
     type: "DRAW_REMINDER",
     key: "whatsapp_global_raffle_draw_reminder",
+  },
+  {
+    scope: "RAFFLES",
+    type: "DATE_CHANGE",
+    key: "whatsapp_global_raffle_date_change",
   },
   { scope: "RAFFLES", type: "RESERVATION", key: "whatsapp_global_raffle_res" },
   {
@@ -115,7 +121,11 @@ export const CLOUD_TEMPLATE_SETTING_KEYS: Array<{
   },
 ];
 
-const CLOUD_TEMPLATE_DEFAULT_CONTENTS: Partial<Record<CloudTemplateType, string>> = {
+const CLOUD_TEMPLATE_DEFAULT_CONTENTS: Partial<
+  Record<CloudTemplateType, string>
+> = {
+  DATE_CHANGE:
+    'Hola, {{customer_name}}. 📅\n\nLa fecha de la rifa "{{raffle_name}}" fue actualizada.\n\nNueva fecha y hora:\n{{raffle_date}}\n\nConsulta el detalle de tu participación desde el botón Ver participación.',
   PARTICIPATION_LOOKUP_CODE:
     "\u{1F50E} Recibimos tu solicitud para consultar tus participaciones.\n\nConsulta tus boletos y su estado desde el bot\u00f3n Ver participaci\u00f3n:\n\n{{participation_url}}",
 };
@@ -407,10 +417,7 @@ export function getCloudTemplateBodyContent(source: CloudTemplateSource) {
     )
     // The URL is represented by the Cloud API button. Remove any remaining
     // token-bearing line so custom wording cannot submit it twice to Meta.
-    .replace(
-      /(?:^|\n)[^\n]*\{\{participation_url\}\}[^\n]*(?=\n|$)/gi,
-      "",
-    )
+    .replace(/(?:^|\n)[^\n]*\{\{participation_url\}\}[^\n]*(?=\n|$)/gi, "")
     .replace(/\{\{participation_url\}\}/gi, "")
     .replace(
       source.variant === "SIMPLIFIED" && source.type === "PAYMENT_RECOVERY"
@@ -598,7 +605,7 @@ function buildTemplateDefinition(
             {
               type: "FOOTER" as const,
               text: "Responde BAJA para dejar de recibir invitaciones.",
-          },
+            },
           ]
         : []),
       ...(hasParticipationButton(source)
@@ -1007,7 +1014,10 @@ export async function getApprovedCloudTemplate(params: {
 
     // The lookup template changed from an OTP code to a private-link request.
     // Never send the old code template as an implicit fallback for this type.
-    if (params.type === "PARTICIPATION_LOOKUP_CODE" && mapping.contentHash !== desiredContentHash) {
+    if (
+      params.type === "PARTICIPATION_LOOKUP_CODE" &&
+      mapping.contentHash !== desiredContentHash
+    ) {
       mapping = null;
     }
   }
@@ -1093,12 +1103,14 @@ export async function getApprovedCloudTemplate(params: {
       })),
     });
   }
-  if (hasParticipationButton({
-    scope: params.scope,
-    type: params.type,
-    content: params.sourceContent,
-    variant,
-  })) {
+  if (
+    hasParticipationButton({
+      scope: params.scope,
+      type: params.type,
+      content: params.sourceContent,
+      variant,
+    })
+  ) {
     components.push({
       type: "button",
       sub_type: "url",

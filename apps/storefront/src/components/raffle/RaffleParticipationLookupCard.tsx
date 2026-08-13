@@ -1,7 +1,7 @@
 "use client";
 
 import { FormEvent, ReactNode, useEffect, useState } from "react";
-import { ArrowRight, CheckCircle2, LucideIcon, Search, ShieldCheck } from "lucide-react";
+import { ArrowRight, LucideIcon, Search, ShieldCheck } from "lucide-react";
 import { raffleApi } from "../../api/raffles";
 import { Button } from "../ui/Button";
 import { StorefrontAutonomousCard } from "../ui/Card";
@@ -88,9 +88,9 @@ export function RaffleParticipationLookupCard({ raffleId }: { raffleId: number }
   const content = submitted ? (
     <div className="flex flex-col" style={{ gap: "var(--sf-space-md)" }}>
       <div className="flex items-start" style={{ gap: "var(--sf-space-sm)" }}>
-        <CheckCircle2 className="mt-0.5 shrink-0 text-emerald-600" size={20} />
+        <Search className="mt-0.5 shrink-0 text-brand-600" size={20} />
         <p className="sf-text-secondary text-stone-600">
-          Si encontramos una participaci&oacute;n para este n&uacute;mero, recibir&aacute;s un enlace por WhatsApp para consultar tus boletos y su estado.
+          Estamos verificando el n&uacute;mero ingresado. Te enviaremos un mensaje por WhatsApp con el resultado de la consulta.
         </p>
       </div>
       <Button type="button" context="section" onClick={closeLookup} className="w-full">
@@ -100,7 +100,7 @@ export function RaffleParticipationLookupCard({ raffleId }: { raffleId: number }
   ) : (
     <form onSubmit={requestLookup} className="flex flex-col" style={{ gap: "var(--sf-space-md)" }}>
       <p className="sf-text-secondary text-stone-600">
-        Ingresa el n&uacute;mero de WhatsApp que usaste al apartar tus boletos. Te enviaremos un enlace privado si encontramos una participaci&oacute;n.
+        Ingresa el n&uacute;mero de WhatsApp que usaste al apartar tus boletos. Te enviaremos el resultado de la consulta por WhatsApp.
       </p>
       <div className="flex flex-col" style={{ gap: "var(--sf-space-sm)" }}>
         <StorefrontPhoneField
@@ -137,7 +137,13 @@ export function RaffleParticipationLookupCard({ raffleId }: { raffleId: number }
         </div>
       </StorefrontAutonomousCard>
 
-      <LookupSurface isMobile={isMobile} isOpen={isOpen} onClose={closeLookup} title="Consultar participacion" icon={ShieldCheck}>
+      <LookupSurface
+        isMobile={isMobile}
+        isOpen={isOpen}
+        onClose={closeLookup}
+        title={submitted ? "Consulta recibida" : "Consultar participación"}
+        icon={submitted ? Search : ShieldCheck}
+      >
         {content}
       </LookupSurface>
     </>

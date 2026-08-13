@@ -10,6 +10,7 @@ export type ChannelTemplateType =
   | "RELEASE"
   | "OPENING"
   | "DRAW_REMINDER"
+  | "DATE_CHANGE"
   | "RAFFLE_INVITATION"
   | "RESULT_WINNER"
   | "RESULT_PARTICIPANTS"
@@ -292,6 +293,14 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
         ],
       },
       {
+        type: "DATE_CHANGE",
+        key: "whatsapp_global_raffle_date_change",
+        label: "Cambio de fecha de la rifa",
+        variables: ["{{customer_name}}", "{{raffle_name}}", "{{raffle_date}}"],
+        defaultContent:
+          'Hola, {{customer_name}}. 📅\n\nLa fecha de la rifa "{{raffle_name}}" fue actualizada.\n\nNueva fecha y hora:\n{{raffle_date}}\n\nConsulta el detalle de tu participación desde el botón Ver participación.\n\nGracias por participar y mucha suerte. 🍀',
+      },
+      {
         type: "RESULT_WINNER",
         key: "whatsapp_global_raffle_winner",
         label: "Ganador de la rifa",
@@ -387,10 +396,14 @@ const RAFFLE_TICKET_TEMPLATE_TYPES = new Set<ChannelTemplateType>([
   "RESULT_WINNER",
 ]);
 
-const variantKey = (type: ChannelTemplateType, variant: "simple" | "opportunities") =>
-  `whatsapp_global_raffle_${type.toLowerCase()}_${variant}`;
+const variantKey = (
+  type: ChannelTemplateType,
+  variant: "simple" | "opportunities",
+) => `whatsapp_global_raffle_${type.toLowerCase()}_${variant}`;
 
-const raffleCloudTemplateDefaults: Partial<Record<ChannelTemplateType, string>> = {
+const raffleCloudTemplateDefaults: Partial<
+  Record<ChannelTemplateType, string>
+> = {
   RESERVATION: `\u00a1Hola, {{customer_name}}! \u{1F39F}\u{FE0F}
 
 Tu participaci\u00f3n en la \u201c{{raffle_name}}\u201d qued\u00f3 apartada correctamente. \u2705
@@ -580,7 +593,10 @@ const getRaffleCloudTemplateDefault = (
   const opportunityRule =
     "Cada boleto participa con {{opportunity_count}} n\u00fameros: el n\u00famero que eliges y {{additional_opportunity_count}} oportunidades adicionales.";
 
-  return base.replace("{{ticket_list}}", `{{ticket_list}}\n\n${opportunityRule}`);
+  return base.replace(
+    "{{ticket_list}}",
+    `{{ticket_list}}\n\n${opportunityRule}`,
+  );
 };
 
 const SIMPLIFIED_RAFFLE_TEMPLATE_CONTENT: Partial<
@@ -691,25 +707,27 @@ Gracias por participar.`,
 export const getTemplateStorageKey = (
   template: ChannelTemplateDefinition,
   version: ChannelTemplateVersion,
-) => version === "SIMPLIFIED" ? `${template.key}_simplified` : template.key;
+) => (version === "SIMPLIFIED" ? `${template.key}_simplified` : template.key);
 
 export const getTemplateActiveVersionKey = (
   template: ChannelTemplateDefinition,
   provider: "EVOLUTION" | "CLOUD",
   ownerKey: string,
-) => `${template.key}_active_version_${provider.toLowerCase()}_${ownerKey === "principal" ? "principal" : ownerKey.replace(/^channel:/, "channel_")}`;
+) =>
+  `${template.key}_active_version_${provider.toLowerCase()}_${ownerKey === "principal" ? "principal" : ownerKey.replace(/^channel:/, "channel_")}`;
 
 export const getTemplateVariantContent = (
   template: ChannelTemplateDefinition,
   version: ChannelTemplateVersion,
   scope?: ChannelTemplateScope,
-) => version === "SIMPLIFIED"
-  ? scope === "RAFFLES"
-    ? SIMPLIFIED_RAFFLE_TEMPLATE_CONTENT[template.type] || ""
-    : ""
-  : template.simplifiedOnly
-    ? ""
-    : template.defaultContent || "";
+) =>
+  version === "SIMPLIFIED"
+    ? scope === "RAFFLES"
+      ? SIMPLIFIED_RAFFLE_TEMPLATE_CONTENT[template.type] || ""
+      : ""
+    : template.simplifiedOnly
+      ? ""
+      : template.defaultContent || "";
 
 export const getTemplateVariantVariables = (
   template: ChannelTemplateDefinition,
@@ -722,7 +740,9 @@ export const getTemplateVariantVariables = (
     content.matchAll(/\{\{([a-z][a-z0-9_]*)\}\}/g),
     (match) => `{{${match[1]}}}`,
   );
-  return variables.filter((variable, index) => variables.indexOf(variable) === index);
+  return variables.filter(
+    (variable, index) => variables.indexOf(variable) === index,
+  );
 };
 
 export const getChannelTemplateEditorContent = (
@@ -742,9 +762,17 @@ export const getChannelTemplateEditorContent = (
 
 const TEMPLATE_ORDER_BY_GROUP: Record<string, ChannelTemplateType[]> = {
   "store-reservations": ["RESERVATION", "RESTORED", "REMINDER", "RELEASE"],
-  "store-payments": ["PAYMENT_CONFIRMED", "PAYMENT_RECOVERY", "PAYMENT_REFUNDED"],
+  "store-payments": [
+    "PAYMENT_CONFIRMED",
+    "PAYMENT_RECOVERY",
+    "PAYMENT_REFUNDED",
+  ],
   "raffle-participations": ["RESERVATION", "RESTORED", "REMINDER", "RELEASE"],
-  "raffle-payments": ["PAYMENT_CONFIRMED", "PAYMENT_RECOVERY", "PAYMENT_REFUNDED"],
+  "raffle-payments": [
+    "PAYMENT_CONFIRMED",
+    "PAYMENT_RECOVERY",
+    "PAYMENT_REFUNDED",
+  ],
   "raffle-results": ["DRAW_REMINDER", "RESULT_WINNER", "RESULT_PARTICIPANTS"],
   "raffle-verification": ["PARTICIPATION_LOOKUP_CODE"],
   "raffle-preferences": ["MARKETING_SUBSCRIBED", "MARKETING_UNSUBSCRIBED"],
@@ -765,8 +793,9 @@ const TEMPLATE_GROUP_ORDER: Record<ChannelTemplateScope, string[]> = {
 };
 
 const orderTemplateGroups = (scope: ChannelTemplateScope) =>
-  CHANNEL_TEMPLATE_GROUPS
-    .filter((group) => group.scope === scope && group.templates.length > 0)
+  CHANNEL_TEMPLATE_GROUPS.filter(
+    (group) => group.scope === scope && group.templates.length > 0,
+  )
     .sort(
       (left, right) =>
         TEMPLATE_GROUP_ORDER[scope].indexOf(left.key) -
@@ -777,8 +806,7 @@ const orderTemplateGroups = (scope: ChannelTemplateScope) =>
       return {
         ...group,
         templates: [...group.templates].sort(
-          (left, right) =>
-            order.indexOf(left.type) - order.indexOf(right.type),
+          (left, right) => order.indexOf(left.type) - order.indexOf(right.type),
         ),
       };
     });

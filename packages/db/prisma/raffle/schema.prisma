@@ -219,6 +219,8 @@ model RaffleDrawReminderCampaign {
   id                       String                       @id @default(uuid()) @db.Uuid
   raffleId                 Int                          @map("raffle_id")
   drawDate                 DateTime                     @map("draw_date")
+  kind                     RaffleCommunicationKind     @default(DRAW_REMINDER)
+  previousDrawDate         DateTime?                    @map("previous_draw_date")
   status                   RaffleResultCampaignStatus   @default(QUEUED)
   templateContent          String                       @map("template_content")
   principalTemplateContent String                       @map("principal_template_content")
@@ -235,9 +237,14 @@ model RaffleDrawReminderCampaign {
   raffle                   Raffle                       @relation(fields: [raffleId], references: [id], onDelete: Cascade)
   recipients               RaffleDrawReminderRecipient[]
 
-  @@unique([raffleId, drawDate])
+  @@unique([raffleId, drawDate, kind])
   @@index([raffleId, createdAt])
   @@map("raffle_draw_reminder_campaigns")
+}
+
+enum RaffleCommunicationKind {
+  DRAW_REMINDER
+  DATE_CHANGE
 }
 
 model RaffleDrawReminderRecipient {

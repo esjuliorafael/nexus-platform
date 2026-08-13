@@ -90,6 +90,8 @@ const requiredTemplatesForPurpose = (purpose: string) =>
     ? [
         "OPENING",
         "DRAW_REMINDER",
+        "DATE_CHANGE",
+        "DATE_CHANGE",
         "RESERVATION",
         "RESTORED",
         "PAYMENT_CONFIRMED",
@@ -122,6 +124,7 @@ const PRINCIPAL_TEMPLATE_KEYS: Record<string, string> = {
   "STORE:RELEASE": "whatsapp_global_store_rel",
   "RAFFLES:OPENING": "whatsapp_global_raffle_opening",
   "RAFFLES:DRAW_REMINDER": "whatsapp_global_raffle_draw_reminder",
+  "RAFFLES:DATE_CHANGE": "whatsapp_global_raffle_date_change",
   "RAFFLES:RESERVATION": "whatsapp_global_raffle_res",
   "RAFFLES:RESTORED": "whatsapp_global_raffle_restored",
   "RAFFLES:PAYMENT_CONFIRMED": "whatsapp_global_raffle_pay",
@@ -351,6 +354,7 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
                   "whatsapp_global_raffle_reminder",
                   "whatsapp_global_raffle_opening",
                   "whatsapp_global_raffle_draw_reminder",
+                  "whatsapp_global_raffle_date_change",
                   "whatsapp_global_raffle_invitation",
                   "whatsapp_global_raffle_winner",
                   "whatsapp_global_raffle_results",
@@ -469,7 +473,11 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
                   ) ||
                   getSetting(settings, "whatsapp_global_raffle_reminder") ||
                   getSetting(settings, "whatsapp_global_raffle_opening") ||
-                  getSetting(settings, "whatsapp_global_raffle_draw_reminder") ||
+                  getSetting(
+                    settings,
+                    "whatsapp_global_raffle_draw_reminder",
+                  ) ||
+                  getSetting(settings, "whatsapp_global_raffle_date_change") ||
                   getSetting(settings, "whatsapp_global_raffle_invitation") ||
                   getSetting(settings, "whatsapp_global_raffle_winner") ||
                   getSetting(settings, "whatsapp_global_raffle_results"),
@@ -493,6 +501,7 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
               getSetting(settings, "whatsapp_global_raffle_reminder"),
               getSetting(settings, "whatsapp_global_raffle_opening"),
               getSetting(settings, "whatsapp_global_raffle_draw_reminder"),
+              getSetting(settings, "whatsapp_global_raffle_date_change"),
               getSetting(settings, "whatsapp_global_raffle_invitation"),
               getSetting(settings, "whatsapp_global_raffle_winner"),
               getSetting(settings, "whatsapp_global_raffle_results"),

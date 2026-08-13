@@ -8,6 +8,7 @@ import {
   CreditCard,
   Eye,
   Hash,
+  Megaphone,
   ReceiptText,
   Ticket,
   WalletCards,
@@ -26,6 +27,7 @@ import { useRaffleOperationalOverview } from "./useRaffleOperationalOverview";
 import { RaffleResultSection } from "./RaffleResultSection";
 import { RaffleResultCommunicationSection } from "./RaffleResultCommunicationSection";
 import { RaffleInvitationSection } from "./RaffleInvitationSection";
+import { RaffleDateChangeSection } from "./RaffleDateChangeSection";
 
 interface RaffleOverviewViewProps {
   raffle: Raffle;
@@ -177,10 +179,7 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
   }, [historyPage, historyTotalPages]);
 
   return (
-    <div
-      className="flex flex-col"
-      style={{ gap: "var(--space-lg)" }}
-    >
+    <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
       <div
         className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4"
         style={{ gap: "var(--space-md)" }}
@@ -309,7 +308,10 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
                 </span>
               </div>
               <div className="text-secondary text-text-muted sm:text-right">
-                {(overview?.messagingCost?.totalDelivered || 0).toLocaleString("es-MX")} entregas Cloud API
+                {(overview?.messagingCost?.totalDelivered || 0).toLocaleString(
+                  "es-MX",
+                )}{" "}
+                entregas Cloud API
               </div>
             </div>
 
@@ -335,10 +337,15 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
                           ? "Norteamérica"
                           : item.country === "GT"
                             ? "Resto de Latinoamérica"
-                          : item.country} · {item.category === "MARKETING" ? "Promocional" : "Operativa"}
+                            : item.country}{" "}
+                      ·{" "}
+                      {item.category === "MARKETING"
+                        ? "Promocional"
+                        : "Operativa"}
                     </span>
                     <span className="text-secondary font-bold text-text-main tabular-nums">
-                      {item.delivered} {item.delivered === 1 ? "entrega" : "entregas"}
+                      {item.delivered}{" "}
+                      {item.delivered === 1 ? "entrega" : "entregas"}
                     </span>
                     <span className="text-secondary font-bold text-emerald-700 tabular-nums">
                       {formatMxn(item.estimatedMxn)}
@@ -348,32 +355,39 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
               </div>
             ) : (
               <p className="text-secondary text-text-muted">
-                Aún no hay plantillas entregadas mediante Cloud API para esta rifa.
+                Aún no hay plantillas entregadas mediante Cloud API para esta
+                rifa.
               </p>
             )}
 
             {(overview?.messagingCost?.unpriced || 0) > 0 && (
               <p className="text-secondary text-amber-700">
-                {overview?.messagingCost.unpriced} entregas no se incluyen porque su destino o tarifa Meta aún no está configurado.
+                {overview?.messagingCost.unpriced} entregas no se incluyen
+                porque su destino o tarifa Meta aún no está configurado.
               </p>
             )}
             {(overview?.messagingCost?.exempt || 0) > 0 && (
               <p className="text-secondary text-emerald-700">
-                {overview?.messagingCost.exempt} entregas operativas exentas por una conversación activa de 24 horas.
+                {overview?.messagingCost.exempt} entregas operativas exentas por
+                una conversación activa de 24 horas.
               </p>
             )}
             {(overview?.messagingCost?.delivered || 0) > 0 && (
               <p className="text-secondary text-text-muted">
-                {overview?.messagingCost.delivered} entregas estimadas como facturables.
+                {overview?.messagingCost.delivered} entregas estimadas como
+                facturables.
               </p>
             )}
             {(overview?.messagingCost?.legacy || 0) > 0 && (
               <p className="text-secondary text-amber-700">
-                {overview?.messagingCost.legacy} entregas históricas no tenían snapshot y usan la tarifa de referencia actual.
+                {overview?.messagingCost.legacy} entregas históricas no tenían
+                snapshot y usan la tarifa de referencia actual.
               </p>
             )}
             <p className="text-secondary text-text-muted">
-              Referencia de tarifas {overview?.messagingCost?.rateCardVersion}. Meta confirma el importe final en su facturación según mercado, categoría y condiciones de entrega.
+              Referencia de tarifas {overview?.messagingCost?.rateCardVersion}.
+              Meta confirma el importe final en su facturación según mercado,
+              categoría y condiciones de entrega.
             </p>
           </div>
         )}
@@ -417,18 +431,33 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
         </div>
       </NexusSection>
 
-      <RaffleInvitationSection
-        raffle={raffle}
-        canManageOperations={canManageOperations}
-        showToast={showToast}
-      />
-
-      <RaffleResultCommunicationSection
-        raffle={raffle}
-        canManageOperations={canManageOperations}
-        showToast={showToast}
-        content="reminder"
-      />
+      <NexusSection
+        title="Comunicaciones de la Rifa"
+        subtitle="Programa y envía avisos operativos y promocionales."
+        icon={Megaphone}
+      >
+        <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
+          <RaffleInvitationSection
+            raffle={raffle}
+            canManageOperations={canManageOperations}
+            showToast={showToast}
+            embedded
+          />
+          <RaffleResultCommunicationSection
+            raffle={raffle}
+            canManageOperations={canManageOperations}
+            showToast={showToast}
+            content="reminder"
+            embedded
+          />
+          <RaffleDateChangeSection
+            raffle={raffle}
+            canManageOperations={canManageOperations}
+            showToast={showToast}
+            embedded
+          />
+        </div>
+      </NexusSection>
 
       <RaffleResultSection
         raffle={raffle}
@@ -456,7 +485,9 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
       <NexusSection
         title="Historial de Participaciones"
         subtitle={`${participationHistory.length.toLocaleString("es-MX")} ${
-          participationHistory.length === 1 ? "participación" : "participaciones"
+          participationHistory.length === 1
+            ? "participación"
+            : "participaciones"
         } registradas en esta rifa.`}
         icon={Clock3}
         action={
@@ -477,7 +508,11 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
           <EmptyState
             level={2}
             icon={Ticket}
-            title={participationHistory.length ? "Sin resultados" : "Sin participaciones"}
+            title={
+              participationHistory.length
+                ? "Sin resultados"
+                : "Sin participaciones"
+            }
             description={
               participationHistory.length
                 ? "Ajusta la búsqueda para consultar otra participación."
@@ -489,7 +524,9 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
             <div className="divide-y divide-border-main">
               {visibleParticipationHistory.map((participation) => {
                 const status = participationStatus(participation);
-                const ticketPreview = participation.ticketNumbers.slice(0, 3).join(", ");
+                const ticketPreview = participation.ticketNumbers
+                  .slice(0, 3)
+                  .join(", ");
                 const remainingTickets = participation.ticketNumbers.length - 3;
                 return (
                   <article
@@ -514,53 +551,100 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
                       />
                     </div>
 
-                    <div className="flex min-w-0 flex-col" style={{ gap: "var(--space-sm)" }}>
-                      <div className="flex min-w-0 flex-wrap items-center" style={{ gap: "var(--space-xs)" }}>
-                        <NexusCardBadge variant={status.variant} icon={status.icon}>
+                    <div
+                      className="flex min-w-0 flex-col"
+                      style={{ gap: "var(--space-sm)" }}
+                    >
+                      <div
+                        className="flex min-w-0 flex-wrap items-center"
+                        style={{ gap: "var(--space-xs)" }}
+                      >
+                        <NexusCardBadge
+                          variant={status.variant}
+                          icon={status.icon}
+                        >
                           {status.label}
                         </NexusCardBadge>
                         <NexusCardBadge variant="muted" icon={CreditCard}>
-                          {participation.paymentMethod === "MERCADOPAGO" ? "Tarjeta" : "Dep. / Trans."}
+                          {participation.paymentMethod === "MERCADOPAGO"
+                            ? "Tarjeta"
+                            : "Dep. / Trans."}
                         </NexusCardBadge>
                       </div>
-                      <strong className="truncate text-body font-bold text-text-main" title={participation.customerName}>
+                      <strong
+                        className="truncate text-body font-bold text-text-main"
+                        title={participation.customerName}
+                      >
                         {participation.customerName}
                       </strong>
                     </div>
 
-                    <div className="col-span-2 flex min-w-0 items-center lg:col-span-1" style={{ gap: "var(--space-xs)" }}>
-                      <p className="min-w-0 flex-1 truncate text-secondary text-text-muted" title={participation.ticketNumbers.join(", ")}>
+                    <div
+                      className="col-span-2 flex min-w-0 items-center lg:col-span-1"
+                      style={{ gap: "var(--space-xs)" }}
+                    >
+                      <p
+                        className="min-w-0 flex-1 truncate text-secondary text-text-muted"
+                        title={participation.ticketNumbers.join(", ")}
+                      >
                         {ticketPreview}
                       </p>
                       {remainingTickets > 0 && (
-                        <NexusCardBadge variant="muted">+{remainingTickets}</NexusCardBadge>
+                        <NexusCardBadge variant="muted">
+                          +{remainingTickets}
+                        </NexusCardBadge>
                       )}
                     </div>
 
-                    <div className="hidden min-w-0 flex-col lg:flex" style={{ gap: "var(--space-xs)" }}>
+                    <div
+                      className="hidden min-w-0 flex-col lg:flex"
+                      style={{ gap: "var(--space-xs)" }}
+                    >
                       <strong className="whitespace-nowrap text-body font-bold tabular-nums text-text-main">
-                        {new Date(participation.createdAt).toLocaleDateString("es-MX")}
+                        {new Date(participation.createdAt).toLocaleDateString(
+                          "es-MX",
+                        )}
                       </strong>
                       <span className="text-secondary tabular-nums text-text-muted">
-                        {new Date(participation.createdAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
+                        {new Date(participation.createdAt).toLocaleTimeString(
+                          "es-MX",
+                          { hour: "2-digit", minute: "2-digit" },
+                        )}
                       </span>
                     </div>
 
-                    <div className="col-span-2 flex min-w-0 items-center justify-between lg:col-span-1 lg:flex-col lg:items-end" style={{ gap: "var(--space-sm)" }}>
-                      <div className="flex min-w-0 flex-col lg:hidden" style={{ gap: "var(--space-xs)" }}>
+                    <div
+                      className="col-span-2 flex min-w-0 items-center justify-between lg:col-span-1 lg:flex-col lg:items-end"
+                      style={{ gap: "var(--space-sm)" }}
+                    >
+                      <div
+                        className="flex min-w-0 flex-col lg:hidden"
+                        style={{ gap: "var(--space-xs)" }}
+                      >
                         <strong className="text-body font-bold tabular-nums text-text-main">
-                          {new Date(participation.createdAt).toLocaleDateString("es-MX")}
+                          {new Date(participation.createdAt).toLocaleDateString(
+                            "es-MX",
+                          )}
                         </strong>
                         <span className="text-secondary tabular-nums text-text-muted">
-                          {new Date(participation.createdAt).toLocaleTimeString("es-MX", { hour: "2-digit", minute: "2-digit" })}
+                          {new Date(participation.createdAt).toLocaleTimeString(
+                            "es-MX",
+                            { hour: "2-digit", minute: "2-digit" },
+                          )}
                         </span>
                       </div>
-                      <div className="flex min-w-0 flex-col items-end" style={{ gap: "var(--space-xs)" }}>
+                      <div
+                        className="flex min-w-0 flex-col items-end"
+                        style={{ gap: "var(--space-xs)" }}
+                      >
                         <strong className="text-body font-bold tabular-nums text-text-main">
                           {formatParticipationCurrency(participation.total)}
                         </strong>
                         <span className="text-secondary text-text-muted">
-                          {participation.ticketCount} {participation.ticketCount === 1 ? "boleto" : "boletos"}
+                          {participation.ticketCount}{" "}
+                          {participation.ticketCount === 1
+                            ? "boleto"
+                            : "boletos"}
                         </span>
                       </div>
                     </div>

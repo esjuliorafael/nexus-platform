@@ -1,21 +1,18 @@
 import React from "react";
 import { Megaphone, RefreshCw, Send, UsersRound } from "lucide-react";
-import { apiRaffleIntelligence, apiRaffles } from "../../api";
-import type {
-  Raffle,
-  RaffleAudience,
-  RaffleInvitationOverview,
-} from "../../types";
-import { NexusSectionBadge } from "../ui/NexusBadge";
-import { NexusSectionButton } from "../ui/NexusButton";
+import { apiRaffles } from "../../api";
+import type { Raffle, RaffleInvitationOverview } from "../../types";
+import { NexusCardBadge, NexusSectionBadge } from "../ui/NexusBadge";
+import { NexusCardButton } from "../ui/NexusButton";
 import { NexusConfirmModal } from "../ui/NexusConfirmModal";
-import { NexusSelect } from "../ui/NexusInputs";
+import { NexusSectionCard } from "../ui/NexusCard";
 import { NexusSection } from "../ui/NexusSection";
 
 interface Props {
   raffle: Raffle;
   canManageOperations: boolean;
   showToast: (message: string, type?: "success" | "error") => void;
+  embedded?: boolean;
 }
 
 const statusLabel: Record<string, string> = {
@@ -31,31 +28,21 @@ export const RaffleInvitationSection: React.FC<Props> = ({
   raffle,
   canManageOperations,
   showToast,
+  embedded = false,
 }) => {
-  const [audiences, setAudiences] = React.useState<RaffleAudience[]>([]);
-  const [audienceSelection, setAudienceSelection] = React.useState("__paid__");
   const [overview, setOverview] =
     React.useState<RaffleInvitationOverview | null>(null);
   const [loading, setLoading] = React.useState(true);
   const [submitting, setSubmitting] = React.useState(false);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
-  const audienceId = audienceSelection.startsWith("__") ? "" : audienceSelection;
-  const audiencePreset = audienceSelection === "__authorized__"
-    ? "AUTHORIZED_PARTICIPANTS" as const
-    : "PAID_PARTICIPANTS" as const;
 
   const load = React.useCallback(async () => {
     try {
       setLoading(true);
-      const [audienceData, invitationData] = await Promise.all([
-        apiRaffleIntelligence.getAudiences(),
-        apiRaffles.getInvitationOverview(raffle.id, {
-          audienceId: audienceId || undefined,
-          audiencePreset,
-          frequencyWindowDays: 0,
-        }),
-      ]);
-      setAudiences(audienceData.filter((item) => item.active));
+      const invitationData = await apiRaffles.getInvitationOverview(raffle.id, {
+        audiencePreset: "AUTHORIZED_PARTICIPANTS",
+        frequencyWindowDays: 0,
+      });
       setOverview(invitationData);
     } catch (error: any) {
       showToast(
@@ -66,16 +53,20 @@ export const RaffleInvitationSection: React.FC<Props> = ({
     } finally {
       setLoading(false);
     }
-  }, [audienceId, audiencePreset, raffle.id, showToast]);
+  }, [raffle.id, showToast]);
 
   React.useEffect(() => {
     void load();
   }, [load]);
 
   React.useEffect(() => {
-    if (!overview?.campaigns.some((campaign) =>
-      ["QUEUED", "PROCESSING", "PARTIAL"].includes(campaign.status),
-    )) return;
+    if (
+      !overview?.campaigns.some((campaign) =>
+        ["QUEUED", "PROCESSING", "PARTIAL"].includes(campaign.status),
+      )
+    ) {
+      return;
+    }
     const timer = window.setInterval(() => void load(), 3000);
     return () => window.clearInterval(timer);
   }, [load, overview?.campaigns]);
@@ -85,8 +76,7 @@ export const RaffleInvitationSection: React.FC<Props> = ({
     try {
       setSubmitting(true);
       await apiRaffles.createInvitationCampaign(raffle.id, {
-        audienceId: audienceId || null,
-        audiencePreset,
+        audiencePreset: "AUTHORIZED_PARTICIPANTS",
         frequencyWindowDays: 0,
       });
       setConfirmOpen(false);
@@ -126,74 +116,83 @@ export const RaffleInvitationSection: React.FC<Props> = ({
     <>
       <NexusSection
         title="Promoción de la Rifa"
-        subtitle="Invita a participantes con consentimiento y conserva la trazabilidad de cada envío"
+        subtitle="Invita a participantes autorizados y conserva la trazabilidad de cada envío"
         icon={Megaphone}
-        action={
-          canManageOperations ? (
-            <NexusSectionButton
-              variant="brand"
-              icon={Send}
-              disabled={
-                loading || eligible === 0 || submitting || hasActiveCampaign
-              }
-              onClick={() => setConfirmOpen(true)}
-            >
-              Enviar Invitación
-            </NexusSectionButton>
-          ) : undefined
-        }
+        bare={embedded}
       >
         <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
-          <div
-            className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_auto]"
-            style={{ gap: "var(--space-md)" }}
-          >
-            <NexusSelect
-              label="Audiencia"
-              value={audienceSelection}
-              onChange={(event) => setAudienceSelection(event.target.value)}
-            >
-              <option value="__paid__">Participantes pagados</option>
-              <option value="__authorized__">Participantes autorizados</option>
-              {audiences.map((audience) => (
-                <option key={audience.id} value={audience.id}>
-                  {audience.name}
-                </option>
-              ))}
-            </NexusSelect>
-            <div
-              className="flex min-w-[12rem] items-center border border-border-main bg-bg-muted"
-              style={{
-                gap: "var(--space-sm)",
-                padding: "var(--space-md)",
-                borderRadius: "var(--radius-inner-visual)",
-              }}
-            >
-              <UsersRound
-                className="text-brand-600"
-                style={{
-                  width: "var(--size-inner-icon-section)",
-                  height: "var(--size-inner-icon-section)",
-                }}
-              />
-              <div className="flex flex-col" style={{ gap: "var(--space-xs)" }}>
-                <span className="text-label uppercase text-text-muted">
-                  Destinatarios
-                </span>
-                <strong className="text-h1 text-text-main tabular-nums">
-                  {loading ? "..." : eligible}
-                </strong>
+          <NexusSectionCard
+            icon={Megaphone}
+            title="Promoción de la Rifa"
+            subtitle="Envía una invitación a una audiencia autorizada."
+            rightContent={
+              <div
+                className="flex w-full min-w-0 flex-col md:w-[18rem]"
+                style={{ gap: "var(--space-sm)" }}
+              >
+                <NexusCardBadge variant="brand">
+                  Audiencia autorizada
+                </NexusCardBadge>
+                <div
+                  className="flex items-center justify-between md:justify-end"
+                  style={{ gap: "var(--space-sm)" }}
+                >
+                  <UsersRound
+                    className="text-brand-600"
+                    style={{
+                      width: "var(--size-inner-icon-card)",
+                      height: "var(--size-inner-icon-card)",
+                    }}
+                  />
+                  <span className="text-secondary font-semibold text-text-main tabular-nums">
+                    {loading ? "..." : `${eligible} destinatarios`}
+                  </span>
+                  {latest && (
+                    <NexusCardBadge
+                      variant={
+                        latest.status === "FAILED"
+                          ? "danger"
+                          : latest.status === "SENT"
+                            ? "success"
+                            : "warning"
+                      }
+                    >
+                      {statusLabel[latest.status] || latest.status}
+                    </NexusCardBadge>
+                  )}
+                </div>
               </div>
-            </div>
-          </div>
-
-          {overview && (
-            <p className="text-secondary text-text-muted">
-              Se excluyeron {overview.preview.summary.excluded}:{" "}
-              {overview.preview.summary.exclusions.noConsent} sin consentimiento y{" "}
-              {overview.preview.summary.exclusions.alreadyParticipating} ya participan.
-            </p>
-          )}
+            }
+            actions={
+              canManageOperations ? (
+                <div
+                  className="flex w-full items-center md:w-auto"
+                  style={{ gap: "var(--space-sm)" }}
+                >
+                  {latest?.failedCount > 0 && (
+                    <NexusCardButton
+                      variant="secondary"
+                      icon={RefreshCw}
+                      onClick={() => void retry(latest.id)}
+                    >
+                      Reintentar Fallidas
+                    </NexusCardButton>
+                  )}
+                  <NexusCardButton
+                    variant="brand"
+                    icon={Send}
+                    className="w-full md:w-auto"
+                    disabled={
+                      loading || eligible === 0 || submitting || hasActiveCampaign
+                    }
+                    onClick={() => setConfirmOpen(true)}
+                  >
+                    Enviar Invitación
+                  </NexusCardButton>
+                </div>
+              ) : undefined
+            }
+          />
 
           {latest && (
             <div
@@ -221,19 +220,10 @@ export const RaffleInvitationSection: React.FC<Props> = ({
                   </NexusSectionBadge>
                 </div>
                 <span className="text-secondary text-text-muted">
-                  {latest.sentCount} enviadas · {latest.failedCount} fallidas ·{" "}
+                  {latest.sentCount} enviadas · {latest.failedCount} fallidas · {" "}
                   {latest.totalRecipients} destinatarios
                 </span>
               </div>
-              {canManageOperations && latest.failedCount > 0 && (
-                <NexusSectionButton
-                  variant="secondary"
-                  icon={RefreshCw}
-                  onClick={() => void retry(latest.id)}
-                >
-                  Reintentar Fallidas
-                </NexusSectionButton>
-              )}
             </div>
           )}
         </div>

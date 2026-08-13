@@ -2449,7 +2449,7 @@ function App() {
                 />
               </div>
 
-              <div className="flex-1">
+              <div className="min-w-0 w-full flex-1">
                 {isProfileMode ? (
                   <ProfileView
                     viewMode={profileViewMode}

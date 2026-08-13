@@ -855,7 +855,10 @@ export const apiWhatsApp = {
     variant: "LEGACY" | "SIMPLIFIED" = "LEGACY",
   ) =>
     api.get("/admin/whatsapp/kapso/template-readiness", {
-      params: { ...(channelId ? { channelId: Number(channelId) } : {}), variant },
+      params: {
+        ...(channelId ? { channelId: Number(channelId) } : {}),
+        variant,
+      },
     }),
   createKapsoSetupLink: async (data: {
     target: "PRINCIPAL" | "SPECIALIZED";
@@ -1093,12 +1096,18 @@ export const apiRaffles = {
     );
     return response.data;
   },
-  getDrawReminder: async (id: string): Promise<import("./types").RaffleDrawReminderOverview> => {
-    const response = await api.get(`/raffles/admin/${encodeURIComponent(id)}/draw-reminder`);
+  getDrawReminder: async (
+    id: string,
+  ): Promise<import("./types").RaffleDrawReminderOverview> => {
+    const response = await api.get(
+      `/raffles/admin/${encodeURIComponent(id)}/draw-reminder`,
+    );
     return response.data;
   },
   createDrawReminderCampaign: async (id: string) => {
-    const response = await api.post(`/raffles/admin/${encodeURIComponent(id)}/draw-reminder/campaign`);
+    const response = await api.post(
+      `/raffles/admin/${encodeURIComponent(id)}/draw-reminder/campaign`,
+    );
     return response.data;
   },
   scheduleDrawReminderCampaign: async (id: string, scheduledFor: string) => {
@@ -1109,7 +1118,30 @@ export const apiRaffles = {
     return response.data;
   },
   cancelDrawReminderSchedule: async (id: string) => {
-    const response = await api.delete(`/raffles/admin/${encodeURIComponent(id)}/draw-reminder/schedule`);
+    const response = await api.delete(
+      `/raffles/admin/${encodeURIComponent(id)}/draw-reminder/schedule`,
+    );
+    return response.data;
+  },
+  getDateChange: async (
+    id: string,
+  ): Promise<import("./types").RaffleDateChangeOverview> => {
+    const response = await api.get(
+      `/raffles/admin/${encodeURIComponent(id)}/date-change`,
+    );
+    return response.data;
+  },
+  createDateChangeCampaign: async (id: string) => {
+    const response = await api.post(
+      `/raffles/admin/${encodeURIComponent(id)}/date-change/campaign`,
+    );
+    return response.data;
+  },
+  scheduleDateChangeCampaign: async (id: string, scheduledFor: string) => {
+    const response = await api.post(
+      `/raffles/admin/${encodeURIComponent(id)}/date-change/schedule`,
+      { scheduledFor },
+    );
     return response.data;
   },
   createResultCampaign: async (
@@ -1245,7 +1277,9 @@ export const apiRaffleParticipations = {
     );
     return response.data;
   },
-  restoreAndConfirmPayment: async (id: string): Promise<RaffleParticipation> => {
+  restoreAndConfirmPayment: async (
+    id: string,
+  ): Promise<RaffleParticipation> => {
     const response = await api.post(
       `/ticket-sales/admin/participations/${encodeURIComponent(id)}/restore-paid`,
     );

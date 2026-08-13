@@ -195,7 +195,9 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         : buildRafflePaymentRecoveryValues(hold as any, recoveryUrl);
       if (!isStore) {
         const raffleHold = hold as any;
-        values.opportunity_count = String(raffleHold.raffle?.opportunities || 1);
+        values.opportunity_count = String(
+          raffleHold.raffle?.opportunities || 1,
+        );
         values.additional_opportunity_count = String(
           Math.max(0, Number(raffleHold.raffle?.opportunities || 1) - 1),
         );
@@ -281,7 +283,9 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           ? "raffle_result_winner"
           : "raffle_result_participants";
       if (templateType === "RESULT_WINNER") {
-        values.opportunity_count = String(recipient.campaign.raffle.opportunities || 1);
+        values.opportunity_count = String(
+          recipient.campaign.raffle.opportunities || 1,
+        );
         values.additional_opportunity_count = String(
           Math.max(0, Number(recipient.campaign.raffle.opportunities || 1) - 1),
         );
@@ -407,7 +411,9 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
       );
       const values = { ...(recipient.payload as Record<string, string>) };
-      values.opportunity_count = String(recipient.campaign.raffle.opportunities || 1);
+      values.opportunity_count = String(
+        recipient.campaign.raffle.opportunities || 1,
+      );
       values.additional_opportunity_count = String(
         Math.max(0, Number(recipient.campaign.raffle.opportunities || 1) - 1),
       );
@@ -431,7 +437,10 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           preferredChannel: forcePrincipal ? null : raffleChannel,
           principal: principalWhatsapp,
           scope: "RAFFLES",
-          type: "DRAW_REMINDER",
+          type:
+            recipient.campaign.kind === "DATE_CHANGE"
+              ? "DATE_CHANGE"
+              : "DRAW_REMINDER",
           sourceContent: recipient.campaign.templateContent,
           principalSourceContent: recipient.campaign.principalTemplateContent,
           recipientPhone: recipient.phone,
@@ -441,7 +450,10 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
             ...values,
             ticket_list: formatRaffleTicketList(sales),
           },
-          templateName: "raffle_draw_reminder",
+          templateName:
+            recipient.campaign.kind === "DATE_CHANGE"
+              ? "raffle_date_change"
+              : "raffle_draw_reminder",
           jobId: String(job.id ?? ""),
           attempt: recipient.attempts,
           forceProvider,
@@ -1043,7 +1055,11 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
 
       let participationUrl =
         "participationUrl" in data ? data.participationUrl || "" : "";
-      if (!participationUrl && sales[0]?.raffle?.id && sales[0]?.customerPhone) {
+      if (
+        !participationUrl &&
+        sales[0]?.raffle?.id &&
+        sales[0]?.customerPhone
+      ) {
         try {
           participationUrl = (
             await createRaffleParticipationAccess({
@@ -1071,7 +1087,9 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           : undefined,
         participationUrl,
       );
-      notification.values.opportunity_count = String(sales[0].raffle.opportunities || 1);
+      notification.values.opportunity_count = String(
+        sales[0].raffle.opportunities || 1,
+      );
       notification.values.additional_opportunity_count = String(
         Math.max(0, Number(sales[0].raffle.opportunities || 1) - 1),
       );

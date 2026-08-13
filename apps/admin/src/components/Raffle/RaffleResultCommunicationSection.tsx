@@ -35,6 +35,7 @@ interface Props {
   canManageOperations: boolean;
   showToast: (message: string, type?: "success" | "error") => void;
   content?: "all" | "reminder" | "results";
+  embedded?: boolean;
 }
 
 const CAMPAIGN_PRESENTATION: Record<
@@ -106,6 +107,7 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
   canManageOperations,
   showToast,
   content = "all",
+  embedded = false,
 }) => {
   const [overview, setOverview] =
     React.useState<RaffleResultCommunicationOverview | null>(null);
@@ -115,7 +117,8 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
   const [pendingAudience, setPendingAudience] =
     React.useState<RaffleResultCampaignAudience | null>(null);
   const [pendingDrawReminder, setPendingDrawReminder] = React.useState(false);
-  const [pendingScheduleCancellation, setPendingScheduleCancellation] = React.useState(false);
+  const [pendingScheduleCancellation, setPendingScheduleCancellation] =
+    React.useState(false);
   const [isScheduleModalOpen, setIsScheduleModalOpen] = React.useState(false);
   const [scheduledFor, setScheduledFor] = React.useState("");
   const [selectedCampaign, setSelectedCampaign] =
@@ -215,7 +218,8 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
       showToast("El recordatorio de la rifa fue enviado a la cola.", "success");
     } catch (error: any) {
       showToast(
-        error?.response?.data?.message || "No se pudo iniciar el aviso de la rifa.",
+        error?.response?.data?.message ||
+          "No se pudo iniciar el aviso de la rifa.",
         "error",
       );
     } finally {
@@ -241,7 +245,8 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
       showToast("El recordatorio de la rifa quedó programado.", "success");
     } catch (error: any) {
       showToast(
-        error?.response?.data?.message || "No se pudo programar el aviso de la rifa.",
+        error?.response?.data?.message ||
+          "No se pudo programar el aviso de la rifa.",
         "error",
       );
     } finally {
@@ -258,7 +263,8 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
       showToast("La programación del aviso fue cancelada.", "success");
     } catch (error: any) {
       showToast(
-        error?.response?.data?.message || "No se pudo cancelar la programación.",
+        error?.response?.data?.message ||
+          "No se pudo cancelar la programación.",
         "error",
       );
     } finally {
@@ -320,150 +326,218 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
     (prize) => prize.resultResolutionStatus === "ELIGIBLE_WINNER",
   );
   const drawReminderScheduled = Boolean(
-    drawReminder?.campaign?.scheduledFor
-      && new Date(drawReminder.campaign.scheduledFor).getTime() > Date.now(),
+    drawReminder?.campaign?.scheduledFor &&
+    new Date(drawReminder.campaign.scheduledFor).getTime() > Date.now(),
   );
   const showReminder = content !== "results";
   const showResults = content !== "reminder";
   const drawReminderSubtitle = !drawReminder?.totalRecipients
-    ? "No hay participaciones pagadas para notificar."
+    ? "No hay participantes con pago confirmado para notificar."
     : drawReminderScheduled
       ? "El aviso se enviará a quienes tengan una participación pagada."
       : drawReminder?.campaign
         ? "El aviso se procesó para la audiencia disponible."
         : "El aviso se enviará a quienes tengan una participación pagada.";
 
+  const displayDrawReminderSubtitle = !drawReminder?.totalRecipients
+    ? "No hay participantes con pago confirmado para notificar."
+    : drawReminder?.campaign
+      ? "El aviso se procesó para la audiencia disponible."
+      : "Aviso operativo previo para participantes con pago confirmado.";
+
   return (
     <>
-      {showReminder && <NexusSection
-        title="Recordatorio de la Rifa"
-        subtitle="Comunicación operativa previa para participaciones pagadas"
-        icon={Bell}
-        iconVariant="brand"
-      >
-        {isLoading ? (
-          <div className="h-28 animate-pulse bg-bg-muted" style={{ borderRadius: "var(--radius-inner-visual)" }} />
-        ) : !drawReminder?.drawDate ? (
-          <NexusInlineNotice title="Fecha Pendiente" variant="neutral">
-            Configura la fecha de la rifa para habilitar este aviso.
-          </NexusInlineNotice>
-        ) : (
-          <NexusSectionCard
-            icon={Bell}
-            title="Participantes pagados"
-            subtitle={drawReminderSubtitle}
-            stackActionsOnMobile
-            rightContent={
-              <div className="flex w-full flex-col md:w-auto md:items-end" style={{ gap: "var(--space-xs)" }}>
-                <div className="flex w-full items-center justify-between md:w-auto md:flex-col md:items-end" style={{ gap: "var(--space-xs)" }}>
-                  <NexusCardBadge variant={drawReminderScheduled ? "brand" : drawReminder.campaign ? CAMPAIGN_PRESENTATION[drawReminder.campaign.status].variant : "muted"}>
-                    {drawReminderScheduled ? "Programado" : drawReminder.campaign ? CAMPAIGN_PRESENTATION[drawReminder.campaign.status].label : "No Enviado"}
-                  </NexusCardBadge>
-                  <span className="text-secondary font-semibold text-text-main">
-                    {drawReminderScheduled
-                      ? formatDrawDateTime(drawReminder.campaign!.scheduledFor!)
-                      : drawReminder.campaign ? `${drawReminder.campaign.sentCount} enviados` : `${drawReminder.totalRecipients} destinatarios`}
-                  </span>
-                </div>
-                {drawReminder.invalidRecipients > 0 && (
-                  <span className="text-label text-rose-600">{drawReminder.invalidRecipients} inválidos</span>
-                )}
-                {!drawReminder.templateConfigured && (
-                  <span className="text-label text-rose-600">Plantilla sin configurar</span>
-                )}
-              </div>
-            }
-            actions={
-              canManageOperations && !drawReminder.campaign ? (
-                <div className="grid w-full grid-cols-3 md:flex md:w-auto" style={{ gap: "var(--space-sm)" }}>
-                  <NexusCardButton
-                    type="button"
-                    variant="secondary"
-                    icon={Clock3}
-                    className="w-full md:w-auto"
-                    aria-label="Programar aviso"
-                    title="Programar aviso"
-                    disabled={isSubmitting || !drawReminder.templateConfigured}
-                    onClick={openScheduleModal}
+      {showReminder && (
+        <NexusSection
+          title="Recordatorio de la Rifa"
+          subtitle="Comunicación operativa previa para participaciones pagadas"
+          icon={Bell}
+          iconVariant="brand"
+          bare={embedded}
+        >
+          {isLoading ? (
+            <div
+              className="h-28 animate-pulse bg-bg-muted"
+              style={{ borderRadius: "var(--radius-inner-visual)" }}
+            />
+          ) : !drawReminder?.drawDate ? (
+            <NexusInlineNotice title="Fecha Pendiente" variant="neutral">
+              Configura la fecha de la rifa para habilitar este aviso.
+            </NexusInlineNotice>
+          ) : (
+            <NexusSectionCard
+              icon={Bell}
+              title="Recordatorio de la Rifa"
+              subtitle={displayDrawReminderSubtitle}
+              stackActionsOnMobile
+              rightContent={
+                <div
+                  className="flex w-full flex-col md:w-auto md:items-end"
+                  style={{ gap: "var(--space-xs)" }}
+                >
+                  <div
+                    className="flex w-full items-center justify-between md:w-auto md:flex-col md:items-end"
+                    style={{ gap: "var(--space-xs)" }}
                   >
-                    <span className="md:hidden">Prog.</span>
-                    <span className="hidden md:inline">Programar</span>
-                  </NexusCardButton>
-                  <NexusCardButton
-                    type="button"
-                    variant="brand"
-                    icon={Send}
-                    className="col-span-2 w-full md:col-auto md:w-auto"
-                    disabled={isSubmitting || !drawReminder.templateConfigured || drawReminder.totalRecipients === 0}
-                    onClick={() => setPendingDrawReminder(true)}
+                    <NexusCardBadge
+                      variant={
+                        drawReminderScheduled
+                          ? "brand"
+                          : drawReminder.campaign
+                            ? CAMPAIGN_PRESENTATION[
+                                drawReminder.campaign.status
+                              ].variant
+                            : "muted"
+                      }
+                    >
+                      {drawReminderScheduled
+                        ? "Programado"
+                        : drawReminder.campaign
+                          ? CAMPAIGN_PRESENTATION[drawReminder.campaign.status]
+                              .label
+                          : "No Enviado"}
+                    </NexusCardBadge>
+                    <span className="text-secondary font-semibold text-text-main">
+                      {drawReminderScheduled
+                        ? formatDrawDateTime(
+                            drawReminder.campaign!.scheduledFor!,
+                          )
+                        : drawReminder.campaign
+                          ? `${drawReminder.campaign.sentCount} enviados`
+                          : `${drawReminder.totalRecipients} destinatarios`}
+                    </span>
+                  </div>
+                  {drawReminder.invalidRecipients > 0 && (
+                    <span className="text-label text-rose-600">
+                      {drawReminder.invalidRecipients} inválidos
+                    </span>
+                  )}
+                  {!drawReminder.templateConfigured && (
+                    <span className="text-label text-rose-600">
+                      Plantilla sin configurar
+                    </span>
+                  )}
+                </div>
+              }
+              actions={
+                canManageOperations && !drawReminder.campaign ? (
+                  <div
+                    className="grid w-full grid-cols-3 md:flex md:w-auto"
+                    style={{ gap: "var(--space-sm)" }}
                   >
-                    Enviar
-                  </NexusCardButton>
-                </div>
-              ) : canManageOperations && drawReminderScheduled ? (
-                <div className="grid w-full grid-cols-3 md:flex md:w-auto" style={{ gap: "var(--space-sm)" }}>
-                  <NexusCardButton type="button" variant="secondary" className="w-full md:w-auto" disabled={isSubmitting} onClick={() => setPendingScheduleCancellation(true)}>
-                    Cancelar
-                  </NexusCardButton>
-                  <NexusCardButton type="button" variant="brand" icon={Clock3} className="col-span-2 w-full md:col-auto md:w-auto" disabled={isSubmitting} onClick={openScheduleModal}>
-                    Reprogramar
-                  </NexusCardButton>
-                </div>
-              ) : undefined
-            }
-          />
-        )}
-      </NexusSection>}
+                    <NexusCardButton
+                      type="button"
+                      variant="secondary"
+                      icon={Clock3}
+                      className="w-full md:w-auto"
+                      aria-label="Programar aviso"
+                      title="Programar aviso"
+                      disabled={
+                        isSubmitting || !drawReminder.templateConfigured
+                      }
+                      onClick={openScheduleModal}
+                    >
+                      <span className="md:hidden">Prog.</span>
+                      <span className="hidden md:inline">Programar</span>
+                    </NexusCardButton>
+                    <NexusCardButton
+                      type="button"
+                      variant="brand"
+                      icon={Send}
+                      className="col-span-2 w-full md:col-auto md:w-auto"
+                      disabled={
+                        isSubmitting ||
+                        !drawReminder.templateConfigured ||
+                        drawReminder.totalRecipients === 0
+                      }
+                      onClick={() => setPendingDrawReminder(true)}
+                    >
+                      Enviar
+                    </NexusCardButton>
+                  </div>
+                ) : canManageOperations && drawReminderScheduled ? (
+                  <div
+                    className="grid w-full grid-cols-3 md:flex md:w-auto"
+                    style={{ gap: "var(--space-sm)" }}
+                  >
+                    <NexusCardButton
+                      type="button"
+                      variant="secondary"
+                      className="w-full md:w-auto"
+                      disabled={isSubmitting}
+                      onClick={() => setPendingScheduleCancellation(true)}
+                    >
+                      Cancelar
+                    </NexusCardButton>
+                    <NexusCardButton
+                      type="button"
+                      variant="brand"
+                      icon={Clock3}
+                      className="col-span-2 w-full md:col-auto md:w-auto"
+                      disabled={isSubmitting}
+                      onClick={openScheduleModal}
+                    >
+                      Reprogramar
+                    </NexusCardButton>
+                  </div>
+                ) : undefined
+              }
+            />
+          )}
+        </NexusSection>
+      )}
 
-      {showResults && <NexusSection
-        title="Comunicación de Resultados"
-        subtitle="Mensajes independientes de la publicación de la rifa"
-        icon={MessageCircle}
-        iconVariant="brand"
-      >
-        {isLoading ? (
-          <div
-            className="h-36 animate-pulse bg-bg-muted"
-            style={{ borderRadius: "var(--radius-inner-visual)" }}
-          />
-        ) : !overview?.resultPublishedAt ? (
-          <NexusInlineNotice title="Resultados Pendientes" variant="neutral">
-            Publica primero los resultados para habilitar las comunicaciones.
-          </NexusInlineNotice>
-        ) : (
-          <div
-            className="grid grid-cols-1 lg:grid-cols-2"
-            style={{ gap: "var(--space-md)" }}
-          >
-            <CampaignCard
-              audience="WINNERS"
-              title="Ganadores"
-              description="Un mensaje por ganador, agrupando todos sus premios."
-              icon={Trophy}
-              campaign={latestCampaign("WINNERS")}
-              estimate={audienceEstimate("WINNERS")}
-              canManage={canManageOperations}
-              isSubmitting={isSubmitting}
-              onStart={() => setPendingAudience("WINNERS")}
-              onRetry={handleRetry}
-              onDetails={setSelectedCampaign}
+      {showResults && (
+        <NexusSection
+          title="Comunicación de Resultados"
+          subtitle="Mensajes independientes de la publicación de la rifa"
+          icon={MessageCircle}
+          iconVariant="brand"
+        >
+          {isLoading ? (
+            <div
+              className="h-36 animate-pulse bg-bg-muted"
+              style={{ borderRadius: "var(--radius-inner-visual)" }}
             />
-            <CampaignCard
-              audience="PARTICIPANTS"
-              title="Participantes"
-              description="Participaciones pagadas, sin incluir a los ganadores."
-              icon={UsersRound}
-              campaign={latestCampaign("PARTICIPANTS")}
-              estimate={audienceEstimate("PARTICIPANTS")}
-              canManage={canManageOperations}
-              isSubmitting={isSubmitting}
-              onStart={() => setPendingAudience("PARTICIPANTS")}
-              onRetry={handleRetry}
-              onDetails={setSelectedCampaign}
-            />
-          </div>
-        )}
-      </NexusSection>}
+          ) : !overview?.resultPublishedAt ? (
+            <NexusInlineNotice title="Resultados Pendientes" variant="neutral">
+              Publica primero los resultados para habilitar las comunicaciones.
+            </NexusInlineNotice>
+          ) : (
+            <div
+              className="grid grid-cols-1 lg:grid-cols-2"
+              style={{ gap: "var(--space-md)" }}
+            >
+              <CampaignCard
+                audience="WINNERS"
+                title="Ganadores"
+                description="Un mensaje por ganador, agrupando todos sus premios."
+                icon={Trophy}
+                campaign={latestCampaign("WINNERS")}
+                estimate={audienceEstimate("WINNERS")}
+                canManage={canManageOperations}
+                isSubmitting={isSubmitting}
+                onStart={() => setPendingAudience("WINNERS")}
+                onRetry={handleRetry}
+                onDetails={setSelectedCampaign}
+              />
+              <CampaignCard
+                audience="PARTICIPANTS"
+                title="Participantes"
+                description="Participaciones pagadas, sin incluir a los ganadores."
+                icon={UsersRound}
+                campaign={latestCampaign("PARTICIPANTS")}
+                estimate={audienceEstimate("PARTICIPANTS")}
+                canManage={canManageOperations}
+                isSubmitting={isSubmitting}
+                onStart={() => setPendingAudience("PARTICIPANTS")}
+                onRetry={handleRetry}
+                onDetails={setSelectedCampaign}
+              />
+            </div>
+          )}
+        </NexusSection>
+      )}
 
       {showResults && overview?.resultPublishedAt && (
         <NexusSection
@@ -522,7 +596,9 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
         cancelLabel="Cancelar"
         tone="brand"
         icon={Bell}
-        onCancel={() => { if (!isSubmitting) setPendingDrawReminder(false); }}
+        onCancel={() => {
+          if (!isSubmitting) setPendingDrawReminder(false);
+        }}
         onConfirm={() => void handleCreateDrawReminder()}
       />
 
@@ -545,10 +621,24 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
             helperText="La audiencia y la plantilla se prepararán al momento de enviar el aviso."
           />
           <NexusModalActions className="flex-row">
-            <NexusSectionButton type="button" variant="secondary" className="w-full flex-1" disabled={isSubmitting} onClick={() => setIsScheduleModalOpen(false)}>
+            <NexusSectionButton
+              type="button"
+              variant="secondary"
+              className="w-full flex-1"
+              disabled={isSubmitting}
+              onClick={() => setIsScheduleModalOpen(false)}
+            >
               Cancelar
             </NexusSectionButton>
-            <NexusSectionButton type="button" variant="brand" icon={Clock3} className="w-full flex-[2]" disabled={!scheduledFor} isLoading={isSubmitting} onClick={() => void handleScheduleDrawReminder()}>
+            <NexusSectionButton
+              type="button"
+              variant="brand"
+              icon={Clock3}
+              className="w-full flex-[2]"
+              disabled={!scheduledFor}
+              isLoading={isSubmitting}
+              onClick={() => void handleScheduleDrawReminder()}
+            >
               Programar Aviso
             </NexusSectionButton>
           </NexusModalActions>
@@ -859,12 +949,19 @@ function CampaignCard({
         </div>
       }
       actions={
-        <div className="grid w-full grid-cols-3 md:flex md:w-auto" style={{ gap: "var(--space-sm)" }}>
+        <div
+          className="grid w-full grid-cols-3 md:flex md:w-auto"
+          style={{ gap: "var(--space-sm)" }}
+        >
           {campaign && (
             <NexusCardButton
               type="button"
               variant="secondary"
-              className={canRetry && canManage ? "w-full md:w-auto" : "col-span-3 w-full md:col-auto md:w-auto"}
+              className={
+                canRetry && canManage
+                  ? "w-full md:w-auto"
+                  : "col-span-3 w-full md:col-auto md:w-auto"
+              }
               onClick={() => onDetails(campaign)}
             >
               Ver Detalle

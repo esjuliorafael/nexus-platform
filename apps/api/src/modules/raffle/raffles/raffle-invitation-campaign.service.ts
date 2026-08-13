@@ -231,7 +231,13 @@ export const raffleInvitationCampaignService = {
   ) {
     const raffle = await rafflePrisma.raffle.findUnique({ where: { id: raffleId } });
     if (!raffle) return null;
-    const audience = await resolveAudience(rafflePrisma, audienceId, audiencePreset);
+    // Promotion campaigns always target the consented promotional audience.
+    // Paid status belongs to operational messages, not marketing invitations.
+    const audience = await resolveAudience(
+      rafflePrisma,
+      null,
+      "AUTHORIZED_PARTICIPANTS",
+    );
     const selection = await raffleAudienceService.selectEligible(
       rafflePrisma,
       storePrisma,
@@ -298,7 +304,11 @@ export const raffleInvitationCampaignService = {
           whatsappHeaderUrl: true,
         },
       }),
-      resolveAudience(rafflePrisma, input.audienceId, input.audiencePreset),
+      resolveAudience(
+        rafflePrisma,
+        null,
+        "AUTHORIZED_PARTICIPANTS",
+      ),
       resolveTemplate(storePrisma),
     ]);
     if (!raffle) throw new Error("RAFFLE_NOT_FOUND");

@@ -542,10 +542,7 @@ export interface DashboardStats {
     prizesAwaitingFulfillment: number;
   };
   sales7Days: Record<string, number>;
-  sales7DaysBySource: Record<
-    string,
-    { store: number; raffles: number }
-  >;
+  sales7DaysBySource: Record<string, { store: number; raffles: number }>;
   commercialPulse7Days: {
     confirmed: { count: number; amount: number };
     pending: { count: number; amount: number };
@@ -570,10 +567,7 @@ export interface DashboardStats {
 
 export type SalesOverviewPeriod = "TODAY" | "7D" | "15D" | "MONTH" | "ALL";
 export type SalesOverviewProductType = "ALL" | "BIRD" | "ITEM";
-export type SalesOverviewPaymentMethod =
-  | "ALL"
-  | "TRANSFER"
-  | "MERCADOPAGO";
+export type SalesOverviewPaymentMethod = "ALL" | "TRANSFER" | "MERCADOPAGO";
 
 export type DashboardCommercialSource = "ALL" | "STORE" | "RAFFLES";
 
@@ -1024,6 +1018,15 @@ export interface RaffleDrawReminderOverview {
   templateConfigured: boolean;
   totalRecipients: number;
   invalidRecipients: number;
+  campaign: RaffleDrawReminderCampaign | null;
+}
+
+export interface RaffleDateChangeOverview {
+  raffleId: number;
+  drawDate: string | null;
+  templateConfigured: boolean;
+  totalRecipients: number;
+  activePendingRecipients: number;
   campaign: RaffleDrawReminderCampaign | null;
 }
 
