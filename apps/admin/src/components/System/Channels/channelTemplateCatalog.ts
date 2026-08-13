@@ -650,6 +650,19 @@ Tu participaci\u00f3n contin\u00faa apartada y pendiente de pago.
 \u{1F50E} Consulta el detalle completo de tu participaci\u00f3n en Ver participaci\u00f3n:
 
 {{participation_url}}`,
+  DRAW_REMINDER: `\u00a1Hola, {{customer_name}}! \u{1F39F}\u{FE0F}
+
+Te recordamos que la rifa \u201c{{raffle_name}}\u201d se realizar\u00e1 el:
+
+\u{1F4C5} {{raffle_date}}
+
+Tu participaci\u00f3n contin\u00faa registrada para este sorteo. \u{1F340}
+
+\u{1F50E} Consulta el detalle de tu participaci\u00f3n en Ver participaci\u00f3n:
+
+{{participation_url}}
+
+\u00a1Mucha suerte!`,
   RELEASE: `Hola, {{customer_name}}. \u{1F513}
 
 Tu participaci\u00f3n fue liberada porque concluy\u00f3 el tiempo disponible para confirmar el pago. \u23f3
@@ -710,6 +723,66 @@ Consulta el resultado oficial y los n\u00fameros ganadores en el bot\u00f3n Ver 
 Gracias por participar.`,
 };
 
+const SIMPLIFIED_TEMPLATE_VARIABLES: Partial<
+  Record<ChannelTemplateType, string[]>
+> = {
+  PARTICIPATION_LOOKUP_CODE: ["{{participation_url}}"],
+  RESERVATION: [
+    "{{customer_name}}",
+    "{{amount}}",
+    "{{time_raffle}}",
+    "{{participation_url}}",
+  ],
+  RESTORED: [
+    "{{customer_name}}",
+    "{{amount}}",
+    "{{time_raffle}}",
+    "{{participation_url}}",
+  ],
+  REMINDER: [
+    "{{customer_name}}",
+    "{{amount}}",
+    "{{time_remaining}}",
+    "{{participation_url}}",
+  ],
+  DRAW_REMINDER: [
+    "{{customer_name}}",
+    "{{raffle_name}}",
+    "{{raffle_date}}",
+    "{{participation_url}}",
+  ],
+  RELEASE: ["{{customer_name}}", "{{participation_url}}"],
+  PAYMENT_CONFIRMED: [
+    "{{customer_name}}",
+    "{{amount}}",
+    "{{participation_url}}",
+  ],
+  PAYMENT_RECOVERY: [
+    "{{customer_name}}",
+    "{{expires_at}}",
+    "{{recovery_url}}",
+  ],
+  PAYMENT_REFUNDED: [
+    "{{customer_name}}",
+    "{{refund_amount}}",
+    "{{refund_id}}",
+    "{{participation_url}}",
+  ],
+  RESULT_WINNER: [
+    "{{customer_name}}",
+    "{{raffle_name}}",
+    "{{place}}",
+    "{{prize}}",
+    "{{winning_number}}",
+    "{{participation_url}}",
+  ],
+  RESULT_PARTICIPANTS: [
+    "{{customer_name}}",
+    "{{raffle_name}}",
+    "{{raffle_url}}",
+  ],
+};
+
 export const getTemplateStorageKey = (
   template: ChannelTemplateDefinition,
   version: ChannelTemplateVersion,
@@ -740,6 +813,10 @@ export const getTemplateVariantVariables = (
   version: ChannelTemplateVersion,
   scope?: ChannelTemplateScope,
 ) => {
+  if (version === "SIMPLIFIED" && scope === "RAFFLES") {
+    const simplifiedVariables = SIMPLIFIED_TEMPLATE_VARIABLES[template.type];
+    if (simplifiedVariables) return simplifiedVariables;
+  }
   const content = getTemplateVariantContent(template, version, scope);
   if (!content) return template.variables;
   const variables = Array.from(

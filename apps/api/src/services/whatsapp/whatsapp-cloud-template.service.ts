@@ -124,11 +124,15 @@ export const CLOUD_TEMPLATE_SETTING_KEYS: Array<{
 const SIMPLIFIED_DATE_CHANGE_CONTENT =
   "Hola, {{customer_name}}. \u{1F4C5}\n\nLa fecha de la rifa \u{201C}{{raffle_name}}\u{201D} cambi\u{00F3}.\n\nNueva fecha y hora:\n{{raffle_date}}\n\n{{status_note}}\n\nConsulta el detalle completo de tu participaci\u{00F3}n en el bot\u{00F3}n Ver participaci\u{00F3}n.\n\n{{participation_url}}\n\nGracias por participar.";
 
+const SIMPLIFIED_DRAW_REMINDER_CONTENT =
+  "\u00a1Hola, {{customer_name}}! \u{1F39F}\u{FE0F}\n\nTe recordamos que la rifa \u{201C}{{raffle_name}}\u{201D} se realizar\u{00E1} el:\n\n\u{1F4C5} {{raffle_date}}\n\nTu participaci\u{00F3}n contin\u{00FA}a registrada para este sorteo. \u{1F340}\n\n\u{1F50E} Consulta el detalle de tu participaci\u{00F3}n en Ver participaci\u{00F3}n:\n\n{{participation_url}}\n\n\u00a1Mucha suerte!";
+
 const CLOUD_TEMPLATE_DEFAULT_CONTENTS: Partial<
   Record<CloudTemplateType, string>
 > = {
   DATE_CHANGE:
     'Hola, {{customer_name}}. 📅\n\nLa fecha de la rifa "{{raffle_name}}" fue actualizada.\n\nNueva fecha y hora:\n{{raffle_date}}\n\nConsulta el detalle de tu participación desde el botón Ver participación.',
+  DRAW_REMINDER: SIMPLIFIED_DRAW_REMINDER_CONTENT,
   PARTICIPATION_LOOKUP_CODE:
     "\u{1F50E} Recibimos tu solicitud para consultar tus participaciones.\n\nConsulta tus boletos y su estado desde el bot\u00f3n Ver participaci\u00f3n:\n\n{{participation_url}}",
 };
