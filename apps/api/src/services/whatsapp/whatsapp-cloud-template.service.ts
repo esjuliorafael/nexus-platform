@@ -122,7 +122,7 @@ export const CLOUD_TEMPLATE_SETTING_KEYS: Array<{
 ];
 
 const SIMPLIFIED_DATE_CHANGE_CONTENT =
-  "Hola, {{customer_name}}. \u{1F4C5}\n\nLa fecha de la rifa \u{201C}{{raffle_name}}\u{201D} cambi\u{00F3}.\n\nNueva fecha y hora:\n{{raffle_date}}\n\n{{participation_status_note}}\n\nConsulta los detalles de tu participaci\u{00F3}n en el bot\u{00F3}n Ver participaci\u{00F3}n.\n\nGracias por participar.";
+  "Hola, {{customer_name}}. \u{1F4C5}\n\nLa fecha de la rifa \u{201C}{{raffle_name}}\u{201D} cambi\u{00F3}.\n\nNueva fecha y hora:\n{{raffle_date}}\n\n{{participation_status_note}}\n\nConsulta el detalle completo de tu participaci\u{00F3}n en el bot\u{00F3}n Ver participaci\u{00F3}n.\n\n{{participation_url}}\n\nGracias por participar.";
 
 const CLOUD_TEMPLATE_DEFAULT_CONTENTS: Partial<
   Record<CloudTemplateType, string>
