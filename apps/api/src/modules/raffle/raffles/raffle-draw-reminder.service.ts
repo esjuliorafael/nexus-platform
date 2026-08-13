@@ -82,6 +82,14 @@ const participationRule = (opportunities: number) =>
     ? `Tu boleto participa con ${opportunities} números: el número que eliges y ${opportunities - 1} oportunidades adicionales.`
     : "Tu boleto participa únicamente con su número principal.";
 
+const participationStatusNote = (
+  sales: Array<{ paymentStatus: TicketStatus }>,
+) =>
+  sales.length > 0 &&
+  sales.every((sale) => sale.paymentStatus === TicketStatus.PAID)
+    ? "Tu participaci\u00f3n sigue registrada y tu pago est\u00e1 confirmado."
+    : "Tu participaci\u00f3n sigue registrada. Este cambio no modifica tu plazo de pago.";
+
 async function resolveTemplate(
   storePrisma: StorePrismaClient,
   kind: RaffleCommunicationKind = RaffleCommunicationKind.DRAW_REMINDER,
@@ -180,6 +188,7 @@ async function buildRecipients(
             customer_name: customerName,
             raffle_name: raffle.title,
             raffle_date: formatDrawDate(raffle.drawDate!),
+            participation_status_note: participationStatusNote(sales),
             ticket_list: formatRaffleTicketList(
               sales.map((sale) => ({
                 ticketNumber: sale.ticketNumber,

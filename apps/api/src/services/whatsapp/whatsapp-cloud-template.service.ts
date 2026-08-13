@@ -121,6 +121,9 @@ export const CLOUD_TEMPLATE_SETTING_KEYS: Array<{
   },
 ];
 
+const SIMPLIFIED_DATE_CHANGE_CONTENT =
+  "Hola, {{customer_name}}. \u{1F4C5}\n\nLa fecha de la rifa \u{201C}{{raffle_name}}\u{201D} cambi\u{00F3}.\n\nNueva fecha y hora:\n{{raffle_date}}\n\n{{participation_status_note}}\n\nConsulta los detalles de tu participaci\u{00F3}n en el bot\u{00F3}n Ver participaci\u{00F3}n.\n\nGracias por participar.";
+
 const CLOUD_TEMPLATE_DEFAULT_CONTENTS: Partial<
   Record<CloudTemplateType, string>
 > = {
@@ -219,7 +222,9 @@ export function buildCanonicalCloudTemplateSources(
       content:
         variant === "SIMPLIFIED"
           ? settings[`${item.key}_simplified`] ||
-            CLOUD_TEMPLATE_DEFAULT_CONTENTS[item.type] ||
+            (item.type === "DATE_CHANGE"
+              ? SIMPLIFIED_DATE_CHANGE_CONTENT
+              : CLOUD_TEMPLATE_DEFAULT_CONTENTS[item.type]) ||
             ""
           : settings[item.key] || "",
       variant,
@@ -262,6 +267,8 @@ const VARIABLE_EXAMPLES: Record<string, string> = {
   raffle_url: "https://example.com/raffles/1",
   opening_date: "Lunes, 20 de julio de 2026, 8:00 a. m.",
   raffle_date: "Hoy, 31 de julio de 2026 a las 8:00 p. m.",
+  participation_status_note:
+    "Tu participaci\u00f3n sigue registrada. Este cambio no modifica tu plazo de pago.",
   participation_rule:
     "Tu boleto participa con 8 números: el número que eliges y 7 oportunidades adicionales.",
   winning_rule:

@@ -296,9 +296,14 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
         type: "DATE_CHANGE",
         key: "whatsapp_global_raffle_date_change",
         label: "Cambio de fecha de la rifa",
-        variables: ["{{customer_name}}", "{{raffle_name}}", "{{raffle_date}}"],
+        variables: [
+          "{{customer_name}}",
+          "{{raffle_name}}",
+          "{{raffle_date}}",
+          "{{participation_status_note}}",
+        ],
         defaultContent:
-          'Hola, {{customer_name}}. 📅\n\nLa fecha de la rifa "{{raffle_name}}" fue actualizada.\n\nNueva fecha y hora:\n{{raffle_date}}\n\nConsulta el detalle de tu participación desde el botón Ver participación.\n\nGracias por participar y mucha suerte. 🍀',
+          "Hola, {{customer_name}}. 📅\n\nLa fecha de la rifa “{{raffle_name}}” cambió.\n\nNueva fecha y hora:\n{{raffle_date}}\n\n{{participation_status_note}}\n\nConsulta los detalles de tu participación en el botón Ver participación.\n\nGracias por participar.",
       },
       {
         type: "RESULT_WINNER",
