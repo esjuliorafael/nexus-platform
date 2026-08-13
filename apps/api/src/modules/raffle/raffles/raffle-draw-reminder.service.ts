@@ -188,7 +188,7 @@ async function buildRecipients(
             customer_name: customerName,
             raffle_name: raffle.title,
             raffle_date: formatDrawDate(raffle.drawDate!),
-            participation_status_note: participationStatusNote(sales),
+            status_note: participationStatusNote(sales),
             ticket_list: formatRaffleTicketList(
               sales.map((sale) => ({
                 ticketNumber: sale.ticketNumber,

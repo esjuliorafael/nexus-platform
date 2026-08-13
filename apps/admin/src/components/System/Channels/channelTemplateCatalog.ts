@@ -300,11 +300,11 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
           "{{customer_name}}",
           "{{raffle_name}}",
           "{{raffle_date}}",
-          "{{participation_status_note}}",
+          "{{status_note}}",
           "{{participation_url}}",
         ],
         defaultContent:
-          "Hola, {{customer_name}}. 📅\n\nLa fecha de la rifa “{{raffle_name}}” cambió.\n\n🗓️ Nueva fecha y hora:\n{{raffle_date}}\n\n{{participation_status_note}}\n\n🔎 Consulta el detalle completo de tu participación en el botón Ver participación.\n\n{{participation_url}}\n\nGracias por participar.",
+          "Hola, {{customer_name}}. 📅\n\nLa fecha de la rifa “{{raffle_name}}” cambió.\n\n🗓️ Nueva fecha y hora:\n{{raffle_date}}\n\n{{status_note}}\n\n🔎 Consulta el detalle completo de tu participación en el botón Ver participación.\n\n{{participation_url}}\n\nGracias por participar.",
       },
       {
         type: "RESULT_WINNER",

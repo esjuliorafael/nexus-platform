@@ -89,7 +89,7 @@ const previewMessage = (content: string) => {
     .replace(/\{\{ticket_list\}\}/g, ticketList)
     .replace(/\{\{raffle_name\}\}/g, "Rifa Especial de Junio")
     .replace(/\{\{raffle_date\}\}/g, "Hoy, 31 de julio de 2026 a las 8:00 p. m.")
-    .replace(/\{\{participation_status_note\}\}/g, "✅ Tu participación sigue registrada y tu pago está confirmado.")
+    .replace(/\{\{status_note\}\}/g, "✅ Tu participación sigue registrada y tu pago está confirmado.")
     .replace(/\{\{opening_date\}\}/g, "Lunes, 20 de julio de 2026, 8:00 a. m.")
     .replace(/\{\{ticket_price\}\}/g, "320.00")
     .replace(/\{\{raffle_url\}\}/g, "https://rancholastrojes.com.mx/raffles/1")
