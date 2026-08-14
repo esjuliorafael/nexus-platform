@@ -985,7 +985,11 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                   Variables disponibles
                 </p>
                 <div className="flex flex-wrap" style={{ gap: "var(--space-sm)" }}>
-                  {editingTemplate.variables.map((variable) => (
+                  {getTemplateVariantVariables(
+                    editingTemplate,
+                    editingTemplate.version,
+                    editingTemplate.scope,
+                  ).map((variable) => (
                     <span
                       key={variable}
                       className="bg-bg-card border border-border-main text-label text-text-muted"
