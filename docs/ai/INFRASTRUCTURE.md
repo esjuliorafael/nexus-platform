@@ -100,12 +100,31 @@ docker exec -it manzana-api sh -c "DATABASE_URL=\$RAFFLE_DATABASE_URL pnpm --dir
 El despliegue sigue este camino:
 1. **GitHub:** Push a la rama `master`.
 2. **GitHub Actions:** Construye imágenes Docker y las sube a Docker Hub (`esjuliorafael/nexus-*`) con tags `latest` y SHA de commit para rollback.
-3. **VPS (Manual):**
+3. **VPS (Manual por tenant):** GitHub Actions no entra al VPS ni modifica los tenants; solo publica las imagenes Docker. El operador valida el workflow y actualiza unicamente el tenant solicitado:
    ```bash
-   cd /home/nexus/manzana
+   ssh nexus
+   cd /home/nexus/trojes   # o /home/nexus/manzana, segun el tenant
    docker compose pull
    docker compose up -d
+   docker compose ps
    ```
+
+### Acceso operativo a GitHub
+
+El operador puede consultar los workflows y sus logs con GitHub CLI usando la cuenta autorizada del repositorio:
+
+```powershell
+gh auth status
+gh run list --repo esjuliorafael/nexus-platform
+gh run view <run-id> --repo esjuliorafael/nexus-platform
+```
+
+La autenticacion de `gh` es local al equipo del operador. No se guardan tokens de GitHub en el repositorio ni en los tenants. Antes de actualizar produccion se debe confirmar que el workflow termino en `success` y que el commit corresponde a los cambios esperados.
+
+### Estado actual de tenants
+
+- `trojes`: tenant operativo en produccion; es el unico que debe actualizarse cuando se solicite desplegar Las Trojes.
+- `manzana`: stack de produccion reservado, actualmente no operativo; no se actualiza como parte de un despliegue de `trojes`.
 
 ## 4. Estrategia de Mensajería (WhatsApp)
 
