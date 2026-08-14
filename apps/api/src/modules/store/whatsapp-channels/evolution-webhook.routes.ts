@@ -14,6 +14,9 @@ import { getWhatsappMarketingOptInKeyword, getWhatsappMarketingOptOutKeyword, wh
 import { sendMarketingConsentConfirmation } from "../../../services/whatsapp/whatsapp-marketing-consent-confirmation.service";
 import { buildWhatsappAsyncFallbackPatch } from "../../../services/whatsapp/whatsapp-async-fallback";
 import { refreshRaffleDrawReminderCampaign } from "../../raffle/raffles/raffle-draw-reminder.service";
+import { getEvolutionConfigFromSettings } from "../../../services/evolution/evolution.config";
+import { sendWhatsappAndLog } from "../../../services/whatsapp/whatsapp-send.service";
+import { handleRaffleWhatsappMessage } from "../../raffle/ticket-sales/raffle-whatsapp-assistant.service";
 
 const STATUS_PRIORITY: Record<string, number> = {
   failed: 0,
@@ -179,6 +182,40 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
           });
         }
         return reply.send({ ok: true, marketingConsent: "GRANTED" });
+      }
+
+      const channel = await server.storePrisma.whatsappChannel.findFirst({
+        where: { instanceName: String(instanceName) },
+        select: { evolutionUrl: true, evolutionKey: true },
+      });
+      const globalEvolution = await getEvolutionConfigFromSettings();
+      const evolution = {
+        instanceName: String(instanceName),
+        baseUrl: channel?.evolutionUrl || globalEvolution.baseUrl,
+        apiKey: channel?.evolutionKey || globalEvolution.apiKey,
+      };
+      if (evolution.baseUrl && evolution.apiKey) {
+        const assistant = await handleRaffleWhatsappMessage({
+          rafflePrisma,
+          storePrisma: server.storePrisma,
+          phone: inbound.senderPhone,
+          channelKey: `evolution:${instanceName}`,
+          text: inbound.text,
+        });
+        if (assistant.handled && assistant.reply) {
+          await sendWhatsappAndLog({
+            transport: { provider: "EVOLUTION", instance: evolution },
+            recipientPhone: inbound.senderPhone,
+            message: { text: assistant.reply },
+            templateName: "raffle_whatsapp_assistant",
+            routing: {
+              route: "DIRECT",
+              preferredInstanceName: evolution.instanceName,
+              policyClass: "OPERATIONAL",
+              providerPriority: ["EVOLUTION"],
+            },
+          });
+        }
       }
 
       return reply.send({ ok: true, ignored: "unrecognized_inbound_message" });

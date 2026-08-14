@@ -42,6 +42,8 @@ import {
 import { buildWhatsappAsyncFallbackPatch } from "../../../services/whatsapp/whatsapp-async-fallback";
 import { sendMarketingConsentConfirmation } from "../../../services/whatsapp/whatsapp-marketing-consent-confirmation.service";
 import { whatsappCustomerServiceWindowService } from "../../../services/whatsapp/whatsapp-customer-service-window.service";
+import { sendWhatsappAndLog } from "../../../services/whatsapp/whatsapp-send.service";
+import { handleRaffleWhatsappMessage } from "../../raffle/ticket-sales/raffle-whatsapp-assistant.service";
 
 const testTemplateSchema = z.object({
   recipientPhone: z.string().trim().min(1),
@@ -887,6 +889,60 @@ export async function kapsoWebhookRoutes(server: FastifyInstance) {
               },
               inboundMessageId: messageId,
             });
+          }
+        }
+
+        if (inbound.senderPhone) {
+          const channel = inbound.phoneNumberId
+            ? await server.storePrisma.whatsappChannel.findFirst({
+                where: { kapsoPhoneNumberId: String(inbound.phoneNumberId) },
+                select: { id: true, purpose: true, kapsoBusinessAccountId: true },
+              })
+            : null;
+          const principalSettings = await server.storePrisma.setting.findMany({
+            where: {
+              key: {
+                in: [
+                  "whatsapp_main_kapso_phone_number_id",
+                  "whatsapp_main_kapso_business_account_id",
+                ],
+              },
+            },
+            select: { key: true, value: true },
+          });
+          const settings = Object.fromEntries(
+            principalSettings.map((setting) => [setting.key, setting.value || ""]),
+          );
+          const phoneNumberId =
+            String(inbound.phoneNumberId || "") || settings.whatsapp_main_kapso_phone_number_id;
+          const businessAccountId =
+            channel?.kapsoBusinessAccountId || settings.whatsapp_main_kapso_business_account_id;
+          const kapsoConfig = phoneNumberId
+            ? getKapsoConfigForChannel({ phoneNumberId, businessAccountId })
+            : null;
+
+          if (kapsoConfig) {
+            const assistant = await handleRaffleWhatsappMessage({
+              rafflePrisma,
+              storePrisma: server.storePrisma,
+              phone: inbound.senderPhone,
+              channelKey: `kapso:${phoneNumberId}`,
+              text: inbound.text,
+            });
+            if (assistant.handled && assistant.reply) {
+              await sendWhatsappAndLog({
+                transport: { provider: "KAPSO", config: kapsoConfig },
+                recipientPhone: inbound.senderPhone,
+                message: { text: assistant.reply },
+                templateName: "raffle_whatsapp_assistant",
+                routing: {
+                  route: "DIRECT",
+                  preferredInstanceName: `kapso:${phoneNumberId}`,
+                  policyClass: "OPERATIONAL",
+                  providerPriority: ["KAPSO", "EVOLUTION"],
+                },
+              });
+            }
           }
         }
         continue;
