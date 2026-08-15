@@ -424,6 +424,24 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         },
         orderBy: { ticketNumber: "asc" },
       });
+      if (sales[0]?.customerPhone) {
+        try {
+          values.participation_url = (
+            await createRaffleParticipationAccess({
+              rafflePrisma,
+              raffleId: sales[0].raffleId,
+              participationId:
+                sales[0].reservationId || `ticket-sale:${sales[0].id}`,
+              phone: sales[0].customerPhone,
+            })
+          ).url;
+        } catch (error) {
+          console.error(
+            "[Raffle date change] Could not create participation link:",
+            error,
+          );
+        }
+      }
       const renderedText = renderTemplate(
         recipient.campaign.templateContent,
         values,
