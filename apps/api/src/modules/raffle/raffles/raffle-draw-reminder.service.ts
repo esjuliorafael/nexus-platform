@@ -94,16 +94,26 @@ async function resolveTemplate(
   storePrisma: StorePrismaClient,
   kind: RaffleCommunicationKind = RaffleCommunicationKind.DRAW_REMINDER,
 ) {
+  const legacyKey =
+    kind === RaffleCommunicationKind.DATE_CHANGE
+      ? "whatsapp_global_raffle_date_change"
+      : TEMPLATE_KEY;
+  const simplifiedKey =
+    kind === RaffleCommunicationKind.DATE_CHANGE
+      ? "whatsapp_global_raffle_date_change_simplified"
+      : null;
   const setting = await storePrisma.setting.findUnique({
-    where: {
-      key:
-        kind === RaffleCommunicationKind.DATE_CHANGE
-          ? "whatsapp_global_raffle_date_change"
-          : TEMPLATE_KEY,
-    },
+    where: { key: legacyKey },
     select: { value: true },
   });
-  const content = setting?.value?.trim() || "";
+  const simplifiedSetting = simplifiedKey
+    ? await storePrisma.setting.findUnique({
+        where: { key: simplifiedKey },
+        select: { value: true },
+      })
+    : null;
+  const content =
+    setting?.value?.trim() || simplifiedSetting?.value?.trim() || "";
   if (!content) throw new Error("RAFFLE_DRAW_REMINDER_TEMPLATE_MISSING");
   return { templateContent: content, principalTemplateContent: content };
 }
