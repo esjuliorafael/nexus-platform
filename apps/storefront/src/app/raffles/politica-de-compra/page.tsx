@@ -211,7 +211,7 @@ export default function RafflePurchasePolicyPage() {
         </header>
 
         <div className="grid grid-cols-1 items-start gap-[var(--sf-space-lg)] lg:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.85fr)]">
-          <article className="flex flex-col" style={{ gap: "var(--sf-space-md)" }}>
+          <article className="order-2 flex flex-col lg:order-1" style={{ gap: "var(--sf-space-md)" }}>
             <StorefrontCard level={1} density="compact" className="border-brand-200 bg-brand-50/70">
               <div className="flex items-start" style={{ gap: "var(--sf-space-md)" }}>
                 <StorefrontIcon icon={CalendarClock} context="autonomous" variant="brand" />
@@ -248,7 +248,7 @@ export default function RafflePurchasePolicyPage() {
             ))}
           </article>
 
-          <aside className="lg:sticky lg:top-[var(--sf-space-lg)]">
+          <aside className="order-1 lg:order-2 lg:sticky lg:top-[var(--sf-space-lg)]">
             <StorefrontCard level={1} density="compact">
               <div className="mb-[var(--sf-space-md)] flex items-start" style={{ gap: "var(--sf-space-md)" }}>
                 <StorefrontIcon icon={FileText} context="section" variant="brand" />
