@@ -28,6 +28,7 @@ const sections = [
       "La fecha y hora publicadas corresponden a la programación prevista para el sorteo. El organizador podrá reprogramarlas cuando no se alcance el nivel de participación pagada necesario para realizar la rifa, o cuando exista una causa operativa, técnica, de fuerza mayor o una exigencia de autoridad que lo haga necesario.",
       "La selección de boletos apartados pero no pagados no se considera participación vendida para determinar la viabilidad de la rifa.",
       "Cuando se modifique la fecha, se publicará la nueva fecha y hora en el sitio y se comunicará a las participaciones activas mediante los canales disponibles. La participación pagada conservará sus mismos boletos, oportunidades y condiciones para la nueva fecha, sin necesidad de volver a comprar.",
+      "Cuando exista constancia de envío o entrega de la comunicación al medio de contacto registrado, el cambio se tendrá por comunicado al participante. La falta de lectura, respuesta o confirmación no suspende la vigencia del cambio ni permite desconocer la fecha nueva publicada; Nexus conservará los registros disponibles del envío, entrega, contenido y momento de la comunicación.",
       "Si el cambio se comunica antes de que inicie el evento de la Lotería Nacional usado como referencia y antes de publicar resultados, la fecha original queda sustituida de manera inmediata desde su publicación y comunicación. En ese caso, no podrá reclamarse un premio, resultado o sorteo con base en la fecha anterior; solo será válido el resultado obtenido conforme a la nueva fecha publicada.",
       "Una vez iniciado el evento de referencia, no se aplicará un cambio de fecha con efectos retroactivos sobre un resultado ya ocurrido.",
       "Para efectos de cada rifa, la fecha y hora oficiales son exclusivamente las publicadas en su ficha, expresadas en el horario del centro de México. Si una rifa publica las 8:00 p. m., esa es la hora oficial de esa rifa; esta política no afirma que todos los eventos de la Lotería Nacional tengan siempre ese horario. El participante debe consultar la hora equivalente en su ubicación; el evento de referencia comienza en el momento oficial publicado, sin que su zona horaria modifique ese momento.",
@@ -78,7 +79,7 @@ export default function RafflePurchasePolicyPage() {
           <p className="sf-text-body text-stone-600">
             Condiciones claras para apartar, pagar y participar en las rifas de {brandName}.
           </p>
-          <p className="sf-text-secondary font-bold text-stone-500">Revisión vigente de la política: 14 de agosto de 2026</p>
+          <p className="sf-text-secondary font-bold text-stone-500">Revisión vigente de la política: agosto de 2026</p>
         </header>
 
         <StorefrontCard level={1} density="compact" className="border-brand-200 bg-brand-50/70">
