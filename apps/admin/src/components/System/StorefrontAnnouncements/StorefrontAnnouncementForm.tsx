@@ -111,7 +111,15 @@ export const StorefrontAnnouncementForm = forwardRef<StorefrontAnnouncementFormR
           <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
             <NexusInput label="Subtítulo" value={eyebrow} onChange={(event) => setEyebrow(event.target.value)} maxLength={60} placeholder="Aviso importante" />
             <NexusInput label="Título" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} required />
-            <NexusTextarea label="Mensaje" value={message} onChange={(event) => setMessage(event.target.value)} maxLength={500} rows={6} required />
+            <NexusTextarea
+              label="Mensaje"
+              value={message}
+              onChange={(event) => setMessage(event.target.value)}
+              helperText="Conserva los saltos de línea. Para enlazar texto usa [texto del enlace](/ruta)."
+              maxLength={500}
+              rows={6}
+              required
+            />
             <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "var(--space-md)" }}>
               <NexusInput label="Texto del CTA" value={ctaLabel} onChange={(event) => setCtaLabel(event.target.value)} placeholder="Ver detalles" />
               <NexusInput label="Destino del CTA" value={ctaHref} onChange={(event) => setCtaHref(event.target.value)} placeholder="/raffles/1" />

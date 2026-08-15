@@ -5,7 +5,7 @@ import {
   WhatsappMarketingConsentSource,
 } from "@prisma/client-store";
 import { paymentHoldReleaseQueue } from "../../../queues/payment-hold-release.queue";
-import { getReminderDelayMs, reservationReminderQueue } from "../../../queues/reservation-reminder.queue";
+import { reservationReminderQueue } from "../../../queues/reservation-reminder.queue";
 import { ticketReleaseQueue } from "../../../queues/ticket-release.queue";
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
 import { customerPhoneIdentity } from "../../../utils/customer-phone";
@@ -24,6 +24,10 @@ import {
   resolvePaymentHoldMinutes,
 } from "../../store/payments/payment-hold-policy";
 import { whatsappMarketingConsentService } from "../../../services/whatsapp-marketing-consent.service";
+import {
+  calculateRaffleReservationExpiration,
+  formatRaffleTimeLimit,
+} from "./raffle-reservation-expiration";
 
 const scheduleRaffleReconciliation = async (prisma: PrismaClient, holdId: string) => {
   const expiresAt = new Date(Date.now() + PAYMENT_RECONCILIATION_INTERVAL_MS);
@@ -239,7 +243,7 @@ export const rafflePaymentHoldService = {
     const releaseHours = Number(settingsMap.raffle_release_hours || 24);
     const reminderActive = settingsMap.raffle_reminder_active === "1";
     const reminderHoursBefore = Number(settingsMap.raffle_reminder_hours_before || 4);
-    const expiresAt = releaseActive ? new Date(Date.now() + releaseHours * 3_600_000) : null;
+    const reservationCreatedAt = new Date();
 
     const converted = await prisma.$transaction(async (tx) => {
       await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(7421, ${raffleId}::integer)`);
@@ -261,7 +265,7 @@ export const rafflePaymentHoldService = {
           orderBy: { ticketNumber: "asc" },
         });
         if (!sales.length) throw holdError("La participación promovida no existe.", 409);
-        return { hold, reservationId: hold.promotedReservationId, sales, created: false };
+        return { hold, reservationId: hold.promotedReservationId, sales, created: false, expiresAt: null };
       }
       if (!canConvertPaymentHoldToTransfer(hold)) {
         throw holdError(
@@ -272,6 +276,13 @@ export const rafflePaymentHoldService = {
       }
 
       const reservationId = randomUUID();
+      const expiresAt = releaseActive
+        ? calculateRaffleReservationExpiration(
+            reservationCreatedAt,
+            hold.raffle.drawDate,
+            releaseHours,
+          )
+        : null;
       await tx.ticketSale.createMany({
         data: hold.tickets.map((ticket) => ({
           raffleId: hold.raffleId,
@@ -325,14 +336,22 @@ export const rafflePaymentHoldService = {
         },
       });
       const sales = await tx.ticketSale.findMany({ where: { reservationId }, orderBy: { ticketNumber: "asc" } });
-      return { hold, reservationId, sales, created: true };
+      return { hold, reservationId, sales, created: true, expiresAt };
     });
 
     if (converted.created && converted.sales.length) {
       const saleIds = converted.sales.map((sale) => sale.id);
-      if (releaseActive && expiresAt) {
-        await ticketReleaseQueue.add("release", { ticketSaleIds: saleIds }, { delay: releaseHours * 3_600_000 });
-        const reminderDelay = getReminderDelayMs(releaseHours, reminderHoursBefore);
+      if (releaseActive && converted.expiresAt) {
+        const expiresAt = converted.expiresAt;
+        await ticketReleaseQueue.add(
+          "release",
+          { ticketSaleIds: saleIds, expectedReleaseAt: expiresAt.toISOString() },
+          { delay: Math.max(0, expiresAt.getTime() - Date.now()) },
+        );
+        const reminderDelay = Math.max(
+          0,
+          expiresAt.getTime() - Date.now() - reminderHoursBefore * 3_600_000,
+        );
         if (reminderActive && reminderDelay) {
           await reservationReminderQueue.add(
             "raffle-reminder",
@@ -345,7 +364,7 @@ export const rafflePaymentHoldService = {
         kind: "reservation",
         ticketSaleIds: saleIds,
         recipientPhone: converted.hold.customerPhone,
-        timeLimit: `${releaseHours} horas`,
+        timeLimit: converted.expiresAt ? formatRaffleTimeLimit(converted.expiresAt) : undefined,
       });
       void raffleNotificationService.sendTicketReservationEmail(storePrisma, prisma, {
         raffleTitle: converted.hold.raffle.title,
@@ -367,7 +386,9 @@ export const rafflePaymentHoldService = {
     return {
       reserved: converted.sales.map((sale) => sale.ticketNumber),
       reservationId: converted.reservationId,
-      paymentExpiresAt: paymentStatus === TicketStatus.PENDING ? expiresAt?.toISOString() ?? null : null,
+      paymentExpiresAt: paymentStatus === TicketStatus.PENDING
+        ? converted.expiresAt?.toISOString() ?? null
+        : null,
       paymentMethod: converted.sales[0]?.paymentMethod || "TRANSFER",
       paymentStatus,
       subtotal,

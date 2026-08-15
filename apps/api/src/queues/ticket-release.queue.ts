@@ -12,8 +12,12 @@ export const ticketReleaseQueue = new Queue(queueName("ticket-release"), { conne
 export const ticketReleaseWorker = new Worker(
   queueName("ticket-release"),
   async (job: Job) => {
-    const { ticketSaleIds } = job.data;
+    const { ticketSaleIds, expectedReleaseAt } = job.data;
     const { rafflePrisma } = await import("@nexus/db/raffle");
+
+    if (expectedReleaseAt && new Date(expectedReleaseAt).getTime() > Date.now()) {
+      return;
+    }
 
     let sales = await rafflePrisma.ticketSale.findMany({
       where: {
@@ -24,6 +28,15 @@ export const ticketReleaseWorker = new Worker(
 
     if (sales.length > 0) {
       const participationId = sales[0].reservationId || `sale-${sales[0].id}`;
+      const newerDeadline = await rafflePrisma.raffleParticipationEvent.findFirst({
+        where: {
+          participationId,
+          eventType: "RESERVATION_DEADLINE_UPDATED",
+          createdAt: { gt: new Date(job.timestamp) },
+        },
+        select: { id: true },
+      });
+      if (newerDeadline) return;
       const newerRestoration = await rafflePrisma.raffleParticipationEvent.findFirst({
         where: {
           participationId,

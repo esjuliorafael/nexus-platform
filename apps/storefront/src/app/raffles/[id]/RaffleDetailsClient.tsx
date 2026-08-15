@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { motion, useReducedMotion } from "framer-motion";
 import {
@@ -8,6 +9,7 @@ import {
   Award,
   BellRing,
   Calendar,
+  CalendarClock,
   CheckCircle2,
   CircleSlash2,
   Clock3,
@@ -834,11 +836,23 @@ export function RaffleDetailsClient({
                       className="flex flex-col"
                       style={{ gap: "var(--sf-space-md)" }}
                     >
-                      <RaffleInfoItem
-                        icon={Calendar}
-                        label="Fecha y hora de la rifa"
-                        value={formatRaffleDrawDate(raffle.drawDate)}
-                      />
+                      <div className="flex flex-col" style={{ gap: "var(--sf-space-sm)" }}>
+                        <RaffleInfoItem
+                          icon={Calendar}
+                          label="Fecha y hora de la rifa"
+                          value={formatRaffleDrawDate(raffle.drawDate)}
+                        />
+                        <p className="sf-text-secondary text-white/85">
+                          Esta fecha corresponde a la programación vigente. Si fuera necesario reprogramar la rifa antes del evento de referencia, la nueva fecha se publicará y comunicará a los participantes. Consulta la{" "}
+                          <Link
+                            href="/policies/raffles/participation"
+                            className="font-bold text-white underline underline-offset-4"
+                          >
+                            Política de participación
+                          </Link>
+                          .
+                        </p>
+                      </div>
                       <RaffleInfoItem
                         icon={Ticket}
                         label="Número de boletos"
@@ -902,11 +916,6 @@ export function RaffleDetailsClient({
                       description={`Las oportunidades adicionales se asignan de forma ${distributionLabel}.`}
                     />
                   )}
-                  <RaffleKnowledgeItem
-                    icon={Trophy}
-                    title="Resultado de la rifa"
-                    description={`El número ganador se determina con los últimos ${raffle.digits} ${digitLabel} del Premio Mayor de la Lotería Nacional.`}
-                  />
                   {!isFinalized && (
                     <RaffleKnowledgeItem
                       icon={Clock3}
@@ -918,6 +927,18 @@ export function RaffleDetailsClient({
                       }
                     />
                   )}
+                  {!isFinalized && (
+                    <RaffleKnowledgeItem
+                      icon={CalendarClock}
+                      title="Cambios de fecha"
+                      description="La fecha publicada es la vigente. Si la participación pagada no alcanza el nivel necesario, la rifa puede reprogramarse antes del evento de referencia; la nueva fecha se publicará y comunicará a los participantes."
+                    />
+                  )}
+                  <RaffleKnowledgeItem
+                    icon={Trophy}
+                    title="Resultado de la rifa"
+                    description={`El número ganador se determina con los últimos ${raffle.digits} ${digitLabel} del Premio Mayor de la Lotería Nacional.`}
+                  />
                 </div>
                 <RaffleReferenceNote />
               </section>

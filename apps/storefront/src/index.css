@@ -127,6 +127,7 @@
   --sf-text-display:   clamp(1.5rem,   4vw,  2rem);       /* 24px -> 32px */
   --sf-text-h1:        clamp(1.2rem,   2.5vw, 1.5rem);   /* 19px -> 24px */
   --sf-text-h2:        clamp(1.05rem,  2vw,  1.25rem);   /* 16.8px -> 20px */
+  --sf-text-subtitle:  clamp(0.875rem, 1.1vw, 1rem);    /* 14px -> 16px */
   --sf-text-body:      clamp(0.9375rem, 1.2vw, 1rem);    /* 15px -> 16px */
   --sf-text-secondary: clamp(0.8rem,   1vw,  0.875rem);  /* 12.8px -> 14px */
   --sf-text-label:     clamp(0.6rem,   0.7vw, 0.6875rem);/* 9.6px -> 11px */
@@ -463,6 +464,12 @@
     font-weight: 600;
     letter-spacing: -0.01em;
     line-height: 1.3;
+  }
+
+  .sf-text-subtitle {
+    font-size: var(--sf-text-subtitle);
+    font-weight: 700;
+    line-height: 1.35;
   }
 
   .sf-text-body {

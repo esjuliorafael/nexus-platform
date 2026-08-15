@@ -21,6 +21,7 @@ import {
   deriveRaffleResultCampaignStatus,
   rafflePrizePlaceLabel,
 } from "./raffle-result-communication.utils";
+import { formatRaffleDeadline } from "../ticket-sales/raffle-reservation-expiration";
 
 const TEMPLATE_KEY = "whatsapp_global_raffle_draw_reminder";
 const DRAW_REMINDER_DISPATCH_INTERVAL_MS = 30_000;
@@ -84,11 +85,14 @@ const participationRule = (opportunities: number) =>
 
 const participationStatusNote = (
   sales: Array<{ paymentStatus: TicketStatus }>,
+  deadlineUpdate?: { deadlineExtended?: boolean; expectedReleaseAt?: string },
 ) =>
   sales.length > 0 &&
   sales.every((sale) => sale.paymentStatus === TicketStatus.PAID)
     ? "Tu participaci\u00f3n sigue registrada y tu pago est\u00e1 confirmado."
-    : "Tu participaci\u00f3n sigue registrada. Este cambio no modifica tu plazo de pago.";
+    : deadlineUpdate?.deadlineExtended && deadlineUpdate.expectedReleaseAt
+      ? `Tu participaci\u00f3n sigue registrada. Este cambio actualiza tu plazo de pago. Ahora tienes hasta ${formatRaffleDeadline(new Date(deadlineUpdate.expectedReleaseAt))} para completar el pago.`
+      : "Tu participaci\u00f3n sigue registrada. Este cambio no modifica tu plazo de pago.";
 
 async function resolveTemplate(
   storePrisma: StorePrismaClient,
@@ -141,6 +145,23 @@ async function buildRecipients(
   });
   if (!raffle) throw new Error("RAFFLE_NOT_FOUND");
   if (!raffle.drawDate) throw new Error("RAFFLE_DRAW_DATE_MISSING");
+
+  const deadlineUpdates = kind === RaffleCommunicationKind.DATE_CHANGE
+    ? await rafflePrisma.raffleParticipationEvent.findMany({
+        where: {
+          raffleId,
+          eventType: "RESERVATION_DEADLINE_UPDATED",
+        },
+        orderBy: { createdAt: "desc" },
+        select: { participationId: true, metadata: true },
+      })
+    : [];
+  const latestDeadlineUpdate = new Map<string, any>();
+  for (const event of deadlineUpdates) {
+    if (!latestDeadlineUpdate.has(event.participationId)) {
+      latestDeadlineUpdate.set(event.participationId, event.metadata);
+    }
+  }
 
   const recipients = new Map<
     string,
@@ -198,7 +219,12 @@ async function buildRecipients(
             customer_name: customerName,
             raffle_name: raffle.title,
             raffle_date: formatDrawDate(raffle.drawDate!),
-            status_note: participationStatusNote(sales),
+            status_note: participationStatusNote(
+              sales,
+              latestDeadlineUpdate.get(
+                sales[0].reservationId || `ticket-sale:${sales[0].id}`,
+              ),
+            ),
             ticket_list: formatRaffleTicketList(
               sales.map((sale) => ({
                 ticketNumber: sale.ticketNumber,

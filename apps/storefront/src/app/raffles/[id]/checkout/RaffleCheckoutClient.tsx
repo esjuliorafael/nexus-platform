@@ -577,8 +577,8 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
               </StorefrontNote>
               <p className="sf-text-secondary text-stone-500">
                 Antes de continuar, consulta nuestra{' '}
-                <Link className="font-bold text-brand-700 underline underline-offset-4" href="/raffles/politica-de-compra">
-                  Política de compra de boletos
+                <Link className="font-bold text-brand-700 underline underline-offset-4" href="/policies/raffles/participation">
+                  Política de participación en rifas
                 </Link>
                 .
               </p>

@@ -1762,6 +1762,19 @@ export async function raffleRoutes(server: FastifyInstance) {
         raffleId,
         validated,
       );
+      const nextDrawDate = updated.drawDate ? new Date(updated.drawDate) : null;
+      if (
+        current.drawDate &&
+        nextDrawDate &&
+        current.drawDate.getTime() !== nextDrawDate.getTime()
+      ) {
+        await ticketSaleService.reschedulePendingForRaffle(
+          getPrisma(),
+          server.storePrisma,
+          raffleId,
+          current.drawDate,
+        );
+      }
       await reconcileRaffleOpeningNotifications(raffleId);
       return updated;
     },

@@ -2,13 +2,15 @@
 
 import { useState } from 'react';
 import { AnimatePresence, motion } from 'framer-motion';
-import { ChevronDown, HelpCircle } from 'lucide-react';
+import { ChevronDown, HelpCircle, type LucideIcon } from 'lucide-react';
 import { StorefrontCard } from './Card';
 import { StorefrontIcon } from './Icon';
+import { StorefrontReveal } from './Reveal';
 
 export interface FAQItem {
   question: string;
   answer: string;
+  icon?: LucideIcon;
 }
 
 const defaultFAQs: FAQItem[] = [
@@ -47,15 +49,16 @@ export function FAQAccordion({ items = defaultFAQs }: FAQAccordionProps) {
         const isOpen = openIndex === index;
 
         return (
-          <StorefrontCard key={faq.question} interactive={false} density="none" className="overflow-hidden">
+          <StorefrontReveal key={faq.question} cadence="compact" amount={0.2}>
+            <StorefrontCard level={2} interactive={false} density="none" className="overflow-hidden">
             <button
               type="button"
               onClick={() => setOpenIndex(isOpen ? null : index)}
-              className="flex w-full items-center justify-between gap-4 p-[var(--sf-padding-inner)] text-left transition-colors duration-300 hover:bg-stone-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20"
-              style={{ transitionTimingFunction: 'var(--sf-ease)' }}
+              className="flex w-full items-center justify-between text-left transition-colors duration-300 hover:bg-stone-50 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/20"
+              style={{ gap: 'var(--sf-space-md)', padding: 'var(--sf-padding-inner)', transitionTimingFunction: 'var(--sf-ease)' }}
             >
-              <span className="flex min-w-0 items-center gap-4">
-                <StorefrontIcon icon={HelpCircle} variant={isOpen ? 'brand' : 'muted'} />
+              <span className="flex min-w-0 items-center" style={{ gap: 'var(--sf-space-md)' }}>
+                <StorefrontIcon context="card" icon={faq.icon ?? HelpCircle} variant={isOpen ? 'brand' : 'muted'} />
                 <span className="sf-text-h2 text-stone-900">{faq.question}</span>
               </span>
               <motion.span
@@ -75,13 +78,14 @@ export function FAQAccordion({ items = defaultFAQs }: FAQAccordionProps) {
                   exit={{ height: 0, opacity: 0 }}
                   transition={{ duration: 0.25, ease: [0.23, 1, 0.32, 1] }}
                 >
-                  <div className="border-t border-stone-100 px-[var(--sf-padding-inner)] pb-[var(--sf-padding-inner)] pt-4">
+                  <div className="border-t border-stone-100" style={{ padding: 'var(--sf-padding-inner)', paddingTop: 'var(--sf-space-md)' }}>
                     <p className="sf-text-body text-stone-500">{faq.answer}</p>
                   </div>
                 </motion.div>
               )}
             </AnimatePresence>
-          </StorefrontCard>
+            </StorefrontCard>
+          </StorefrontReveal>
         );
       })}
     </div>

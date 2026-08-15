@@ -4,7 +4,7 @@ import {
   PrismaClient as StorePrismaClient,
   WhatsappMarketingConsentSource,
 } from "@prisma/client-store";
-import { getReminderDelayMs, reservationReminderQueue } from "../../../queues/reservation-reminder.queue";
+import { reservationReminderQueue } from "../../../queues/reservation-reminder.queue";
 import { ticketReleaseQueue } from "../../../queues/ticket-release.queue";
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
 import { raffleNotificationService } from "../notifications/raffle-notification.service";
@@ -19,6 +19,10 @@ import {
 } from "../../../utils/admin-authorization";
 import { buildRaffleOperationalOverview } from "./raffle-overview";
 import { whatsappMarketingConsentService } from "../../../services/whatsapp-marketing-consent.service";
+import {
+  calculateRaffleReservationExpiration,
+  formatRaffleTimeLimit,
+} from "./raffle-reservation-expiration";
 import { createRaffleParticipationAccess } from "./raffle-participation-access.service";
 
 export class TicketAvailabilityConflictError extends Error {
@@ -459,9 +463,6 @@ export const ticketSaleService = {
       settingsMap.get("raffle_reminder_hours_before") || 4,
     );
     const targetStatus = confirmPayment ? TicketStatus.PAID : TicketStatus.PENDING;
-    const expectedReleaseAt = isReleaseActive && !confirmPayment
-      ? new Date(Date.now() + releaseHours * 3600 * 1000)
-      : null;
 
     const legacyMatch = /^sale-(\d+)$/.exec(participationKey);
     const where = legacyMatch
@@ -484,6 +485,20 @@ export const ticketSaleService = {
     const raffleId = sales[0].raffleId;
     const saleIds = sales.map((sale) => sale.id);
     const ticketNumbers = sales.map((sale) => sale.ticketNumber);
+    const raffleSnapshot = await prisma.raffle.findUnique({
+      where: { id: raffleId },
+      select: { resultPublishedAt: true, drawDate: true },
+    });
+    if (raffleSnapshot?.resultPublishedAt) {
+      throw new Error("RAFFLE_RESULT_ALREADY_PUBLISHED");
+    }
+    const expectedReleaseAt = isReleaseActive && !confirmPayment
+      ? calculateRaffleReservationExpiration(
+          sales[0].createdAt,
+          raffleSnapshot?.drawDate,
+          releaseHours,
+        )
+      : null;
 
     await prisma.$transaction(async (tx) => {
       await tx.$executeRaw(
@@ -492,12 +507,11 @@ export const ticketSaleService = {
 
       const raffle = await tx.raffle.findUnique({
         where: { id: raffleId },
-        select: { resultPublishedAt: true },
+        select: { resultPublishedAt: true, drawDate: true },
       });
       if (raffle?.resultPublishedAt) {
         throw new Error("RAFFLE_RESULT_ALREADY_PUBLISHED");
       }
-
       const conflictingSales = await tx.ticketSale.findMany({
         where: {
           raffleId,
@@ -557,6 +571,8 @@ export const ticketSaleService = {
             ticketNumbers,
             releaseHours: expectedReleaseAt ? releaseHours : null,
             expectedReleaseAt: expectedReleaseAt?.toISOString() || null,
+            deadlineLimitedByDrawDate:
+              Boolean(expectedReleaseAt && raffle?.drawDate && expectedReleaseAt.getTime() === raffle.drawDate.getTime()),
           },
         },
       });
@@ -569,11 +585,14 @@ export const ticketSaleService = {
     if (expectedReleaseAt) {
       await ticketReleaseQueue.add(
         "release",
-        { ticketSaleIds: saleIds },
-        { delay: releaseHours * 3600 * 1000 },
+        { ticketSaleIds: saleIds, expectedReleaseAt: expectedReleaseAt.toISOString() },
+        { delay: Math.max(0, expectedReleaseAt.getTime() - Date.now()) },
       );
 
-      const reminderDelay = getReminderDelayMs(releaseHours, reminderHoursBefore);
+      const reminderDelay = Math.max(
+        0,
+        expectedReleaseAt.getTime() - Date.now() - reminderHoursBefore * 3600 * 1000,
+      );
       if (isReminderActive && reminderDelay) {
         await reservationReminderQueue.add(
           "raffle-reminder",
@@ -598,7 +617,9 @@ export const ticketSaleService = {
         kind: "reservation-restored",
         ticketSaleIds: saleIds,
         recipientPhone: sales[0].customerPhone,
-        timeLimit: `${releaseHours} horas`,
+        timeLimit: expectedReleaseAt
+          ? formatRaffleTimeLimit(expectedReleaseAt)
+          : "sin límite automático",
       });
     }
 
@@ -730,6 +751,17 @@ export const ticketSaleService = {
       select: { value: true },
     });
     const releaseHours = Number(setting?.value || 24);
+    const raffle = await prisma.raffle.findUnique({
+      where: { id: sales[0].raffleId },
+      select: { drawDate: true },
+    });
+    const currentExpiration = status === TicketStatus.PENDING
+      ? calculateRaffleReservationExpiration(
+          sales[0].createdAt,
+          raffle?.drawDate,
+          releaseHours,
+        )
+      : null;
     const jobKind = sales[0].mpRefundedAt
       ? "reservation-refunded"
       : status === TicketStatus.PAID
@@ -747,14 +779,18 @@ export const ticketSaleService = {
         kind: "reservation-restored",
         ticketSaleIds,
         recipientPhone,
-        timeLimit: `${releaseHours} horas`,
+        timeLimit: currentExpiration
+          ? formatRaffleTimeLimit(currentExpiration)
+          : "sin límite automático",
       });
     } else if (jobKind === "reservation") {
       await whatsappQueue.add("reservation-notification", {
         kind: "reservation",
         ticketSaleIds,
         recipientPhone,
-        timeLimit: `${releaseHours} horas`,
+        timeLimit: currentExpiration
+          ? formatRaffleTimeLimit(currentExpiration)
+          : "sin límite automático",
       });
     } else if (jobKind === "reservation-paid") {
       await whatsappQueue.add("reservation-notification", {
@@ -1033,19 +1069,34 @@ export const ticketSaleService = {
         const reservationDelayMs = paymentMethod === "MERCADOPAGO"
           ? mpHoldMinutes * 60 * 1000
           : releaseHours * 3600 * 1000;
-        const expectedReleaseAt = new Date(Date.now() + reservationDelayMs);
+        const expectedReleaseAt = paymentMethod === "MERCADOPAGO"
+          ? new Date(Date.now() + reservationDelayMs)
+          : isReleaseActive
+            ? calculateRaffleReservationExpiration(
+                sales[0].createdAt,
+                raffle.drawDate,
+                releaseHours,
+              )
+            : null;
         paymentExpiresAt = expectedReleaseAt;
 
         // Card holds always expire; manual reservations follow the raffle release setting.
         if (paymentMethod === "MERCADOPAGO" || isReleaseActive) {
+          if (!expectedReleaseAt) throw new Error("RAFFLE_RESERVATION_EXPIRATION_MISSING");
 
           await ticketReleaseQueue.add(
             "release",
-            { ticketSaleIds: sales.map(s => s.id) },
-            { delay: reservationDelayMs }
+            {
+              ticketSaleIds: sales.map(s => s.id),
+              expectedReleaseAt: expectedReleaseAt.toISOString(),
+            },
+            { delay: Math.max(0, expectedReleaseAt.getTime() - Date.now()) }
           );
 
-          const reminderDelay = getReminderDelayMs(releaseHours, reminderHoursBefore);
+          const reminderDelay = Math.max(
+            0,
+            expectedReleaseAt.getTime() - Date.now() - reminderHoursBefore * 3600 * 1000,
+          );
           if (paymentMethod === "TRANSFER" && isReminderActive && reminderDelay) {
             await reservationReminderQueue.add(
               "raffle-reminder",
@@ -1064,7 +1115,9 @@ export const ticketSaleService = {
             kind: "reservation",
             ticketSaleIds: sales.map(s => s.id),
             recipientPhone: sales[0].customerPhone,
-            timeLimit: `${releaseHours} horas`,
+            timeLimit: expectedReleaseAt
+              ? formatRaffleTimeLimit(expectedReleaseAt)
+              : "sin límite automático",
             participationUrl,
           });
         }
@@ -1115,6 +1168,114 @@ export const ticketSaleService = {
       include: { raffle: true },
       orderBy: { createdAt: "desc" },
     });
+  },
+
+  async reschedulePendingForRaffle(
+    prisma: PrismaClient,
+    storePrisma: StorePrismaClient,
+    raffleId: number,
+    previousDrawDate: Date | null,
+  ) {
+    const [raffle, settings] = await Promise.all([
+      prisma.raffle.findUnique({
+        where: { id: raffleId },
+        select: { drawDate: true },
+      }),
+      storePrisma.setting.findMany({
+        where: {
+          key: {
+            in: [
+              "raffle_release_active",
+              "raffle_release_hours",
+              "raffle_reminder_active",
+              "raffle_reminder_hours_before",
+            ],
+          },
+        },
+        select: { key: true, value: true },
+      }),
+    ]);
+    if (!raffle?.drawDate || !previousDrawDate || previousDrawDate <= new Date()) {
+      return { updated: 0 };
+    }
+
+    const settingsMap = new Map(settings.map((setting) => [setting.key, setting.value || ""]));
+    const releaseActive = settingsMap.get("raffle_release_active") === "1";
+    if (!releaseActive) return { updated: 0 };
+    const releaseHours = Number(settingsMap.get("raffle_release_hours") || 24);
+    const reminderActive = settingsMap.get("raffle_reminder_active") === "1";
+    const reminderHoursBefore = Number(settingsMap.get("raffle_reminder_hours_before") || 4);
+    const pendingSales = await prisma.ticketSale.findMany({
+      where: { raffleId, paymentStatus: TicketStatus.PENDING },
+      orderBy: { createdAt: "asc" },
+    });
+    const groups = new Map<string, typeof pendingSales>();
+    for (const sale of pendingSales) {
+      const key = sale.reservationId || `sale-${sale.id}`;
+      groups.set(key, [...(groups.get(key) || []), sale]);
+    }
+
+    let updated = 0;
+    for (const sales of Array.from(groups.values())) {
+      const participationId = sales[0].reservationId || `sale-${sales[0].id}`;
+      const previousReleaseAt = calculateRaffleReservationExpiration(
+        sales[0].createdAt,
+        previousDrawDate,
+        releaseHours,
+      );
+      const expectedReleaseAt = calculateRaffleReservationExpiration(
+        sales[0].createdAt,
+        raffle.drawDate,
+        releaseHours,
+      );
+      if (expectedReleaseAt.getTime() === previousReleaseAt.getTime()) continue;
+      const saleIds = sales.map((sale: (typeof pendingSales)[number]) => sale.id);
+
+      await prisma.raffleParticipationEvent.create({
+        data: {
+          participationId,
+          raffleId,
+          eventType: "RESERVATION_DEADLINE_UPDATED",
+          message: "El plazo de pago se actualizó debido al cambio de fecha de la rifa.",
+          actorType: "SYSTEM",
+          actorName: "Sistema",
+          origin: "ADMIN",
+          previousState: { expiresAt: previousReleaseAt.toISOString() },
+          nextState: { expiresAt: expectedReleaseAt.toISOString() },
+          metadata: {
+            previousExpiresAt: previousReleaseAt.toISOString(),
+            expectedReleaseAt: expectedReleaseAt.toISOString(),
+            deadlineExtended: expectedReleaseAt > previousReleaseAt,
+          },
+        },
+      });
+
+      await ticketReleaseQueue.add(
+        "release",
+        {
+          ticketSaleIds: saleIds,
+          expectedReleaseAt: expectedReleaseAt.toISOString(),
+        },
+        { delay: Math.max(0, expectedReleaseAt.getTime() - Date.now()) },
+      );
+      const reminderDelay = Math.max(
+        0,
+        expectedReleaseAt.getTime() - Date.now() - reminderHoursBefore * 3_600_000,
+      );
+      if (reminderActive && reminderDelay > 0) {
+        await reservationReminderQueue.add(
+          "raffle-reminder",
+          {
+            kind: "raffle",
+            ticketSaleIds: saleIds,
+            expectedReleaseAt: expectedReleaseAt.toISOString(),
+          },
+          { delay: reminderDelay },
+        );
+      }
+      updated += sales.length;
+    }
+    return { updated };
   },
 
   async getById(prisma: PrismaClient, id: number) {

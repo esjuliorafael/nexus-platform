@@ -1,7 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import type { ReactNode } from "react";
 import { AlertTriangle, BadgeCheck, BellRing, Info, Sparkles } from "lucide-react";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { StorefrontAnnouncement } from "../../api/storefront-announcements";
 import { BottomSheet } from "../ui/BottomSheet";
@@ -15,6 +17,39 @@ const visualByVariant = {
   CRITICAL: { icon: AlertTriangle, iconVariant: "error" as const, modal: "danger" as const, button: "danger" as const },
   PROMO: { icon: Sparkles, iconVariant: "brand" as const, modal: "brand" as const, button: "brand" as const },
 };
+
+function AnnouncementMessage({ message }: { message: string }) {
+  const messageLinkPattern = /\[([^\]]+)\]\(((?:\/|https:\/\/)[^\s)]+)\)/g;
+  const parts: ReactNode[] = [];
+  let cursor = 0;
+  let match: RegExpExecArray | null;
+
+  while ((match = messageLinkPattern.exec(message)) !== null) {
+    if (match.index > cursor) parts.push(message.slice(cursor, match.index));
+    const [, label, href] = match;
+    parts.push(
+      href.startsWith("/") ? (
+        <Link key={`${match.index}-${href}`} href={href} className="font-semibold text-brand-700 underline underline-offset-4">
+          {label}
+        </Link>
+      ) : (
+        <a
+          key={`${match.index}-${href}`}
+          href={href}
+          className="font-semibold text-brand-700 underline underline-offset-4"
+          target="_blank"
+          rel="noreferrer"
+        >
+          {label}
+        </a>
+      ),
+    );
+    cursor = match.index + match[0].length;
+  }
+
+  if (cursor < message.length) parts.push(message.slice(cursor));
+  return <>{parts}</>;
+}
 
 interface Props {
   announcement: StorefrontAnnouncement | null;
@@ -54,7 +89,9 @@ export function StorefrontAnnouncementDialog({ announcement, onDismiss }: Props)
 
   const content = (
     <div className="flex flex-col" style={{ gap: "var(--sf-space-lg)" }}>
-      <p className="sf-text-body font-medium text-stone-600">{announcement.message}</p>
+      <p className="sf-text-body whitespace-pre-line font-medium text-stone-600">
+        <AnnouncementMessage message={announcement.message} />
+      </p>
       {announcement.ctaLabel ? (
         <Button className="w-full" context="section" variant={visual.button} onClick={handleCta}>
           {announcement.ctaLabel}
