@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { AnimatePresence, motion, useReducedMotion } from 'framer-motion';
 import { ArrowLeft, ArrowRight, CheckCircle2, Clock3, CreditCard, MessageCircle, ShieldCheck, Ticket, User, WalletCards } from 'lucide-react';
@@ -574,6 +575,13 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
               <StorefrontNote icon={MessageCircle}>
                 Selecciona el código de país correcto e ingresa únicamente los dígitos de tu número de WhatsApp. Enviaremos ahí las confirmaciones y actualizaciones de tu participación.
               </StorefrontNote>
+              <p className="sf-text-secondary text-stone-500">
+                Antes de continuar, consulta nuestra{' '}
+                <Link className="font-bold text-brand-700 underline underline-offset-4" href="/raffles/politica-de-compra">
+                  Política de compra de boletos
+                </Link>
+                .
+              </p>
               <MarketingConsentField
                 checked={marketingConsent}
                 onChange={setMarketingConsent}

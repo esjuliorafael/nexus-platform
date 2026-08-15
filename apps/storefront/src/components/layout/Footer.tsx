@@ -53,6 +53,7 @@ export function Footer() {
 
   const helpLinks = [
     { href: '/#preguntas-frecuentes', label: 'Preguntas frecuentes' },
+    ...(showRaffles ? [{ href: '/raffles/politica-de-compra', label: 'Política de compra de boletos' }] : []),
     { href: '/contact', label: 'Contactar a un responsable' },
     { href: '/store', label: 'Catalogo disponible' },
     { href: '/gallery', label: 'Archivo visual' },
