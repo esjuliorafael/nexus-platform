@@ -54,14 +54,18 @@ const sections = [
     title: "6. Información y contacto",
     body: [
       "Conserva tus mensajes, comprobantes y el enlace de consulta de tu participación. Para aclaraciones sobre un apartado, un pago, una reprogramación o una devolución, utiliza los datos de contacto publicados en este sitio e indica tu nombre, número de WhatsApp y referencia de la participación.",
-      "La versión vigente de esta política es la que se encuentra publicada al momento de realizar la operación. Si se actualiza, se indicará la fecha de la última actualización.",
+      "La versión vigente de esta política es la que se encuentra publicada al momento de realizar la operación. Si se modifica, se publicará una nueva revisión con su fecha correspondiente.",
     ],
   },
 ];
 
 export default function RafflePurchasePolicyPage() {
   const { getBranding } = useSettings();
-  const brandName = getBranding().brand_name || "Nexus Store";
+  const configuredBrandName = getBranding().brand_name;
+  const brandName =
+    configuredBrandName && configuredBrandName !== "Nexus Store"
+      ? configuredBrandName
+      : "Rancho Las Trojes";
 
   return (
     <main className="min-h-screen px-[var(--sf-inset-page)] pb-[var(--sf-mobile-chrome-content-padding-bottom)] pt-[var(--sf-space-lg)] md:pt-24">
@@ -74,7 +78,7 @@ export default function RafflePurchasePolicyPage() {
           <p className="sf-text-body text-stone-600">
             Condiciones claras para apartar, pagar y participar en las rifas de {brandName}.
           </p>
-          <p className="sf-text-secondary font-bold text-stone-500">Última actualización: 14 de agosto de 2026</p>
+          <p className="sf-text-secondary font-bold text-stone-500">Revisión vigente de la política: 14 de agosto de 2026</p>
         </header>
 
         <StorefrontCard level={1} density="compact" className="border-brand-200 bg-brand-50/70">
