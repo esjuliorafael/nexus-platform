@@ -224,28 +224,25 @@ export default function RafflePurchasePolicyPage() {
               </div>
             </StorefrontCard>
 
-            {sections.map((section) => (
+            {sections.map((section, index) => (
               <section
                 key={section.title}
-                className="border-b border-stone-200 pb-[var(--sf-space-lg)] last:border-b-0 last:pb-0"
+                className={`grid grid-cols-[auto_minmax(0,1fr)] ${index < sections.length - 1 ? "border-b border-stone-200 pb-[var(--sf-space-lg)]" : ""}`}
+                style={{ gap: "var(--sf-space-md)" }}
               >
-                <div className="flex items-start" style={{ gap: "var(--sf-space-md)" }}>
-                  <StorefrontIcon icon={ShieldCheck} context="card" variant="brand" />
-                  <div className="min-w-0" style={{ display: "flex", flexDirection: "column", gap: "var(--sf-space-md)" }}>
-                    <h2 className="sf-text-h2 text-stone-900">{section.title}</h2>
-                    <div className="flex flex-col" style={{ gap: "var(--sf-space-md)" }}>
-                      {section.groups.map((group) => (
-                        <div key={group.title} className="flex flex-col" style={{ gap: "var(--sf-space-xs)" }}>
-                          <h3 className="sf-text-h3 text-stone-900">{group.title}</h3>
-                          <div className="flex flex-col" style={{ gap: "var(--sf-space-sm)" }}>
-                            {group.body.map((paragraph) => (
-                              <p key={paragraph} className="sf-text-body text-stone-600">{paragraph}</p>
-                            ))}
-                          </div>
-                        </div>
-                      ))}
+                <StorefrontIcon icon={ShieldCheck} context="card" variant="brand" />
+                <h2 className="sf-text-h2 pt-1 text-stone-900">{section.title}</h2>
+                <div className="col-start-2 flex flex-col" style={{ gap: "var(--sf-space-md)" }}>
+                  {section.groups.map((group) => (
+                    <div key={group.title} className="flex flex-col" style={{ gap: "var(--sf-space-xs)" }}>
+                      <h3 className="sf-text-h3 text-stone-900">{group.title}</h3>
+                      <div className="flex flex-col" style={{ gap: "var(--sf-space-sm)" }}>
+                        {group.body.map((paragraph) => (
+                          <p key={paragraph} className="sf-text-body text-stone-600">{paragraph}</p>
+                        ))}
+                      </div>
                     </div>
-                  </div>
+                  ))}
                 </div>
               </section>
             ))}
