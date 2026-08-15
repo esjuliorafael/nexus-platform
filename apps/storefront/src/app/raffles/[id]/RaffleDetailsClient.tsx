@@ -843,7 +843,7 @@ export function RaffleDetailsClient({
                           value={formatRaffleDrawDate(raffle.drawDate)}
                         />
                         <p className="sf-text-secondary text-white/85">
-                          Esta fecha corresponde a la programación vigente. Si fuera necesario reprogramar la rifa antes del evento de referencia, la nueva fecha se publicará y comunicará a los participantes. Consulta la{" "}
+                          Si fuera necesario reprogramar la rifa antes del evento de referencia, la nueva fecha se publicará y comunicará a los participantes. Consulta la{" "}
                           <Link
                             href="/policies/raffles/participation"
                             className="font-bold text-white underline underline-offset-4"
