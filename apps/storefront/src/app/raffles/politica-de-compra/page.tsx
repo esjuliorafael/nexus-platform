@@ -10,54 +10,129 @@ import { FAQAccordion, FAQItem } from "../../../components/ui/FAQAccordion";
 const sections = [
   {
     title: "1. Objeto y aceptación",
-    body: [
-      "Esta política explica las condiciones para seleccionar, apartar y confirmar boletos de las rifas publicadas en este sitio. Al seleccionar boletos o completar un pago, aceptas estas condiciones y las reglas particulares mostradas en la página de la rifa.",
-      "Las reglas particulares de cada rifa, incluyendo su premio, precio, número de boletos, mecanismo de determinación del resultado y fecha anunciada, forman parte de esta política.",
+    groups: [
+      {
+        title: "Alcance",
+        body: [
+          "Esta política explica las condiciones para seleccionar, apartar y confirmar boletos de las rifas publicadas en este sitio. Al seleccionar boletos o completar un pago, aceptas estas condiciones y las reglas particulares mostradas en la página de la rifa.",
+        ],
+      },
+      {
+        title: "Reglas de cada rifa",
+        body: [
+          "Las reglas particulares de cada rifa, incluyendo su premio, precio, número de boletos, mecanismo de determinación del resultado y fecha anunciada, forman parte de esta política.",
+        ],
+      },
     ],
   },
   {
     title: "2. Apartado y confirmación del pago",
-    body: [
-      "Un apartado reserva temporalmente los boletos seleccionados. No constituye una venta confirmada ni garantiza su disponibilidad después del plazo indicado para pagar.",
-      "La participación queda confirmada únicamente cuando el pago ha sido aprobado o validado por el organizador. Los pagos por depósito o transferencia deben acompañarse del comprobante solicitado y quedar sujetos a validación.",
-      "Si el pago no se confirma dentro del plazo informado, el apartado puede liberarse y los boletos pueden volver a estar disponibles para otras personas.",
+    groups: [
+      {
+        title: "Qué significa apartar",
+        body: [
+          "Un apartado reserva temporalmente los boletos seleccionados. No constituye una venta confirmada ni garantiza su disponibilidad después del plazo indicado para pagar.",
+        ],
+      },
+      {
+        title: "Cuándo se confirma",
+        body: [
+          "La participación queda confirmada únicamente cuando el pago ha sido aprobado o validado por el organizador. Los pagos por depósito o transferencia deben acompañarse del comprobante solicitado y quedar sujetos a validación.",
+        ],
+      },
+      {
+        title: "Vencimiento del apartado",
+        body: [
+          "Si el pago no se confirma dentro del plazo informado, el apartado puede liberarse y los boletos pueden volver a estar disponibles para otras personas.",
+        ],
+      },
     ],
   },
   {
     title: "3. Fecha de la rifa y posibles cambios",
-    body: [
-      "La fecha y hora publicadas corresponden a la programación prevista para el sorteo. El organizador podrá reprogramarlas cuando no se alcance el nivel de participación pagada necesario para realizar la rifa, o cuando exista una causa operativa, técnica, de fuerza mayor o una exigencia de autoridad que lo haga necesario.",
-      "La selección de boletos apartados pero no pagados no se considera participación vendida para determinar la viabilidad de la rifa.",
-      "Cuando se modifique la fecha, se publicará la nueva fecha y hora en el sitio y se comunicará a las participaciones activas mediante los canales disponibles. La participación pagada conservará sus mismos boletos, oportunidades y condiciones para la nueva fecha, sin necesidad de volver a comprar.",
-      "Cuando exista constancia de envío o entrega de la comunicación al medio de contacto registrado, el cambio se tendrá por comunicado al participante. La falta de lectura, respuesta o confirmación no suspende la vigencia del cambio ni permite desconocer la fecha nueva publicada; Nexus conservará los registros disponibles del envío, entrega, contenido y momento de la comunicación.",
-      "Si el cambio se comunica antes de que inicie el evento de la Lotería Nacional usado como referencia y antes de publicar resultados, la fecha original queda sustituida de manera inmediata desde su publicación y comunicación. En ese caso, no podrá reclamarse un premio, resultado o sorteo con base en la fecha anterior; solo será válido el resultado obtenido conforme a la nueva fecha publicada.",
-      "Esta regla aplica por igual al número principal y a cualquier oportunidad adicional asociada a una participación pagada. En las rifas simples se considerará el número principal; en las rifas con oportunidades, también se considerarán las oportunidades generadas para ese número. Ninguno podrá considerarse ganador con base en el resultado correspondiente a la fecha sustituida.",
-      "Una vez iniciado el evento de referencia, no se aplicará un cambio de fecha con efectos retroactivos sobre un resultado ya ocurrido.",
-      "Para efectos de cada rifa, la fecha y hora oficiales son exclusivamente las publicadas en su ficha, expresadas en el horario del centro de México. Si una rifa publica las 8:00 p. m., esa es la hora oficial de esa rifa; esta política no afirma que todos los eventos de la Lotería Nacional tengan siempre ese horario. El participante debe consultar la hora equivalente en su ubicación; el evento de referencia comienza en el momento oficial publicado, sin que su zona horaria modifique ese momento.",
-      "Si una persona no está de acuerdo con el cambio de fecha, puede solicitar el reembolso de su participación antes de que inicie el evento de referencia, por los medios de contacto publicados. Una vez validada y procesada la solicitud, la participación se cancela de forma definitiva y deja de ser elegible para esa rifa, sin importar cuál hubiera sido su resultado potencial.",
-      "Una participación cancelada y reembolsada no puede recuperar posteriormente un premio ni reclamar un número ganador, incluso si el resultado publicado coincide con alguno de sus boletos. El cambio de fecha no genera por sí mismo una devolución automática; el reembolso requiere una solicitud y su validación conforme a las condiciones comunicadas para la rifa y a la legislación aplicable.",
+    groups: [
+      {
+        title: "Programación y reprogramación",
+        body: [
+          "La fecha y hora publicadas corresponden a la programación prevista para el sorteo. El organizador podrá reprogramarlas cuando no se alcance el nivel de participación pagada necesario para realizar la rifa, o cuando exista una causa operativa, técnica, de fuerza mayor o una exigencia de autoridad que lo haga necesario.",
+          "La selección de boletos apartados pero no pagados no se considera participación vendida para determinar la viabilidad de la rifa.",
+        ],
+      },
+      {
+        title: "Comunicación del cambio",
+        body: [
+          "Cuando se modifique la fecha, se publicará la nueva fecha y hora en el sitio y se comunicará a las participaciones activas mediante los canales disponibles. La participación pagada conservará sus mismos boletos, oportunidades y condiciones para la nueva fecha, sin necesidad de volver a comprar.",
+          "Cuando exista constancia de envío o entrega de la comunicación al medio de contacto registrado, el cambio se tendrá por comunicado al participante. La falta de lectura, respuesta o confirmación no suspende la vigencia del cambio ni permite desconocer la fecha nueva publicada; Nexus conservará los registros disponibles del envío, entrega, contenido y momento de la comunicación.",
+        ],
+      },
+      {
+        title: "Efectos sobre el resultado",
+        body: [
+          "Si el cambio se comunica antes de que inicie el evento de la Lotería Nacional usado como referencia y antes de publicar resultados, la fecha original queda sustituida de manera inmediata desde su publicación y comunicación. En ese caso, no podrá reclamarse un premio, resultado o sorteo con base en la fecha anterior; solo será válido el resultado obtenido conforme a la nueva fecha publicada.",
+          "Esta regla aplica por igual al número principal y a cualquier oportunidad adicional asociada a una participación pagada. En las rifas simples se considerará el número principal; en las rifas con oportunidades, también se considerarán las oportunidades generadas para ese número. Ninguno podrá considerarse ganador con base en el resultado correspondiente a la fecha sustituida.",
+          "Una vez iniciado el evento de referencia, no se aplicará un cambio de fecha con efectos retroactivos sobre un resultado ya ocurrido.",
+        ],
+      },
+      {
+        title: "Hora oficial y reembolso",
+        body: [
+          "Para efectos de cada rifa, la fecha y hora oficiales son exclusivamente las publicadas en su ficha, expresadas en el horario del centro de México. Si una rifa publica las 8:00 p. m., esa es la hora oficial de esa rifa; esta política no afirma que todos los eventos de la Lotería Nacional tengan siempre ese horario. El participante debe consultar la hora equivalente en su ubicación; el evento de referencia comienza en el momento oficial publicado, sin que su zona horaria modifique ese momento.",
+          "Si una persona no está de acuerdo con el cambio de fecha, puede solicitar el reembolso de su participación antes de que inicie el evento de referencia, por los medios de contacto publicados. Una vez validada y procesada la solicitud, la participación se cancela de forma definitiva y deja de ser elegible para esa rifa, sin importar cuál hubiera sido su resultado potencial.",
+          "Una participación cancelada y reembolsada no puede recuperar posteriormente un premio ni reclamar un número ganador, incluso si el resultado publicado coincide con alguno de sus boletos. El cambio de fecha no genera por sí mismo una devolución automática; el reembolso requiere una solicitud y su validación conforme a las condiciones comunicadas para la rifa y a la legislación aplicable.",
+        ],
+      },
     ],
   },
   {
     title: "4. Cancelaciones, devoluciones y pagos",
-    body: [
-      "Las solicitudes de cancelación o devolución deben realizarse por los medios de contacto publicados y se revisarán con base en el estado de la participación, el método de pago, la etapa de la rifa y las condiciones aplicables.",
-      "Una devolución aprobada libera los boletos y deja sin efecto la participación correspondiente. Las comisiones, tiempos y ajustes del proveedor de pago pueden afectar el momento en que el importe se refleja.",
-      "Un intento de pago rechazado no confirma la participación. Cuando exista una ventana de recuperación, podrá utilizarse el enlace o las instrucciones proporcionadas en la comunicación correspondiente.",
+    groups: [
+      {
+        title: "Cancelaciones y devoluciones",
+        body: [
+          "Las solicitudes de cancelación o devolución deben realizarse por los medios de contacto publicados y se revisarán con base en el estado de la participación, el método de pago, la etapa de la rifa y las condiciones aplicables.",
+          "Una devolución aprobada libera los boletos y deja sin efecto la participación correspondiente. Las comisiones, tiempos y ajustes del proveedor de pago pueden afectar el momento en que el importe se refleja.",
+        ],
+      },
+      {
+        title: "Pagos no concretados",
+        body: [
+          "Un intento de pago rechazado no confirma la participación. Cuando exista una ventana de recuperación, podrá utilizarse el enlace o las instrucciones proporcionadas en la comunicación correspondiente.",
+        ],
+      },
     ],
   },
   {
     title: "5. Resultado y premios",
-    body: [
-      "El resultado se determina con el mecanismo publicado en la página de la rifa y se comunica mediante los canales oficiales del sitio. Solo las participaciones con pago confirmado que cumplan las condiciones de la rifa podrán ser consideradas elegibles.",
-      "La persona ganadora deberá proporcionar la información necesaria para coordinar la entrega del premio. Las condiciones de envío, entrega o coordinación posterior se indicarán en la rifa o en la comunicación al ganador.",
+    groups: [
+      {
+        title: "Determinación y elegibilidad",
+        body: [
+          "El resultado se determina con el mecanismo publicado en la página de la rifa y se comunica mediante los canales oficiales del sitio. Solo las participaciones con pago confirmado que cumplan las condiciones de la rifa podrán ser consideradas elegibles.",
+        ],
+      },
+      {
+        title: "Entrega del premio",
+        body: [
+          "La persona ganadora deberá proporcionar la información necesaria para coordinar la entrega del premio. Las condiciones de envío, entrega o coordinación posterior se indicarán en la rifa o en la comunicación al ganador.",
+        ],
+      },
     ],
   },
   {
     title: "6. Información y contacto",
-    body: [
-      "Conserva tus mensajes, comprobantes y el enlace de consulta de tu participación. Para aclaraciones sobre un apartado, un pago, una reprogramación o una devolución, utiliza los datos de contacto publicados en este sitio e indica tu nombre, número de WhatsApp y referencia de la participación.",
-      "La versión vigente de esta política es la que se encuentra publicada al momento de realizar la operación. Si se modifica, se publicará una nueva revisión con su fecha correspondiente.",
+    groups: [
+      {
+        title: "Consulta y aclaraciones",
+        body: [
+          "Conserva tus mensajes, comprobantes y el enlace de consulta de tu participación. Para aclaraciones sobre un apartado, un pago, una reprogramación o una devolución, utiliza los datos de contacto publicados en este sitio e indica tu nombre, número de WhatsApp y referencia de la participación.",
+        ],
+      },
+      {
+        title: "Versión vigente",
+        body: [
+          "La versión vigente de esta política es la que se encuentra publicada al momento de realizar la operación. Si se modifica, se publicará una nueva revisión con su fecha correspondiente.",
+        ],
+      },
     ],
   },
 ];
@@ -155,9 +230,16 @@ export default function RafflePurchasePolicyPage() {
                   <StorefrontIcon icon={ShieldCheck} context="card" variant="brand" />
                   <div className="min-w-0" style={{ display: "flex", flexDirection: "column", gap: "var(--sf-space-md)" }}>
                     <h2 className="sf-text-h2 text-stone-900">{section.title}</h2>
-                    <div className="flex flex-col" style={{ gap: "var(--sf-space-sm)" }}>
-                      {section.body.map((paragraph) => (
-                        <p key={paragraph} className="sf-text-body text-stone-600">{paragraph}</p>
+                    <div className="flex flex-col" style={{ gap: "var(--sf-space-md)" }}>
+                      {section.groups.map((group) => (
+                        <div key={group.title} className="flex flex-col" style={{ gap: "var(--sf-space-xs)" }}>
+                          <h3 className="sf-text-h3 text-stone-900">{group.title}</h3>
+                          <div className="flex flex-col" style={{ gap: "var(--sf-space-sm)" }}>
+                            {group.body.map((paragraph) => (
+                              <p key={paragraph} className="sf-text-body text-stone-600">{paragraph}</p>
+                            ))}
+                          </div>
+                        </div>
                       ))}
                     </div>
                   </div>
