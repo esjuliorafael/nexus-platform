@@ -225,7 +225,10 @@ export default function RafflePurchasePolicyPage() {
             </StorefrontCard>
 
             {sections.map((section) => (
-              <StorefrontCard key={section.title} level={1} density="compact">
+              <section
+                key={section.title}
+                className="border-b border-stone-200 pb-[var(--sf-space-lg)] last:border-b-0 last:pb-0"
+              >
                 <div className="flex items-start" style={{ gap: "var(--sf-space-md)" }}>
                   <StorefrontIcon icon={ShieldCheck} context="card" variant="brand" />
                   <div className="min-w-0" style={{ display: "flex", flexDirection: "column", gap: "var(--sf-space-md)" }}>
@@ -244,7 +247,7 @@ export default function RafflePurchasePolicyPage() {
                     </div>
                   </div>
                 </div>
-              </StorefrontCard>
+              </section>
             ))}
           </article>
 
