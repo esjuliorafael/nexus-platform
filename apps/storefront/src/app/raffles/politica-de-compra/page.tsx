@@ -75,9 +75,9 @@ export default function RafflePurchasePolicyPage() {
           <Badge variant="brand" context="section" icon={FileText} className="w-fit">
             Rifas
           </Badge>
-          <h1 className="sf-text-display text-stone-900">Política de compra de boletos</h1>
+          <h1 className="sf-text-display text-stone-900">Política de participación en rifas</h1>
           <p className="sf-text-body text-stone-600">
-            Condiciones claras para apartar, pagar y participar en las rifas de {brandName}.
+            Condiciones para apartar, pagar y participar en las rifas de {brandName}.
           </p>
           <p className="sf-text-secondary font-bold text-stone-500">Revisión vigente de la política: agosto de 2026</p>
         </header>
