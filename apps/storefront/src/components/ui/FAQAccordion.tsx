@@ -6,7 +6,7 @@ import { ChevronDown, HelpCircle } from 'lucide-react';
 import { StorefrontCard } from './Card';
 import { StorefrontIcon } from './Icon';
 
-interface FAQItem {
+export interface FAQItem {
   question: string;
   answer: string;
 }
@@ -34,12 +34,16 @@ const defaultFAQs: FAQItem[] = [
   },
 ];
 
-export function FAQAccordion() {
+interface FAQAccordionProps {
+  items?: FAQItem[];
+}
+
+export function FAQAccordion({ items = defaultFAQs }: FAQAccordionProps) {
   const [openIndex, setOpenIndex] = useState<number | null>(null);
 
   return (
     <div className="mx-auto max-w-3xl space-y-[var(--sf-space-sm)]">
-      {defaultFAQs.map((faq, index) => {
+      {items.map((faq, index) => {
         const isOpen = openIndex === index;
 
         return (

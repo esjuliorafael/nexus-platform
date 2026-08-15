@@ -5,6 +5,7 @@ import { useSettings } from "../../../hooks/useSettings";
 import { Badge } from "../../../components/ui/Badge";
 import { StorefrontCard } from "../../../components/ui/Card";
 import { StorefrontIcon } from "../../../components/ui/Icon";
+import { FAQAccordion, FAQItem } from "../../../components/ui/FAQAccordion";
 
 const sections = [
   {
@@ -61,6 +62,57 @@ const sections = [
   },
 ];
 
+const raffleFaqs: FAQItem[] = [
+  {
+    question: "¿Cómo participa mi boleto?",
+    answer: "Cada rifa publica sus propias reglas, precio, número de dígitos y fecha. Tu número principal participa conforme a esas condiciones y puedes consultarlas en la ficha de la rifa.",
+  },
+  {
+    question: "¿Qué son las oportunidades adicionales?",
+    answer: "Solo aplican a rifas de oportunidades. Son números asociados a tu número principal y participan junto con él conforme a la regla publicada para esa rifa.",
+  },
+  {
+    question: "¿Cómo se determina el resultado?",
+    answer: "Cada rifa indica cómo se obtiene el número ganador y cuántos dígitos se utilizan. También publica los lugares y premios que correspondan.",
+  },
+  {
+    question: "¿Cuánto tiempo dura un apartado?",
+    answer: "El apartado conserva temporalmente tus boletos durante el plazo configurado para esa rifa. El plazo y el momento de vencimiento se informan en la comunicación correspondiente.",
+  },
+  {
+    question: "¿Qué pasa si pago con tarjeta?",
+    answer: "Si el pago es aprobado, la participación se confirma de inmediato y recibirás la comunicación correspondiente. Si el pago no se concreta, podrás seguir las instrucciones de recuperación disponibles.",
+  },
+  {
+    question: "¿Qué pasa si pago por depósito o transferencia?",
+    answer: "Debes realizar el pago dentro del plazo y enviar el comprobante por el medio indicado. La participación queda confirmada cuando el organizador valida el pago.",
+  },
+  {
+    question: "¿Qué pasa si pagué, pero no envié el comprobante a tiempo?",
+    answer: "Escríbenos cuanto antes. Si los boletos siguen disponibles, el organizador puede revisar una restauración y confirmar el pago; si ya no están disponibles, se revisará la alternativa aplicable, que puede incluir un reembolso.",
+  },
+  {
+    question: "¿Qué pasa si mi apartado fue liberado?",
+    answer: "Puedes solicitar una restauración. Si los boletos siguen disponibles, podrán restaurarse; si fueron asignados a otra participación, no se garantiza su recuperación.",
+  },
+  {
+    question: "¿Qué pasa si cambia la fecha de la rifa?",
+    answer: "La nueva fecha publicada y comunicada sustituye a la anterior. Tu participación pagada conserva su número principal y sus oportunidades, si las tiene.",
+  },
+  {
+    question: "¿Qué pasa si mi número parecía ganador antes del cambio de fecha?",
+    answer: "Si el cambio fue publicado y comunicado antes de iniciar el evento de referencia, solo es válido el resultado obtenido en la nueva fecha. El resultado de la fecha sustituida no genera un premio.",
+  },
+  {
+    question: "¿Dónde consulto la información para pagar?",
+    answer: "La información bancaria aparece en la comunicación de tu participación y en la consulta privada de participación mientras exista un importe pendiente.",
+  },
+  {
+    question: "¿Cómo se entrega un premio?",
+    answer: "Después de confirmar el resultado y contactar a la persona ganadora, se coordinan los datos y condiciones de entrega conforme a lo publicado en la rifa.",
+  },
+];
+
 export default function RafflePurchasePolicyPage() {
   const { getBranding } = useSettings();
   const configuredBrandName = getBranding().brand_name;
@@ -83,35 +135,50 @@ export default function RafflePurchasePolicyPage() {
           <p className="sf-text-secondary font-bold text-stone-500">Revisión vigente de la política: agosto de 2026</p>
         </header>
 
-        <StorefrontCard level={1} density="compact" className="border-brand-200 bg-brand-50/70">
-          <div className="flex items-start" style={{ gap: "var(--sf-space-md)" }}>
-            <StorefrontIcon icon={CalendarClock} context="autonomous" variant="brand" />
-            <div className="min-w-0" style={{ display: "flex", flexDirection: "column", gap: "var(--sf-space-xs)" }}>
-              <h2 className="sf-text-h2 text-stone-900">Sobre la fecha anunciada</h2>
-              <p className="sf-text-body text-stone-700">
-                La fecha puede reprogramarse si la participación pagada no alcanza el nivel necesario. Si ya pagaste, tu participación conserva sus boletos y condiciones para la nueva fecha; recibirás el aviso correspondiente.
-              </p>
-            </div>
-          </div>
-        </StorefrontCard>
-
-        <article className="grid grid-cols-1 gap-[var(--sf-space-md)] lg:grid-cols-2">
-          {sections.map((section) => (
-            <StorefrontCard key={section.title} level={1} density="compact" className="h-full">
+        <div className="grid grid-cols-1 items-start gap-[var(--sf-space-lg)] lg:grid-cols-[minmax(0,1.35fr)_minmax(20rem,0.85fr)]">
+          <article className="flex flex-col" style={{ gap: "var(--sf-space-md)" }}>
+            <StorefrontCard level={1} density="compact" className="border-brand-200 bg-brand-50/70">
               <div className="flex items-start" style={{ gap: "var(--sf-space-md)" }}>
-                <StorefrontIcon icon={ShieldCheck} context="card" variant="brand" />
-                <div className="min-w-0" style={{ display: "flex", flexDirection: "column", gap: "var(--sf-space-md)" }}>
-                  <h2 className="sf-text-h2 text-stone-900">{section.title}</h2>
-                  <div className="flex flex-col" style={{ gap: "var(--sf-space-sm)" }}>
-                    {section.body.map((paragraph) => (
-                      <p key={paragraph} className="sf-text-body text-stone-600">{paragraph}</p>
-                    ))}
-                  </div>
+                <StorefrontIcon icon={CalendarClock} context="autonomous" variant="brand" />
+                <div className="min-w-0" style={{ display: "flex", flexDirection: "column", gap: "var(--sf-space-xs)" }}>
+                  <h2 className="sf-text-h2 text-stone-900">Sobre la fecha anunciada</h2>
+                  <p className="sf-text-body text-stone-700">
+                    La fecha puede reprogramarse si la participación pagada no alcanza el nivel necesario. Si ya pagaste, tu participación conserva sus boletos y condiciones para la nueva fecha; recibirás el aviso correspondiente.
+                  </p>
                 </div>
               </div>
             </StorefrontCard>
-          ))}
-        </article>
+
+            {sections.map((section) => (
+              <StorefrontCard key={section.title} level={1} density="compact">
+                <div className="flex items-start" style={{ gap: "var(--sf-space-md)" }}>
+                  <StorefrontIcon icon={ShieldCheck} context="card" variant="brand" />
+                  <div className="min-w-0" style={{ display: "flex", flexDirection: "column", gap: "var(--sf-space-md)" }}>
+                    <h2 className="sf-text-h2 text-stone-900">{section.title}</h2>
+                    <div className="flex flex-col" style={{ gap: "var(--sf-space-sm)" }}>
+                      {section.body.map((paragraph) => (
+                        <p key={paragraph} className="sf-text-body text-stone-600">{paragraph}</p>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </StorefrontCard>
+            ))}
+          </article>
+
+          <aside className="lg:sticky lg:top-[var(--sf-space-lg)]">
+            <StorefrontCard level={1} density="compact">
+              <div className="mb-[var(--sf-space-md)] flex items-start" style={{ gap: "var(--sf-space-md)" }}>
+                <StorefrontIcon icon={FileText} context="section" variant="brand" />
+                <div className="min-w-0" style={{ display: "flex", flexDirection: "column", gap: "var(--sf-space-xs)" }}>
+                  <h2 className="sf-text-h2 text-stone-900">Preguntas frecuentes</h2>
+                  <p className="sf-text-body text-stone-600">Respuestas rápidas sobre tu participación.</p>
+                </div>
+              </div>
+              <FAQAccordion items={raffleFaqs} />
+            </StorefrontCard>
+          </aside>
+        </div>
 
         <div className="flex items-start border-t border-stone-200 pt-[var(--sf-space-md)]" style={{ gap: "var(--sf-space-sm)" }}>
           <CheckCircle2 size={18} className="mt-0.5 shrink-0 text-brand-600" />
