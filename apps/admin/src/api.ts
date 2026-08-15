@@ -1144,6 +1144,12 @@ export const apiRaffles = {
     );
     return response.data;
   },
+  closeDateChangeCampaign: async (id: string) => {
+    const response = await api.post(
+      `/raffles/admin/${encodeURIComponent(id)}/date-change/close`,
+    );
+    return response.data;
+  },
   createResultCampaign: async (
     id: string,
     audience: RaffleResultCampaignAudience,

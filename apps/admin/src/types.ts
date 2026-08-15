@@ -943,7 +943,8 @@ export type RaffleResultCampaignStatus =
   | "PARTIAL"
   | "SENT"
   | "FAILED"
-  | "EMPTY";
+  | "EMPTY"
+  | "CLOSED";
 export type RaffleResultRecipientStatus =
   | "PENDING"
   | "PROCESSING"

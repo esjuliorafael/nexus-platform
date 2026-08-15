@@ -328,6 +328,7 @@ enum RaffleResultCampaignStatus {
   SENT
   FAILED
   EMPTY
+  CLOSED
 }
 
 enum RaffleResultRecipientStatus {

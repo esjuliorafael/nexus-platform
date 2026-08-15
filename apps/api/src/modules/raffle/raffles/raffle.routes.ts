@@ -1201,6 +1201,38 @@ export async function raffleRoutes(server: FastifyInstance) {
     },
   );
 
+  server.post(
+    "/admin/:id/date-change/close",
+    { preHandler: [server.authenticate] },
+    async (request, reply) => {
+      try {
+        const actor = await requireAdminActor(server, request, reply);
+        if (!actor) return;
+        const { id } = raffleResultParamsSchema.parse(request.params);
+        return await raffleDrawReminderService.closeDateChangeCampaign(
+          getPrisma(),
+          id,
+          actor,
+        );
+      } catch (error: any) {
+        if (error?.issues)
+          return reply
+            .status(400)
+            .send({ message: "Validation error", errors: error.issues });
+        const messages: Record<string, string> = {
+          RAFFLE_NOT_FOUND: "La rifa no existe.",
+          RAFFLE_DATE_CHANGE_CAMPAIGN_NOT_FOUND:
+            "No existe una campaña de cambio de fecha para cerrar.",
+        };
+        if (messages[error?.message])
+          return reply
+            .status(409)
+            .send({ message: messages[error.message], code: error.message });
+        throw error;
+      }
+    },
+  );
+
   server.get(
     "/admin/:id/date-change",
     { preHandler: [server.authenticate] },

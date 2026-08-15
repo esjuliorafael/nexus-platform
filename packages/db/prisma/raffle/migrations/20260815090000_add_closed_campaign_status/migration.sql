@@ -1,0 +1,1 @@
+ALTER TYPE "RaffleResultCampaignStatus" ADD VALUE IF NOT EXISTS 'CLOSED';

@@ -954,13 +954,14 @@ function App() {
     setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
 
   const handleLoginSuccess = (userData: any, jwtToken: string) => {
+    const normalizedRole = String(userData.role || "staff").toLowerCase();
     const authData = {
       loggedIn: true,
       token: jwtToken,
       id: userData.id,
       username: userData.username,
       name: userData.name,
-      role: userData.role || "staff",
+      role: normalizedRole,
       mustChangePassword: userData.mustChangePassword,
       expiresAt: new Date().getTime() + 12 * 60 * 60 * 1000,
     };
@@ -970,7 +971,7 @@ function App() {
     announcedUnreadOrderIdsRef.current.clear();
     setPendingOrderIds(new Set());
     setUserName(userData.name.split(" ")[0]);
-    setUserRole(userData.role || "staff");
+    setUserRole(normalizedRole);
     setToken(jwtToken);
     setMustChangePassword(userData.mustChangePassword);
     setIsAuthenticated(true);

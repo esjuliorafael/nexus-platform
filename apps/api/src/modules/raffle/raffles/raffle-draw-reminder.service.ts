@@ -245,6 +245,15 @@ export async function refreshRaffleDrawReminderCampaign(
   rafflePrisma: RafflePrismaClient,
   campaignId: string,
 ) {
+  const campaign = await rafflePrisma.raffleDrawReminderCampaign.findUnique({
+    where: { id: campaignId },
+    select: { status: true },
+  });
+  if (campaign?.status === RaffleResultCampaignStatus.CLOSED) {
+    return rafflePrisma.raffleDrawReminderCampaign.findUnique({
+      where: { id: campaignId },
+    });
+  }
   const grouped = await rafflePrisma.raffleDrawReminderRecipient.groupBy({
     by: ["status"],
     where: { campaignId },
@@ -328,9 +337,16 @@ async function resume(
   rafflePrisma: RafflePrismaClient,
   campaign: {
     id: string;
+    status: RaffleResultCampaignStatus;
     recipients: Array<{ id: string; status: RaffleResultRecipientStatus }>;
   },
 ) {
+  if (campaign.status === RaffleResultCampaignStatus.CLOSED) {
+    return rafflePrisma.raffleDrawReminderCampaign.findUnique({
+      where: { id: campaign.id },
+      include: { recipients: true },
+    });
+  }
   const pendingIds = campaign.recipients
     .filter(
       (recipient) => recipient.status === RaffleResultRecipientStatus.PENDING,
@@ -482,6 +498,9 @@ export const raffleDrawReminderService = {
       include: { recipients: true },
     });
     if (existing) {
+      if (existing.status === RaffleResultCampaignStatus.CLOSED) {
+        return existing;
+      }
       if (
         existing.scheduledFor &&
         existing.scheduledFor > new Date() &&
@@ -540,6 +559,49 @@ export const raffleDrawReminderService = {
       return created;
     });
     return resume(rafflePrisma, campaign);
+  },
+
+  async closeDateChangeCampaign(
+    rafflePrisma: RafflePrismaClient,
+    raffleId: number,
+    actor: AuditActor,
+  ) {
+    const raffle = await rafflePrisma.raffle.findUnique({
+      where: { id: raffleId },
+      select: { drawDate: true },
+    });
+    if (!raffle?.drawDate) throw new Error("RAFFLE_NOT_FOUND");
+
+    const campaign = await rafflePrisma.raffleDrawReminderCampaign.findUnique({
+      where: {
+        raffleId_drawDate_kind: {
+          raffleId,
+          drawDate: raffle.drawDate,
+          kind: RaffleCommunicationKind.DATE_CHANGE,
+        },
+      },
+    });
+    if (!campaign) throw new Error("RAFFLE_DATE_CHANGE_CAMPAIGN_NOT_FOUND");
+
+    const closed = await rafflePrisma.raffleDrawReminderCampaign.update({
+      where: { id: campaign.id },
+      data: {
+        status: RaffleResultCampaignStatus.CLOSED,
+        completedAt: new Date(),
+        scheduledFor: null,
+      },
+      include: { recipients: true },
+    });
+    await rafflePrisma.raffleResultEvent.create({
+      data: {
+        raffleId,
+        eventType: "DRAW_REMINDER_CLOSED",
+        message: "Se cerró administrativamente el seguimiento del aviso de cambio de fecha.",
+        ...auditActorData(actor),
+        metadata: { campaignId: campaign.id, kind: RaffleCommunicationKind.DATE_CHANGE },
+      },
+    });
+    return closed;
   },
 
   async scheduleCampaign(

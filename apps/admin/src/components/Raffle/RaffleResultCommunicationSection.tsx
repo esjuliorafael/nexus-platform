@@ -48,6 +48,7 @@ const CAMPAIGN_PRESENTATION: Record<
   SENT: { label: "Procesada", variant: "success" },
   FAILED: { label: "Fallida", variant: "danger" },
   EMPTY: { label: "Sin Destinatarios", variant: "muted" },
+  CLOSED: { label: "Cerrada", variant: "muted" },
 };
 
 const FULFILLMENT_OPTIONS: Array<{

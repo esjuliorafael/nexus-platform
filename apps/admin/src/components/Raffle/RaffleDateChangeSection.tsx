@@ -19,6 +19,7 @@ const campaignLabel = (status?: string | null) => {
   if (status === "SENT") return "Enviada";
   if (status === "PROCESSING" || status === "PARTIAL") return "Procesando";
   if (status === "FAILED") return "Fallida";
+  if (status === "CLOSED") return "Cerrada";
   return "No enviada";
 };
 
@@ -34,6 +35,7 @@ export const RaffleDateChangeSection: React.FC<Props> = ({
   const [loading, setLoading] = React.useState(true);
   const [submitting, setSubmitting] = React.useState(false);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
+  const [closeOpen, setCloseOpen] = React.useState(false);
   const [scheduleOpen, setScheduleOpen] = React.useState(false);
   const [scheduledFor, setScheduledFor] = React.useState("");
 
@@ -94,6 +96,24 @@ export const RaffleDateChangeSection: React.FC<Props> = ({
     }
   };
 
+  const closeCampaign = async () => {
+    try {
+      setSubmitting(true);
+      await apiRaffles.closeDateChangeCampaign(raffle.id);
+      setCloseOpen(false);
+      showToast("Seguimiento del cambio de fecha cerrado");
+      await load();
+    } catch (error: any) {
+      showToast(
+        error?.response?.data?.message ||
+          "No se pudo cerrar el seguimiento del aviso.",
+        "error",
+      );
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const campaign = overview?.campaign;
   return (
     <NexusSection
@@ -111,7 +131,17 @@ export const RaffleDateChangeSection: React.FC<Props> = ({
             className="flex flex-col items-end"
             style={{ gap: "var(--space-xs)" }}
           >
-            <NexusCardBadge variant={campaign ? "success" : "muted"}>
+            <NexusCardBadge
+              variant={
+                campaign?.status === "CLOSED"
+                  ? "muted"
+                  : campaign?.status === "FAILED"
+                    ? "danger"
+                    : campaign
+                      ? "success"
+                      : "muted"
+              }
+            >
               {campaignLabel(campaign?.status)}
             </NexusCardBadge>
             <span className="text-secondary font-semibold text-text-main">
@@ -122,11 +152,22 @@ export const RaffleDateChangeSection: React.FC<Props> = ({
           </div>
         }
         actions={
-          canManageOperations ? (
+          canManageOperations && campaign?.status !== "CLOSED" ? (
             <div
               className="grid w-full grid-cols-3 md:flex md:w-auto"
               style={{ gap: "var(--space-sm)" }}
             >
+              {campaign && (
+                <NexusCardButton
+                  type="button"
+                  variant="secondary"
+                  className="w-full md:w-auto"
+                  onClick={() => setCloseOpen(true)}
+                  disabled={submitting}
+                >
+                  Cerrar seguimiento
+                </NexusCardButton>
+              )}
               <NexusCardButton
                 type="button"
                 variant="secondary"
@@ -167,6 +208,17 @@ export const RaffleDateChangeSection: React.FC<Props> = ({
         onConfirm={() => void send()}
         onCancel={() => setConfirmOpen(false)}
         tone="brand"
+        isLoading={submitting}
+      />
+      <NexusConfirmModal
+        isOpen={closeOpen}
+        title="¿Cerrar seguimiento del aviso?"
+        message="La campaña conservará sus registros y no se marcará como entregada. Los destinatarios pendientes o fallidos no se volverán a procesar desde esta campaña. Las demás comunicaciones de la rifa seguirán disponibles."
+        confirmLabel="Cerrar seguimiento"
+        cancelLabel="Cancelar"
+        onConfirm={() => void closeCampaign()}
+        onCancel={() => setCloseOpen(false)}
+        tone="warning"
         isLoading={submitting}
       />
       {scheduleOpen && (

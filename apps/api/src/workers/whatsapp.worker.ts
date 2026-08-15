@@ -385,6 +385,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         {
           where: {
             id: data.campaignRecipientId,
+            campaign: { status: { not: "CLOSED" } },
             status: {
               in: data.fallbackOfMessageId
                 ? ["PENDING", "FAILED", "PROCESSING"]
@@ -406,6 +407,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           include: { campaign: { include: { raffle: true } } },
         });
       if (!recipient) return;
+      if (recipient.campaign.status === "CLOSED") return;
       const raffleChannel = resolvedWhatsappChannels.find(
         (channel) =>
           channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
