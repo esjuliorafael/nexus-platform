@@ -561,6 +561,14 @@ export const raffleDrawReminderService = {
           },
         },
       });
+      if (kind === RaffleCommunicationKind.DATE_CHANGE) {
+        await tx.raffleResultEvent.updateMany({
+          where: { metadata: { path: ["campaignId"], equals: created.id } },
+          data: {
+            message: `Se prepar\u00f3 el aviso de cambio de fecha para ${recipients.length} destinatario(s).`,
+          },
+        });
+      }
       return created;
     });
     return resume(rafflePrisma, campaign);
