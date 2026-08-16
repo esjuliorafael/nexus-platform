@@ -371,6 +371,7 @@ export const raffleDrawReminderService = {
         where: { id: raffleId },
         include: {
           drawReminderCampaigns: {
+            where: { kind: RaffleCommunicationKind.DRAW_REMINDER },
             orderBy: { createdAt: "desc" },
             include: { recipients: { orderBy: { customerName: "asc" } } },
           },
@@ -546,13 +547,17 @@ export const raffleDrawReminderService = {
       await tx.raffleResultEvent.create({
         data: {
           raffleId,
-          eventType: "DRAW_REMINDER_QUEUED",
+          eventType:
+            kind === RaffleCommunicationKind.DATE_CHANGE
+              ? "DATE_CHANGE_QUEUED"
+              : "DRAW_REMINDER_QUEUED",
           message: `Se preparó el aviso del día de la rifa para ${recipients.length} destinatario(s).`,
           ...auditActorData(actor),
           metadata: {
             campaignId: created.id,
             totalRecipients: recipients.length,
             drawDate: raffle.drawDate,
+            kind,
           },
         },
       });

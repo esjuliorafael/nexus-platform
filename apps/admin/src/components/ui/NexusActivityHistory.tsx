@@ -42,6 +42,8 @@ const EVENT_PRESENTATION: Record<string, EventPresentation> = {
   WHATSAPP_RESENT: { label: "WhatsApp reenviado", icon: MessageCircle, variant: "success" },
   TICKET_SALE_DELETED: { label: "Registro eliminado", icon: CircleX, variant: "danger" },
   RESULT_PUBLISHED: { label: "Resultado publicado", icon: CheckCircle2, variant: "success" },
+  DATE_CHANGE_QUEUED: { label: "Cambio de fecha preparado", icon: Clock3, variant: "info" },
+  DRAW_REMINDER_QUEUED: { label: "Recordatorio preparado", icon: Clock3, variant: "info" },
   PRODUCT_CREATED: { label: "Producto creado", icon: PackagePlus, variant: "brand" },
   PRODUCT_UPDATED: { label: "Producto actualizado", icon: UserRoundCog, variant: "info" },
   PRODUCT_PUBLISHED: { label: "Producto publicado", icon: PackageCheck, variant: "success" },
