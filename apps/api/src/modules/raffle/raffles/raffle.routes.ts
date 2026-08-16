@@ -35,7 +35,11 @@ import {
   customerPhoneCandidates,
   customerPhoneSchema,
 } from "../../../utils/customer-phone";
-import { requireAdminActor } from "../../../utils/admin-authorization";
+import {
+  auditActorData,
+  requireAdminActor,
+  type AuditActor,
+} from "../../../utils/admin-authorization";
 import { raffleResultService } from "./raffle-result.service";
 import { raffleResultCommunicationService } from "./raffle-result-communication.service";
 import { raffleDrawReminderService } from "./raffle-draw-reminder.service";
@@ -46,6 +50,28 @@ import {
   requestParticipationLookup,
   verifyParticipationLookup,
 } from "../ticket-sales/raffle-participation-lookup.service";
+
+const recordRaffleActivity = async (
+  prisma: any,
+  raffleId: number,
+  eventType: string,
+  message: string,
+  actor: AuditActor,
+  metadata?: Record<string, unknown>,
+  previousState?: Record<string, unknown>,
+  nextState?: Record<string, unknown>,
+) =>
+  prisma.raffleResultEvent.create({
+    data: {
+      raffleId,
+      eventType,
+      message,
+      ...auditActorData(actor),
+      metadata: metadata as any,
+      previousState: previousState as any,
+      nextState: nextState as any,
+    },
+  });
 
 const reserveTicketsBodySchema = z.object({
   tickets: z
@@ -1675,7 +1701,18 @@ export async function raffleRoutes(server: FastifyInstance) {
           code: "RAFFLE_RESULT_MANAGED_OPERATIONALLY",
         });
       }
-      return raffleService.create(getPrisma(), validated);
+      const actor = await requireAdminActor(server, request, reply);
+      if (!actor) return;
+      const created = await raffleService.create(getPrisma(), validated);
+      await recordRaffleActivity(
+        getPrisma(),
+        created.id,
+        "RAFFLE_CREATED",
+        "Se creó la rifa.",
+        actor,
+        { title: created.title, ticketQuantity: created.ticketQuantity },
+      );
+      return created;
     },
   );
 
@@ -1794,6 +1831,31 @@ export async function raffleRoutes(server: FastifyInstance) {
         raffleId,
         validated,
       );
+      const actor = await requireAdminActor(server, request, reply);
+      if (!actor) return;
+      const changedFields = Object.keys(validated).filter(
+        (field) => field !== "earlyAccessCode" && field !== "clearEarlyAccessCode",
+      );
+      if (changedFields.length > 0) {
+        await recordRaffleActivity(
+          getPrisma(),
+          raffleId,
+          validated.drawDate !== undefined &&
+            current.drawDate?.getTime() !==
+              (updated.drawDate ? new Date(updated.drawDate).getTime() : undefined)
+            ? "RAFFLE_DATE_CHANGED"
+            : "RAFFLE_UPDATED",
+          validated.drawDate !== undefined &&
+            current.drawDate?.getTime() !==
+              (updated.drawDate ? new Date(updated.drawDate).getTime() : undefined)
+            ? "Se cambió la fecha programada de la rifa."
+            : "Se actualizó la configuración de la rifa.",
+          actor,
+          { changedFields },
+          Object.fromEntries(changedFields.map((field) => [field, (current as any)[field]])),
+          Object.fromEntries(changedFields.map((field) => [field, (updated as any)[field]])),
+        );
+      }
       const nextDrawDate = updated.drawDate ? new Date(updated.drawDate) : null;
       if (
         current.drawDate &&
@@ -1834,12 +1896,28 @@ export async function raffleRoutes(server: FastifyInstance) {
           code: "RAFFLE_RESULT_MANAGED_OPERATIONALLY",
         });
       }
+      const currentStatusForActivity = (
+        await getPrisma().raffle.findUnique({
+          where: { id: raffleId },
+          select: { status: true },
+        })
+      )?.status;
       const updated = await raffleService.update(
         getPrisma(),
         raffleId,
         validated.status === "ACTIVE"
           ? validated
           : { ...validated, featured: false, featuredOrder: null },
+      );
+      const actor = await requireAdminActor(server, request, reply);
+      if (!actor) return;
+      await recordRaffleActivity(
+        getPrisma(),
+        raffleId,
+        "RAFFLE_STATUS_CHANGED",
+        `La rifa cambió al estado ${updated.status}.`,
+        actor,
+        { previousStatus: currentStatusForActivity, nextStatus: updated.status },
       );
       await reconcileRaffleOpeningNotifications(raffleId);
       return updated;
@@ -1862,12 +1940,24 @@ export async function raffleRoutes(server: FastifyInstance) {
         throw error;
       }
       const raffleId = parseInt(id);
+      const actor = await requireAdminActor(server, request, reply);
+      if (!actor) return;
       const updated = await raffleService.update(
         getPrisma(),
         raffleId,
         validated.published
           ? validated
           : { ...validated, featured: false, featuredOrder: null },
+      );
+      await recordRaffleActivity(
+        getPrisma(),
+        raffleId,
+        "RAFFLE_PUBLICATION_CHANGED",
+        validated.published
+          ? "La rifa fue publicada."
+          : "La publicación de la rifa fue retirada.",
+        actor,
+        { published: updated.published },
       );
       await reconcileRaffleOpeningNotifications(raffleId);
       return updated;
@@ -1891,14 +1981,36 @@ export async function raffleRoutes(server: FastifyInstance) {
       }
 
       try {
+        const actor = await requireAdminActor(server, request, reply);
+        if (!actor) return;
+        const raffleId = parseInt(id);
+        const current = await getPrisma().raffle.findUnique({
+          where: { id: raffleId },
+          select: { featured: true, featuredOrder: true },
+        });
         const updated = await raffleService.updateFeatured(
           getPrisma(),
-          parseInt(id),
+          raffleId,
           validated.featured,
           validated.featuredOrder,
         );
         if (!updated)
           return reply.status(404).send({ message: "Raffle not found" });
+        await recordRaffleActivity(
+          getPrisma(),
+          raffleId,
+          "RAFFLE_FEATURED_CHANGED",
+          updated.featured
+            ? "La rifa fue destacada."
+            : "La rifa dejó de estar destacada.",
+          actor,
+          {
+            previousFeatured: current?.featured ?? null,
+            nextFeatured: updated.featured,
+            previousOrder: current?.featuredOrder ?? null,
+            nextOrder: updated.featuredOrder ?? null,
+          },
+        );
         return updated;
       } catch (error: any) {
         if (error?.message === "FEATURED_RAFFLE_LIMIT") {

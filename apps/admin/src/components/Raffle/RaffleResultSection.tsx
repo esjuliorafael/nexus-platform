@@ -421,8 +421,8 @@ export const RaffleResultSection: React.FC<RaffleResultSectionProps> = ({
       </NexusSection>}
 
       {showHistory && <NexusSection
-        title="Historial de la Rifa"
-        subtitle="Registro de las acciones realizadas sobre los resultados"
+        title="Actividad de la Rifa"
+        subtitle="Registro operativo y auditable de las acciones realizadas sobre esta rifa"
         icon={History}
       >
         <NexusActivityHistory
