@@ -18,6 +18,8 @@ import {
   ArrowLeft,
   Download,
   Pencil,
+  Image as ImageIcon,
+  Ticket,
 } from "lucide-react";
 import { Header } from "./components/Header";
 import { QuickActions } from "./components/QuickActions";
@@ -96,6 +98,7 @@ import {
   BillingViewRef,
 } from "./components/System/Billing/BillingView";
 import { RaffleView } from "./components/Raffle/RaffleView";
+import type { MaterialKind } from "./components/Raffle/RaffleMaterialsView";
 import {
   DEFAULT_RAFFLE_ADVANCED_FILTERS,
   RaffleFiltersModal,
@@ -591,6 +594,8 @@ function App() {
     if (saved === "participation-detail") return "participations";
     return saved === "detail" ? "list" : saved;
   });
+  const [raffleMaterialKind, setRaffleMaterialKind] =
+    useState<MaterialKind>("raffle-card");
   const [selectedRaffleForHeader, setSelectedRaffleForHeader] =
     useState<Raffle | null>(null);
   const [profileViewMode, setProfileViewMode] = useState<ProfileViewMode>(() =>
@@ -1295,6 +1300,18 @@ function App() {
       case "Ver Rifas":
         setActiveTab("Rifas");
         setRaffleViewMode("list");
+        break;
+      case "Ficha de la Rifa":
+        setRaffleMaterialKind("raffle-card");
+        setActiveTab("Rifas");
+        setRaffleViewMode("materials");
+        window.scrollTo({ top: 0, behavior: "smooth" });
+        break;
+      case "Boletera Visual":
+        setRaffleMaterialKind("ticket-board");
+        setActiveTab("Rifas");
+        setRaffleViewMode("materials");
+        window.scrollTo({ top: 0, behavior: "smooth" });
         break;
       case "Nueva Rifa":
         setActiveTab("Rifas");
@@ -2474,6 +2491,14 @@ function App() {
                       systemViewMode === "channels" &&
                       channelsViewMode === "principal")
                   }
+                  detailActions={
+                    isRafflesMode && raffleViewMode === "materials"
+                      ? [
+                          { icon: <ImageIcon size={20} />, label: "Ficha de la Rifa" },
+                          { icon: <Ticket size={20} />, label: "Boletera Visual" },
+                        ]
+                      : undefined
+                  }
                   raffleEnabled={showRaffleNavigation}
                   userRole={userRole}
                 />
@@ -2640,6 +2665,7 @@ function App() {
                       advancedFilters={raffleAdvancedFilters}
                       ticketBoardSearchQuery={raffleTicketBoardSearchQuery}
                       ticketBoardFilter={raffleTicketBoardFilter}
+                      materialKind={raffleMaterialKind}
                       viewMode={raffleViewMode}
                       onSetViewMode={setRaffleViewMode}
                       onViewParticipation={(participation, origin) => {

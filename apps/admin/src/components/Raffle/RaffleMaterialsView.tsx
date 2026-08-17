@@ -1,5 +1,11 @@
 import React from "react";
-import { Download, Image as ImageIcon, Palette, Ticket } from "lucide-react";
+import {
+  ChevronLeft,
+  ChevronRight,
+  Download,
+  Palette,
+  Ticket,
+} from "lucide-react";
 import { apiRaffles, apiSystem } from "../../api";
 import { Raffle } from "../../types";
 import { NexusSectionButton } from "../ui/NexusButton";
@@ -15,9 +21,13 @@ import { useRaffleOperationalOverview } from "./useRaffleOperationalOverview";
 interface RaffleMaterialsViewProps {
   raffle: Raffle;
   showToast: (message: string, type?: "success" | "error") => void;
+  materialKind: MaterialKind;
 }
 
-type MaterialKind = "raffle-card" | "ticket-board";
+export type MaterialKind = "raffle-card" | "ticket-board";
+type TicketBoardFilter = "all" | "available" | "occupied";
+
+const TICKETS_PER_PAGE = 25;
 
 const statusColors: Record<TicketOperationalStatus, string> = {
   available: "#b08968",
@@ -31,6 +41,12 @@ const statusLabels: Record<TicketOperationalStatus, string> = {
   reserved: "Apartado",
   paid: "Pagado",
   review: "En revisión",
+};
+
+const ticketBoardFilterLabels: Record<TicketBoardFilter, string> = {
+  all: "Todos",
+  available: "Disponibles",
+  occupied: "Apartados",
 };
 
 const formatCurrency = (value: number) =>
@@ -72,6 +88,22 @@ const wrapText = (value: string, maxCharacters: number) => {
   return lines;
 };
 
+const getTicketStatus = (
+  number: string,
+  statusByNumber: Map<string, TicketOperationalStatus>,
+) => statusByNumber.get(number) || "available";
+
+const isTicketInFilter = (
+  number: string,
+  filter: TicketBoardFilter,
+  statusByNumber: Map<string, TicketOperationalStatus>,
+) => {
+  const status = getTicketStatus(number, statusByNumber);
+  if (filter === "all") return true;
+  if (filter === "available") return status === "available";
+  return status !== "available";
+};
+
 const downloadFile = (blob: Blob, fileName: string) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -111,12 +143,16 @@ const buildMaterialSvg = ({
   brandName,
   ticketNumbers,
   statusByNumber,
+  filter,
+  pageIndex,
 }: {
   kind: MaterialKind;
   raffle: Raffle;
   brandName: string;
   ticketNumbers: string[];
   statusByNumber: Map<string, TicketOperationalStatus>;
+  filter: TicketBoardFilter;
+  pageIndex: number;
 }) => {
   const width = 1080;
   const height = 1920;
@@ -135,7 +171,7 @@ const buildMaterialSvg = ({
     .join("");
   const safeBrandName = escapeXml(brandName || "Nexus");
   const available = ticketNumbers.filter(
-    (number) => (statusByNumber.get(number) || "available") === "available",
+    (number) => getTicketStatus(number, statusByNumber) === "available",
   ).length;
   const background =
     raffle.imageType === "VIDEO"
@@ -168,16 +204,27 @@ const buildMaterialSvg = ({
     </svg>`;
   }
 
+  const filteredTickets = ticketNumbers.filter((number) =>
+    isTicketInFilter(number, filter, statusByNumber),
+  );
+  const pageCount = Math.max(
+    1,
+    Math.ceil(filteredTickets.length / TICKETS_PER_PAGE),
+  );
+  const pageTickets = filteredTickets.slice(
+    pageIndex * TICKETS_PER_PAGE,
+    (pageIndex + 1) * TICKETS_PER_PAGE,
+  );
   const columns = 5;
   const cell = 156;
   const gap = 24;
   const startX = 54;
   const startY = 410;
-  const ticketCells = ticketNumbers
+  const ticketCells = pageTickets
     .map((number, index) => {
       const x = startX + (index % columns) * (cell + gap);
       const y = startY + Math.floor(index / columns) * (cell + gap);
-      const status = statusByNumber.get(number) || "available";
+      const status = getTicketStatus(number, statusByNumber);
       return `<rect x="${x}" y="${y}" width="${cell}" height="${cell}" rx="26" fill="${statusColors[status]}" opacity="0.95" />
         <text x="${x + cell / 2}" y="${y + 94}" text-anchor="middle" fill="#fffaf6" font-family="Inter,Arial,sans-serif" font-size="34" font-weight="800">${escapeXml(number)}</text>`;
     })
@@ -193,8 +240,9 @@ const buildMaterialSvg = ({
     <rect width="${width}" height="${height}" fill="#2b1a13" />
     ${image}${overlay}
     <text x="${width / 2}" y="120" text-anchor="middle" fill="#f4eee9" font-family="Inter,Arial,sans-serif" font-size="28" font-weight="800" letter-spacing="2">${safeBrandName}</text>
-    <text x="${width / 2}" y="176" text-anchor="middle" fill="#fffaf6" font-family="Inter,Arial,sans-serif" font-size="34" font-weight="800" letter-spacing="2">BOLETOS DISPONIBLES</text>
-    <text x="${width / 2}" y="250" text-anchor="middle" fill="#f4eee9" font-family="Inter,Arial,sans-serif" font-size="27">${boardTitle}</text>
+    <text x="${width / 2}" y="176" text-anchor="middle" fill="#fffaf6" font-family="Inter,Arial,sans-serif" font-size="34" font-weight="800" letter-spacing="2">BOLETERA VISUAL</text>
+    <text x="${width / 2}" y="224" text-anchor="middle" fill="#f4eee9" font-family="Inter,Arial,sans-serif" font-size="24" font-weight="700" letter-spacing="1">${ticketBoardFilterLabels[filter].toUpperCase()} · ${pageIndex + 1}/${pageCount}</text>
+    <text x="${width / 2}" y="286" text-anchor="middle" fill="#f4eee9" font-family="Inter,Arial,sans-serif" font-size="27">${boardTitle}</text>
     ${ticketCells}
     ${legend}
   </svg>`;
@@ -203,8 +251,11 @@ const buildMaterialSvg = ({
 export const RaffleMaterialsView: React.FC<RaffleMaterialsViewProps> = ({
   raffle,
   showToast,
+  materialKind,
 }) => {
-  const [kind, setKind] = React.useState<MaterialKind>("raffle-card");
+  const [ticketBoardFilter, setTicketBoardFilter] =
+    React.useState<TicketBoardFilter>("all");
+  const [ticketBoardPage, setTicketBoardPage] = React.useState(0);
   const [brandName, setBrandName] = React.useState("Nexus");
   const [ticketAssignments, setTicketAssignments] = React.useState<
     Array<{ mainTicketNumber: string; extraOpportunities: string[] }>
@@ -239,6 +290,32 @@ export const RaffleMaterialsView: React.FC<RaffleMaterialsViewProps> = ({
     [overview?.ticketStatuses],
   );
 
+  const filteredTicketNumbers = React.useMemo(
+    () =>
+      ticketNumbers.filter((number) =>
+        isTicketInFilter(number, ticketBoardFilter, statusByNumber),
+      ),
+    [ticketBoardFilter, statusByNumber, ticketNumbers],
+  );
+  const ticketBoardPageCount = Math.max(
+    1,
+    Math.ceil(filteredTicketNumbers.length / TICKETS_PER_PAGE),
+  );
+  const visibleTicketNumbers = filteredTicketNumbers.slice(
+    ticketBoardPage * TICKETS_PER_PAGE,
+    (ticketBoardPage + 1) * TICKETS_PER_PAGE,
+  );
+
+  React.useEffect(() => {
+    setTicketBoardPage(0);
+  }, [ticketBoardFilter, raffle.id]);
+
+  React.useEffect(() => {
+    setTicketBoardPage((current) =>
+      Math.min(current, Math.max(0, ticketBoardPageCount - 1)),
+    );
+  }, [ticketBoardPageCount]);
+
   React.useEffect(() => {
     if (raffle.opportunities <= 1) {
       setTicketAssignments([]);
@@ -252,13 +329,19 @@ export const RaffleMaterialsView: React.FC<RaffleMaterialsViewProps> = ({
   const download = async () => {
     try {
       const svg = buildMaterialSvg({
-        kind,
+        kind: materialKind,
         raffle,
         brandName,
         ticketNumbers,
         statusByNumber,
+        filter: materialKind === "ticket-board" ? ticketBoardFilter : "all",
+        pageIndex: materialKind === "ticket-board" ? ticketBoardPage : 0,
       });
-      const fileName = `${kind === "raffle-card" ? "ficha" : "boletera"}-rifa-${raffle.id}.png`;
+      const filterSuffix =
+        materialKind === "ticket-board"
+          ? `-${ticketBoardFilter}-${ticketBoardPage + 1}-de-${ticketBoardPageCount}`
+          : "";
+      const fileName = `${materialKind === "raffle-card" ? "ficha" : "boletera"}-rifa-${raffle.id}${filterSuffix}.png`;
       try {
         await downloadSvgAsPng(svg, fileName);
       } catch {
@@ -267,7 +350,11 @@ export const RaffleMaterialsView: React.FC<RaffleMaterialsViewProps> = ({
           fileName.replace(/\.png$/, ".svg"),
         );
       }
-      showToast("Material descargado correctamente.");
+      showToast(
+        materialKind === "ticket-board"
+          ? `Boletera visual ${ticketBoardPage + 1} de ${ticketBoardPageCount} descargada.`
+          : "Material descargado correctamente.",
+      );
     } catch {
       showToast("No se pudo generar el material.", "error");
     }
@@ -285,37 +372,29 @@ export const RaffleMaterialsView: React.FC<RaffleMaterialsViewProps> = ({
         icon={Palette}
         action={
           <NexusSectionButton variant="brand" icon={Download} onClick={download}>
-            Descargar material
+            {materialKind === "ticket-board" ? "Descargar boletera" : "Descargar ficha"}
           </NexusSectionButton>
         }
       >
         <div className="grid min-w-0 gap-[var(--space-lg)] lg:grid-cols-[minmax(220px,0.32fr)_minmax(0,0.68fr)]">
           <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
             <div>
-              <p className="text-label text-text-muted">FORMATO</p>
-              <p className="text-secondary text-text-muted" style={{ marginTop: "var(--space-xs)" }}>
-                Elige una plantilla antes de exportar.
+              <p className="text-label text-text-muted">MEDIO ACTIVO</p>
+              <p className="text-secondary text-text-main" style={{ marginTop: "var(--space-xs)" }}>
+                {materialKind === "ticket-board" ? "Boletera Visual" : "Ficha de la Rifa"}
               </p>
-            </div>
-            <div className="flex flex-col" style={{ gap: "var(--space-sm)" }}>
-              <NexusSectionButton
-                variant={kind === "raffle-card" ? "brand" : "secondary"}
-                icon={ImageIcon}
-                onClick={() => setKind("raffle-card")}
-              >
-                Ficha de la Rifa
-              </NexusSectionButton>
-              <NexusSectionButton
-                variant={kind === "ticket-board" ? "brand" : "secondary"}
-                icon={Ticket}
-                onClick={() => setKind("ticket-board")}
-              >
-                Boletera Visual
-              </NexusSectionButton>
+              <p className="text-secondary text-text-muted" style={{ marginTop: "var(--space-xs)" }}>
+                Cambia de medio desde las acciones rápidas del rail.
+              </p>
             </div>
             <div className="text-secondary text-text-muted" style={{ display: "flex", flexDirection: "column", gap: "var(--space-xs)" }}>
               <span>{raffle.ticketQuantity} boletos configurados</span>
               <span>{isLoading ? "Actualizando disponibilidad..." : `${available} disponibles`}</span>
+              {materialKind === "ticket-board" && (
+                <span>
+                  {filteredTicketNumbers.length} boletos en el filtro · {ticketBoardPageCount} piezas 9:16
+                </span>
+              )}
               {raffle.opportunities > 1 && (
                 <span>{ticketAssignments.length} asignaciones de oportunidades consultadas</span>
               )}
@@ -333,7 +412,7 @@ export const RaffleMaterialsView: React.FC<RaffleMaterialsViewProps> = ({
                   />
                 ) : null}
                 <div className="absolute inset-0 bg-[#22140f]/75" />
-                {kind === "raffle-card" ? (
+                {materialKind === "raffle-card" ? (
                   <div className="relative flex h-full flex-col justify-between p-[var(--space-lg)] text-[#fffaf6]">
                     <div>
                       <p className="text-label tracking-[0.12em]">{brandName}</p>
@@ -362,12 +441,15 @@ export const RaffleMaterialsView: React.FC<RaffleMaterialsViewProps> = ({
                 ) : (
                   <div className="relative h-full p-[var(--space-md)] text-[#fffaf6]">
                     <div className="mb-[var(--space-md)] text-center">
-                      <p className="text-label tracking-[0.12em]">BOLETOS DISPONIBLES</p>
+                      <p className="text-label tracking-[0.12em]">BOLETERA VISUAL</p>
+                      <p className="text-label mt-[var(--space-xs)] text-[#f4eee9]/80">
+                        {ticketBoardFilterLabels[ticketBoardFilter].toUpperCase()} · {ticketBoardPage + 1}/{ticketBoardPageCount}
+                      </p>
                       <p className="text-secondary mt-[var(--space-xs)] line-clamp-2">{raffle.title}</p>
                     </div>
-                    <div className="grid grid-cols-5 gap-1.5">
-                      {ticketNumbers.map((number) => {
-                        const status = statusByNumber.get(number) || "available";
+                    <div className="grid grid-cols-5 gap-[var(--space-xs)]">
+                      {visibleTicketNumbers.map((number) => {
+                        const status = getTicketStatus(number, statusByNumber);
                         return (
                           <span
                             key={number}
@@ -385,6 +467,59 @@ export const RaffleMaterialsView: React.FC<RaffleMaterialsViewProps> = ({
             </div>
           </div>
         </div>
+
+        {materialKind === "ticket-board" && (
+          <div className="mt-[var(--space-lg)] flex flex-col gap-[var(--space-md)] border-t border-border-subtle pt-[var(--space-lg)]">
+            <div className="flex flex-col gap-[var(--space-sm)]">
+              <p className="text-label text-text-muted">FILTRO DE BOLETERA</p>
+              <div
+                className="grid grid-cols-3 overflow-hidden border border-border-main bg-bg-muted"
+                role="tablist"
+                aria-label="Filtrar boletera visual"
+                style={{ borderRadius: "var(--radius-inner-visual)" }}
+              >
+                {(Object.keys(ticketBoardFilterLabels) as TicketBoardFilter[]).map((filter) => (
+                  <button
+                    key={filter}
+                    type="button"
+                    role="tab"
+                    aria-selected={ticketBoardFilter === filter}
+                    onClick={() => setTicketBoardFilter(filter)}
+                    className={`h-[var(--size-button-card)] text-button-card transition-colors ${ticketBoardFilter === filter ? "bg-brand-600 text-white" : "text-text-muted hover:bg-bg-card hover:text-text-main"}`}
+                    style={{ borderRadius: "var(--radius-inner-visual)" }}
+                  >
+                    {ticketBoardFilterLabels[filter]}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-[var(--space-md)]">
+              <button
+                type="button"
+                aria-label="Página anterior"
+                disabled={ticketBoardPage === 0}
+                onClick={() => setTicketBoardPage((page) => Math.max(0, page - 1))}
+                className="inline-flex h-[var(--size-button-card)] w-[var(--size-button-card)] items-center justify-center border border-border-main bg-bg-card text-text-main transition-colors hover:border-brand-500 hover:text-brand-600 disabled:opacity-40"
+                style={{ borderRadius: "var(--radius-inner-visual)" }}
+              >
+                <ChevronLeft size={18} aria-hidden="true" />
+              </button>
+              <p className="text-secondary text-text-muted">
+                Página {ticketBoardPage + 1} de {ticketBoardPageCount}
+              </p>
+              <button
+                type="button"
+                aria-label="Página siguiente"
+                disabled={ticketBoardPage >= ticketBoardPageCount - 1}
+                onClick={() => setTicketBoardPage((page) => Math.min(ticketBoardPageCount - 1, page + 1))}
+                className="inline-flex h-[var(--size-button-card)] w-[var(--size-button-card)] items-center justify-center border border-border-main bg-bg-card text-text-main transition-colors hover:border-brand-500 hover:text-brand-600 disabled:opacity-40"
+                style={{ borderRadius: "var(--radius-inner-visual)" }}
+              >
+                <ChevronRight size={18} aria-hidden="true" />
+              </button>
+            </div>
+          </div>
+        )}
       </NexusSection>
 
       <NexusAutonomousCard>

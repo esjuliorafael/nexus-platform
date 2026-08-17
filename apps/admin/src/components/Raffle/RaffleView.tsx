@@ -8,7 +8,7 @@ import { NexusPaginator } from "../ui/NexusPaginator";
 import { RaffleCard } from "./RaffleCard";
 import { RaffleForm } from "./RaffleForm";
 import { RaffleOverviewView } from "./RaffleOverviewView";
-import { RaffleMaterialsView } from "./RaffleMaterialsView";
+import { RaffleMaterialsView, type MaterialKind } from "./RaffleMaterialsView";
 import {
   DEFAULT_TICKET_BOARD_FILTER,
   RaffleTicketBoardView,
@@ -30,6 +30,7 @@ interface RaffleViewProps {
   advancedFilters?: RaffleAdvancedFilters;
   ticketBoardSearchQuery?: string;
   ticketBoardFilter?: TicketBoardFilter;
+  materialKind?: MaterialKind;
   viewMode?:
     | "list"
     | "detail"
@@ -68,6 +69,7 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
   advancedFilters = DEFAULT_RAFFLE_ADVANCED_FILTERS,
   ticketBoardSearchQuery = "",
   ticketBoardFilter = DEFAULT_TICKET_BOARD_FILTER,
+  materialKind = "raffle-card",
   viewMode = "list",
   onSetViewMode,
   onViewParticipation,
@@ -521,7 +523,13 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
   }
 
   if (viewMode === "materials" && selectedRaffle) {
-    return <RaffleMaterialsView raffle={selectedRaffle} showToast={showToast} />;
+    return (
+      <RaffleMaterialsView
+        raffle={selectedRaffle}
+        showToast={showToast}
+        materialKind={materialKind}
+      />
+    );
   }
 
   if (viewMode === "tickets" && selectedRaffle) {

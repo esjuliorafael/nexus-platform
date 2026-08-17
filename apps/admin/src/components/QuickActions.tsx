@@ -38,6 +38,7 @@ interface QuickActionsProps {
   isDetail?: boolean;
   raffleEnabled?: boolean;
   userRole?: string;
+  detailActions?: Array<{ icon: React.ReactNode; label: string }>;
 }
 
 export const QuickActions: React.FC<QuickActionsProps> = ({
@@ -47,6 +48,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
   isDetail,
   raffleEnabled = false,
   userRole = "staff",
+  detailActions = [],
 }) => {
   const allActions = [
     {
@@ -151,7 +153,10 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
     filteredActions = [
       {
         group: context || "Tienda",
-        items: [{ icon: <ArrowLeft size={20} />, label: "Volver" }],
+        items: [
+          { icon: <ArrowLeft size={20} />, label: "Volver" },
+          ...detailActions,
+        ],
       },
     ];
   }
