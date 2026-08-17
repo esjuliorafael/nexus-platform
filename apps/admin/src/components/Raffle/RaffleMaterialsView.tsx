@@ -1,6 +1,6 @@
 import React from "react";
 import { Download, Image as ImageIcon, Palette, Ticket } from "lucide-react";
-import { apiRaffles } from "../../api";
+import { apiRaffles, apiSystem } from "../../api";
 import { Raffle } from "../../types";
 import { NexusSectionButton } from "../ui/NexusButton";
 import { NexusAutonomousCard } from "../ui/NexusCard";
@@ -56,6 +56,22 @@ const escapeXml = (value: string) =>
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&apos;");
 
+const wrapText = (value: string, maxCharacters: number) => {
+  const lines: string[] = [];
+  let current = "";
+  value.split(/\s+/).forEach((word) => {
+    const candidate = current ? `${current} ${word}` : word;
+    if (current && candidate.length > maxCharacters) {
+      lines.push(current);
+      current = word;
+    } else {
+      current = candidate;
+    }
+  });
+  if (current) lines.push(current);
+  return lines;
+};
+
 const downloadFile = (blob: Blob, fileName: string) => {
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
@@ -92,17 +108,32 @@ const downloadSvgAsPng = async (svg: string, fileName: string) => {
 const buildMaterialSvg = ({
   kind,
   raffle,
+  brandName,
   ticketNumbers,
   statusByNumber,
 }: {
   kind: MaterialKind;
   raffle: Raffle;
+  brandName: string;
   ticketNumbers: string[];
   statusByNumber: Map<string, TicketOperationalStatus>;
 }) => {
   const width = 1080;
   const height = 1920;
-  const title = escapeXml(raffle.title);
+  const titleLines = wrapText(raffle.title, 27);
+  const title = titleLines
+    .map(
+      (line, index) =>
+        `<tspan x="72" dy="${index === 0 ? 0 : 76}">${escapeXml(line)}</tspan>`,
+    )
+    .join("");
+  const boardTitle = wrapText(raffle.title, 34)
+    .map(
+      (line, index) =>
+        `<tspan x="${width / 2}" dy="${index === 0 ? 0 : 38}">${escapeXml(line)}</tspan>`,
+    )
+    .join("");
+  const safeBrandName = escapeXml(brandName || "Nexus");
   const available = ticketNumbers.filter(
     (number) => (statusByNumber.get(number) || "available") === "available",
   ).length;
@@ -119,16 +150,20 @@ const buildMaterialSvg = ({
     return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
       <rect width="${width}" height="${height}" fill="#2b1a13" />
       ${image}${overlay}
-      <text x="72" y="150" fill="#f4eee9" font-family="Inter,Arial,sans-serif" font-size="28" font-weight="700" letter-spacing="3">MATERIALES DE LA RIFA</text>
-      <text x="72" y="420" fill="#fffaf6" font-family="Inter,Arial,sans-serif" font-size="64" font-weight="800">${title}</text>
+      <text x="72" y="150" fill="#f4eee9" font-family="Inter,Arial,sans-serif" font-size="30" font-weight="800" letter-spacing="2">${safeBrandName}</text>
+      <text x="72" y="360" fill="#fffaf6" font-family="Inter,Arial,sans-serif" font-size="60" font-weight="800">${title}</text>
       <rect x="72" y="650" width="440" height="190" rx="32" fill="#6b4c38" opacity="0.94" />
       <rect x="568" y="650" width="440" height="190" rx="32" fill="#6b4c38" opacity="0.94" />
       <text x="104" y="715" fill="#f4eee9" font-family="Inter,Arial,sans-serif" font-size="24" font-weight="700">PRECIO POR BOLETO</text>
       <text x="104" y="795" fill="#fffaf6" font-family="Inter,Arial,sans-serif" font-size="58" font-weight="800">${escapeXml(formatCurrency(raffle.ticketPrice))}</text>
       <text x="600" y="715" fill="#f4eee9" font-family="Inter,Arial,sans-serif" font-size="24" font-weight="700">BOLETOS DISPONIBLES</text>
       <text x="600" y="795" fill="#fffaf6" font-family="Inter,Arial,sans-serif" font-size="58" font-weight="800">${available}</text>
-      <text x="72" y="1010" fill="#f4eee9" font-family="Inter,Arial,sans-serif" font-size="30" font-weight="700">FECHA Y HORA</text>
-      <text x="72" y="1070" fill="#fffaf6" font-family="Inter,Arial,sans-serif" font-size="36" font-weight="700">${escapeXml(formatDate(raffle.drawDate))}</text>
+      ${raffle.opportunities > 1 ? `<rect x="72" y="900" width="936" height="190" rx="32" fill="#6b4c38" opacity="0.94" />
+      <text x="104" y="965" fill="#f4eee9" font-family="Inter,Arial,sans-serif" font-size="24" font-weight="700">TU BOLETO PARTICIPA CON</text>
+      <text x="104" y="1040" fill="#fffaf6" font-family="Inter,Arial,sans-serif" font-size="48" font-weight="800">${raffle.opportunities + 1} NÚMEROS</text>
+      <text x="104" y="1080" fill="#f4eee9" font-family="Inter,Arial,sans-serif" font-size="22">EL NÚMERO QUE ELIGES Y ${raffle.opportunities} OPORTUNIDADES ADICIONALES</text>` : ""}
+      <text x="72" y="${raffle.opportunities > 1 ? 1235 : 1010}" fill="#f4eee9" font-family="Inter,Arial,sans-serif" font-size="30" font-weight="700">FECHA Y HORA</text>
+      <text x="72" y="${raffle.opportunities > 1 ? 1295 : 1070}" fill="#fffaf6" font-family="Inter,Arial,sans-serif" font-size="36" font-weight="700">${escapeXml(formatDate(raffle.drawDate))}</text>
       <text x="72" y="1790" fill="#f4eee9" font-family="Inter,Arial,sans-serif" font-size="25" font-weight="600">Consulta la información completa en el Storefront.</text>
     </svg>`;
   }
@@ -157,8 +192,9 @@ const buildMaterialSvg = ({
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}">
     <rect width="${width}" height="${height}" fill="#2b1a13" />
     ${image}${overlay}
-    <text x="${width / 2}" y="150" text-anchor="middle" fill="#fffaf6" font-family="Inter,Arial,sans-serif" font-size="34" font-weight="800" letter-spacing="2">BOLETOS DISPONIBLES</text>
-    <text x="${width / 2}" y="228" text-anchor="middle" fill="#f4eee9" font-family="Inter,Arial,sans-serif" font-size="27">${title}</text>
+    <text x="${width / 2}" y="120" text-anchor="middle" fill="#f4eee9" font-family="Inter,Arial,sans-serif" font-size="28" font-weight="800" letter-spacing="2">${safeBrandName}</text>
+    <text x="${width / 2}" y="176" text-anchor="middle" fill="#fffaf6" font-family="Inter,Arial,sans-serif" font-size="34" font-weight="800" letter-spacing="2">BOLETOS DISPONIBLES</text>
+    <text x="${width / 2}" y="250" text-anchor="middle" fill="#f4eee9" font-family="Inter,Arial,sans-serif" font-size="27">${boardTitle}</text>
     ${ticketCells}
     ${legend}
   </svg>`;
@@ -169,6 +205,7 @@ export const RaffleMaterialsView: React.FC<RaffleMaterialsViewProps> = ({
   showToast,
 }) => {
   const [kind, setKind] = React.useState<MaterialKind>("raffle-card");
+  const [brandName, setBrandName] = React.useState("Nexus");
   const [ticketAssignments, setTicketAssignments] = React.useState<
     Array<{ mainTicketNumber: string; extraOpportunities: string[] }>
   >([]);
@@ -176,6 +213,17 @@ export const RaffleMaterialsView: React.FC<RaffleMaterialsViewProps> = ({
     raffle.id,
     showToast,
   );
+
+  React.useEffect(() => {
+    void apiSystem
+      .getConfig()
+      .then((config) => {
+        setBrandName(
+          config.branding_brand_name || config.brand_name || "Nexus",
+        );
+      })
+      .catch(() => undefined);
+  }, []);
   const ticketNumbers = React.useMemo(
     () => buildRaffleTicketNumbers(raffle),
     [raffle],
@@ -203,7 +251,13 @@ export const RaffleMaterialsView: React.FC<RaffleMaterialsViewProps> = ({
 
   const download = async () => {
     try {
-      const svg = buildMaterialSvg({ kind, raffle, ticketNumbers, statusByNumber });
+      const svg = buildMaterialSvg({
+        kind,
+        raffle,
+        brandName,
+        ticketNumbers,
+        statusByNumber,
+      });
       const fileName = `${kind === "raffle-card" ? "ficha" : "boletera"}-rifa-${raffle.id}.png`;
       try {
         await downloadSvgAsPng(svg, fileName);
@@ -282,10 +336,11 @@ export const RaffleMaterialsView: React.FC<RaffleMaterialsViewProps> = ({
                 {kind === "raffle-card" ? (
                   <div className="relative flex h-full flex-col justify-between p-[var(--space-lg)] text-[#fffaf6]">
                     <div>
-                      <p className="text-label tracking-[0.12em]">MATERIALES DE LA RIFA</p>
+                      <p className="text-label tracking-[0.12em]">{brandName}</p>
                       <h3 className="mt-[var(--space-xl)] text-h2">{raffle.title}</h3>
                     </div>
-                    <div className="grid grid-cols-2 gap-[var(--space-sm)] text-center">
+                    <div className="flex flex-col gap-[var(--space-md)] text-center">
+                      <div className="grid grid-cols-2 gap-[var(--space-sm)]">
                       <div className="rounded-[var(--sf-radius-card-inner)] bg-[#6b4c38]/90 p-[var(--space-md)]">
                         <p className="text-label">PRECIO</p>
                         <strong className="text-h3">{formatCurrency(raffle.ticketPrice)}</strong>
@@ -294,6 +349,14 @@ export const RaffleMaterialsView: React.FC<RaffleMaterialsViewProps> = ({
                         <p className="text-label">DISPONIBLES</p>
                         <strong className="text-h3">{available}</strong>
                       </div>
+                      </div>
+                      {raffle.opportunities > 1 && (
+                        <div className="rounded-[var(--sf-radius-card-inner)] bg-[#6b4c38]/90 p-[var(--space-md)] text-left">
+                          <p className="text-label">TU BOLETO PARTICIPA CON</p>
+                          <strong className="text-h3">{raffle.opportunities + 1} números</strong>
+                          <p className="text-label mt-[var(--space-xs)]">El número que eliges y {raffle.opportunities} oportunidades adicionales</p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ) : (
