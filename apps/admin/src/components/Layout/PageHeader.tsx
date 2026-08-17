@@ -305,6 +305,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
             Boletera de <span className="text-text-muted">Rifa</span>
           </>
         );
+      if (raffleViewMode === "materials")
+        return (
+          <>
+            Materiales de la <span className="text-text-muted">Rifa</span>
+          </>
+        );
       return (
         <>
           Gestión de <span className="text-text-muted">Rifas</span>
@@ -524,6 +530,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         return "Consulta ventas, ocupación, disponibilidad y actividad de esta rifa.";
       if (raffleViewMode === "tickets")
         return "Consulta el estado de cada boleto y accede a su participación asociada.";
+      if (raffleViewMode === "materials")
+        return "Genera piezas visuales controladas para comunicar esta rifa.";
       return "Administra las rifas activas, los boletos vendidos y sus ganadores.";
     }
     if (isSystemMode) {

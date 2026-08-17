@@ -133,6 +133,7 @@ import {
   AnnualService,
   ExtraCharge,
   BillingPayment,
+  Raffle,
   RaffleParticipation,
 } from "./types";
 import {
@@ -233,6 +234,7 @@ type RaffleModeType =
   | "list"
   | "detail"
   | "tickets"
+  | "materials"
   | "create"
   | "edit"
   | "coupon_list"
@@ -284,6 +286,7 @@ const RAFFLE_MODES: RaffleModeType[] = [
   "list",
   "detail",
   "tickets",
+  "materials",
   "create",
   "edit",
   "coupon_list",
@@ -588,6 +591,8 @@ function App() {
     if (saved === "participation-detail") return "participations";
     return saved === "detail" ? "list" : saved;
   });
+  const [selectedRaffleForHeader, setSelectedRaffleForHeader] =
+    useState<Raffle | null>(null);
   const [profileViewMode, setProfileViewMode] = useState<ProfileViewMode>(() =>
     getStoredEnum(
       "admin_profile_view_mode",
@@ -1366,6 +1371,9 @@ function App() {
           }
           setSelectedRaffleParticipation(null);
           window.scrollTo({ top: 0, behavior: "smooth" });
+        } else if (isRafflesMode && raffleViewMode === "materials") {
+          setRaffleViewMode("detail");
+          window.scrollTo({ top: 0, behavior: "smooth" });
         } else if (isRafflesMode && raffleViewMode === "tickets") {
           setRaffleViewMode("detail");
           window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1625,6 +1633,26 @@ function App() {
           title="La exportación estará disponible próximamente"
         >
           Exportar
+        </NexusSectionButton>
+      );
+    }
+
+    if (
+      isRafflesMode &&
+      raffleViewMode === "detail" &&
+      selectedRaffleForHeader
+    ) {
+      return (
+        <NexusSectionButton
+          type="button"
+          variant="brand"
+          icon={Download}
+          onClick={() => {
+            setRaffleViewMode("materials");
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+        >
+          Materiales
         </NexusSectionButton>
       );
     }
@@ -2441,6 +2469,7 @@ function App() {
                       raffleViewMode === "participation-detail") ||
                     (isRafflesMode && raffleViewMode === "detail") ||
                     (isRafflesMode && raffleViewMode === "tickets") ||
+                    (isRafflesMode && raffleViewMode === "materials") ||
                     (isSystemMode &&
                       systemViewMode === "channels" &&
                       channelsViewMode === "principal")
@@ -2622,6 +2651,7 @@ function App() {
                       showToast={showToast}
                       setConfirmDialog={setConfirmDialog}
                       onValidationChange={setIsFormValid}
+                      onSelectedRaffleChange={setSelectedRaffleForHeader}
                     />
                   )
                 ) : isSystemMode ? (

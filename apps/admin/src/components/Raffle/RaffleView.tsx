@@ -8,6 +8,7 @@ import { NexusPaginator } from "../ui/NexusPaginator";
 import { RaffleCard } from "./RaffleCard";
 import { RaffleForm } from "./RaffleForm";
 import { RaffleOverviewView } from "./RaffleOverviewView";
+import { RaffleMaterialsView } from "./RaffleMaterialsView";
 import {
   DEFAULT_TICKET_BOARD_FILTER,
   RaffleTicketBoardView,
@@ -33,6 +34,7 @@ interface RaffleViewProps {
     | "list"
     | "detail"
     | "tickets"
+    | "materials"
     | "create"
     | "edit"
     | "coupon_list"
@@ -43,6 +45,7 @@ interface RaffleViewProps {
       | "list"
       | "detail"
       | "tickets"
+      | "materials"
       | "create"
       | "edit"
       | "coupon_list"
@@ -53,6 +56,7 @@ interface RaffleViewProps {
     participation: RaffleParticipation,
     origin: "detail" | "tickets",
   ) => void;
+  onSelectedRaffleChange?: (raffle: Raffle | null) => void;
   showToast: (message: string, type?: "success" | "error") => void;
   setConfirmDialog: (dialog: any) => void;
   onValidationChange?: (isValid: boolean) => void;
@@ -67,6 +71,7 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
   viewMode = "list",
   onSetViewMode,
   onViewParticipation,
+  onSelectedRaffleChange,
   showToast,
   setConfirmDialog,
   onValidationChange,
@@ -107,8 +112,12 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
   }, [viewMode]);
 
   useEffect(() => {
+    onSelectedRaffleChange?.(selectedRaffle);
+  }, [onSelectedRaffleChange, selectedRaffle]);
+
+  useEffect(() => {
     if (
-      !["detail", "tickets"].includes(viewMode) ||
+      !["detail", "tickets", "materials"].includes(viewMode) ||
       selectedRaffle ||
       raffles.length === 0
     )
@@ -509,6 +518,10 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
         }
       />
     );
+  }
+
+  if (viewMode === "materials" && selectedRaffle) {
+    return <RaffleMaterialsView raffle={selectedRaffle} showToast={showToast} />;
   }
 
   if (viewMode === "tickets" && selectedRaffle) {
