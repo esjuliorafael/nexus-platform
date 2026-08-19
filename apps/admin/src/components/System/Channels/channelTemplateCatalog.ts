@@ -402,6 +402,24 @@ const RAFFLE_TICKET_TEMPLATE_TYPES = new Set<ChannelTemplateType>([
   "RESULT_WINNER",
 ]);
 
+const SIMPLIFIED_STORE_TEMPLATE_CONTENT: Partial<
+  Record<ChannelTemplateType, string>
+> = {
+  RELEASE: `Hola, {{customer_name}}. \u26a0\uFE0F
+
+Tu apartado de la orden #{{order_id}} fue liberado porque concluy\u00f3 el plazo de pago.
+
+La orden ya no est\u00e1 reservada.
+
+Si realizaste el pago, escr\u00edbenos por este medio para revisar tu caso.`,
+};
+
+const SIMPLIFIED_STORE_TEMPLATE_VARIABLES: Partial<
+  Record<ChannelTemplateType, string[]>
+> = {
+  RELEASE: ["{{customer_name}}", "{{order_id}}"],
+};
+
 const variantKey = (
   type: ChannelTemplateType,
   variant: "simple" | "opportunities",
@@ -703,13 +721,11 @@ La devoluci\u00f3n de tu participaci\u00f3n fue procesada correctamente.
 {{participation_url}}`,
   RESULT_WINNER: `\u00a1Felicidades, {{customer_name}}! \u{1F3C6}
 
-Tu participaci\u00f3n result\u00f3 ganadora en "{{raffle_name}}". \u2705
+El resultado de tu participaci\u00f3n en "{{raffle_name}}" ya est\u00e1 disponible.
 
-Lugar: {{place}}
-Premio: {{prize}}
-N\u00famero ganador: {{winning_number}}
+Tu participaci\u00f3n result\u00f3 ganadora. \u2705
 
-\u{1F50E} Consulta los detalles de tu participaci\u00f3n en el bot\u00f3n Ver participaci\u00f3n:
+\u{1F50E} Consulta el lugar, el premio y el n\u00famero ganador en el bot\u00f3n Ver participaci\u00f3n:
 
 {{participation_url}}`,
   RESULT_PARTICIPANTS: `Hola, {{customer_name}}. \ud83d\udce3
@@ -757,11 +773,7 @@ const SIMPLIFIED_TEMPLATE_VARIABLES: Partial<
     "{{amount}}",
     "{{participation_url}}",
   ],
-  PAYMENT_RECOVERY: [
-    "{{customer_name}}",
-    "{{expires_at}}",
-    "{{recovery_url}}",
-  ],
+  PAYMENT_RECOVERY: ["{{customer_name}}", "{{expires_at}}", "{{recovery_url}}"],
   PAYMENT_REFUNDED: [
     "{{customer_name}}",
     "{{refund_amount}}",
@@ -771,9 +783,6 @@ const SIMPLIFIED_TEMPLATE_VARIABLES: Partial<
   RESULT_WINNER: [
     "{{customer_name}}",
     "{{raffle_name}}",
-    "{{place}}",
-    "{{prize}}",
-    "{{winning_number}}",
     "{{participation_url}}",
   ],
   RESULT_PARTICIPANTS: [
@@ -803,7 +812,9 @@ export const getTemplateVariantContent = (
   version === "SIMPLIFIED"
     ? scope === "RAFFLES"
       ? SIMPLIFIED_RAFFLE_TEMPLATE_CONTENT[template.type] || ""
-      : ""
+      : scope === "STORE"
+        ? SIMPLIFIED_STORE_TEMPLATE_CONTENT[template.type] || ""
+        : ""
     : template.simplifiedOnly
       ? ""
       : template.defaultContent || "";
@@ -813,8 +824,11 @@ export const getTemplateVariantVariables = (
   version: ChannelTemplateVersion,
   scope?: ChannelTemplateScope,
 ) => {
-  if (version === "SIMPLIFIED" && scope === "RAFFLES") {
-    const simplifiedVariables = SIMPLIFIED_TEMPLATE_VARIABLES[template.type];
+  if (version === "SIMPLIFIED" && (scope === "RAFFLES" || scope === "STORE")) {
+    const simplifiedVariables =
+      scope === "RAFFLES"
+        ? SIMPLIFIED_TEMPLATE_VARIABLES[template.type]
+        : SIMPLIFIED_STORE_TEMPLATE_VARIABLES[template.type];
     if (simplifiedVariables) return simplifiedVariables;
   }
   const content = getTemplateVariantContent(template, version, scope);

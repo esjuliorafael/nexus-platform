@@ -130,9 +130,13 @@ const SIMPLIFIED_DRAW_REMINDER_CONTENT =
 const CLOUD_TEMPLATE_DEFAULT_CONTENTS: Partial<
   Record<CloudTemplateType, string>
 > = {
+  RELEASE:
+    "Hola, {{customer_name}}. ⚠️\n\nTu apartado de la orden #{{order_id}} fue liberado porque concluyó el plazo de pago.\n\nLa orden ya no está reservada.\n\nSi realizaste el pago, escríbenos por este medio para revisar tu caso.",
   DATE_CHANGE:
     'Hola, {{customer_name}}. 📅\n\nLa fecha de la rifa "{{raffle_name}}" fue actualizada.\n\nNueva fecha y hora:\n{{raffle_date}}\n\nConsulta el detalle de tu participación desde el botón Ver participación.',
   DRAW_REMINDER: SIMPLIFIED_DRAW_REMINDER_CONTENT,
+  RESULT_WINNER:
+    '¡Felicidades, {{customer_name}}! 🏆\n\nEl resultado de tu participación en "{{raffle_name}}" ya está disponible.\n\nTu participación resultó ganadora. ✅\n\n🔎 Consulta el lugar, el premio y el número ganador en el botón Ver participación:\n\n{{participation_url}}',
   PARTICIPATION_LOOKUP_CODE:
     "\u{1F50E} Recibimos tu solicitud para consultar tus participaciones.\n\nConsulta tus boletos y su estado desde el bot\u00f3n Ver participaci\u00f3n:\n\n{{participation_url}}",
 };
