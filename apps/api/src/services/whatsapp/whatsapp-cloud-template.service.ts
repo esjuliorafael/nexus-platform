@@ -476,9 +476,16 @@ export function getCloudTemplateDefinitionHash(source: CloudTemplateSource) {
     source.type === "PARTICIPATION_LOOKUP_CODE"
       ? "\n[nexus-template-name:participation-lookup-v2]"
       : "";
+  // Meta has classified winner notifications as Marketing. Include the
+  // category revision in the definition so resubmitting creates a new Meta
+  // template instead of reusing the previously submitted Utility template.
+  const categoryRevision =
+    source.type === "RESULT_WINNER"
+      ? "\n[nexus-template-category:marketing-v2]"
+      : "";
   if (!isRichInvitation(source.type)) {
     return getCloudTemplateContentHash(
-      `${getCloudTemplateBodyContent(source)}${dynamicButtonLayout}${namingRevision}`,
+      `${getCloudTemplateBodyContent(source)}${dynamicButtonLayout}${namingRevision}${categoryRevision}`,
     );
   }
   return getCloudTemplateContentHash(
@@ -675,7 +682,9 @@ function buildTemplateDefinition(
 export function getCloudTemplateCategory(
   type: CloudTemplateType,
 ): "UTILITY" | "MARKETING" | "AUTHENTICATION" {
-  return type === "RAFFLE_INVITATION" || type === "OPENING"
+  return type === "RAFFLE_INVITATION" ||
+    type === "OPENING" ||
+    type === "RESULT_WINNER"
     ? "MARKETING"
     : "UTILITY";
 }
