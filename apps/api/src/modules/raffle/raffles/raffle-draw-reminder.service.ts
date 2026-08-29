@@ -18,6 +18,7 @@ import {
   type AuditActor,
 } from "../../../utils/admin-authorization";
 import {
+  buildRaffleWinningRuleText,
   deriveRaffleResultCampaignStatus,
   rafflePrizePlaceLabel,
 } from "./raffle-result-communication.utils";
@@ -201,7 +202,7 @@ async function buildRecipients(
     raffle.prizes
       .find((prize) => prize.winnerRule?.trim())
       ?.winnerRule?.trim() ||
-    `El número ganador se determina con los últimos ${raffle.digits} dígitos del Premio Mayor de la Lotería Nacional.`;
+    buildRaffleWinningRuleText(raffle.digits, raffle.prizes);
 
   return {
     raffle,

@@ -61,6 +61,11 @@ import { useToastStore } from "../../../store/toast.store";
 import { useRaffleSelectionUiStore } from "../../../store/raffle-selection-ui.store";
 import { formatPrice } from "../../../utils/formatters";
 import {
+  getRafflePublishedReferenceText,
+  getRaffleReferenceNote,
+  getRaffleResultDescription,
+} from "../../../utils/raffle-result-copy";
+import {
   clearRaffleCheckoutDraft,
   getRaffleCheckoutDraft,
   saveRaffleCheckoutDraft,
@@ -130,7 +135,6 @@ export function RaffleDetailsClient({
   const syncSelection = useRaffleSelectionUiStore(
     (state) => state.syncSelection,
   );
-  const digitLabel = raffle.digits === 1 ? "dígito" : "dígitos";
   const additionalOpportunities = raffle.opportunities - 1;
   const distributionLabel =
     raffle.distribution === "RANDOM" ? "aleatoria" : "lineal";
@@ -937,10 +941,10 @@ export function RaffleDetailsClient({
                   <RaffleKnowledgeItem
                     icon={Trophy}
                     title="Resultado de la rifa"
-                    description={`El número ganador se determina con los últimos ${raffle.digits} ${digitLabel} del Premio Mayor de la Lotería Nacional.`}
+                    description={getRaffleResultDescription(raffle)}
                   />
                 </div>
-                <RaffleReferenceNote />
+                <RaffleReferenceNote raffle={raffle} />
               </section>
             </StorefrontReveal>
           </div>
@@ -1290,9 +1294,7 @@ function RafflePublishedResult({ raffle }: { raffle: Raffle }) {
                 Referencia oficial
               </span>
               <p className="sf-text-secondary text-stone-600">
-                El resultado se determinó con los últimos {raffle.digits}{" "}
-                {raffle.digits === 1 ? "dígito" : "dígitos"} del Premio Mayor de
-                la Lotería Nacional.
+                {getRafflePublishedReferenceText(raffle)}
               </p>
             </div>
           </div>
@@ -1386,13 +1388,10 @@ function RaffleKnowledgeItem({
   );
 }
 
-function RaffleReferenceNote() {
+function RaffleReferenceNote({ raffle }: { raffle: Raffle }) {
   return (
     <StorefrontNote>
-      <p>
-        Esta rifa toma como referencia el resultado público del Premio Mayor de
-        la Lotería Nacional para definir el número ganador.
-      </p>
+      <p>{getRaffleReferenceNote(raffle)}</p>
     </StorefrontNote>
   );
 }
