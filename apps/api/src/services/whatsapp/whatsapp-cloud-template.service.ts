@@ -443,7 +443,9 @@ export function getCloudTemplateBodyContent(source: CloudTemplateSource) {
     )
     .replace(/\{\{recovery_url\}\}/gi, "")
     .replace(
-      source.variant === "SIMPLIFIED" && source.type === "RESULT_PARTICIPANTS"
+      source.variant === "SIMPLIFIED" &&
+      (source.type === "RESULT_PARTICIPANTS" ||
+        source.type === "RAFFLE_INVITATION")
         ? /(?:^|\n)[^\n]*\{\{raffle_url\}\}[^\n]*(?=\n|$)/gi
         : /$^/,
       "",
@@ -466,7 +468,8 @@ export function getCloudTemplateDefinitionHash(source: CloudTemplateSource) {
     source.variant === "SIMPLIFIED" &&
     (hasParticipationButton(source) ||
       hasRecoveryButton(source) ||
-      hasResultsButton(source))
+      hasResultsButton(source) ||
+      hasRaffleButton(source))
       ? "\n[nexus-layout:dynamic-url-button-v3]"
       : "";
   // The lookup template used to be named with the obsolete `_code` purpose.
@@ -528,6 +531,14 @@ function hasResultsButton(source: CloudTemplateSource) {
   return (
     source.variant === "SIMPLIFIED" &&
     source.type === "RESULT_PARTICIPANTS" &&
+    /\{\{raffle_url\}\}/.test(source.content)
+  );
+}
+
+function hasRaffleButton(source: CloudTemplateSource) {
+  return (
+    source.variant === "SIMPLIFIED" &&
+    source.type === "RAFFLE_INVITATION" &&
     /\{\{raffle_url\}\}/.test(source.content)
   );
 }
@@ -669,6 +680,21 @@ function buildTemplateDefinition(
                 {
                   type: "URL" as const,
                   text: "Ver resultados",
+                  url: `${getResultsButtonBaseUrl()}/{{1}}`,
+                  example: ["1"],
+                },
+              ],
+            },
+          ]
+        : []),
+      ...(hasRaffleButton(source)
+        ? [
+            {
+              type: "BUTTONS" as const,
+              buttons: [
+                {
+                  type: "URL" as const,
+                  text: "Ver detalles",
                   url: `${getResultsButtonBaseUrl()}/{{1}}`,
                   example: ["1"],
                 },
@@ -1174,6 +1200,28 @@ export async function getApprovedCloudTemplate(params: {
   }
   if (
     hasResultsButton({
+      scope: params.scope,
+      type: params.type,
+      content: params.sourceContent,
+      variant,
+    })
+  ) {
+    components.push({
+      type: "button",
+      sub_type: "url",
+      index: "0",
+      parameters: [
+        {
+          type: "text",
+          text: normalizeCloudTemplateParameterValue(
+            getResultsButtonSuffix(params.values.raffle_url),
+          ),
+        },
+      ],
+    });
+  }
+  if (
+    hasRaffleButton({
       scope: params.scope,
       type: params.type,
       content: params.sourceContent,

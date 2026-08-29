@@ -13,7 +13,7 @@ test("normalizes multiline Cloud API template parameters", () => {
     normalizeCloudTemplateParameterValue(
       "02, 05 y 09\n\nOportunidades:\n02: 35, 76\n05: 47, 48",
     ),
-    "02, 05 y 09\n\nOportunidades:\n02: 35, 76\n05: 47, 48",
+    "02, 05 y 09 · Oportunidades: · 02: 35, 76 · 05: 47, 48",
   );
 });
 
@@ -37,6 +37,29 @@ test("adapts raffle invitations for a Cloud image header and footer", () => {
         "¡Hola, {{customer_name}}!\n\nConoce {{raffle_name}}.\n\nSi prefieres no recibir próximas invitaciones, responde BAJA.",
     }),
     "¡Hola, {{customer_name}}!\n\nConoce {{raffle_name}}.",
+  );
+});
+
+test("moves the raffle invitation URL into its Cloud API button", () => {
+  const invitation = {
+    scope: "RAFFLES" as const,
+    type: "RAFFLE_INVITATION" as const,
+    variant: "SIMPLIFIED" as const,
+    content:
+      "¡Hola, {{customer_name}}!\n\nConsulta los detalles en el siguiente botón:\n\n{{raffle_url}}\n\nSi prefieres no recibir próximas invitaciones, responde BAJA.",
+  };
+
+  assert.equal(
+    getCloudTemplateBodyContent(invitation),
+    "¡Hola, {{customer_name}}!\n\nConsulta los detalles en el siguiente botón:",
+  );
+  assert.notEqual(
+    getCloudTemplateDefinitionHash(invitation),
+    getCloudTemplateDefinitionHash({
+      ...invitation,
+      content:
+        "¡Hola, {{customer_name}}!\n\nConsulta los detalles en el siguiente botón:",
+    }),
   );
 });
 
