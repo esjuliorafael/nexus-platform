@@ -24,6 +24,24 @@ test("verifies Kapso webhook HMAC signatures", () => {
   assert.equal(verifyKapsoWebhookSignature(payload, "invalid", secret), false);
 });
 
+test("verifies Kapso signatures against the exact raw JSON body", () => {
+  const rawPayload = '{ "message": { "id": "wamid.123" } }';
+  const parsedPayload = JSON.parse(rawPayload);
+  const secret = "local-test-secret";
+  const signature = createHmac("sha256", secret)
+    .update(rawPayload)
+    .digest("hex");
+
+  assert.equal(
+    verifyKapsoWebhookSignature(parsedPayload, signature, secret, rawPayload),
+    true,
+  );
+  assert.equal(
+    verifyKapsoWebhookSignature(parsedPayload, signature, secret),
+    false,
+  );
+});
+
 test("maps Kapso delivery events and prevents status regression", () => {
   assert.equal(
     normalizeKapsoWebhookStatus("whatsapp.message.delivered", {}),

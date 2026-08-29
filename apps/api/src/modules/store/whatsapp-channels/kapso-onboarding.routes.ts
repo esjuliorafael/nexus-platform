@@ -6,7 +6,10 @@ import {
   getKapsoConfigForChannel,
   requireKapsoPlatformConfig,
 } from "../../../services/kapso/kapso.config";
-import { verifyKapsoWebhookSignature } from "../../../services/kapso/kapso-webhook";
+import {
+  registerKapsoRawBodyCapture,
+  verifyKapsoWebhookSignature,
+} from "../../../services/kapso/kapso-webhook";
 import { getTenantId } from "../payments/mercadopago-gateway.security";
 
 const createSetupLinkSchema = z
@@ -546,6 +549,8 @@ export async function kapsoOnboardingAdminRoutes(server: FastifyInstance) {
 }
 
 export async function kapsoOnboardingPublicRoutes(server: FastifyInstance) {
+  registerKapsoRawBodyCapture(server);
+
   server.get("/kapso/onboarding/callback", async (request, reply) => {
     let query: z.infer<typeof callbackSchema>;
     try {
@@ -606,6 +611,7 @@ export async function kapsoOnboardingPublicRoutes(server: FastifyInstance) {
         request.body,
         request.headers["x-webhook-signature"],
         config.platformWebhookSecret,
+        request.rawBody,
       )
     ) {
       return reply.status(401).send({ message: "Invalid webhook signature." });

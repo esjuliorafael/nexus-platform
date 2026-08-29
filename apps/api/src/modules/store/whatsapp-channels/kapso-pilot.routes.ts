@@ -15,6 +15,7 @@ import {
   getKapsoWebhookError,
   getKapsoInboundMessage,
   normalizeKapsoWebhookStatus,
+  registerKapsoRawBodyCapture,
   shouldAdvanceKapsoStatus,
   verifyKapsoWebhookSignature,
 } from "../../../services/kapso/kapso-webhook";
@@ -791,6 +792,8 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
 }
 
 export async function kapsoWebhookRoutes(server: FastifyInstance) {
+  registerKapsoRawBodyCapture(server);
+
   server.post("/kapso", async (request, reply) => {
     // This endpoint receives events for every tenant phone number. The linked
     // identity lives in channel settings, so a global phone number must not be
@@ -807,6 +810,7 @@ export async function kapsoWebhookRoutes(server: FastifyInstance) {
         request.body,
         request.headers["x-webhook-signature"],
         config.webhookSecret,
+        request.rawBody,
       )
     ) {
       return reply.status(401).send({ message: "Invalid webhook signature." });

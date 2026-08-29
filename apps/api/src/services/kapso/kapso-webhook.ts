@@ -1,4 +1,37 @@
 import { createHmac, timingSafeEqual } from "node:crypto";
+import type { FastifyInstance, FastifyRequest } from "fastify";
+
+declare module "fastify" {
+  interface FastifyRequest {
+    rawBody?: Buffer;
+  }
+}
+
+const SIGNED_KAPSO_PATHS = new Set([
+  "/api/v1/webhooks/kapso",
+  "/api/v1/webhooks/kapso/platform",
+]);
+
+/** Capture the exact JSON bytes before Fastify parses the request body. */
+export function registerKapsoRawBodyCapture(server: FastifyInstance) {
+  server.addHook("preParsing", (request, _reply, payload, done) => {
+    const pathname = request.url.split("?", 1)[0];
+    if (request.method !== "POST" || !SIGNED_KAPSO_PATHS.has(pathname)) {
+      done(null, payload);
+      return;
+    }
+
+    const chunks: Buffer[] = [];
+    payload.on("data", (chunk: Buffer | string) => {
+      chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+    });
+    payload.once("end", () => {
+      (request as FastifyRequest).rawBody = Buffer.concat(chunks);
+    });
+
+    done(null, payload);
+  });
+}
 
 const STATUS_PRIORITY: Record<string, number> = {
   failed: 0,
@@ -12,12 +45,13 @@ export function verifyKapsoWebhookSignature(
   payload: unknown,
   signature: string | string[] | undefined,
   secret: string,
+  rawPayload?: Buffer | string,
 ) {
   const incoming = Array.isArray(signature) ? signature[0] : signature;
   if (!incoming || !secret) return false;
 
   const expected = createHmac("sha256", secret)
-    .update(JSON.stringify(payload))
+    .update(rawPayload ?? JSON.stringify(payload))
     .digest("hex");
   const incomingBuffer = Buffer.from(incoming);
   const expectedBuffer = Buffer.from(expected);
