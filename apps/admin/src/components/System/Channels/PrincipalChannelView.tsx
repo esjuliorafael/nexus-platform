@@ -88,6 +88,7 @@ const previewMessage = (content: string) => {
     .replace(/\{\{item_list\}\}/g, "1x Gallo colorado, 2x Alimento premium")
     .replace(/\{\{ticket_list\}\}/g, ticketList)
     .replace(/\{\{raffle_name\}\}/g, "Rifa Especial de Junio")
+    .replace(/\{\{raffle_description\}\}/g, "Tres premios de pollos para show a elegir.")
     .replace(/\{\{raffle_date\}\}/g, "Hoy, 31 de julio de 2026 a las 8:00 p. m.")
     .replace(/\{\{status_note\}\}/g, "✅ Tu participación sigue registrada y tu pago está confirmado.")
     .replace(/\{\{opening_date\}\}/g, "Lunes, 20 de julio de 2026, 8:00 a. m.")
