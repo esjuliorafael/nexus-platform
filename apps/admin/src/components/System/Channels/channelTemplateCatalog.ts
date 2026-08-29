@@ -381,6 +381,7 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
         variables: [
           "{{customer_name}}",
           "{{raffle_name}}",
+          "{{raffle_description}}",
           "{{opening_date}}",
           "{{ticket_price}}",
           "{{raffle_url}}",

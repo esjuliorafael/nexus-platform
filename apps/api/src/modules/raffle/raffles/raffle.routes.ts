@@ -1569,6 +1569,11 @@ export async function raffleRoutes(server: FastifyInstance) {
             message:
               "Configura la plantilla Invitación a una nueva rifa antes de iniciar la campaña.",
           },
+          RAFFLE_INVITATION_DESCRIPTION_MISSING: {
+            status: 409,
+            message:
+              "Completa la Descripción breve de la rifa antes de iniciar la campaña.",
+          },
         };
         const mapped = errors[error?.message];
         if (mapped) {

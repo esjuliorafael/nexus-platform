@@ -296,6 +296,7 @@ export const raffleInvitationCampaignService = {
         select: {
           id: true,
           title: true,
+          shortDescription: true,
           ticketPrice: true,
           participationStartsAt: true,
           image: true,
@@ -312,6 +313,9 @@ export const raffleInvitationCampaignService = {
       resolveTemplate(storePrisma),
     ]);
     if (!raffle) throw new Error("RAFFLE_NOT_FOUND");
+    if (/{{raffle_description}}/i.test(template) && !raffle.shortDescription?.trim()) {
+      throw new Error("RAFFLE_INVITATION_DESCRIPTION_MISSING");
+    }
     const selection = await raffleAudienceService.selectEligible(
       rafflePrisma,
       storePrisma,
@@ -387,6 +391,7 @@ export const raffleInvitationCampaignService = {
             payload: {
               customer_name: profile.displayName,
               raffle_name: raffle.title,
+              raffle_description: raffle.shortDescription?.trim() || "",
               opening_date: openingDate,
               ticket_price: ticketPrice,
               raffle_url: url,

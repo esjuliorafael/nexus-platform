@@ -272,6 +272,7 @@ const VARIABLE_EXAMPLES: Record<string, string> = {
   recovery_url: "https://example.com/checkout#recovery=example",
   participation_url: "https://example.com/participations/demo-access-token",
   raffle_name: "Rifa Especial de Junio",
+  raffle_description: "Tres premios de pollos para show a elegir.",
   raffle_url: "https://example.com/raffles/1",
   opening_date: "Lunes, 20 de julio de 2026, 8:00 a. m.",
   raffle_date: "Hoy, 31 de julio de 2026 a las 8:00 p. m.",

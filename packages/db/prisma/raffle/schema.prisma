@@ -26,6 +26,7 @@ model Raffle {
   id                     Int                         @id @default(autoincrement())
   title                  String                      @map("title")
   description            String?                     @map("description")
+  shortDescription       String?                     @map("short_description")
   ticketPrice            Decimal                     @map("ticket_price")
   ticketQuantity         Int                         @map("ticket_quantity")
   opportunities          Int                         @default(1) @map("opportunities")

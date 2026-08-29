@@ -11,6 +11,17 @@ const raffleGalleryItemSchema = z.object({
   posterPath: z.string().url().optional().nullable(),
 });
 
+const raffleShortDescriptionSchema = z
+  .string()
+  .trim()
+  .max(180, "La descripción breve no puede superar 180 caracteres.")
+  .refine(
+    (value) => !/[\r\n]/.test(value),
+    "La descripción breve debe ocupar una sola línea.",
+  )
+  .optional()
+  .nullable();
+
 const rafflePrizeSchema = z
   .object({
     title: z.string().trim().min(1).max(120),
@@ -105,6 +116,7 @@ export const createRaffleSchema = z
   .object({
     title: z.string().min(1),
     description: z.string().optional().nullable(),
+    shortDescription: raffleShortDescriptionSchema,
     ticketPrice: z.number().positive(),
     ticketQuantity: z.number().int().positive(),
     opportunities: z.number().int().min(1).default(1),
@@ -135,6 +147,7 @@ export const createRaffleSchema = z
 export const updateRaffleSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional().nullable(),
+  shortDescription: raffleShortDescriptionSchema,
   ticketPrice: z.number().positive().optional(),
   ticketQuantity: z.number().int().positive().optional(),
   opportunities: z.number().int().min(1).optional(),
