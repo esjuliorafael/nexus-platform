@@ -27,6 +27,7 @@ model Raffle {
   title                  String                      @map("title")
   description            String?                     @map("description")
   shortDescription       String?                     @map("short_description")
+  additionalInfo         String?                     @map("additional_info")
   ticketPrice            Decimal                     @map("ticket_price")
   ticketQuantity         Int                         @map("ticket_quantity")
   opportunities          Int                         @default(1) @map("opportunities")

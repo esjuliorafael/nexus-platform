@@ -22,6 +22,17 @@ const raffleShortDescriptionSchema = z
   .optional()
   .nullable();
 
+const raffleAdditionalInfoSchema = z
+  .string()
+  .trim()
+  .max(180, "La información adicional no puede superar 180 caracteres.")
+  .refine(
+    (value) => !/[\r\n]/.test(value),
+    "La información adicional debe ocupar una sola línea.",
+  )
+  .optional()
+  .nullable();
+
 const rafflePrizeSchema = z
   .object({
     title: z.string().trim().min(1).max(120),
@@ -117,6 +128,7 @@ export const createRaffleSchema = z
     title: z.string().min(1),
     description: z.string().optional().nullable(),
     shortDescription: raffleShortDescriptionSchema,
+    additionalInfo: raffleAdditionalInfoSchema,
     ticketPrice: z.number().positive(),
     ticketQuantity: z.number().int().positive(),
     opportunities: z.number().int().min(1).default(1),
@@ -148,6 +160,7 @@ export const updateRaffleSchema = z.object({
   title: z.string().min(1).optional(),
   description: z.string().optional().nullable(),
   shortDescription: raffleShortDescriptionSchema,
+  additionalInfo: raffleAdditionalInfoSchema,
   ticketPrice: z.number().positive().optional(),
   ticketQuantity: z.number().int().positive().optional(),
   opportunities: z.number().int().min(1).optional(),

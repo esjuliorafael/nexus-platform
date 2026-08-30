@@ -65,6 +65,17 @@ const formatPrice = (value: unknown) =>
     maximumFractionDigits: 2,
   });
 
+const buildInvitationDescription = (
+  shortDescription: string | null | undefined,
+  additionalInfo: string | null | undefined,
+) => {
+  const description = shortDescription?.trim() || "";
+  const extraInfo = additionalInfo?.trim() || "";
+  return [description, extraInfo ? `📌 ${extraInfo}` : ""]
+    .filter(Boolean)
+    .join("\n\n");
+};
+
 async function resolveAudience(
   rafflePrisma: RafflePrismaClient,
   audienceId?: string | null,
@@ -297,6 +308,7 @@ export const raffleInvitationCampaignService = {
           id: true,
           title: true,
           shortDescription: true,
+          additionalInfo: true,
           ticketPrice: true,
           participationStartsAt: true,
           image: true,
@@ -391,7 +403,10 @@ export const raffleInvitationCampaignService = {
             payload: {
               customer_name: profile.displayName,
               raffle_name: raffle.title,
-              raffle_description: raffle.shortDescription?.trim() || "",
+              raffle_description: buildInvitationDescription(
+                raffle.shortDescription,
+                raffle.additionalInfo,
+              ),
               opening_date: openingDate,
               ticket_price: ticketPrice,
               raffle_url: url,

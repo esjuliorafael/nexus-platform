@@ -694,6 +694,7 @@ export interface Raffle {
   title: string;
   description: string;
   shortDescription?: string | null;
+  additionalInfo?: string | null;
   ticketPrice: number;
   ticketQuantity: number;
   opportunities: number;

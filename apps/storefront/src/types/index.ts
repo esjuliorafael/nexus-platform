@@ -133,6 +133,7 @@ export interface Raffle {
   title: string;
   description: string | null;
   shortDescription: string | null;
+  additionalInfo: string | null;
   ticketPrice: string | number;
   ticketQuantity: number;
   opportunities: number;

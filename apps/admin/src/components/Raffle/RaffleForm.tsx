@@ -107,6 +107,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
   const [ticketPrice, setTicketPrice] = useState(initialData?.ticketPrice?.toString() ?? "");
   const [title, setTitle] = useState(initialData?.title ?? "");
   const [shortDescription, setShortDescription] = useState(initialData?.shortDescription ?? "");
+  const [additionalInfo, setAdditionalInfo] = useState(initialData?.additionalInfo ?? "");
   const [description, setDescription] = useState(initialData?.description ?? "");
   const [prizeShippingPolicy, setPrizeShippingPolicy] = useState<PrizeShippingPolicy>(
     initialData?.prizeShippingPolicy ?? "",
@@ -432,6 +433,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
       const payload = {
         title: title.trim(),
         shortDescription: shortDescription.trim() || null,
+        additionalInfo: additionalInfo.trim() || null,
         description: description.trim() || null,
         ticketPrice: Number.parseFloat(ticketPrice),
         ticketQuantity: Number.parseInt(ticketQuantity, 10),
@@ -826,6 +828,14 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                 onChange={(event) => setShortDescription(event.target.value)}
                 placeholder="Ej. Tres premios de pollos para show a elegir."
                 helperText="Resumen de una sola línea para invitaciones y mensajes breves."
+              />
+              <NexusInput
+                label="Información adicional"
+                value={additionalInfo}
+                maxLength={180}
+                onChange={(event) => setAdditionalInfo(event.target.value)}
+                placeholder="Ej. Cruzas disponibles: Giro PV MT y Giro PA MT."
+                helperText="Dato opcional que complementa la descripción en las invitaciones."
               />
               <NexusInput
                 label="Precio por Boleto *"
