@@ -116,7 +116,7 @@ export const StorefrontAnnouncementForm = forwardRef<StorefrontAnnouncementFormR
               value={message}
               onChange={(event) => setMessage(event.target.value)}
               helperText="Conserva los saltos de línea. Para enlazar texto usa [texto del enlace](/ruta)."
-              maxLength={500}
+              maxLength={768}
               rows={6}
               required
             />

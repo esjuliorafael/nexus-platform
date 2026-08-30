@@ -46,7 +46,7 @@ const announcementDataSchema = z.object({
   frequency: announcementFrequencySchema.default("ONCE_VISITOR"),
   eyebrow: optionalText(60),
   title: z.string().trim().min(1).max(120),
-  message: z.string().trim().min(1).max(500),
+  message: z.string().trim().min(1).max(768),
   ctaLabel: optionalText(48),
   ctaHref: optionalText(500),
   dismissible: z.boolean().default(true),
