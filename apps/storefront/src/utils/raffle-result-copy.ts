@@ -14,16 +14,6 @@ const raffleResultSourceLabel = (
   }[prize.resultSource];
 };
 
-const rafflePrizeOrdinalLabel = (position: number) => {
-  if (position === 1 || position === 3) return `${position}.er lugar`;
-  return `${position}.º lugar`;
-};
-
-const raffleReferenceWithArticle = (source: string) =>
-  ["Premio Mayor", "Segundo Premio", "Tercer Premio"].includes(source)
-    ? `el ${source}`
-    : `la referencia \"${source}\"`;
-
 const orderedPrizes = (raffle: Raffle) =>
   [...(raffle.prizes || [])].sort((a, b) => a.position - b.position);
 
@@ -39,12 +29,7 @@ export function getRaffleResultDescription(raffle: Raffle) {
     return `El número ganador se determina con los últimos ${raffle.digits} ${digitLabel} de la referencia oficial de la Lotería Nacional asignada a este lugar: ${source}.`;
   }
 
-  const references = prizes.map((prize, index) => {
-    const source = raffleResultSourceLabel(prize);
-    const prefix = index === prizes.length - 1 ? "y " : "";
-    return `${prefix}para el ${rafflePrizeOrdinalLabel(prize.position)}${index === 0 ? " se utiliza" : ","} ${raffleReferenceWithArticle(source)}`;
-  });
-  return `Cada lugar tiene un número ganador propio, que se obtiene a partir de los últimos ${raffle.digits} ${digitLabel} de la referencia oficial de la Lotería Nacional asignada a ese lugar: ${references.join("; ")}.`;
+  return `Cada lugar tiene un número ganador propio. Para determinarlo, se utilizan los últimos ${raffle.digits} ${digitLabel} de la referencia oficial de la Lotería Nacional asignada a ese lugar.`;
 }
 
 export function getRaffleReferenceNote(raffle: Raffle) {
@@ -53,12 +38,12 @@ export function getRaffleReferenceNote(raffle: Raffle) {
 
   if (prizes.length <= 1) {
     if (source === "Premio Mayor") {
-      return "Esta rifa toma como referencia el resultado público del Premio Mayor de la Lotería Nacional para definir el número ganador.";
+      return "Esta rifa toma como referencia el resultado público del Premio Mayor de la Lotería Nacional.";
     }
-    return `Esta rifa toma como referencia el resultado público de la Lotería Nacional asignado a este lugar (${source}) para definir el número ganador.`;
+    return `Esta rifa toma como referencia el resultado público de la Lotería Nacional asignado a este lugar (${source}).`;
   }
 
-  return "Esta rifa toma como referencia los resultados públicos de la Lotería Nacional definidos para cada lugar. El número ganador de cada lugar se obtiene a partir de los últimos dígitos de su referencia correspondiente.";
+  return "Esta rifa toma como referencia los resultados públicos de la Lotería Nacional definidos para cada lugar.";
 }
 
 export function getRafflePublishedReferenceText(raffle: Raffle) {
