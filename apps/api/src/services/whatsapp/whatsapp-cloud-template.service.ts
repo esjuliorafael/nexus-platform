@@ -216,6 +216,42 @@ export async function getActiveCloudTemplateVariant(params: {
   return setting?.value === "SIMPLIFIED" ? "SIMPLIFIED" : "LEGACY";
 }
 
+type CloudTemplateMapping = NonNullable<
+  Awaited<ReturnType<typeof storePrisma.whatsappCloudTemplate.findUnique>>
+>;
+type CloudTemplateCandidate = NonNullable<
+  Awaited<
+    ReturnType<typeof storePrisma.whatsappCloudTemplateCandidate.findUnique>
+  >
+>;
+
+export async function promoteApprovedCloudTemplateCandidate(
+  mapping: CloudTemplateMapping,
+  candidate: CloudTemplateCandidate,
+) {
+  const promoted = await storePrisma.whatsappCloudTemplate.update({
+    where: { id: mapping.id },
+    data: {
+      channelId: candidate.channelId,
+      templateName: candidate.templateName,
+      templateId: candidate.templateId,
+      category: candidate.category,
+      languageCode: candidate.languageCode,
+      status: candidate.status,
+      parameterNames: Array.isArray(candidate.parameterNames)
+        ? candidate.parameterNames.map(String)
+        : [],
+      contentHash: candidate.contentHash,
+      lastError: null,
+      lastSyncedAt: candidate.lastSyncedAt || new Date(),
+    },
+  });
+  await storePrisma.whatsappCloudTemplateCandidate.delete({
+    where: { id: candidate.id },
+  });
+  return promoted;
+}
+
 export function buildCanonicalCloudTemplateSources(
   settings: Record<string, string | null | undefined>,
   scopes: CloudTemplateScope[] = ["STORE", "RAFFLES"],
@@ -930,6 +966,44 @@ export async function syncCloudTemplateCatalog(params: {
 
       await persist({ templateId, category, status });
 
+      // If this variant is already selected for the owner, an approved
+      // replacement is safe to promote immediately. Without this, the old
+      // mapping remains stale until the next real message is sent.
+      if (isReplacement && status === "APPROVED" && activeMapping) {
+        const activeVersionKey = getTemplateActiveVersionSettingKey(
+          source.scope,
+          source.type,
+          "CLOUD",
+          params.owner,
+        );
+        const activeVersionSetting = activeVersionKey
+          ? await storePrisma.setting.findUnique({
+              where: { key: activeVersionKey },
+              select: { value: true },
+            })
+          : null;
+        if ((activeVersionSetting?.value || "LEGACY") === variant) {
+          const approvedCandidate =
+            await storePrisma.whatsappCloudTemplateCandidate.findUnique({
+              where: {
+                ownerKey_scope_type_variant_contentHash: {
+                  ownerKey,
+                  scope: source.scope,
+                  type: source.type,
+                  variant,
+                  contentHash,
+                },
+              },
+            });
+          if (approvedCandidate?.status === "APPROVED") {
+            await promoteApprovedCloudTemplateCandidate(
+              activeMapping,
+              approvedCandidate,
+            );
+          }
+        }
+      }
+
       results.push({
         scope: source.scope,
         type: source.type,
@@ -1041,26 +1115,7 @@ export async function getApprovedCloudTemplate(params: {
     }
 
     if (candidate?.status === "APPROVED") {
-      mapping = await storePrisma.whatsappCloudTemplate.update({
-        where: { id: mapping.id },
-        data: {
-          channelId: candidate.channelId,
-          templateName: candidate.templateName,
-          templateId: candidate.templateId,
-          category: candidate.category,
-          languageCode: candidate.languageCode,
-          status: candidate.status,
-          parameterNames: Array.isArray(candidate.parameterNames)
-            ? candidate.parameterNames.map(String)
-            : [],
-          contentHash: candidate.contentHash,
-          lastError: null,
-          lastSyncedAt: candidate.lastSyncedAt || new Date(),
-        },
-      });
-      await storePrisma.whatsappCloudTemplateCandidate.delete({
-        where: { id: candidate.id },
-      });
+      mapping = await promoteApprovedCloudTemplateCandidate(mapping, candidate);
     }
 
     // The lookup template changed from an OTP code to a private-link request.

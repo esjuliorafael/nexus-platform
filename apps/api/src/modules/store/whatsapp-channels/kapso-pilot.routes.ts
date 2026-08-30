@@ -29,6 +29,7 @@ import {
   getCloudTemplateOwnerKey,
   getCloudTemplateScopesForPurpose,
   getTemplateActiveVersionSettingKey,
+  promoteApprovedCloudTemplateCandidate,
   resolveCloudTemplateOwner,
   syncCloudTemplateCatalog,
   type CloudTemplateSource,
@@ -450,13 +451,13 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
             })
           : null;
         const activeVersion = activeVersionSetting?.value || "LEGACY";
-        const activeMapping = mappings.find(
+        let activeMapping = mappings.find(
           (item) =>
             item.scope === source.scope &&
             item.type === source.type &&
             item.variant === activeVersion,
         );
-        const activeCandidate = candidates.find(
+        let activeCandidate = candidates.find(
           (item) =>
             item.scope === source.scope &&
             item.type === source.type &&
@@ -493,6 +494,33 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
               lastSyncedAt: new Date(),
             },
           });
+        }
+
+        const candidateRemoteTemplate = candidate
+          ? remoteTemplates.find(
+              (item) =>
+                String(item.name || "").trim() === candidate.templateName &&
+                [candidate.languageCode, "es"].includes(
+                  String(item.language || "").trim(),
+                ),
+            )
+          : null;
+        if (
+          activeMapping &&
+          activeCandidate &&
+          candidate?.status === "APPROVED" &&
+          candidateRemoteTemplate &&
+          normalizeKapsoTemplateStatus(candidateRemoteTemplate.status) ===
+            "APPROVED" &&
+          activeVersion === source.variant &&
+          candidate.contentHash === contentHash &&
+          activeMapping.contentHash !== contentHash
+        ) {
+          activeMapping = await promoteApprovedCloudTemplateCandidate(
+            activeMapping,
+            candidate,
+          );
+          activeCandidate = undefined;
         }
 
         // Recover a mapping if Kapso already contains the approved template
