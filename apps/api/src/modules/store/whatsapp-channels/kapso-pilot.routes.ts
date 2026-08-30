@@ -514,7 +514,8 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
             "APPROVED" &&
           activeVersion === source.variant &&
           candidate.contentHash === contentHash &&
-          activeMapping.contentHash !== contentHash
+          activeMapping.contentHash !== contentHash &&
+          source.type !== "RAFFLE_INVITATION"
         ) {
           activeMapping = await promoteApprovedCloudTemplateCandidate(
             activeMapping,

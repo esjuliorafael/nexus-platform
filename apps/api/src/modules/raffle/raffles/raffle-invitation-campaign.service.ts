@@ -22,20 +22,18 @@ export type RaffleInvitationAudiencePreset =
 const TEMPLATE_KEY = "whatsapp_global_raffle_invitation";
 const DEFAULT_INVITATION_TEMPLATE = `¡Hola, {{customer_name}}! 🎟️
 
-Tenemos una nueva rifa que podría interesarte:
+Te invitamos a participar en la “{{raffle_name}}”.
 
-{{raffle_name}}
+ℹ️ {{raffle_description}}
+
+{{raffle_additional_info}}
 
 📅 Apertura: {{opening_date}}
 💰 Precio por boleto: \${{ticket_price}} MXN
 
-Consulta los premios y selecciona tus boletos:
+🔎 Consulta los detalles, conoce los premios y selecciona tus boletos.
 
-{{raffle_url}}
-
-Los boletos están sujetos a disponibilidad.
-
-Si prefieres no recibir próximas invitaciones, responde BAJA.`;
+{{raffle_url}}`;
 
 const storefrontRaffleUrl = (raffleId: number) => {
   const baseUrl = (
@@ -68,12 +66,21 @@ const formatPrice = (value: unknown) =>
 const buildInvitationDescription = (
   shortDescription: string | null | undefined,
   additionalInfo: string | null | undefined,
+  includeAdditionalInfoVariable: boolean,
 ) => {
   const description = shortDescription?.trim() || "";
   const extraInfo = additionalInfo?.trim() || "";
+  if (includeAdditionalInfoVariable) return description;
   return [description, extraInfo ? `📌 ${extraInfo}` : ""]
     .filter(Boolean)
     .join("\n\n");
+};
+
+const buildInvitationAdditionalInfo = (
+  additionalInfo: string | null | undefined,
+) => {
+  const extraInfo = additionalInfo?.trim() || "";
+  return extraInfo ? `📌 ${extraInfo}` : "";
 };
 
 async function resolveAudience(
@@ -107,12 +114,20 @@ async function resolveAudience(
 }
 
 async function resolveTemplate(storePrisma: StorePrismaClient) {
-  const setting = await storePrisma.setting.findUnique({
-    where: { key: TEMPLATE_KEY },
+  const settings = await storePrisma.setting.findMany({
+    where: {
+      key: { in: [TEMPLATE_KEY, `${TEMPLATE_KEY}_simplified`] },
+    },
+    select: { key: true, value: true },
   });
-  const template = setting?.value?.trim() || DEFAULT_INVITATION_TEMPLATE;
+  const byKey = new Map(settings.map((setting) => [setting.key, setting.value]));
+  const template = byKey.get(TEMPLATE_KEY)?.trim() || DEFAULT_INVITATION_TEMPLATE;
   if (!template) throw new Error("RAFFLE_INVITATION_TEMPLATE_MISSING");
-  return template;
+  return {
+    template,
+    activeTemplate:
+      byKey.get(`${TEMPLATE_KEY}_simplified`)?.trim() || template,
+  };
 }
 
 export async function refreshRaffleInvitationCampaign(
@@ -301,7 +316,7 @@ export const raffleInvitationCampaignService = {
     },
     actor: AuditActor,
   ) {
-    const [raffle, audience, template] = await Promise.all([
+    const [raffle, audience, templateData] = await Promise.all([
       rafflePrisma.raffle.findUnique({
         where: { id: raffleId },
         select: {
@@ -324,8 +339,15 @@ export const raffleInvitationCampaignService = {
       ),
       resolveTemplate(storePrisma),
     ]);
+    const template = templateData.template;
+    const supportsAdditionalInfo = /{{raffle_additional_info}}/i.test(
+      templateData.activeTemplate,
+    );
     if (!raffle) throw new Error("RAFFLE_NOT_FOUND");
-    if (/{{raffle_description}}/i.test(template) && !raffle.shortDescription?.trim()) {
+    if (
+      /{{raffle_description}}/i.test(templateData.activeTemplate) &&
+      !raffle.shortDescription?.trim()
+    ) {
       throw new Error("RAFFLE_INVITATION_DESCRIPTION_MISSING");
     }
     const selection = await raffleAudienceService.selectEligible(
@@ -406,7 +428,11 @@ export const raffleInvitationCampaignService = {
               raffle_description: buildInvitationDescription(
                 raffle.shortDescription,
                 raffle.additionalInfo,
+                supportsAdditionalInfo,
               ),
+              raffle_additional_info: supportsAdditionalInfo
+                ? buildInvitationAdditionalInfo(raffle.additionalInfo)
+                : "",
               opening_date: openingDate,
               ticket_price: ticketPrice,
               raffle_url: url,

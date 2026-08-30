@@ -14,6 +14,7 @@ import {
   getActiveCloudTemplateVariant,
   getCanonicalCloudTemplateSettingKey,
   resolveCloudTemplateOwner,
+  omitOptionalRaffleInvitationAdditionalInfo,
   type CloudTemplateScope,
   type CloudTemplateOwner,
   type CloudTemplateType,
@@ -125,10 +126,15 @@ async function resolveActiveTemplateContent(
       renderedText: delivery.renderedText,
     };
   }
+  const content =
+    delivery.type === "RAFFLE_INVITATION" &&
+    !String(delivery.values.raffle_additional_info || "").trim()
+      ? omitOptionalRaffleInvitationAdditionalInfo(simplified.value)
+      : simplified.value;
   return {
     variant: "SIMPLIFIED" as const,
-    content: simplified.value,
-    renderedText: renderBusinessTemplate(simplified.value, delivery.values),
+    content,
+    renderedText: renderBusinessTemplate(content, delivery.values),
   };
 }
 

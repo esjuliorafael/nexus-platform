@@ -135,6 +135,20 @@ const CLOUD_TEMPLATE_DEFAULT_CONTENTS: Partial<
   DATE_CHANGE:
     'Hola, {{customer_name}}. 📅\n\nLa fecha de la rifa "{{raffle_name}}" fue actualizada.\n\nNueva fecha y hora:\n{{raffle_date}}\n\nConsulta el detalle de tu participación desde el botón Ver participación.',
   DRAW_REMINDER: SIMPLIFIED_DRAW_REMINDER_CONTENT,
+  RAFFLE_INVITATION: `¡Hola, {{customer_name}}! 🎟️
+
+Te invitamos a participar en la “{{raffle_name}}”.
+
+ℹ️ {{raffle_description}}
+
+{{raffle_additional_info}}
+
+📅 Apertura: {{opening_date}}
+💰 Precio por boleto: \${{ticket_price}} MXN
+
+🔎 Consulta los detalles, conoce los premios y selecciona tus boletos.
+
+{{raffle_url}}`,
   RESULT_WINNER:
     '¡Felicidades, {{customer_name}}! 🏆\n\nEl resultado de tu participación en "{{raffle_name}}" ya está disponible.\n\nTu participación resultó ganadora. ✅\n\n🔎 Consulta el lugar, el premio y el número ganador en el botón Ver participación:\n\n{{participation_url}}',
   PARTICIPATION_LOOKUP_CODE:
@@ -309,6 +323,7 @@ const VARIABLE_EXAMPLES: Record<string, string> = {
   participation_url: "https://example.com/participations/demo-access-token",
   raffle_name: "Rifa Especial de Junio",
   raffle_description: "Tres premios de pollos para show a elegir.",
+  raffle_additional_info: "📌 Cruzas disponibles: Alimonados, Colorados y Giros.",
   raffle_url: "https://example.com/raffles/1",
   opening_date: "Lunes, 20 de julio de 2026, 8:00 a. m.",
   raffle_date: "Hoy, 31 de julio de 2026 a las 8:00 p. m.",
@@ -496,6 +511,16 @@ export function getCloudTemplateBodyContent(source: CloudTemplateSource) {
       /\n*\s*Si prefieres no recibir pr[oó]ximas invitaciones,\s*responde BAJA\.?\s*$/i,
       "",
     )
+    .trim();
+}
+
+export function omitOptionalRaffleInvitationAdditionalInfo(content: string) {
+  return content
+    .replace(
+      /(?:^|\n)[^\n]*\{\{raffle_additional_info\}\}[^\n]*(?:\n|$)/gi,
+      "",
+    )
+    .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
 
@@ -969,7 +994,12 @@ export async function syncCloudTemplateCatalog(params: {
       // If this variant is already selected for the owner, an approved
       // replacement is safe to promote immediately. Without this, the old
       // mapping remains stale until the next real message is sent.
-      if (isReplacement && status === "APPROVED" && activeMapping) {
+      if (
+        isReplacement &&
+        status === "APPROVED" &&
+        activeMapping &&
+        source.type !== "RAFFLE_INVITATION"
+      ) {
         const activeVersionKey = getTemplateActiveVersionSettingKey(
           source.scope,
           source.type,
@@ -1060,6 +1090,7 @@ export async function getApprovedCloudTemplate(params: {
     content: params.sourceContent,
     variant,
   });
+  let usesApprovedInvitationCandidate = false;
 
   // A pending replacement must never interrupt an approved operational
   // template. Promote it only after Meta has approved the exact definition.
@@ -1115,7 +1146,18 @@ export async function getApprovedCloudTemplate(params: {
     }
 
     if (candidate?.status === "APPROVED") {
-      mapping = await promoteApprovedCloudTemplateCandidate(mapping, candidate);
+      if (
+        params.type === "RAFFLE_INVITATION" &&
+        /\{\{raffle_additional_info\}\}/i.test(params.sourceContent)
+      ) {
+        // Invitations support an optional information line. Keep the approved
+        // base mapping available for invitations without additional info and
+        // use the approved replacement only when that line is present.
+        mapping = { ...mapping, ...candidate };
+        usesApprovedInvitationCandidate = true;
+      } else {
+        mapping = await promoteApprovedCloudTemplateCandidate(mapping, candidate);
+      }
     }
 
     // The lookup template changed from an OTP code to a private-link request.
@@ -1129,6 +1171,7 @@ export async function getApprovedCloudTemplate(params: {
   }
   const shouldRefresh =
     mapping &&
+    !usesApprovedInvitationCandidate &&
     (mapping.status !== "APPROVED" ||
       !normalizeRemoteCategory(mapping.category)) &&
     params.config &&
@@ -1180,8 +1223,25 @@ export async function getApprovedCloudTemplate(params: {
   const parameterNames = Array.isArray(mapping.parameterNames)
     ? mapping.parameterNames.map(String)
     : [];
+  const fallbackValues =
+    params.type === "RAFFLE_INVITATION" &&
+    variant === "SIMPLIFIED" &&
+    !usesApprovedInvitationCandidate &&
+    /\{\{raffle_additional_info\}\}/i.test(params.sourceContent) &&
+    mapping.contentHash !== desiredContentHash &&
+    String(params.values.raffle_additional_info || "").trim()
+      ? {
+          ...params.values,
+          raffle_description: [
+            params.values.raffle_description,
+            params.values.raffle_additional_info,
+          ]
+            .filter(Boolean)
+            .join(" · "),
+        }
+      : params.values;
   if (
-    !parameterNames.every((parameterName) => parameterName in params.values)
+    !parameterNames.every((parameterName) => parameterName in fallbackValues)
   ) {
     return null;
   }
@@ -1203,7 +1263,7 @@ export async function getApprovedCloudTemplate(params: {
       parameters: parameterNames.map((parameterName) => ({
         type: "text" as const,
         text: normalizeCloudTemplateParameterValue(
-          params.values[parameterName],
+          fallbackValues[parameterName],
         ),
         parameter_name: parameterName,
       })),

@@ -382,6 +382,7 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
           "{{customer_name}}",
           "{{raffle_name}}",
           "{{raffle_description}}",
+          "{{raffle_additional_info}}",
           "{{opening_date}}",
           "{{ticket_price}}",
           "{{raffle_url}}",
@@ -682,6 +683,20 @@ Tu participaci\u00f3n contin\u00faa registrada para este sorteo. \u{1F340}
 {{participation_url}}
 
 \u00a1Mucha suerte!`,
+  RAFFLE_INVITATION: `\u00a1Hola, {{customer_name}}! \u{1F39F}\u{FE0F}
+
+Te invitamos a participar en la \u201c{{raffle_name}}\u201d.
+
+\u2139\uFE0F {{raffle_description}}
+
+{{raffle_additional_info}}
+
+\u{1F4C5} Apertura: {{opening_date}}
+\u{1F4B0} Precio por boleto: \${{ticket_price}} MXN
+
+\u{1F50E} Consulta los detalles, conoce los premios y selecciona tus boletos.
+
+{{raffle_url}}`,
   RELEASE: `Hola, {{customer_name}}. \u{1F513}
 
 Tu participaci\u00f3n fue liberada porque concluy\u00f3 el tiempo disponible para confirmar el pago. \u23f3
@@ -767,6 +782,15 @@ const SIMPLIFIED_TEMPLATE_VARIABLES: Partial<
     "{{raffle_name}}",
     "{{raffle_date}}",
     "{{participation_url}}",
+  ],
+  RAFFLE_INVITATION: [
+    "{{customer_name}}",
+    "{{raffle_name}}",
+    "{{raffle_description}}",
+    "{{raffle_additional_info}}",
+    "{{opening_date}}",
+    "{{ticket_price}}",
+    "{{raffle_url}}",
   ],
   RELEASE: ["{{customer_name}}", "{{participation_url}}"],
   PAYMENT_CONFIRMED: [

@@ -4,6 +4,7 @@ import {
   getCloudTemplateBodyContent,
   getCloudTemplateDefinitionHash,
   normalizeCloudTemplateParameterValue,
+  omitOptionalRaffleInvitationAdditionalInfo,
   resolveCloudTemplateOwner,
 } from "../src/services/whatsapp/whatsapp-cloud-template.service";
 import { getInitialWhatsappLogStatus } from "../src/services/whatsapp/whatsapp-send.service";
@@ -60,6 +61,16 @@ test("moves the raffle invitation URL into its Cloud API button", () => {
       content:
         "¡Hola, {{customer_name}}!\n\nConsulta los detalles en el siguiente botón:",
     }),
+  );
+});
+
+test("omits optional raffle invitation info when it is empty", () => {
+  const withOptionalInfo =
+    "¡Hola, {{customer_name}}!\n\nℹ️ {{raffle_description}}\n\n{{raffle_additional_info}}\n\n📅 Apertura: {{opening_date}}";
+
+  assert.equal(
+    omitOptionalRaffleInvitationAdditionalInfo(withOptionalInfo),
+    "¡Hola, {{customer_name}}!\n\nℹ️ {{raffle_description}}\n\n📅 Apertura: {{opening_date}}",
   );
 });
 
