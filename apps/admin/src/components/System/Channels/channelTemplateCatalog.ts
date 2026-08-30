@@ -382,7 +382,7 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
           "{{customer_name}}",
           "{{raffle_name}}",
           "{{raffle_description}}",
-          "{{raffle_additional_info}}",
+          "{{raffle_extra}}",
           "{{opening_date}}",
           "{{ticket_price}}",
           "{{raffle_url}}",
@@ -689,7 +689,7 @@ Te invitamos a participar en la \u201c{{raffle_name}}\u201d.
 
 \u2139\uFE0F {{raffle_description}}
 
-{{raffle_additional_info}}
+{{raffle_extra}}
 
 \u{1F4C5} Apertura: {{opening_date}}
 \u{1F4B0} Precio por boleto: \${{ticket_price}} MXN
@@ -787,7 +787,7 @@ const SIMPLIFIED_TEMPLATE_VARIABLES: Partial<
     "{{customer_name}}",
     "{{raffle_name}}",
     "{{raffle_description}}",
-    "{{raffle_additional_info}}",
+    "{{raffle_extra}}",
     "{{opening_date}}",
     "{{ticket_price}}",
     "{{raffle_url}}",

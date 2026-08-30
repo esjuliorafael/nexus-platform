@@ -26,7 +26,7 @@ Te invitamos a participar en la “{{raffle_name}}”.
 
 ℹ️ {{raffle_description}}
 
-{{raffle_additional_info}}
+{{raffle_extra}}
 
 📅 Apertura: {{opening_date}}
 💰 Precio por boleto: \${{ticket_price}} MXN
@@ -340,7 +340,7 @@ export const raffleInvitationCampaignService = {
       resolveTemplate(storePrisma),
     ]);
     const template = templateData.template;
-    const supportsAdditionalInfo = /{{raffle_additional_info}}/i.test(
+    const supportsAdditionalInfo = /{{raffle_extra}}/i.test(
       templateData.activeTemplate,
     );
     if (!raffle) throw new Error("RAFFLE_NOT_FOUND");
@@ -430,7 +430,7 @@ export const raffleInvitationCampaignService = {
                 raffle.additionalInfo,
                 supportsAdditionalInfo,
               ),
-              raffle_additional_info: supportsAdditionalInfo
+              raffle_extra: supportsAdditionalInfo
                 ? buildInvitationAdditionalInfo(raffle.additionalInfo)
                 : "",
               opening_date: openingDate,

@@ -128,7 +128,7 @@ async function resolveActiveTemplateContent(
   }
   const content =
     delivery.type === "RAFFLE_INVITATION" &&
-    !String(delivery.values.raffle_additional_info || "").trim()
+    !String(delivery.values.raffle_extra || "").trim()
       ? omitOptionalRaffleInvitationAdditionalInfo(simplified.value)
       : simplified.value;
   return {

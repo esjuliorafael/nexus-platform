@@ -141,7 +141,7 @@ Te invitamos a participar en la “{{raffle_name}}”.
 
 ℹ️ {{raffle_description}}
 
-{{raffle_additional_info}}
+{{raffle_extra}}
 
 📅 Apertura: {{opening_date}}
 💰 Precio por boleto: \${{ticket_price}} MXN
@@ -323,7 +323,7 @@ const VARIABLE_EXAMPLES: Record<string, string> = {
   participation_url: "https://example.com/participations/demo-access-token",
   raffle_name: "Rifa Especial de Junio",
   raffle_description: "Tres premios de pollos para show a elegir.",
-  raffle_additional_info: "📌 Cruzas disponibles: Alimonados, Colorados y Giros.",
+  raffle_extra: "📌 Cruzas disponibles: Alimonados, Colorados y Giros.",
   raffle_url: "https://example.com/raffles/1",
   opening_date: "Lunes, 20 de julio de 2026, 8:00 a. m.",
   raffle_date: "Hoy, 31 de julio de 2026 a las 8:00 p. m.",
@@ -517,7 +517,7 @@ export function getCloudTemplateBodyContent(source: CloudTemplateSource) {
 export function omitOptionalRaffleInvitationAdditionalInfo(content: string) {
   return content
     .replace(
-      /(?:^|\n)[^\n]*\{\{raffle_additional_info\}\}[^\n]*(?:\n|$)/gi,
+      /(?:^|\n)[^\n]*\{\{raffle_extra\}\}[^\n]*(?:\n|$)/gi,
       "",
     )
     .replace(/\n{3,}/g, "\n\n")
@@ -1148,7 +1148,7 @@ export async function getApprovedCloudTemplate(params: {
     if (candidate?.status === "APPROVED") {
       if (
         params.type === "RAFFLE_INVITATION" &&
-        /\{\{raffle_additional_info\}\}/i.test(params.sourceContent)
+        /\{\{raffle_extra\}\}/i.test(params.sourceContent)
       ) {
         // Invitations support an optional information line. Keep the approved
         // base mapping available for invitations without additional info and
@@ -1227,14 +1227,14 @@ export async function getApprovedCloudTemplate(params: {
     params.type === "RAFFLE_INVITATION" &&
     variant === "SIMPLIFIED" &&
     !usesApprovedInvitationCandidate &&
-    /\{\{raffle_additional_info\}\}/i.test(params.sourceContent) &&
+    /\{\{raffle_extra\}\}/i.test(params.sourceContent) &&
     mapping.contentHash !== desiredContentHash &&
-    String(params.values.raffle_additional_info || "").trim()
+    String(params.values.raffle_extra || "").trim()
       ? {
           ...params.values,
           raffle_description: [
             params.values.raffle_description,
-            params.values.raffle_additional_info,
+            params.values.raffle_extra,
           ]
             .filter(Boolean)
             .join(" · "),
