@@ -80,6 +80,11 @@ const cloudTemplateSyncSchema = cloudTemplateTargetSchema.extend({
   type: z.string().trim().min(1).optional(),
 });
 
+const cloudTemplateActivationSchema = cloudTemplateTargetSchema.extend({
+  scope: z.enum(["STORE", "RAFFLES"]),
+  type: z.string().trim().min(1),
+});
+
 const KAPSO_MESSAGE_EVENTS = [
   "whatsapp.message.received",
   "whatsapp.message.sent",
@@ -356,6 +361,125 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
     },
   );
 
+  server.post(
+    "/activate-template",
+    { preHandler: [server.authenticate] },
+    async (request, reply) => {
+      let body: z.infer<typeof cloudTemplateActivationSchema>;
+      try {
+        body = cloudTemplateActivationSchema.parse(request.body || {});
+      } catch (error: any) {
+        if (error?.issues) {
+          return reply
+            .status(400)
+            .send({ message: "Validation error", errors: error.issues });
+        }
+        throw error;
+      }
+
+      const target = await resolveCloudTemplateTarget(
+        body.channelId,
+        body.variant,
+        body.scope,
+        body.type as CloudTemplateType,
+      );
+      if (!target) {
+        return reply.status(404).send({ message: "Canal no encontrado." });
+      }
+      if (!target.config?.businessAccountId) {
+        return reply.status(409).send({
+          message:
+            "Configura Phone Number ID y Business Account ID antes de activar.",
+        });
+      }
+
+      const source = target.sources.find(
+        (item) => item.scope === body.scope && item.type === body.type,
+      );
+      if (!source || !source.content.trim()) {
+        return reply.status(400).send({
+          message: "La plantilla seleccionada no está disponible para este canal.",
+        });
+      }
+
+      const ownerKey = getCloudTemplateOwnerKey(target.owner);
+      const contentHash = getCloudTemplateDefinitionHash(source);
+      const variant = source.variant || body.variant;
+      const mapping = await server.storePrisma.whatsappCloudTemplate.findUnique({
+        where: {
+          ownerKey_scope_type_variant: {
+            ownerKey,
+            scope: source.scope,
+            type: source.type,
+            variant,
+          },
+        },
+      });
+
+      if (!mapping) {
+        return reply.status(409).send({
+          message: "Sincroniza primero la versión aprobada de esta plantilla.",
+        });
+      }
+
+      if (mapping.contentHash !== contentHash) {
+        const candidate =
+          await server.storePrisma.whatsappCloudTemplateCandidate.findUnique({
+            where: {
+              ownerKey_scope_type_variant_contentHash: {
+                ownerKey,
+                scope: source.scope,
+                type: source.type,
+                variant,
+                contentHash,
+              },
+            },
+          });
+
+        if (!candidate || candidate.status !== "APPROVED") {
+          return reply.status(409).send({
+            message: "La nueva versión todavía no está aprobada por Meta.",
+          });
+        }
+
+        await promoteApprovedCloudTemplateCandidate(mapping, candidate);
+      }
+
+      const activeVersionKey = getTemplateActiveVersionSettingKey(
+        source.scope,
+        source.type,
+        "CLOUD",
+        body.channelId
+          ? {
+              kind: "channel",
+              channelId: body.channelId,
+              purpose: target.channelOwner?.purpose || "",
+            }
+          : { kind: "principal" },
+      );
+      if (activeVersionKey) {
+        await server.storePrisma.setting.upsert({
+          where: { key: activeVersionKey },
+          update: { value: body.variant, group: "whatsapp" },
+          create: {
+            key: activeVersionKey,
+            value: body.variant,
+            group: "whatsapp",
+          },
+        });
+      }
+
+      return {
+        ok: true,
+        ownerKey,
+        scope: source.scope,
+        type: source.type,
+        variant,
+        contentHash,
+      };
+    },
+  );
+
   server.get(
     "/template-readiness",
     { preHandler: [server.authenticate] },
@@ -593,10 +717,10 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
             ),
           activeVersion,
           contentHash: candidate?.contentHash || mapping?.contentHash || null,
-          activeContentHash:
-            activeCandidate?.contentHash || activeMapping?.contentHash || null,
-          activeTemplateName:
-            activeCandidate?.templateName || activeMapping?.templateName || null,
+          // An approved candidate is ready, but it is not active until the
+          // administrator explicitly promotes it for this channel.
+          activeContentHash: activeMapping?.contentHash || null,
+          activeTemplateName: activeMapping?.templateName || null,
           lastError: candidate?.lastError || mapping?.lastError || null,
           replacementPending: Boolean(
             candidate && candidate.status !== "APPROVED",

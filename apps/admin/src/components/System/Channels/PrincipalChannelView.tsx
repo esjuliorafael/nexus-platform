@@ -151,6 +151,8 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
   const [isVersionsOpen, setIsVersionsOpen] = useState(false);
   const [cloudTemplateStatus, setCloudTemplateStatus] = useState<any>(null);
   const [cloudTemplateStatuses, setCloudTemplateStatuses] = useState<Record<string, any>>({});
+  const [cloudTemplateStatusRefreshToken, setCloudTemplateStatusRefreshToken] =
+    useState(0);
   const [isLoadingCloudTemplateStatus, setIsLoadingCloudTemplateStatus] =
     useState(false);
   const [specializedCloudChannels, setSpecializedCloudChannels] = useState<any[]>([]);
@@ -603,6 +605,28 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
     }
   };
 
+  const activateCloudTemplate = async (ownerKey: string) => {
+    if (!editingTemplate) return;
+    const channelId = ownerKey.startsWith("channel:")
+      ? Number(ownerKey.slice("channel:".length))
+      : undefined;
+    await apiWhatsApp.activateKapsoTemplate({
+      ...(channelId ? { channelId } : {}),
+      variant: editingTemplate.version,
+      scope: editingTemplate.scope,
+      type: editingTemplate.type,
+    });
+    const activeVersionKey = getTemplateActiveVersionKey(
+      editingTemplate,
+      "CLOUD",
+      ownerKey === "principal" ? "principal" : ownerKey,
+    );
+    if (activeVersionKey) {
+      setConfig((prev) => ({ ...prev, [activeVersionKey]: editingTemplate.version }));
+    }
+    setCloudTemplateStatusRefreshToken((current) => current + 1);
+  };
+
   const editorContent = editingTemplate
     ? getChannelTemplateEditorContent(
         editingTemplate,
@@ -679,7 +703,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
     return () => {
       cancelled = true;
     };
-  }, [editingTemplate?.key, editingTemplate?.type, editingTemplate?.scope, templateProvider]);
+  }, [editingTemplate?.key, editingTemplate?.type, editingTemplate?.scope, templateProvider, cloudTemplateStatusRefreshToken]);
 
   useEffect(() => {
     if (!onTemplateEditorChange) return;
@@ -694,8 +718,12 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       "principal",
     );
     const isActive =
-      (config[activeVersionKey] || config[legacyActiveVersionKey] || "LEGACY") ===
-      editingTemplate.version;
+      templateProvider === "CLOUD" &&
+      cloudTemplateStatus?.contentHash &&
+      cloudTemplateStatus?.activeContentHash
+        ? cloudTemplateStatus.contentHash === cloudTemplateStatus.activeContentHash
+        : (config[activeVersionKey] || config[legacyActiveVersionKey] || "LEGACY") ===
+          editingTemplate.version;
     const canActivate =
       !isTemplateDirty &&
       Boolean(editorContent.trim()) &&
@@ -714,8 +742,21 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
         confirmLabel: editingTemplate.version === "SIMPLIFIED" ? "Activar Simplificada" : "Usar Legacy",
         variant: "brand",
         onConfirm: async () => {
-          await updateConfig({ [activeVersionKey]: editingTemplate.version }, false);
-          setConfirmDialog({ isOpen: false });
+          try {
+            if (templateProvider === "CLOUD") {
+              await activateCloudTemplate("principal");
+              showToast("Versión activada en Canal Principal");
+            } else {
+              await updateConfig({ [activeVersionKey]: editingTemplate.version }, false);
+            }
+            setConfirmDialog({ isOpen: false });
+          } catch (error: any) {
+            showToast(
+              error?.response?.data?.message ||
+                "No se pudo activar la versión seleccionada",
+              "error",
+            );
+          }
         },
       });
     };
@@ -809,7 +850,9 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
     const activateCloudOwner = (ownerKey: string, label: string, status: any) => {
       const scopedKey = getTemplateActiveVersionKey(editingTemplate, "CLOUD", ownerKey);
       const isActive =
-        (config[scopedKey] || "LEGACY") === editingTemplate.version;
+        status?.contentHash && status?.activeContentHash
+          ? status.contentHash === status.activeContentHash
+          : (config[scopedKey] || "LEGACY") === editingTemplate.version;
       const canActivate =
         !isTemplateDirty &&
         Boolean(editorContent.trim()) &&
@@ -826,8 +869,17 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
         confirmLabel: editingTemplate.version === "SIMPLIFIED" ? `Activar en ${label}` : `Usar Legacy en ${label}`,
         variant: "brand",
         onConfirm: async () => {
-          await updateConfig({ [scopedKey]: editingTemplate.version }, false);
-          setConfirmDialog({ isOpen: false });
+          try {
+            await activateCloudTemplate(ownerKey);
+            showToast(`Versión activada en ${label}`);
+            setConfirmDialog({ isOpen: false });
+          } catch (error: any) {
+            showToast(
+              error?.response?.data?.message ||
+                `No se pudo activar la versión en ${label}`,
+              "error",
+            );
+          }
         },
       });
     };
@@ -906,8 +958,9 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                   .map(([ownerKey, status]) => {
                     const scopedKey = getTemplateActiveVersionKey(editingTemplate, "CLOUD", ownerKey);
                     const isActive =
-                      (config[scopedKey] || "LEGACY") ===
-                      editingTemplate.version;
+                      status?.contentHash && status?.activeContentHash
+                        ? status.contentHash === status.activeContentHash
+                        : (config[scopedKey] || "LEGACY") === editingTemplate.version;
                     const canActivate =
                       !isTemplateDirty &&
                       Boolean(editorContent.trim()) &&

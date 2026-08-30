@@ -850,6 +850,12 @@ export const apiWhatsApp = {
       variant,
       ...target,
     }),
+  activateKapsoTemplate: async (data: {
+    channelId?: number;
+    variant: "LEGACY" | "SIMPLIFIED";
+    scope: "STORE" | "RAFFLES";
+    type: string;
+  }) => api.post("/admin/whatsapp/kapso/activate-template", data),
   getKapsoTemplateReadiness: async (
     channelId?: string,
     variant: "LEGACY" | "SIMPLIFIED" = "LEGACY",
