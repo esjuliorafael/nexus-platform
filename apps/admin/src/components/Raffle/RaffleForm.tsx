@@ -832,7 +832,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
               <NexusInput
                 label="Información adicional"
                 value={additionalInfo}
-                maxLength={180}
+                maxLength={512}
                 onChange={(event) => setAdditionalInfo(event.target.value)}
                 placeholder="Ej. Cruzas disponibles: Giro PV MT y Giro PA MT."
                 helperText="Dato opcional que complementa la descripción en las invitaciones."

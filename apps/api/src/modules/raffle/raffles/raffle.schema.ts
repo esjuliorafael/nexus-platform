@@ -25,7 +25,7 @@ const raffleShortDescriptionSchema = z
 const raffleAdditionalInfoSchema = z
   .string()
   .trim()
-  .max(180, "La información adicional no puede superar 180 caracteres.")
+  .max(512, "La información adicional no puede superar 512 caracteres.")
   .refine(
     (value) => !/[\r\n]/.test(value),
     "La información adicional debe ocupar una sola línea.",
