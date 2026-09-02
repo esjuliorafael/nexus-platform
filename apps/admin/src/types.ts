@@ -119,6 +119,7 @@ export interface Product {
   coverPosterUrl?: string | null;
   coverMediaType?: "PHOTO" | "VIDEO" | null;
   coverAssetStatus?: "UPLOADING" | "PROCESSING" | "READY" | "FAILED" | null;
+  coverAssetError?: string | null;
   thumbnail?: string;
   type: "BIRD" | "ITEM";
   ringNumber?: string;
@@ -139,6 +140,7 @@ export interface ProductGalleryAsset {
   mediaUrl: string;
   posterUrl?: string | null;
   assetStatus?: "UPLOADING" | "PROCESSING" | "READY" | "FAILED" | null;
+  assetError?: string | null;
   mediaType: "PHOTO" | "VIDEO";
   mimeType?: string;
 }
@@ -468,6 +470,7 @@ export type TemplateType =
   | "RELEASE"
   | "PAYMENT_CONFIRMED"
   | "PAYMENT_RECOVERY"
+  | "PAYMENT_INSTRUCTIONS"
   | "RESTORED"
   | "REMINDER"
   | "OPENING"

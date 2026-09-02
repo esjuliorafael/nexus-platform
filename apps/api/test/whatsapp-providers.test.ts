@@ -186,7 +186,7 @@ test("cloud template catalog extracts stable unique variables and hashes content
 });
 
 test("cloud template catalog includes raffle invitations as marketing", () => {
-  assert.equal(CLOUD_TEMPLATE_SETTING_KEYS.length, 18);
+  assert.equal(CLOUD_TEMPLATE_SETTING_KEYS.length, 22);
   assert.deepEqual(
     CLOUD_TEMPLATE_SETTING_KEYS.find(
       (template) => template.type === "RAFFLE_INVITATION",
@@ -210,7 +210,7 @@ test("specialized Cloud catalogs copy canonical Principal content", () => {
 
   const sources = buildCanonicalCloudTemplateSources(settings, ["STORE"]);
 
-  assert.equal(sources.length, 7);
+  assert.equal(sources.length, 8);
   assert.equal(
     sources.find((source) => source.type === "RESERVATION")?.content,
     "Plantilla principal de apartado",

@@ -52,7 +52,10 @@ import {
   WHATSAPP_PAIRING_WINDOW_SECONDS,
 } from "./WhatsAppPairingModal";
 import { resolveChannelInstanceName } from "./channelInstance";
-import { CHANNEL_TEMPLATE_SECTIONS } from "./channelTemplateCatalog";
+import {
+  CHANNEL_TEMPLATE_SECTIONS,
+  getTemplateStorageKey,
+} from "./channelTemplateCatalog";
 import { runKapsoOnboarding } from "./kapsoOnboarding";
 
 interface ChannelEditorProps {
@@ -300,7 +303,14 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
     section.groups.flatMap((group) => group.templates),
   );
   const templatesReady = visibleTemplateTypes.every((template) =>
-    Boolean(globalConfig[template.key]?.trim()),
+    Boolean(
+      globalConfig[
+        getTemplateStorageKey(
+          template,
+          template.simplifiedOnly ? "SIMPLIFIED" : "LEGACY",
+        )
+      ]?.trim(),
+    ),
   );
 
   const saveIdentity = async () => {
@@ -768,7 +778,12 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
                     >
                       {group.templates.map((template) => {
                         const isConfigured = Boolean(
-                          globalConfig[template.key]?.trim(),
+                          globalConfig[
+                            getTemplateStorageKey(
+                              template,
+                              template.simplifiedOnly ? "SIMPLIFIED" : "LEGACY",
+                            )
+                          ]?.trim(),
                         );
                         const Icon =
                           template.type === "PAYMENT_CONFIRMED"

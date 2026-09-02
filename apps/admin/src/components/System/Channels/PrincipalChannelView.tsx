@@ -96,6 +96,7 @@ const previewMessage = (content: string) => {
     .replace(/\{\{ticket_price\}\}/g, "320.00")
     .replace(/\{\{raffle_url\}\}/g, "https://rancholastrojes.com.mx/raffles/1")
     .replace(/\{\{participation_url\}\}/g, "https://rancholastrojes.com.mx/participations/demo")
+    .replace(/\{\{order_url\}\}/g, "https://rancholastrojes.com.mx/orders/demo")
     .replace(/\{\{recovery_url\}\}/g, "https://rancholastrojes.com.mx/checkout/recovery/demo")
     .replace(/\{\{expires_at\}\}/g, "hoy a las 8:00 p. m.")
     .replace(/\{\{place\}\}/g, "Primer lugar")
@@ -130,7 +131,8 @@ const previewMessage = (content: string) => {
     .replace(
       /\n*Consulta el detalle de tu participaci[^\n]*:\s*\n\s*\{\{participation_url\}\}/i,
       "",
-    );
+    )
+    .replace(/(?:^|\n)[^\n]*\{\{order_url\}\}[^\n]*(?=\n|$)/gi, "");
 };
 
 export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
@@ -1406,14 +1408,11 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                       {group.templates.map((template) => {
                         const isSimplified = templateVersion === "SIMPLIFIED";
                         const storageKey = getTemplateStorageKey(template, templateVersion);
-                        const simplifiedContent =
-                          section.scope === "RAFFLES"
-                            ? getTemplateVariantContent(
-                                template,
-                                "SIMPLIFIED",
-                                section.scope,
-                              )
-                            : "";
+                        const simplifiedContent = getTemplateVariantContent(
+                          template,
+                          "SIMPLIFIED",
+                          section.scope,
+                        );
                         const isCanonical = isSimplified
                           ? Boolean(config[storageKey] || simplifiedContent)
                           : Boolean(template.defaultContent);

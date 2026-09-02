@@ -46,6 +46,12 @@ import { sendMarketingConsentConfirmation } from "../../../services/whatsapp/wha
 import { whatsappCustomerServiceWindowService } from "../../../services/whatsapp/whatsapp-customer-service-window.service";
 import { sendWhatsappAndLog } from "../../../services/whatsapp/whatsapp-send.service";
 import { handleRaffleWhatsappMessage } from "../../raffle/ticket-sales/raffle-whatsapp-assistant.service";
+import {
+  handleStoreWhatsappMessage,
+  sendStorePaymentInstructions,
+} from "../orders/store-payment-instructions.service";
+import type { ChannelConfig } from "../../../services/evolution/channel.resolver";
+import { isKapsoTenantDeliveryEnabled } from "../../../services/whatsapp/whatsapp-delivery-policy";
 
 const testTemplateSchema = z.object({
   recipientPhone: z.string().trim().min(1),
@@ -1053,7 +1059,20 @@ export async function kapsoWebhookRoutes(server: FastifyInstance) {
           const channel = inbound.phoneNumberId
             ? await server.storePrisma.whatsappChannel.findFirst({
                 where: { kapsoPhoneNumberId: String(inbound.phoneNumberId) },
-                select: { id: true, purpose: true, kapsoBusinessAccountId: true },
+                select: {
+                  id: true,
+                  name: true,
+                  purpose: true,
+                  instanceName: true,
+                  evolutionUrl: true,
+                  evolutionKey: true,
+                  provider: true,
+                  deliveryStrategy: true,
+                  kapsoPhoneNumberId: true,
+                  kapsoBusinessAccountId: true,
+                  phone: true,
+                  template: true,
+                },
               })
             : null;
           const principalSettings = await server.storePrisma.setting.findMany({
@@ -1062,6 +1081,8 @@ export async function kapsoWebhookRoutes(server: FastifyInstance) {
                 in: [
                   "whatsapp_main_kapso_phone_number_id",
                   "whatsapp_main_kapso_business_account_id",
+                  "whatsapp_main_delivery_strategy",
+                  "whatsapp_kapso_delivery_enabled",
                 ],
               },
             },
@@ -1079,6 +1100,51 @@ export async function kapsoWebhookRoutes(server: FastifyInstance) {
             : null;
 
           if (kapsoConfig) {
+            const storeAssistant = await handleStoreWhatsappMessage({
+              storePrisma: server.storePrisma,
+              phone: inbound.senderPhone,
+              text: inbound.text,
+            });
+            if (storeAssistant.handled) {
+              if (storeAssistant.paymentInstructions) {
+                await sendStorePaymentInstructions({
+                  paymentInstructions: storeAssistant.paymentInstructions,
+                  preferredChannel: channel as ChannelConfig | null,
+                  principal: {
+                    provider: "KAPSO",
+                    evolution: null,
+                    kapsoPhoneNumberId:
+                      settings.whatsapp_main_kapso_phone_number_id || "",
+                    kapsoBusinessAccountId:
+                      settings.whatsapp_main_kapso_business_account_id || "",
+                    deliveryStrategy:
+                      (settings.whatsapp_main_delivery_strategy as
+                        | "STANDARD"
+                        | "KAPSO_PREFERRED"
+                        | "EVOLUTION_ONLY") || "STANDARD",
+                  },
+                  fallbackTransport: { provider: "KAPSO", config: kapsoConfig },
+                  kapsoEnabled: isKapsoTenantDeliveryEnabled(
+                    settings.whatsapp_kapso_delivery_enabled,
+                  ),
+                });
+              } else if (storeAssistant.reply) {
+                await sendWhatsappAndLog({
+                  transport: { provider: "KAPSO", config: kapsoConfig },
+                  recipientPhone: inbound.senderPhone,
+                  message: { text: storeAssistant.reply },
+                  templateName: "store_whatsapp_assistant",
+                  routing: {
+                    route: "DIRECT",
+                    preferredInstanceName: `kapso:${phoneNumberId}`,
+                    policyClass: "OPERATIONAL",
+                    providerPriority: ["KAPSO"],
+                  },
+                });
+              }
+              continue;
+            }
+
             const assistant = await handleRaffleWhatsappMessage({
               rafflePrisma,
               storePrisma: server.storePrisma,

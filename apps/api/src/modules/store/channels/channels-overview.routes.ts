@@ -4,6 +4,9 @@ import { isKapsoTenantDeliveryEnabled } from "../../../services/whatsapp/whatsap
 import {
   CLOUD_TEMPLATE_SETTING_KEYS,
   getCloudTemplateContentHash,
+  getCloudTemplateDefinitionHash,
+  type CloudTemplateScope,
+  type CloudTemplateType,
 } from "../../../services/whatsapp/whatsapp-cloud-template.service";
 
 const specializedChannelSchema = z
@@ -85,12 +88,35 @@ const getSetting = (
   key: string,
 ) => settings.find((setting) => setting.key === key)?.value || "";
 
+const getTemplateContent = (
+  settings: Array<{ key: string; value: string | null }>,
+  key: string,
+) => getSetting(settings, key) || getSetting(settings, `${key}_simplified`);
+
+const hasMatchingCloudTemplateHash = (
+  template: { contentHash?: unknown },
+  scope: string,
+  type: string,
+  content: string,
+) => {
+  const source = {
+    scope: scope as CloudTemplateScope,
+    type: type as CloudTemplateType,
+    content,
+  };
+  const hashes = [
+    getCloudTemplateContentHash(content),
+    getCloudTemplateDefinitionHash({ ...source, variant: "LEGACY" }),
+    getCloudTemplateDefinitionHash({ ...source, variant: "SIMPLIFIED" }),
+  ];
+  return hashes.includes(String(template.contentHash || ""));
+};
+
 const requiredTemplatesForPurpose = (purpose: string) =>
   purpose === "RAFFLES"
     ? [
         "OPENING",
         "DRAW_REMINDER",
-        "DATE_CHANGE",
         "DATE_CHANGE",
         "RESERVATION",
         "RESTORED",
@@ -106,6 +132,7 @@ const requiredTemplatesForPurpose = (purpose: string) =>
       ]
     : [
         "RESERVATION",
+        "PAYMENT_INSTRUCTIONS",
         "PAYMENT_CONFIRMED",
         "PAYMENT_REFUNDED",
         "PAYMENT_RECOVERY",
@@ -116,6 +143,8 @@ const requiredTemplatesForPurpose = (purpose: string) =>
 
 const PRINCIPAL_TEMPLATE_KEYS: Record<string, string> = {
   "STORE:RESERVATION": "whatsapp_global_store_res",
+  "STORE:PAYMENT_INSTRUCTIONS":
+    "whatsapp_global_store_payment_instructions",
   "STORE:PAYMENT_CONFIRMED": "whatsapp_global_store_pay",
   "STORE:PAYMENT_REFUNDED": "whatsapp_global_store_refunded",
   "STORE:PAYMENT_RECOVERY": "whatsapp_global_store_payment_recovery",
@@ -148,7 +177,7 @@ const getPrincipalTemplateContents = (
     requiredTemplatesForPurpose(purpose)
       .map((type) => [
         type,
-        getSetting(settings, PRINCIPAL_TEMPLATE_KEYS[`${scope}:${type}`]),
+        getTemplateContent(settings, PRINCIPAL_TEMPLATE_KEYS[`${scope}:${type}`]),
       ])
       .filter((entry): entry is [string, string] => Boolean(entry[1])),
   );
@@ -176,7 +205,12 @@ const buildSpecializedChannel = (
         return (
           template.status === "APPROVED" &&
           Boolean(content) &&
-          template.contentHash === getCloudTemplateContentHash(content || "")
+          hasMatchingCloudTemplateHash(
+            template,
+            purpose === "RAFFLES" ? "RAFFLES" : "STORE",
+            String(template.type).toUpperCase(),
+            content || "",
+          )
         );
       })
       .map((template: any) => String(template.type).toUpperCase()),
@@ -339,6 +373,8 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
                   "whatsapp_main_kapso_phone_number_id",
                   "whatsapp_main_kapso_business_account_id",
                   "whatsapp_global_store_res",
+                  "whatsapp_global_store_payment_instructions",
+                  "whatsapp_global_store_payment_instructions_simplified",
                   "whatsapp_global_store_rel",
                   "whatsapp_global_store_pay",
                   "whatsapp_global_store_refunded",
@@ -377,7 +413,7 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
         const principalCanonicalSources = CLOUD_TEMPLATE_SETTING_KEYS.map(
           (item) => ({
             ...item,
-            content: getSetting(settings, item.key),
+            content: getTemplateContent(settings, item.key),
           }),
         );
         const principalCloudReady =
@@ -391,8 +427,12 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
                   template.scope === source.scope &&
                   template.type === source.type &&
                   template.status === "APPROVED" &&
-                  template.contentHash ===
-                    getCloudTemplateContentHash(source.content),
+                  hasMatchingCloudTemplateHash(
+                    template,
+                    source.scope,
+                    source.type,
+                    source.content,
+                  ),
               ),
           );
 
@@ -452,44 +492,52 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
             ready: principalUsesKapso
               ? principalCloudReady
               : Boolean(
-                  getSetting(settings, "whatsapp_global_store_res") ||
-                  getSetting(settings, "whatsapp_global_store_rel") ||
-                  getSetting(settings, "whatsapp_global_store_pay") ||
-                  getSetting(settings, "whatsapp_global_store_refunded") ||
-                  getSetting(
+                  getTemplateContent(settings, "whatsapp_global_store_res") ||
+                  getTemplateContent(
+                    settings,
+                    "whatsapp_global_store_payment_instructions",
+                  ) ||
+                  getTemplateContent(settings, "whatsapp_global_store_rel") ||
+                  getTemplateContent(settings, "whatsapp_global_store_pay") ||
+                  getTemplateContent(settings, "whatsapp_global_store_refunded") ||
+                  getTemplateContent(
                     settings,
                     "whatsapp_global_store_payment_recovery",
                   ) ||
-                  getSetting(settings, "whatsapp_global_store_restored") ||
-                  getSetting(settings, "whatsapp_global_store_reminder") ||
-                  getSetting(settings, "whatsapp_global_raffle_res") ||
-                  getSetting(settings, "whatsapp_global_raffle_restored") ||
-                  getSetting(settings, "whatsapp_global_raffle_rel") ||
-                  getSetting(settings, "whatsapp_global_raffle_pay") ||
-                  getSetting(settings, "whatsapp_global_raffle_refunded") ||
-                  getSetting(
+                  getTemplateContent(settings, "whatsapp_global_store_restored") ||
+                  getTemplateContent(settings, "whatsapp_global_store_reminder") ||
+                  getTemplateContent(settings, "whatsapp_global_raffle_res") ||
+                  getTemplateContent(settings, "whatsapp_global_raffle_restored") ||
+                  getTemplateContent(settings, "whatsapp_global_raffle_rel") ||
+                  getTemplateContent(settings, "whatsapp_global_raffle_pay") ||
+                  getTemplateContent(settings, "whatsapp_global_raffle_refunded") ||
+                  getTemplateContent(
                     settings,
                     "whatsapp_global_raffle_payment_recovery",
                   ) ||
-                  getSetting(settings, "whatsapp_global_raffle_reminder") ||
-                  getSetting(settings, "whatsapp_global_raffle_opening") ||
-                  getSetting(
+                  getTemplateContent(settings, "whatsapp_global_raffle_reminder") ||
+                  getTemplateContent(settings, "whatsapp_global_raffle_opening") ||
+                  getTemplateContent(
                     settings,
                     "whatsapp_global_raffle_draw_reminder",
                   ) ||
-                  getSetting(settings, "whatsapp_global_raffle_date_change") ||
-                  getSetting(settings, "whatsapp_global_raffle_invitation") ||
-                  getSetting(settings, "whatsapp_global_raffle_winner") ||
-                  getSetting(settings, "whatsapp_global_raffle_results"),
-                ),
+                  getTemplateContent(settings, "whatsapp_global_raffle_date_change") ||
+                  getTemplateContent(settings, "whatsapp_global_raffle_invitation") ||
+                  getTemplateContent(settings, "whatsapp_global_raffle_winner") ||
+                  getTemplateContent(settings, "whatsapp_global_raffle_results"),
+            ),
             storeCount: [
-              getSetting(settings, "whatsapp_global_store_res"),
-              getSetting(settings, "whatsapp_global_store_rel"),
-              getSetting(settings, "whatsapp_global_store_pay"),
-              getSetting(settings, "whatsapp_global_store_refunded"),
-              getSetting(settings, "whatsapp_global_store_payment_recovery"),
-              getSetting(settings, "whatsapp_global_store_restored"),
-              getSetting(settings, "whatsapp_global_store_reminder"),
+              getTemplateContent(settings, "whatsapp_global_store_res"),
+              getTemplateContent(
+                settings,
+                "whatsapp_global_store_payment_instructions",
+              ),
+              getTemplateContent(settings, "whatsapp_global_store_rel"),
+              getTemplateContent(settings, "whatsapp_global_store_pay"),
+              getTemplateContent(settings, "whatsapp_global_store_refunded"),
+              getTemplateContent(settings, "whatsapp_global_store_payment_recovery"),
+              getTemplateContent(settings, "whatsapp_global_store_restored"),
+              getTemplateContent(settings, "whatsapp_global_store_reminder"),
             ].filter(Boolean).length,
             raffleCount: [
               getSetting(settings, "whatsapp_global_raffle_res"),

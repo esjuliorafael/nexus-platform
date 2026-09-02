@@ -14,6 +14,7 @@ export type CloudTemplateType =
   | "PAYMENT_CONFIRMED"
   | "PAYMENT_REFUNDED"
   | "PAYMENT_RECOVERY"
+  | "PAYMENT_INSTRUCTIONS"
   | "RESTORED"
   | "REMINDER"
   | "OPENING"
@@ -43,6 +44,11 @@ export const CLOUD_TEMPLATE_SETTING_KEYS: Array<{
   key: string;
 }> = [
   { scope: "STORE", type: "RESERVATION", key: "whatsapp_global_store_res" },
+  {
+    scope: "STORE",
+    type: "PAYMENT_INSTRUCTIONS",
+    key: "whatsapp_global_store_payment_instructions",
+  },
   {
     scope: "STORE",
     type: "PAYMENT_CONFIRMED",
@@ -126,6 +132,32 @@ const SIMPLIFIED_DATE_CHANGE_CONTENT =
 
 const SIMPLIFIED_DRAW_REMINDER_CONTENT =
   "\u00a1Hola, {{customer_name}}! \u{1F39F}\u{FE0F}\n\nTe recordamos que la rifa \u{201C}{{raffle_name}}\u{201D} se realizar\u{00E1} el:\n\n\u{1F4C5} {{raffle_date}}\n\nTu participaci\u{00F3}n contin\u{00FA}a registrada para este sorteo. \u{1F340}\n\n\u{1F50E} Consulta el detalle de tu participaci\u{00F3}n en Ver participaci\u{00F3}n:\n\n{{participation_url}}\n\n\u00a1Mucha suerte!";
+
+const SIMPLIFIED_STORE_TEMPLATE_DEFAULT_CONTENTS: Partial<
+  Record<CloudTemplateType, string>
+> = {
+  RESERVATION:
+    "¡Hola, {{customer_name}}! ✅\n\nRecibimos tu orden #{{order_id}}.\n\n💰 Total: ${{amount}} MXN\n⏳ Plazo de pago: {{time_store}}\n\n🏦 Si pagarás por depósito o transferencia, responde PAGOS para recibir los datos bancarios de esta orden.\n\n🔎 Consulta los productos, el estado de tu orden y las instrucciones de pago en el botón Ver orden.\n\n{{order_url}}",
+  PAYMENT_INSTRUCTIONS:
+    "Para continuar con el pago de tu orden #{{order_id}}:\n\n🏦 Información para tu pago:\n\nBanco: {{bank_name}}\nBeneficiario: {{bank_beneficiary}}\nNo. cuenta: {{bank_account}}\nCLABE: {{bank_clabe}}\nTarjeta: {{bank_card}}\n\n⏳ Tiempo disponible para pagar: {{time_store}}\n\n📎 Después de realizar el pago, envía tu comprobante por este medio.\n\n🔎 Consulta tu orden en el botón Ver orden.\n\n{{order_url}}",
+};
+
+const SIMPLIFIED_STORE_TEMPLATE_ADDITIONAL_CONTENTS: Partial<
+  Record<CloudTemplateType, string>
+> = {
+  RESTORED:
+    "¡Hola, {{customer_name}}! 🔄\n\nEl apartado de tu orden #{{order_id}} fue restaurado correctamente. ✅\n\n💰 Total pendiente: ${{amount}} MXN\n🕒 Plazo de pago: {{time_store}}\n\n🔎 Consulta el estado y las instrucciones de pago en el botón Ver orden:\n\n{{order_url}}",
+  REMINDER:
+    "¡Hola, {{customer_name}}! ⏳\n\nTu orden #{{order_id}} continúa pendiente de pago.\n\n💰 Total pendiente: ${{amount}} MXN\n⏱️ Tiempo restante: {{time_remaining}}\n\n🔎 Consulta el estado y las instrucciones de pago en el botón Ver orden:\n\n{{order_url}}",
+  RELEASE:
+    "Hola, {{customer_name}}. 🔓\n\nEl apartado de la orden #{{order_id}} fue liberado porque concluyó el plazo de pago.\n\nLa orden ya no está reservada.\n\n🔎 Consulta el estado y los detalles de tu orden en el botón Ver orden:\n\n{{order_url}}",
+  PAYMENT_CONFIRMED:
+    "¡Hola, {{customer_name}}! ✅\n\nEl pago de tu orden #{{order_id}} fue confirmado correctamente.\n\n💰 Total pagado: ${{amount}} MXN\n\n🔎 Consulta el estado y los detalles de tu orden en el botón Ver orden:\n\n{{order_url}}",
+  PAYMENT_REFUNDED:
+    "Hola, {{customer_name}}. ↩️\n\nLa devolución de tu orden #{{order_id}} fue procesada correctamente.\n\n💰 Monto devuelto: ${{refund_amount}} MXN\n\n🔎 Consulta los detalles de tu orden en el botón Ver orden:\n\n{{order_url}}",
+  PAYMENT_RECOVERY:
+    "Hola, {{customer_name}}. ⚠️\n\nNo pudimos confirmar el pago de tu orden.\nNo se realizó ningún cobro.\n\n⏳ Puedes reintentar antes de {{expires_at}} en el botón Reintentar pago:\n\n{{recovery_url}}",
+};
 
 const CLOUD_TEMPLATE_DEFAULT_CONTENTS: Partial<
   Record<CloudTemplateType, string>
@@ -282,6 +314,9 @@ export function buildCanonicalCloudTemplateSources(
           ? settings[`${item.key}_simplified`] ||
             (item.type === "DATE_CHANGE"
               ? SIMPLIFIED_DATE_CHANGE_CONTENT
+              : item.scope === "STORE"
+              ? SIMPLIFIED_STORE_TEMPLATE_DEFAULT_CONTENTS[item.type] ||
+                SIMPLIFIED_STORE_TEMPLATE_ADDITIONAL_CONTENTS[item.type]
               : CLOUD_TEMPLATE_DEFAULT_CONTENTS[item.type]) ||
             ""
           : settings[item.key] || "",
@@ -321,6 +356,7 @@ const VARIABLE_EXAMPLES: Record<string, string> = {
   expires_at: "24 de julio de 2026, 2:00 p. m.",
   recovery_url: "https://example.com/checkout#recovery=example",
   participation_url: "https://example.com/participations/demo-access-token",
+  order_url: "https://example.com/orders/demo-access-token",
   raffle_name: "Rifa Especial de Junio",
   raffle_description: "Tres premios de pollos para show a elegir.",
   raffle_extra: "📌 Cruzas disponibles: Alimonados, Colorados y Giros.",
@@ -415,6 +451,14 @@ function hasParticipationButton(source: CloudTemplateSource) {
   );
 }
 
+function hasOrderButton(source: CloudTemplateSource) {
+  return (
+    source.variant === "SIMPLIFIED" &&
+    source.scope === "STORE" &&
+    /\{\{order_url\}\}/.test(source.content)
+  );
+}
+
 function hasRecoveryButton(source: CloudTemplateSource) {
   return (
     source.variant === "SIMPLIFIED" &&
@@ -463,6 +507,36 @@ function getParticipationButtonSuffix(value: unknown) {
   return rawValue.replace(/^\/+/, "").replace(/^participations\//i, "");
 }
 
+function getOrderButtonBaseUrl() {
+  const baseUrl = (
+    process.env.STOREFRONT_HTTPS_URL ||
+    process.env.STOREFRONT_URL ||
+    "https://rancholastrojes.com.mx"
+  ).replace(/\/+$/, "");
+
+  return `${baseUrl}/orders`;
+}
+
+function getOrderButtonSuffix(value: unknown) {
+  const rawValue = String(value || "").trim();
+  if (!rawValue) return rawValue;
+
+  try {
+    const parsed = new URL(rawValue);
+    const marker = "/orders/";
+    const markerIndex = parsed.pathname.indexOf(marker);
+    if (markerIndex >= 0) {
+      return parsed.pathname
+        .slice(markerIndex + marker.length)
+        .replace(/^\/+|\/+$/g, "");
+    }
+  } catch {
+    // Legacy callers may already provide only the token suffix.
+  }
+
+  return rawValue.replace(/^\/+/, "").replace(/^orders\//i, "");
+}
+
 function getRecoveryButtonSuffix(value: unknown) {
   const rawValue = String(value || "").trim();
   if (!rawValue) return rawValue;
@@ -486,6 +560,13 @@ export function getCloudTemplateBodyContent(source: CloudTemplateSource) {
     // token-bearing line so custom wording cannot submit it twice to Meta.
     .replace(/(?:^|\n)[^\n]*\{\{participation_url\}\}[^\n]*(?=\n|$)/gi, "")
     .replace(/\{\{participation_url\}\}/gi, "")
+    .replace(
+      source.variant === "SIMPLIFIED" && source.scope === "STORE"
+        ? /(?:^|\n)[^\n]*\{\{order_url\}\}[^\n]*(?=\n|$)/gi
+        : /$^/,
+      "",
+    )
+    .replace(/\{\{order_url\}\}/gi, "")
     .replace(
       source.variant === "SIMPLIFIED" && source.type === "PAYMENT_RECOVERY"
         ? /(?:^|\n)[^\n]*\{\{recovery_url\}\}[^\n]*(?=\n|$)/gi
@@ -528,6 +609,7 @@ export function getCloudTemplateDefinitionHash(source: CloudTemplateSource) {
   const dynamicButtonLayout =
     source.variant === "SIMPLIFIED" &&
     (hasParticipationButton(source) ||
+      hasOrderButton(source) ||
       hasRecoveryButton(source) ||
       hasResultsButton(source) ||
       hasRaffleButton(source))
@@ -712,6 +794,21 @@ function buildTemplateDefinition(
                   type: "URL" as const,
                   text: "Ver participación",
                   url: `${getParticipationButtonBaseUrl()}/{{1}}`,
+                  example: ["demo-access-token"],
+                },
+              ],
+            },
+          ]
+        : []),
+      ...(hasOrderButton(source)
+        ? [
+            {
+              type: "BUTTONS" as const,
+              buttons: [
+                {
+                  type: "URL" as const,
+                  text: "Ver orden",
+                  url: `${getOrderButtonBaseUrl()}/{{1}}`,
                   example: ["demo-access-token"],
                 },
               ],
@@ -1286,6 +1383,28 @@ export async function getApprovedCloudTemplate(params: {
           type: "text",
           text: normalizeCloudTemplateParameterValue(
             getParticipationButtonSuffix(params.values.participation_url),
+          ),
+        },
+      ],
+    });
+  }
+  if (
+    hasOrderButton({
+      scope: params.scope,
+      type: params.type,
+      content: params.sourceContent,
+      variant,
+    })
+  ) {
+    components.push({
+      type: "button",
+      sub_type: "url",
+      index: "0",
+      parameters: [
+        {
+          type: "text",
+          text: normalizeCloudTemplateParameterValue(
+            getOrderButtonSuffix(params.values.order_url),
           ),
         },
       ],

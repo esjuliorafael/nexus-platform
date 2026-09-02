@@ -5,6 +5,7 @@ export type ChannelTemplateType =
   | "PAYMENT_CONFIRMED"
   | "PAYMENT_REFUNDED"
   | "PAYMENT_RECOVERY"
+  | "PAYMENT_INSTRUCTIONS"
   | "RESTORED"
   | "REMINDER"
   | "RELEASE"
@@ -75,6 +76,18 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
           ...BANK_TEMPLATE_VARIABLES,
           "{{time_store}}",
         ],
+      },
+      {
+        type: "PAYMENT_INSTRUCTIONS",
+        key: "whatsapp_global_store_payment_instructions",
+        label: "Instrucciones de pago",
+        variables: [
+          "{{order_id}}",
+          ...BANK_TEMPLATE_VARIABLES,
+          "{{time_store}}",
+          "{{order_url}}",
+        ],
+        simplifiedOnly: true,
       },
       {
         type: "REMINDER",
@@ -407,19 +420,147 @@ const RAFFLE_TICKET_TEMPLATE_TYPES = new Set<ChannelTemplateType>([
 const SIMPLIFIED_STORE_TEMPLATE_CONTENT: Partial<
   Record<ChannelTemplateType, string>
 > = {
+  RESERVATION: `¡Hola, {{customer_name}}! ✅
+
+Recibimos tu orden #{{order_id}}.
+
+💰 Total: \${{amount}} MXN
+⏳ Plazo de pago: {{time_store}}
+
+🏦 Si pagarás por depósito o transferencia, responde PAGOS para recibir los datos bancarios de esta orden.
+
+🔎 Consulta los productos, el estado de tu orden y las instrucciones de pago en el botón Ver orden.
+
+{{order_url}}`,
+  PAYMENT_INSTRUCTIONS: `Para continuar con el pago de tu orden #{{order_id}}:
+
+🏦 Información para tu pago:
+
+Banco: {{bank_name}}
+Beneficiario: {{bank_beneficiary}}
+No. cuenta: {{bank_account}}
+CLABE: {{bank_clabe}}
+Tarjeta: {{bank_card}}
+
+⏳ Tiempo disponible para pagar: {{time_store}}
+
+📎 Después de realizar el pago, envía tu comprobante por este medio.
+
+🔎 Consulta tu orden en el botón Ver orden.
+
+{{order_url}}`,
   RELEASE: `Hola, {{customer_name}}. \u26a0\uFE0F
 
 Tu apartado de la orden #{{order_id}} fue liberado porque concluy\u00f3 el plazo de pago.
 
 La orden ya no est\u00e1 reservada.
 
-Si realizaste el pago, escr\u00edbenos por este medio para revisar tu caso.`,
+Si realizaste el pago, escr\u00edbenos por este medio para revisar tu caso.
+
+🔎 Consulta el estado y los detalles de tu orden en el bot\u00f3n Ver orden:
+
+{{order_url}}`,
+  RESTORED: `¡Hola, {{customer_name}}! 🔄
+
+El apartado de tu orden #{{order_id}} fue restaurado correctamente. ✅
+
+💰 Total pendiente: \${{amount}} MXN
+🕒 Plazo de pago: {{time_store}}
+
+🔎 Consulta el estado y las instrucciones de pago en el bot\u00f3n Ver orden:
+
+{{order_url}}`,
+  REMINDER: `¡Hola, {{customer_name}}! ⏳
+
+Tu orden #{{order_id}} contin\u00faa pendiente de pago.
+
+💰 Total pendiente: \${{amount}} MXN
+⏱️ Tiempo restante: {{time_remaining}}
+
+🔎 Consulta el estado y las instrucciones de pago en el bot\u00f3n Ver orden:
+
+{{order_url}}`,
+  PAYMENT_CONFIRMED: `¡Hola, {{customer_name}}! ✅
+
+El pago de tu orden #{{order_id}} fue confirmado correctamente.
+
+💰 Total pagado: \${{amount}} MXN
+
+🔎 Consulta el estado y los detalles de tu orden en el bot\u00f3n Ver orden:
+
+{{order_url}}`,
+  PAYMENT_REFUNDED: `Hola, {{customer_name}}. ↩️
+
+La devoluci\u00f3n de tu orden #{{order_id}} fue procesada correctamente.
+
+💰 Monto devuelto: \${{refund_amount}} MXN
+
+🔎 Consulta los detalles de tu orden en el bot\u00f3n Ver orden:
+
+{{order_url}}`,
+  PAYMENT_RECOVERY: `Hola, {{customer_name}}. ⚠️
+
+No pudimos confirmar el pago de tu orden.
+No se realiz\u00f3 ning\u00fan cobro.
+
+⏳ Puedes reintentar antes de {{expires_at}} en el bot\u00f3n Reintentar pago:
+
+{{recovery_url}}`,
 };
 
 const SIMPLIFIED_STORE_TEMPLATE_VARIABLES: Partial<
   Record<ChannelTemplateType, string[]>
 > = {
-  RELEASE: ["{{customer_name}}", "{{order_id}}"],
+  RESERVATION: [
+    "{{customer_name}}",
+    "{{order_id}}",
+    "{{amount}}",
+    "{{time_store}}",
+    "{{order_url}}",
+  ],
+  PAYMENT_INSTRUCTIONS: [
+    "{{order_id}}",
+    "{{bank_name}}",
+    "{{bank_beneficiary}}",
+    "{{bank_account}}",
+    "{{bank_clabe}}",
+    "{{bank_card}}",
+    "{{time_store}}",
+    "{{order_url}}",
+  ],
+  RESTORED: [
+    "{{customer_name}}",
+    "{{order_id}}",
+    "{{amount}}",
+    "{{time_store}}",
+    "{{order_url}}",
+  ],
+  REMINDER: [
+    "{{customer_name}}",
+    "{{order_id}}",
+    "{{amount}}",
+    "{{time_remaining}}",
+    "{{order_url}}",
+  ],
+  RELEASE: ["{{customer_name}}", "{{order_id}}", "{{order_url}}"],
+  PAYMENT_CONFIRMED: [
+    "{{customer_name}}",
+    "{{order_id}}",
+    "{{amount}}",
+    "{{order_url}}",
+  ],
+  PAYMENT_REFUNDED: [
+    "{{customer_name}}",
+    "{{order_id}}",
+    "{{refund_amount}}",
+    "{{order_url}}",
+  ],
+  PAYMENT_RECOVERY: [
+    "{{customer_name}}",
+    "{{amount}}",
+    "{{expires_at}}",
+    "{{recovery_url}}",
+  ],
 };
 
 const variantKey = (
@@ -855,6 +996,7 @@ export const getTemplateVariantVariables = (
         ? SIMPLIFIED_TEMPLATE_VARIABLES[template.type]
         : SIMPLIFIED_STORE_TEMPLATE_VARIABLES[template.type];
     if (simplifiedVariables) return simplifiedVariables;
+    return [];
   }
   const content = getTemplateVariantContent(template, version, scope);
   if (!content) return template.variables;
@@ -883,7 +1025,13 @@ export const getChannelTemplateEditorContent = (
 };
 
 const TEMPLATE_ORDER_BY_GROUP: Record<string, ChannelTemplateType[]> = {
-  "store-reservations": ["RESERVATION", "RESTORED", "REMINDER", "RELEASE"],
+  "store-reservations": [
+    "RESERVATION",
+    "PAYMENT_INSTRUCTIONS",
+    "RESTORED",
+    "REMINDER",
+    "RELEASE",
+  ],
   "store-payments": [
     "PAYMENT_CONFIRMED",
     "PAYMENT_RECOVERY",

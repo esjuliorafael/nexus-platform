@@ -231,9 +231,26 @@ model Order {
   events                OrderEvent[]
   paymentAttempts       OrderPaymentAttempt[]
   paymentHold           StorePaymentHold?
+  accessTokens          StoreOrderAccessToken[]
 
   @@index([couponId])
   @@map("orders")
+}
+
+model StoreOrderAccessToken {
+  id         String    @id @default(uuid()) @db.Uuid
+  orderId    Int       @map("order_id")
+  phoneHash  String    @map("phone_hash")
+  tokenHash  String    @unique @map("token_hash")
+  expiresAt  DateTime? @map("expires_at")
+  revokedAt  DateTime? @map("revoked_at")
+  createdAt  DateTime  @default(now()) @map("created_at")
+  updatedAt  DateTime  @updatedAt @map("updated_at")
+  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  @@index([orderId, phoneHash])
+  @@index([orderId, expiresAt])
+  @@map("store_order_access_tokens")
 }
 
 model StorePaymentHold {
@@ -947,6 +964,7 @@ enum TemplateType {
   PAYMENT_CONFIRMED   @map("payment_confirmed")
   PAYMENT_REFUNDED    @map("payment_refunded")
   PAYMENT_RECOVERY    @map("payment_recovery")
+  PAYMENT_INSTRUCTIONS @map("payment_instructions")
   RESTORED            @map("restored")
   REMINDER            @map("reminder")
   OPENING             @map("opening")

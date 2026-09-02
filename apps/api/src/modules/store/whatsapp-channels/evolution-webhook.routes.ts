@@ -17,6 +17,13 @@ import { refreshRaffleDrawReminderCampaign } from "../../raffle/raffles/raffle-d
 import { getEvolutionConfigFromSettings } from "../../../services/evolution/evolution.config";
 import { sendWhatsappAndLog } from "../../../services/whatsapp/whatsapp-send.service";
 import { handleRaffleWhatsappMessage } from "../../raffle/ticket-sales/raffle-whatsapp-assistant.service";
+import type { ChannelConfig } from "../../../services/evolution/channel.resolver";
+import { normalizePrincipalInstanceName } from "../../../services/evolution/whatsapp-delivery.service";
+import { isKapsoTenantDeliveryEnabled } from "../../../services/whatsapp/whatsapp-delivery-policy";
+import {
+  handleStoreWhatsappMessage,
+  sendStorePaymentInstructions,
+} from "../orders/store-payment-instructions.service";
 
 const STATUS_PRIORITY: Record<string, number> = {
   failed: 0,
@@ -186,7 +193,20 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
 
       const channel = await server.storePrisma.whatsappChannel.findFirst({
         where: { instanceName: String(instanceName) },
-        select: { evolutionUrl: true, evolutionKey: true },
+        select: {
+          id: true,
+          name: true,
+          purpose: true,
+          instanceName: true,
+          evolutionUrl: true,
+          evolutionKey: true,
+          provider: true,
+          deliveryStrategy: true,
+          kapsoPhoneNumberId: true,
+          kapsoBusinessAccountId: true,
+          phone: true,
+          template: true,
+        },
       });
       const globalEvolution = await getEvolutionConfigFromSettings();
       const evolution = {
@@ -195,6 +215,83 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
         apiKey: channel?.evolutionKey || globalEvolution.apiKey,
       };
       if (evolution.baseUrl && evolution.apiKey) {
+        const principalSettings = await server.storePrisma.setting.findMany({
+          where: {
+            key: {
+              in: [
+                "whatsapp_main_provider",
+                "whatsapp_main_delivery_strategy",
+                "whatsapp_main_kapso_phone_number_id",
+                "whatsapp_main_kapso_business_account_id",
+                "whatsapp_kapso_delivery_enabled",
+                "whatsapp_evolution_instance",
+              ],
+            },
+          },
+          select: { key: true, value: true },
+        });
+        const principal = Object.fromEntries(
+          principalSettings.map((setting) => [setting.key, setting.value || ""]),
+        );
+        const principalInstanceName = normalizePrincipalInstanceName(
+          principal.whatsapp_evolution_instance,
+        );
+        const principalEvolution =
+          principalInstanceName && globalEvolution.baseUrl && globalEvolution.apiKey
+            ? {
+                instanceName: principalInstanceName,
+                baseUrl: globalEvolution.baseUrl,
+                apiKey: globalEvolution.apiKey,
+              }
+            : null;
+        const storeAssistant = await handleStoreWhatsappMessage({
+          storePrisma: server.storePrisma,
+          phone: inbound.senderPhone,
+          text: inbound.text,
+        });
+        if (storeAssistant.handled) {
+          if (storeAssistant.paymentInstructions) {
+            await sendStorePaymentInstructions({
+              paymentInstructions: storeAssistant.paymentInstructions,
+              preferredChannel: channel as ChannelConfig | null,
+              principal: {
+                provider:
+                  principal.whatsapp_main_provider === "KAPSO"
+                    ? "KAPSO"
+                    : "EVOLUTION",
+                evolution: principalEvolution,
+                kapsoPhoneNumberId:
+                  principal.whatsapp_main_kapso_phone_number_id || "",
+                kapsoBusinessAccountId:
+                  principal.whatsapp_main_kapso_business_account_id || "",
+                deliveryStrategy:
+                  (principal.whatsapp_main_delivery_strategy as
+                    | "STANDARD"
+                    | "KAPSO_PREFERRED"
+                    | "EVOLUTION_ONLY") || "STANDARD",
+              },
+              fallbackTransport: { provider: "EVOLUTION", instance: evolution },
+              kapsoEnabled: isKapsoTenantDeliveryEnabled(
+                principal.whatsapp_kapso_delivery_enabled,
+              ),
+            });
+          } else if (storeAssistant.reply) {
+            await sendWhatsappAndLog({
+              transport: { provider: "EVOLUTION", instance: evolution },
+              recipientPhone: inbound.senderPhone,
+              message: { text: storeAssistant.reply },
+              templateName: "store_whatsapp_assistant",
+              routing: {
+                route: "DIRECT",
+                preferredInstanceName: evolution.instanceName,
+                policyClass: "OPERATIONAL",
+                providerPriority: ["EVOLUTION"],
+              },
+            });
+          }
+          return reply.send({ ok: true, handled: "store_payment_instructions" });
+        }
+
         const assistant = await handleRaffleWhatsappMessage({
           rafflePrisma,
           storePrisma: server.storePrisma,

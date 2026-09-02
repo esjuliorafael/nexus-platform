@@ -19,6 +19,7 @@ import { refreshRaffleInvitationCampaign } from "../modules/raffle/raffles/raffl
 import { paymentRecoveryService } from "../services/payment-recovery.service";
 import { isKapsoTenantDeliveryEnabled } from "../services/whatsapp/whatsapp-delivery-policy";
 import { createRaffleParticipationAccess } from "../modules/raffle/ticket-sales/raffle-participation-access.service";
+import { createStoreOrderAccess } from "../modules/store/orders/store-order-access.service";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
 const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
@@ -760,6 +761,16 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         .map((i) => `${i.quantity}x ${i.productName}`)
         .join("\n");
 
+      // Generate the private order link for every order lifecycle notification.
+      // Cloud API turns its marker into the dynamic Ver orden button; Evolution
+      // receives the rendered URL when the simplified version is active.
+      const orderUrl = (
+        await createStoreOrderAccess({
+          orderId: order.id,
+          phone: order.customerPhone,
+        })
+      ).url;
+
       const notification = buildOrderNotification(
         template,
         order,
@@ -769,6 +780,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         "timeRemaining" in data && typeof data.timeRemaining === "string"
           ? data.timeRemaining
           : undefined,
+        orderUrl,
       );
 
       await sendBusinessWhatsappNotification({
@@ -1179,7 +1191,7 @@ function renderTemplate(
     template.replace(
       /\n*Consulta el detalle de tu participaci[^\n]*:\s*\n\s*\{\{participation_url\}\}\s*/i,
       "",
-    ),
+    ).replace(/(?:^|\n)[^\n]*\{\{order_url\}\}[^\n]*(?=\n|$)/gi, ""),
   );
 }
 
@@ -1270,6 +1282,7 @@ function buildOrderNotification(
   timeLimit?: string,
   itemList?: string,
   timeRemaining?: string,
+  orderUrl?: string,
 ) {
   const hour = new Date().getHours();
   let greeting = "Buen día";
@@ -1295,6 +1308,7 @@ function buildOrderNotification(
     ...getBankTemplateValues(bankInfo),
     time_store: timeLimit || "",
     time_remaining: timeRemaining || "",
+    order_url: orderUrl || "",
   };
   return { message: renderTemplate(template, values), values };
 }

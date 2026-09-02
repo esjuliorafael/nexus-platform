@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildCanonicalCloudTemplateSources,
   getCloudTemplateBodyContent,
   getCloudTemplateDefinitionHash,
   normalizeCloudTemplateParameterValue,
@@ -62,6 +63,96 @@ test("moves the raffle invitation URL into its Cloud API button", () => {
         "¡Hola, {{customer_name}}!\n\nConsulta los detalles en el siguiente botón:",
     }),
   );
+});
+
+test("moves the store order URL into its Cloud API button", () => {
+  const order = {
+    scope: "STORE" as const,
+    type: "RESERVATION" as const,
+    variant: "SIMPLIFIED" as const,
+    content:
+      "¡Hola, {{customer_name}}!\n\nConsulta el estado de tu orden en el botón Ver orden.\n\n{{order_url}}",
+  };
+
+  assert.equal(
+    getCloudTemplateBodyContent(order),
+    "¡Hola, {{customer_name}}!\n\nConsulta el estado de tu orden en el botón Ver orden.",
+  );
+  assert.notEqual(
+    getCloudTemplateDefinitionHash(order),
+    getCloudTemplateDefinitionHash({
+      ...order,
+      content:
+        "¡Hola, {{customer_name}}!\n\nConsulta el estado de tu orden en el botón Ver orden.",
+    }),
+  );
+});
+
+test("provides payment instructions with the order URL as a Cloud API button", () => {
+  const sources = buildCanonicalCloudTemplateSources(
+    {},
+    ["STORE"],
+    "SIMPLIFIED",
+  );
+  const source = sources.find(
+    (candidate) => candidate.type === "PAYMENT_INSTRUCTIONS",
+  );
+
+  assert.ok(source);
+  assert.match(source.content, /\{\{order_id\}\}/);
+  assert.match(source.content, /\{\{bank_name\}\}/);
+  assert.match(source.content, /\{\{time_store\}\}/);
+  assert.match(source.content, /\{\{order_url\}\}/);
+  assert.doesNotMatch(
+    getCloudTemplateBodyContent(source),
+    /\{\{order_url\}\}/,
+  );
+  assert.match(
+    getCloudTemplateBodyContent(source),
+    /Consulta tu orden en el botón Ver orden/,
+  );
+});
+
+test("keeps the simplified store reservation fallback scoped to Store", () => {
+  const storeReservation = buildCanonicalCloudTemplateSources(
+    {},
+    ["STORE"],
+    "SIMPLIFIED",
+  ).find((source) => source.type === "RESERVATION");
+
+  assert.ok(storeReservation);
+  assert.match(storeReservation.content, /\{\{order_url\}\}/);
+});
+
+test("provides every simplified Store order template with its correct CTA", () => {
+  const sources = buildCanonicalCloudTemplateSources(
+    {},
+    ["STORE"],
+    "SIMPLIFIED",
+  );
+  const expectedOrderTypes = [
+    "RESERVATION",
+    "PAYMENT_INSTRUCTIONS",
+    "RESTORED",
+    "REMINDER",
+    "RELEASE",
+    "PAYMENT_CONFIRMED",
+    "PAYMENT_REFUNDED",
+  ];
+  const orderUrlMarker =
+    String.fromCharCode(123, 123) + "order_url" + String.fromCharCode(125, 125);
+
+  for (const type of expectedOrderTypes) {
+    const source = sources.find((candidate) => candidate.type === type);
+    assert.ok(source, `Missing simplified Store source: ${type}`);
+    assert.equal(source.content.includes(orderUrlMarker), true);
+  }
+
+  const recovery = sources.find((source) => source.type === "PAYMENT_RECOVERY");
+  assert.ok(recovery);
+  const recoveryUrlMarker =
+    String.fromCharCode(123, 123) + "recovery_url" + String.fromCharCode(125, 125);
+  assert.equal(recovery.content.includes(recoveryUrlMarker), true);
 });
 
 test("omits optional raffle invitation info when it is empty", () => {

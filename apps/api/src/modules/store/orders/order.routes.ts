@@ -12,17 +12,31 @@ import { storePaymentHoldService } from "./store-payment-hold.service";
 import { z } from "zod";
 import { customerPhoneSchema } from "../../../utils/customer-phone";
 import { customerAuditActor, requireAdminActor } from "../../../utils/admin-authorization";
+import { getStoreOrderAccess } from "./store-order-access.service";
 
 const convertPaymentHoldSchema = z.object({
   customerPhone: customerPhoneSchema,
 });
 
 export async function orderRoutes(server: FastifyInstance) {
-  // Storefront read (Public)
-  server.get("/storefront", async (request) => {
-    // This could be for a customer to check their order status if needed
-    // or just a stub. The prompt says "GET /store/orders (storefront read)"
-    return { message: "Storefront order check requires ID" };
+  // Private Storefront read. The token is opaque and is bound to the order phone hash.
+  server.get("/access/:token", { config: { rateLimit: { max: 20, timeWindow: "10 minutes" } } }, async (request, reply) => {
+    try {
+      const token = z.string().min(32).max(180).parse((request.params as { token?: string }).token);
+      reply.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      reply.header("Pragma", "no-cache");
+      reply.header("Vary", "Origin");
+      const access = await getStoreOrderAccess(token);
+      if (!access) {
+        return reply.status(404).send({ message: "La consulta privada no está disponible o ha vencido." });
+      }
+      return access;
+    } catch (error: any) {
+      if (error?.issues) {
+        return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      }
+      throw error;
+    }
   });
 
   // POST /store/orders (Public)
