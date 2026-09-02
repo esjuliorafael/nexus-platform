@@ -328,6 +328,9 @@ export const orderService = {
         productId: product.id,
         productName: product.name,
         productType: product.type,
+        productRingNumber: product.type === "BIRD" ? product.ringNumber : null,
+        productAge: product.type === "BIRD" ? product.age : null,
+        productPurpose: product.type === "BIRD" ? product.purpose : null,
         quantity: item.quantity,
         unitPrice: product.price,
       });

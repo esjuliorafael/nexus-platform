@@ -4,14 +4,18 @@ import { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   ArrowLeft,
+  CalendarClock,
   CheckCircle2,
   CircleAlert,
   Clock3,
   CreditCard,
+  Hash,
   MapPin,
   PackageCheck,
   ShoppingBag,
+  Target,
   Truck,
+  type LucideIcon,
 } from "lucide-react";
 import { orderApi, type StoreOrderAccessResponse, type StoreOrderAccessStatus } from "../../../api/orders";
 import { Button } from "../../../components/ui/Button";
@@ -19,7 +23,7 @@ import { Badge } from "../../../components/ui/Badge";
 import { StorefrontAutonomousCard, StorefrontCard } from "../../../components/ui/Card";
 import { StorefrontIcon } from "../../../components/ui/Icon";
 import { BankInfoCard } from "../../../components/checkout/BankInfoCard";
-import { formatPrice } from "../../../utils/formatters";
+import { formatBirdAge, formatBirdPurpose, formatPrice } from "../../../utils/formatters";
 
 const formatDate = (value: string | null) => {
   if (!value) return null;
@@ -164,12 +168,36 @@ export function OrderAccessClient({
               <h2 className="sf-text-h2 text-stone-900">Productos de tu orden</h2>
               <div className="mt-[var(--sf-space-md)] flex flex-col" style={{ gap: "var(--sf-space-sm)" }}>
                 {data.order.items.map((item) => (
-                  <div key={item.id} className="flex items-start justify-between border-b border-stone-100 pb-[var(--sf-space-sm)] last:border-0 last:pb-0" style={{ gap: "var(--sf-space-md)" }}>
-                    <div className="min-w-0">
-                      <p className="sf-text-body font-semibold text-stone-800">{item.name}</p>
-                      <p className="sf-text-secondary text-stone-500">{item.quantity} × ${formatPrice(item.unitPrice)}</p>
+                  <div key={item.id} className="border-b border-stone-100 pb-[var(--sf-space-md)] last:border-0 last:pb-0">
+                    <div className="flex items-start justify-between" style={{ gap: "var(--sf-space-md)" }}>
+                      <div className="min-w-0">
+                        <p className="sf-text-body font-semibold text-stone-800">{item.name}</p>
+                        <p className="sf-text-secondary text-stone-500">{item.quantity} × ${formatPrice(item.unitPrice)}</p>
+                      </div>
+                      <p className="sf-text-body shrink-0 font-semibold text-stone-900">${formatPrice(item.lineTotal)}</p>
                     </div>
-                    <p className="sf-text-body shrink-0 font-semibold text-stone-900">${formatPrice(item.lineTotal)}</p>
+                    {item.productInfo && (
+                      <div className="mt-[var(--sf-space-md)] border-t border-stone-100 pt-[var(--sf-space-md)]">
+                        <p className="sf-text-eyebrow text-stone-500">Información del ave</p>
+                        <dl className="mt-[var(--sf-space-sm)] grid grid-cols-1 gap-[var(--sf-space-sm)] sm:grid-cols-3">
+                          <OrderProductInfoItem
+                            icon={Hash}
+                            label="No. anillo"
+                            value={item.productInfo.ringNumber || "N/A"}
+                          />
+                          <OrderProductInfoItem
+                            icon={CalendarClock}
+                            label="Edad / etapa"
+                            value={formatBirdAge(item.productInfo.age)}
+                          />
+                          <OrderProductInfoItem
+                            icon={Target}
+                            label="Propósito"
+                            value={formatBirdPurpose(item.productInfo.purpose)}
+                          />
+                        </dl>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -220,6 +248,26 @@ export function OrderAccessClient({
           </div>
         </StorefrontCard>
       </div>
+    </div>
+  );
+}
+
+function OrderProductInfoItem({
+  icon: Icon,
+  label,
+  value,
+}: {
+  icon: LucideIcon;
+  label: string;
+  value: string;
+}) {
+  return (
+    <div className="min-w-0">
+      <dt className="flex items-center text-stone-500" style={{ gap: "var(--sf-space-xs)" }}>
+        <Icon aria-hidden="true" size={16} strokeWidth={1.8} />
+        <span className="sf-text-eyebrow">{label}</span>
+      </dt>
+      <dd className="sf-text-secondary mt-[var(--sf-space-xs)] font-semibold text-stone-800">{value}</dd>
     </div>
   );
 }

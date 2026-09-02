@@ -53,6 +53,11 @@ export interface StoreOrderAccessResponse {
       quantity: number;
       unitPrice: number;
       lineTotal: number;
+      productInfo: {
+        ringNumber: string | null;
+        age: string | null;
+        purpose: string | null;
+      } | null;
     }>;
   };
   bankInfo: {

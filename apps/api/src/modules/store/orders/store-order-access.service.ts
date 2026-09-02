@@ -170,10 +170,61 @@ const getOrderStatus = (order: {
   return "PENDING" as const;
 };
 
+export function toStoreOrderAccessItem(item: {
+  id: number;
+  productId: number;
+  productName: string | null;
+  productType: string;
+  productRingNumber?: string | null;
+  productAge?: string | null;
+  productPurpose?: string | null;
+  quantity: number;
+  unitPrice: unknown;
+  product?: {
+    ringNumber: string | null;
+    age: string | null;
+    purpose: string | null;
+  } | null;
+}) {
+  const isBird = String(item.productType).toUpperCase() === "BIRD";
+  return {
+    id: item.id,
+    productId: item.productId,
+    name: item.productName || `Producto ${item.productId}`,
+    type: String(item.productType).toLowerCase(),
+    quantity: item.quantity,
+    unitPrice: Number(item.unitPrice),
+    lineTotal: Number(item.unitPrice) * item.quantity,
+    productInfo: isBird
+      ? {
+          ringNumber: item.productRingNumber ?? item.product?.ringNumber ?? null,
+          age: item.productAge ?? item.product?.age ?? null,
+          purpose: item.productPurpose ?? item.product?.purpose ?? null,
+        }
+      : null,
+  };
+}
+
 export async function getStoreOrderAccess(token: string) {
   const access = await storePrisma.storeOrderAccessToken.findUnique({
     where: { tokenHash: hash(token) },
-    include: { order: { include: { items: true } } },
+    include: {
+      order: {
+        include: {
+          items: {
+            include: {
+              product: {
+                select: {
+                  ringNumber: true,
+                  age: true,
+                  purpose: true,
+                },
+              },
+            },
+          },
+        },
+      },
+    },
   });
   if (!access || access.revokedAt || (access.expiresAt && access.expiresAt < new Date())) {
     return null;
@@ -225,15 +276,7 @@ export async function getStoreOrderAccess(token: string) {
         shippingCost: Number(order.shippingCost),
         total: Number(order.total),
       },
-      items: order.items.map((item) => ({
-        id: item.id,
-        productId: item.productId,
-        name: item.productName || `Producto ${item.productId}`,
-        type: String(item.productType).toLowerCase(),
-        quantity: item.quantity,
-        unitPrice: Number(item.unitPrice),
-        lineTotal: Number(item.unitPrice) * item.quantity,
-      })),
+      items: order.items.map(toStoreOrderAccessItem),
     },
     bankInfo,
     expiresAt: access.expiresAt,

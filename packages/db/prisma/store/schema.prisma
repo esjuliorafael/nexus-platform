@@ -99,29 +99,29 @@ model Subcategory {
 }
 
 model Product {
-  id               Int                    @id @default(autoincrement())
-  stock            Int                    @default(1)
-  active           Boolean                @default(true) @map("active")
-  published        Boolean                @default(true) @map("published")
-  createdAt        DateTime               @default(now()) @map("created_at")
-  description      String?                @map("description")
-  name             String                 @map("name")
-  price            Decimal                @default(0.00) @map("price")
-  ringNumber       String?                @map("ring_number")
-  saleStatus       SaleStatus             @default(AVAILABLE) @map("sale_status")
-  coverAssetId     String?                @map("cover_asset_id") @db.Uuid
-  type             ProductType            @map("type")
-  featured         Boolean                @default(false) @map("featured")
-  featuredOrder    Int?                   @map("featured_order")
-  updated_at       DateTime               @default(now()) @map("updated_at")
-  age              BirdAge?               @map("age")
-  purpose          BirdPurpose?           @map("purpose")
-  orderItems       OrderItem[]
-  events           ProductEvent[]
-  paymentHoldItems StorePaymentHoldItem[]
+  id                          Int                          @id @default(autoincrement())
+  stock                       Int                          @default(1)
+  active                      Boolean                      @default(true) @map("active")
+  published                   Boolean                      @default(true) @map("published")
+  createdAt                   DateTime                     @default(now()) @map("created_at")
+  description                 String?                      @map("description")
+  name                        String                       @map("name")
+  price                       Decimal                      @default(0.00) @map("price")
+  ringNumber                  String?                      @map("ring_number")
+  saleStatus                  SaleStatus                   @default(AVAILABLE) @map("sale_status")
+  coverAssetId                String?                      @map("cover_asset_id") @db.Uuid
+  type                        ProductType                  @map("type")
+  featured                    Boolean                      @default(false) @map("featured")
+  featuredOrder               Int?                         @map("featured_order")
+  updated_at                  DateTime                     @default(now()) @map("updated_at")
+  age                         BirdAge?                     @map("age")
+  purpose                     BirdPurpose?                 @map("purpose")
+  orderItems                  OrderItem[]
+  events                      ProductEvent[]
+  paymentHoldItems            StorePaymentHoldItem[]
   inventoryIntegrityIncidents InventoryIntegrityIncident[]
-  gallery          ProductGallery[]
-  coverAsset       MediaAsset?            @relation("ProductCoverAsset", fields: [coverAssetId], references: [id], onDelete: SetNull)
+  gallery                     ProductGallery[]
+  coverAsset                  MediaAsset?                  @relation("ProductCoverAsset", fields: [coverAssetId], references: [id], onDelete: SetNull)
 
   @@index([coverAssetId])
   @@index([active, published])
@@ -190,42 +190,42 @@ model ProductGallery {
 }
 
 model Order {
-  id                    Int                   @id @default(autoincrement())
-  subtotal              Decimal               @map("subtotal")
-  discountTotal         Decimal               @default(0.00) @map("discount_total")
-  total                 Decimal               @map("total")
-  createdAt             DateTime              @default(now()) @map("created_at")
-  customerName          String                @map("customer_name")
-  customerPhone         String                @map("customer_phone")
-  receiverName          String?               @map("receiver_name")
-  deliveryType          DeliveryType          @default(SHIPPING) @map("delivery_type")
-  deliveryMethod        String?               @map("delivery_method")
-  shippingAddress       String?               @map("shipping_address")
-  shippingStreet        String?               @map("shipping_street")
-  shippingNeighborhood  String?               @map("shipping_neighborhood")
-  shippingPostalCode    String?               @map("shipping_postal_code")
-  shippingCity          String?               @map("shipping_city")
-  shippingCost          Decimal               @map("shipping_cost")
-  shippingState         String?               @map("shipping_state")
-  status                OrderStatus           @default(PENDING) @map("status")
-  paymentMethod         String                @default("TRANSFER") @map("payment_method")
-  paymentStatus         String                @default("PENDING") @map("payment_status")
-  paymentExpiresAt      DateTime?             @map("payment_expires_at")
-  mpPaymentId           String?               @map("mp_payment_id")
-  mpSellerUserId        String?               @map("mp_seller_user_id")
-  mpPaymentStatus       String?               @map("mp_payment_status")
-  mpPaymentStatusDetail String?               @map("mp_payment_status_detail")
-  mpPaymentMethodId     String?               @map("mp_payment_method_id")
-  mpPaymentTypeId       String?               @map("mp_payment_type_id")
-  mpPaidAmount          Decimal?              @map("mp_paid_amount")
-  mpRefundId            String?               @map("mp_refund_id")
-  mpRefundedAmount      Decimal               @default(0.00) @map("mp_refunded_amount")
-  mpRefundedAt          DateTime?             @map("mp_refunded_at")
-  customerEmail         String?               @map("customer_email")
-  couponId              Int?                  @map("coupon_id")
-  couponCode            String?               @map("coupon_code")
-  expiresAt             DateTime?             @map("expires_at")
-  coupon                Coupon?               @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  id                    Int                     @id @default(autoincrement())
+  subtotal              Decimal                 @map("subtotal")
+  discountTotal         Decimal                 @default(0.00) @map("discount_total")
+  total                 Decimal                 @map("total")
+  createdAt             DateTime                @default(now()) @map("created_at")
+  customerName          String                  @map("customer_name")
+  customerPhone         String                  @map("customer_phone")
+  receiverName          String?                 @map("receiver_name")
+  deliveryType          DeliveryType            @default(SHIPPING) @map("delivery_type")
+  deliveryMethod        String?                 @map("delivery_method")
+  shippingAddress       String?                 @map("shipping_address")
+  shippingStreet        String?                 @map("shipping_street")
+  shippingNeighborhood  String?                 @map("shipping_neighborhood")
+  shippingPostalCode    String?                 @map("shipping_postal_code")
+  shippingCity          String?                 @map("shipping_city")
+  shippingCost          Decimal                 @map("shipping_cost")
+  shippingState         String?                 @map("shipping_state")
+  status                OrderStatus             @default(PENDING) @map("status")
+  paymentMethod         String                  @default("TRANSFER") @map("payment_method")
+  paymentStatus         String                  @default("PENDING") @map("payment_status")
+  paymentExpiresAt      DateTime?               @map("payment_expires_at")
+  mpPaymentId           String?                 @map("mp_payment_id")
+  mpSellerUserId        String?                 @map("mp_seller_user_id")
+  mpPaymentStatus       String?                 @map("mp_payment_status")
+  mpPaymentStatusDetail String?                 @map("mp_payment_status_detail")
+  mpPaymentMethodId     String?                 @map("mp_payment_method_id")
+  mpPaymentTypeId       String?                 @map("mp_payment_type_id")
+  mpPaidAmount          Decimal?                @map("mp_paid_amount")
+  mpRefundId            String?                 @map("mp_refund_id")
+  mpRefundedAmount      Decimal                 @default(0.00) @map("mp_refunded_amount")
+  mpRefundedAt          DateTime?               @map("mp_refunded_at")
+  customerEmail         String?                 @map("customer_email")
+  couponId              Int?                    @map("coupon_id")
+  couponCode            String?                 @map("coupon_code")
+  expiresAt             DateTime?               @map("expires_at")
+  coupon                Coupon?                 @relation(fields: [couponId], references: [id], onDelete: SetNull)
   items                 OrderItem[]
   reads                 OrderRead[]
   events                OrderEvent[]
@@ -238,15 +238,15 @@ model Order {
 }
 
 model StoreOrderAccessToken {
-  id         String    @id @default(uuid()) @db.Uuid
-  orderId    Int       @map("order_id")
-  phoneHash  String    @map("phone_hash")
-  tokenHash  String    @unique @map("token_hash")
-  expiresAt  DateTime? @map("expires_at")
-  revokedAt  DateTime? @map("revoked_at")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
-  order      Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  id        String    @id @default(uuid()) @db.Uuid
+  orderId   Int       @map("order_id")
+  phoneHash String    @map("phone_hash")
+  tokenHash String    @unique @map("token_hash")
+  expiresAt DateTime? @map("expires_at")
+  revokedAt DateTime? @map("revoked_at")
+  createdAt DateTime  @default(now()) @map("created_at")
+  updatedAt DateTime  @updatedAt @map("updated_at")
+  order     Order     @relation(fields: [orderId], references: [id], onDelete: Cascade)
 
   @@index([orderId, phoneHash])
   @@index([orderId, expiresAt])
@@ -297,15 +297,18 @@ model StorePaymentHold {
 }
 
 model StorePaymentHoldItem {
-  id          Int              @id @default(autoincrement())
-  holdId      String           @map("hold_id") @db.Uuid
-  productId   Int              @map("product_id")
-  productName String           @map("product_name")
-  productType ProductType      @map("product_type")
-  quantity    Int
-  unitPrice   Decimal          @map("unit_price")
-  hold        StorePaymentHold @relation(fields: [holdId], references: [id], onDelete: Cascade)
-  product     Product          @relation(fields: [productId], references: [id])
+  id                Int              @id @default(autoincrement())
+  holdId            String           @map("hold_id") @db.Uuid
+  productId         Int              @map("product_id")
+  productName       String           @map("product_name")
+  productType       ProductType      @map("product_type")
+  productRingNumber String?          @map("product_ring_number")
+  productAge        BirdAge?         @map("product_age")
+  productPurpose    BirdPurpose?     @map("product_purpose")
+  quantity          Int
+  unitPrice         Decimal          @map("unit_price")
+  hold              StorePaymentHold @relation(fields: [holdId], references: [id], onDelete: Cascade)
+  product           Product          @relation(fields: [productId], references: [id])
 
   @@index([holdId])
   @@map("store_payment_hold_items")
@@ -438,15 +441,18 @@ model ProductEvent {
 }
 
 model OrderItem {
-  id          Int         @id @default(autoincrement())
-  orderId     Int         @map("order_id")
-  productId   Int         @map("product_id")
-  productName String?     @map("product_name")
-  productType ProductType @map("product_type")
-  quantity    Int         @map("quantity")
-  unitPrice   Decimal     @map("unit_price")
-  order       Order       @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product     Product     @relation(fields: [productId], references: [id])
+  id                Int          @id @default(autoincrement())
+  orderId           Int          @map("order_id")
+  productId         Int          @map("product_id")
+  productName       String?      @map("product_name")
+  productType       ProductType  @map("product_type")
+  productRingNumber String?      @map("product_ring_number")
+  productAge        BirdAge?     @map("product_age")
+  productPurpose    BirdPurpose? @map("product_purpose")
+  quantity          Int          @map("quantity")
+  unitPrice         Decimal      @map("unit_price")
+  order             Order        @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product           Product      @relation(fields: [productId], references: [id])
 
   @@map("order_items")
 }
@@ -572,23 +578,23 @@ model PaymentChannel {
 }
 
 model WhatsappChannel {
-  id                     Int                     @id @default(autoincrement())
-  provider               WhatsappProvider        @default(EVOLUTION)
-  deliveryStrategy       WhatsappDeliveryStrategy @default(STANDARD) @map("delivery_strategy")
-  evolutionKey           String?                 @map("evolution_key")
-  evolutionUrl           String?                 @map("evolution_url")
-  kapsoPhoneNumberId     String?                 @map("kapso_phone_number_id")
-  kapsoBusinessAccountId String?                 @map("kapso_business_account_id")
-  active                 Boolean                 @default(true) @map("active")
-  createdAt              DateTime                @default(now()) @map("created_at")
-  instanceName           String?                 @map("instance_name")
-  name                   String                  @map("name")
-  phone                  String                  @map("phone")
-  purpose                String                  @map("purpose")
-  template               String                  @map("template")
-  updated_at             DateTime                @default(now()) @map("updated_at")
-  templates              WhatsappTemplate[]
-  cloudTemplates         WhatsappCloudTemplate[]
+  id                      Int                              @id @default(autoincrement())
+  provider                WhatsappProvider                 @default(EVOLUTION)
+  deliveryStrategy        WhatsappDeliveryStrategy         @default(STANDARD) @map("delivery_strategy")
+  evolutionKey            String?                          @map("evolution_key")
+  evolutionUrl            String?                          @map("evolution_url")
+  kapsoPhoneNumberId      String?                          @map("kapso_phone_number_id")
+  kapsoBusinessAccountId  String?                          @map("kapso_business_account_id")
+  active                  Boolean                          @default(true) @map("active")
+  createdAt               DateTime                         @default(now()) @map("created_at")
+  instanceName            String?                          @map("instance_name")
+  name                    String                           @map("name")
+  phone                   String                           @map("phone")
+  purpose                 String                           @map("purpose")
+  template                String                           @map("template")
+  updated_at              DateTime                         @default(now()) @map("updated_at")
+  templates               WhatsappTemplate[]
+  cloudTemplates          WhatsappCloudTemplate[]
   cloudTemplateCandidates WhatsappCloudTemplateCandidate[]
   kapsoOnboardingSessions KapsoOnboardingSession[]
 
@@ -597,23 +603,23 @@ model WhatsappChannel {
 }
 
 model KapsoOnboardingSession {
-  id                       String                        @id @default(uuid())
-  tokenHash                String                        @unique @map("token_hash")
-  customerId               String                        @map("customer_id")
-  target                   KapsoOnboardingTarget
-  channelId                Int?                          @map("channel_id")
-  status                   KapsoOnboardingStatus         @default(PENDING)
-  setupLinkId              String?                       @map("setup_link_id")
-  phoneNumberId            String?                       @map("phone_number_id")
-  businessAccountId        String?                       @map("business_account_id")
-  displayPhoneNumber       String?                       @map("display_phone_number")
-  returnUrl                String                        @map("return_url")
-  errorMessage             String?                       @map("error_message")
-  expiresAt                DateTime                      @map("expires_at")
-  completedAt              DateTime?                     @map("completed_at")
-  createdAt                DateTime                      @default(now()) @map("created_at")
-  updatedAt                DateTime                      @updatedAt @map("updated_at")
-  channel                  WhatsappChannel?              @relation(fields: [channelId], references: [id], onDelete: SetNull)
+  id                 String                @id @default(uuid())
+  tokenHash          String                @unique @map("token_hash")
+  customerId         String                @map("customer_id")
+  target             KapsoOnboardingTarget
+  channelId          Int?                  @map("channel_id")
+  status             KapsoOnboardingStatus @default(PENDING)
+  setupLinkId        String?               @map("setup_link_id")
+  phoneNumberId      String?               @map("phone_number_id")
+  businessAccountId  String?               @map("business_account_id")
+  displayPhoneNumber String?               @map("display_phone_number")
+  returnUrl          String                @map("return_url")
+  errorMessage       String?               @map("error_message")
+  expiresAt          DateTime              @map("expires_at")
+  completedAt        DateTime?             @map("completed_at")
+  createdAt          DateTime              @default(now()) @map("created_at")
+  updatedAt          DateTime              @updatedAt @map("updated_at")
+  channel            WhatsappChannel?      @relation(fields: [channelId], references: [id], onDelete: SetNull)
 
   @@index([customerId, status, createdAt])
   @@index([channelId, status])
@@ -754,15 +760,15 @@ model WhatsappMessageLog {
 }
 
 model WhatsappCustomerServiceWindow {
-  id                     Int              @id @default(autoincrement())
-  recipientPhone         String           @map("recipient_phone")
-  channelIdentity        String           @map("channel_identity")
-  provider               WhatsappProvider @default(KAPSO)
-  lastInboundMessageId   String?          @map("last_inbound_message_id")
-  openedAt               DateTime         @default(now()) @map("opened_at")
-  expiresAt              DateTime         @map("expires_at")
-  createdAt              DateTime         @default(now()) @map("created_at")
-  updatedAt              DateTime         @updatedAt @map("updated_at")
+  id                   Int              @id @default(autoincrement())
+  recipientPhone       String           @map("recipient_phone")
+  channelIdentity      String           @map("channel_identity")
+  provider             WhatsappProvider @default(KAPSO)
+  lastInboundMessageId String?          @map("last_inbound_message_id")
+  openedAt             DateTime         @default(now()) @map("opened_at")
+  expiresAt            DateTime         @map("expires_at")
+  createdAt            DateTime         @default(now()) @map("created_at")
+  updatedAt            DateTime         @updatedAt @map("updated_at")
 
   @@unique([recipientPhone, channelIdentity, provider])
   @@index([provider, channelIdentity, expiresAt])
@@ -770,17 +776,17 @@ model WhatsappCustomerServiceWindow {
 }
 
 model WhatsappMarketingPreference {
-  id              Int                              @id @default(autoincrement())
-  phone           String                           @unique
-  displayName     String?                          @map("display_name")
-  status          WhatsappMarketingConsentStatus   @default(UNKNOWN)
-  consentAt       DateTime?                        @map("consent_at")
-  consentSource   WhatsappMarketingConsentSource?  @map("consent_source")
-  consentVersion  String?                          @map("consent_version")
-  optedOutAt      DateTime?                        @map("opted_out_at")
-  lastMarketingAt DateTime?                        @map("last_marketing_at")
-  createdAt       DateTime                         @default(now()) @map("created_at")
-  updatedAt       DateTime                         @updatedAt @map("updated_at")
+  id              Int                             @id @default(autoincrement())
+  phone           String                          @unique
+  displayName     String?                         @map("display_name")
+  status          WhatsappMarketingConsentStatus  @default(UNKNOWN)
+  consentAt       DateTime?                       @map("consent_at")
+  consentSource   WhatsappMarketingConsentSource? @map("consent_source")
+  consentVersion  String?                         @map("consent_version")
+  optedOutAt      DateTime?                       @map("opted_out_at")
+  lastMarketingAt DateTime?                       @map("last_marketing_at")
+  createdAt       DateTime                        @default(now()) @map("created_at")
+  updatedAt       DateTime                        @updatedAt @map("updated_at")
   events          WhatsappMarketingConsentEvent[]
 
   @@index([status])
@@ -788,17 +794,17 @@ model WhatsappMarketingPreference {
 }
 
 model WhatsappMarketingConsentEvent {
-  id             Int                              @id @default(autoincrement())
-  preferenceId   Int                              @map("preference_id")
-  previousStatus WhatsappMarketingConsentStatus?  @map("previous_status")
-  nextStatus     WhatsappMarketingConsentStatus   @map("next_status")
-  source         WhatsappMarketingConsentSource
-  policyVersion  String?                          @map("policy_version")
-  keyword        String?
+  id              Int                             @id @default(autoincrement())
+  preferenceId    Int                             @map("preference_id")
+  previousStatus  WhatsappMarketingConsentStatus? @map("previous_status")
+  nextStatus      WhatsappMarketingConsentStatus  @map("next_status")
+  source          WhatsappMarketingConsentSource
+  policyVersion   String?                         @map("policy_version")
+  keyword         String?
   externalEventId String?                         @unique @map("external_event_id")
-  metadata       Json?
-  createdAt      DateTime                         @default(now()) @map("created_at")
-  preference     WhatsappMarketingPreference      @relation(fields: [preferenceId], references: [id], onDelete: Cascade)
+  metadata        Json?
+  createdAt       DateTime                        @default(now()) @map("created_at")
+  preference      WhatsappMarketingPreference     @relation(fields: [preferenceId], references: [id], onDelete: Cascade)
 
   @@index([preferenceId, createdAt])
   @@map("whatsapp_marketing_consent_events")
@@ -959,20 +965,20 @@ enum ContactChannelType {
 }
 
 enum TemplateType {
-  RESERVATION         @map("reservation")
-  RELEASE             @map("release")
-  PAYMENT_CONFIRMED   @map("payment_confirmed")
-  PAYMENT_REFUNDED    @map("payment_refunded")
-  PAYMENT_RECOVERY    @map("payment_recovery")
-  PAYMENT_INSTRUCTIONS @map("payment_instructions")
-  RESTORED            @map("restored")
-  REMINDER            @map("reminder")
-  OPENING             @map("opening")
-  DRAW_REMINDER       @map("draw_reminder")
-  DATE_CHANGE          @map("date_change")
-  RAFFLE_INVITATION   @map("raffle_invitation")
-  RESULT_WINNER       @map("result_winner")
-  RESULT_PARTICIPANTS @map("result_participants")
+  RESERVATION               @map("reservation")
+  RELEASE                   @map("release")
+  PAYMENT_CONFIRMED         @map("payment_confirmed")
+  PAYMENT_REFUNDED          @map("payment_refunded")
+  PAYMENT_RECOVERY          @map("payment_recovery")
+  PAYMENT_INSTRUCTIONS      @map("payment_instructions")
+  RESTORED                  @map("restored")
+  REMINDER                  @map("reminder")
+  OPENING                   @map("opening")
+  DRAW_REMINDER             @map("draw_reminder")
+  DATE_CHANGE               @map("date_change")
+  RAFFLE_INVITATION         @map("raffle_invitation")
+  RESULT_WINNER             @map("result_winner")
+  RESULT_PARTICIPANTS       @map("result_participants")
   PARTICIPATION_LOOKUP_CODE @map("participation_lookup_code")
 }
 
