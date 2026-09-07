@@ -8,13 +8,19 @@ import React, {
 import { CheckCircle2, Loader2, UploadCloud, XCircle } from "lucide-react";
 import { apiUpload, MediaUploadResult } from "../../api";
 
-type UploadTaskStatus = "uploading" | "finalizing" | "ready" | "failed";
+type UploadTaskStatus =
+  | "uploading"
+  | "retrying"
+  | "finalizing"
+  | "ready"
+  | "failed";
 
 interface UploadTask {
   id: string;
   fileName: string;
   label: string;
   progress: number;
+  attempt: number;
   status: UploadTaskStatus;
   error?: string;
 }
@@ -32,6 +38,28 @@ interface UploadQueueContextValue {
 }
 
 const UploadQueueContext = createContext<UploadQueueContextValue | null>(null);
+
+const DIRECT_UPLOAD_MAX_ATTEMPTS = 3;
+const DIRECT_UPLOAD_RETRY_DELAYS_MS = [1000, 3000] as const;
+
+function isRetryableDirectUploadError(error: unknown) {
+  const response =
+    error && typeof error === "object"
+      ? (error as { response?: { status?: unknown } }).response
+      : undefined;
+  const status = response?.status;
+
+  return (
+    typeof status !== "number" ||
+    status === 408 ||
+    status === 429 ||
+    status >= 500
+  );
+}
+
+function waitForRetry(delayMs: number) {
+  return new Promise<void>((resolve) => window.setTimeout(resolve, delayMs));
+}
 
 export function useUploadQueue() {
   const value = useContext(UploadQueueContext);
@@ -71,15 +99,51 @@ export const UploadQueueProvider: React.FC<UploadQueueProviderProps> = ({
           fileName: file.name,
           label: taskLabel,
           progress: 0,
+          attempt: 1,
           status: "uploading",
         },
       ]);
 
       void (async () => {
         try {
-          await apiUpload.uploadToSignedUrl(directUpload.uploadUrl, file, (progress) => {
-            patchTask(asset.assetId, { progress, status: "uploading" });
-          });
+          // Signed URLs are valid for 15 minutes, so transient transport failures can retry.
+          for (
+            let attempt = 1;
+            attempt <= DIRECT_UPLOAD_MAX_ATTEMPTS;
+            attempt += 1
+          ) {
+            try {
+              await apiUpload.uploadToSignedUrl(
+                directUpload.uploadUrl,
+                file,
+                (progress) => {
+                  patchTask(asset.assetId, {
+                    attempt,
+                    progress,
+                    status: "uploading",
+                  });
+                },
+              );
+              break;
+            } catch (error) {
+              const shouldRetry =
+                attempt < DIRECT_UPLOAD_MAX_ATTEMPTS &&
+                isRetryableDirectUploadError(error);
+
+              if (!shouldRetry) throw error;
+
+              const nextAttempt = attempt + 1;
+              patchTask(asset.assetId, {
+                attempt: nextAttempt,
+                progress: 0,
+                status: "retrying",
+              });
+              await waitForRetry(
+                DIRECT_UPLOAD_RETRY_DELAYS_MS[attempt - 1] ?? 3000,
+              );
+            }
+          }
+
           patchTask(asset.assetId, { progress: 100, status: "finalizing" });
           await apiUpload.completeDirectUpload(asset.assetId);
           patchTask(asset.assetId, { progress: 100, status: "ready" });
@@ -90,17 +154,27 @@ export const UploadQueueProvider: React.FC<UploadQueueProviderProps> = ({
             }),
           );
           window.setTimeout(() => {
-            setTasks((current) => current.filter((task) => task.id !== asset.assetId));
+            setTasks((current) =>
+              current.filter((task) => task.id !== asset.assetId),
+            );
           }, 5000);
         } catch (error) {
-          await apiUpload.completeDirectUpload(asset.assetId).catch(() => undefined);
-          const message =
-            error instanceof Error ? error.message : "No se pudo subir el video.";
+          await apiUpload
+            .completeDirectUpload(asset.assetId)
+            .catch(() => undefined);
+          const message = isRetryableDirectUploadError(error)
+            ? `No se pudo completar la carga después de ${DIRECT_UPLOAD_MAX_ATTEMPTS} intentos. Verifica tu conexión e inténtalo nuevamente.`
+            : error instanceof Error
+              ? error.message
+              : "No se pudo subir el video.";
           patchTask(asset.assetId, {
             status: "failed",
             error: message,
           });
-          showToast(`No se pudo subir ${taskLabel.toLowerCase()}`, "error");
+          showToast(
+            `No se pudo subir ${taskLabel.toLowerCase()}. Revisa tu conexión e inténtalo nuevamente.`,
+            "error",
+          );
           window.dispatchEvent(
             new CustomEvent("nexus:media-upload-failed", {
               detail: { assetId: asset.assetId },
@@ -163,7 +237,8 @@ const UploadQueueStatus: React.FC<{ tasks: UploadTask[] }> = ({ tasks }) => {
                   <CheckCircle2 size={18} className="text-emerald-600" />
                 ) : task.status === "failed" ? (
                   <XCircle size={18} className="text-red-600" />
-                ) : task.status === "finalizing" ? (
+                ) : task.status === "retrying" ||
+                  task.status === "finalizing" ? (
                   <Loader2 size={18} className="animate-spin" />
                 ) : (
                   <UploadCloud size={18} />
@@ -176,11 +251,13 @@ const UploadQueueStatus: React.FC<{ tasks: UploadTask[] }> = ({ tasks }) => {
                 <p className="truncate text-caption text-text-muted">
                   {task.status === "failed"
                     ? task.error || "Error de subida"
-                    : task.status === "finalizing"
-                      ? "Confirmando archivo"
-                      : task.status === "ready"
-                        ? "Listo"
-                        : `${task.progress}%`}
+                    : task.status === "retrying"
+                      ? `Reintentando carga (${task.attempt}/${DIRECT_UPLOAD_MAX_ATTEMPTS})`
+                      : task.status === "finalizing"
+                        ? "Confirmando archivo"
+                        : task.status === "ready"
+                          ? "Listo"
+                          : `${task.progress}%`}
                 </p>
                 <div
                   className="mt-[var(--space-xs)] h-1 overflow-hidden bg-stone-100"
