@@ -226,7 +226,7 @@ export function MercadoPagoCardPayment({
           ref={threeDsFrameRef}
           name={`mp-3ds-${challenge.paymentId}`}
           title="Verificación bancaria"
-          className="h-[440px] w-full border-0"
+          className="h-[440px] w-full border-0 md:h-[600px]"
           style={{ borderRadius: "var(--sf-radius-inner)" }}
         />
       </div>
