@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { CardPayment, StatusScreen, initMercadoPago } from "@mercadopago/sdk-react";
+import { CardPayment, initMercadoPago } from "@mercadopago/sdk-react";
 import {
   MercadoPagoCardFormData,
   MercadoPagoCardPaymentResponse,
@@ -39,8 +39,10 @@ export function MercadoPagoCardPayment({
   const [challenge, setChallenge] = useState<MercadoPagoCardPaymentResponse | null>(null);
   const [visualTokens, setVisualTokens] = useState<ReturnType<typeof readStorefrontBrickTokens> | null>(null);
   const rootRef = useRef<HTMLDivElement>(null);
+  const threeDsFrameRef = useRef<HTMLIFrameElement>(null);
   const lastExternalSubmitRequestRef = useRef(0);
   const activeAttemptIdRef = useRef<string | null>(null);
+  const startedChallengePaymentIdRef = useRef<string | null>(null);
   const callbacksRef = useRef({ onSubmit, onApproved, onPending, onCheckStatus, onReadyChange, onFailure });
 
   useEffect(() => {
@@ -161,27 +163,71 @@ export function MercadoPagoCardPayment({
     }
   }, []);
 
+  const startThreeDsChallenge = useCallback(() => {
+    const threeDsInfo = challenge?.threeDsInfo;
+    const frame = threeDsFrameRef.current;
+    if (!challenge || !threeDsInfo || !frame || startedChallengePaymentIdRef.current === challenge.paymentId) return;
+
+    try {
+      const challengeDocument = frame.contentWindow?.document;
+      if (!challengeDocument) throw new Error("No se pudo preparar la verificación bancaria.");
+
+      startedChallengePaymentIdRef.current = challenge.paymentId;
+      challengeDocument.open();
+      challengeDocument.write("<!doctype html><html><head><title>Verificación bancaria</title></head><body></body></html>");
+      challengeDocument.close();
+
+      const form = challengeDocument.createElement("form");
+      form.method = "post";
+      form.action = threeDsInfo.externalResourceUrl;
+      form.target = frame.name;
+
+      const creq = challengeDocument.createElement("input");
+      creq.type = "hidden";
+      creq.name = "creq";
+      creq.value = threeDsInfo.creq;
+      form.appendChild(creq);
+      challengeDocument.body.appendChild(form);
+      form.submit();
+    } catch (error) {
+      startedChallengePaymentIdRef.current = null;
+      const message = error instanceof Error ? error.message : "No se pudo iniciar la verificación bancaria.";
+      setErrorMessage(message);
+      callbacksRef.current.onFailure?.(message);
+    }
+  }, [challenge]);
+
+  useEffect(() => {
+    if (!challenge) {
+      startedChallengePaymentIdRef.current = null;
+      return;
+    }
+    startThreeDsChallenge();
+  }, [challenge, startThreeDsChallenge]);
+
   if (challenge?.threeDsInfo) {
     return (
-      <div className="w-full" aria-live="polite">
-        <StatusScreen
-          id={`mp-status-${challenge.paymentId}`}
-          locale="es-MX"
-          initialization={{
-            paymentId: challenge.paymentId,
-            additionalInfo: {
-              externalResourceURL: challenge.threeDsInfo.externalResourceUrl,
-              creq: challenge.threeDsInfo.creq,
-            },
-          }}
-          customization={{
-            backUrls: { return: window.location.href },
-            visual: { showExternalReference: false },
-          }}
-          onError={(error) => {
-            setErrorMessage(error.message || "No se pudo completar la verificación bancaria.");
-            callbacksRef.current.onFailure?.();
-          }}
+      <div className="flex w-full flex-col gap-[var(--sf-space-md)]" aria-live="polite">
+        {errorMessage && (
+          <p className="sf-text-secondary text-red-600" role="alert">
+            {errorMessage}
+          </p>
+        )}
+        <div
+          className="border border-[var(--sf-border-subtle)] bg-[var(--sf-bg-panel)] p-[var(--sf-space-md)]"
+          style={{ borderRadius: "var(--sf-radius-inner)" }}
+        >
+          <p className="sf-text-body font-semibold text-[var(--sf-text-main)]">Verifica tu pago con tu banco</p>
+          <p className="mt-[var(--sf-space-xs)] sf-text-secondary text-[var(--sf-text-secondary)]">
+            Completa la confirmación de seguridad para continuar con tu compra.
+          </p>
+        </div>
+        <iframe
+          ref={threeDsFrameRef}
+          name={`mp-3ds-${challenge.paymentId}`}
+          title="Verificación bancaria"
+          className="h-[440px] w-full border-0"
+          style={{ borderRadius: "var(--sf-radius-inner)" }}
         />
       </div>
     );
