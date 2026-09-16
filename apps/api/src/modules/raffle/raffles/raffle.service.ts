@@ -50,24 +50,18 @@ export const raffleService = {
     if (!raffleIds.length) return [];
 
     const recentThreshold = new Date(Date.now() - 60 * 60 * 1000);
-    const [salesByStatus, recentSales, activeHolds] = await Promise.all([
-      prisma.ticketSale.groupBy({
-        by: ["raffleId", "paymentStatus"],
+    const [activeSales, activeHolds] = await Promise.all([
+      prisma.ticketSale.findMany({
         where: {
           raffleId: { in: raffleIds },
           paymentStatus: { in: ["PENDING", "PAID"] },
         },
-        _count: { _all: true },
-        _max: { createdAt: true },
-      }),
-      prisma.ticketSale.groupBy({
-        by: ["raffleId"],
-        where: {
-          raffleId: { in: raffleIds },
-          paymentStatus: { in: ["PENDING", "PAID"] },
-          createdAt: { gte: recentThreshold },
+        select: {
+          raffleId: true,
+          ticketNumber: true,
+          paymentStatus: true,
+          createdAt: true,
         },
-        _count: { _all: true },
       }),
       prisma.rafflePaymentHoldTicket.findMany({
         where: {
@@ -77,68 +71,74 @@ export const raffleService = {
             expiresAt: { gt: new Date() },
           },
         },
-        select: { raffleId: true },
+        select: { raffleId: true, ticketNumber: true },
       }),
     ]);
 
     const metrics = new Map<
       number,
       {
-        reserved: number;
-        paid: number;
-        recentActivityCount: number;
+        reservedNumbers: Set<string>;
+        paidNumbers: Set<string>;
+        recentActivityNumbers: Set<string>;
         lastParticipationAt: Date | null;
       }
     >();
     raffleIds.forEach((id) =>
       metrics.set(id, {
-        reserved: 0,
-        paid: 0,
-        recentActivityCount: 0,
+        reservedNumbers: new Set(),
+        paidNumbers: new Set(),
+        recentActivityNumbers: new Set(),
         lastParticipationAt: null,
       }),
     );
 
-    salesByStatus.forEach((group) => {
-      const current = metrics.get(group.raffleId);
+    activeSales.forEach((sale) => {
+      const current = metrics.get(sale.raffleId);
       if (!current) return;
-      if (group.paymentStatus === "PAID") current.paid = group._count._all;
-      if (group.paymentStatus === "PENDING")
-        current.reserved = group._count._all;
-      if (
-        group._max.createdAt &&
-        (!current.lastParticipationAt ||
-          group._max.createdAt > current.lastParticipationAt)
-      ) {
-        current.lastParticipationAt = group._max.createdAt;
+      if (sale.paymentStatus === "PAID") {
+        current.paidNumbers.add(sale.ticketNumber);
+        current.reservedNumbers.delete(sale.ticketNumber);
+      } else if (!current.paidNumbers.has(sale.ticketNumber)) {
+        current.reservedNumbers.add(sale.ticketNumber);
       }
-    });
-    recentSales.forEach((group) => {
-      const current = metrics.get(group.raffleId);
-      if (current) current.recentActivityCount = group._count._all;
+      if (
+        sale.createdAt &&
+        (!current.lastParticipationAt ||
+          sale.createdAt > current.lastParticipationAt)
+      ) {
+        current.lastParticipationAt = sale.createdAt;
+      }
+      if (sale.createdAt >= recentThreshold) {
+        current.recentActivityNumbers.add(sale.ticketNumber);
+      }
     });
     activeHolds.forEach((hold) => {
       const current = metrics.get(hold.raffleId);
-      if (current) current.reserved += 1;
+      if (current && !current.paidNumbers.has(hold.ticketNumber)) {
+        current.reservedNumbers.add(hold.ticketNumber);
+      }
     });
 
     return raffles.map((raffle) => {
       const raffleMetrics = metrics.get(raffle.id)!;
-      const occupied = raffleMetrics.reserved + raffleMetrics.paid;
+      const reserved = raffleMetrics.reservedNumbers.size;
+      const paid = raffleMetrics.paidNumbers.size;
+      const occupied = reserved + paid;
       return {
         ...toPublicRaffle(raffle),
         ticketStats: {
           total: raffle.ticketQuantity,
           available: Math.max(0, raffle.ticketQuantity - occupied),
-          reserved: raffleMetrics.reserved,
-          paid: raffleMetrics.paid,
+          reserved,
+          paid,
           occupancyPercent: raffle.ticketQuantity
             ? Math.min(
                 100,
                 Math.round((occupied / raffle.ticketQuantity) * 100),
               )
             : 0,
-          recentActivityCount: raffleMetrics.recentActivityCount,
+          recentActivityCount: raffleMetrics.recentActivityNumbers.size,
           lastParticipationAt:
             raffleMetrics.lastParticipationAt?.toISOString() ?? null,
         },
@@ -237,6 +237,9 @@ export const raffleService = {
     const earlyAccessCodeHash = earlyAccessCode
       ? await bcrypt.hash(earlyAccessCode, 12)
       : null;
+    const sharedParticipationActivatedAt = raffleData.sharedParticipationEnabled
+      ? new Date()
+      : null;
     if (coverPosterAssetId && raffleData.image) {
       raffleData.imagePoster = await mediaAssetService.adoptPosterByUrl(
         raffleData.image,
@@ -249,6 +252,7 @@ export const raffleService = {
         data: {
           ...raffleData,
           earlyAccessCodeHash,
+          sharedParticipationActivatedAt,
           ticketPrice: raffleData.ticketPrice.toString(), // Prisma Decimal
           gallery: gallery?.length ? { create: gallery } : undefined,
           prizes: {
@@ -437,6 +441,12 @@ export const raffleService = {
       }
     }
 
+    if (updateData.sharedParticipationEnabled !== undefined) {
+      updateData.sharedParticipationActivatedAt = updateData.sharedParticipationEnabled
+        ? (!current?.sharedParticipationEnabled ? new Date() : current.sharedParticipationActivatedAt)
+        : null;
+    }
+
     // Release replaced media only after the database update succeeds.
     const universeDefinitionChanged = Boolean(
       current &&
@@ -538,7 +548,6 @@ export const raffleService = {
       }
       return toPublicRaffle(withWhatsappHeader);
     }
-
     if (
       data.image !== undefined &&
       current?.image &&

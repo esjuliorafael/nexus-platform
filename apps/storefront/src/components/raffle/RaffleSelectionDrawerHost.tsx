@@ -19,6 +19,7 @@ export function RaffleSelectionDrawerHost() {
     ticketOpportunities,
     ticketPrice,
     coupon,
+    participationMode,
     updateSelectedTickets,
     updateCoupon,
     closeSelection,
@@ -48,7 +49,7 @@ export function RaffleSelectionDrawerHost() {
   const handleContinue = () => {
     if (!raffleId || !checkoutPath || !selectedTickets.length || isContinuing) return;
 
-    saveRaffleCheckoutDraft({ raffleId, tickets: selectedTickets, coupon });
+    saveRaffleCheckoutDraft({ raffleId, tickets: selectedTickets, coupon, participationMode });
     const sourcePath = `${window.location.pathname}${window.location.search}${window.location.hash}`;
     beginCheckoutTransition(checkoutPath, sourcePath);
     setContinuing(true);
@@ -63,6 +64,7 @@ export function RaffleSelectionDrawerHost() {
       ticketOpportunities={ticketOpportunities}
       ticketPrice={ticketPrice}
       coupon={coupon}
+      participationMode={participationMode}
       onClose={closeSelection}
       onSelectedTicketsChange={updateSelectedTickets}
       onCouponChange={updateCoupon}

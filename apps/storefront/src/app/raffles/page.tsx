@@ -1598,7 +1598,7 @@ function HowRafflesWork() {
       number: "03",
       title: "Consulta el resultado",
       description:
-        "El número ganador se publica con referencia al Premio Mayor.",
+        "Los resultados se publican con referencia a los resultados oficiales de la Lotería Nacional.",
     },
   ];
   const revealDuration = prefersReducedMotion

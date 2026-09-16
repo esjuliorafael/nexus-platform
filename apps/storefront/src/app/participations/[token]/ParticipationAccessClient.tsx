@@ -129,6 +129,9 @@ export function ParticipationAccessClient({
                 <p className="sf-text-body font-semibold text-stone-900">{participation.reference.slice(0, 8).toUpperCase()}</p>
               </div>
               <div className="flex items-end" style={{ gap: "var(--sf-space-md)" }}>
+                {participation.participationMode === "SHARED" && (
+                  <Badge variant="info">50% compartido</Badge>
+                )}
                 <Badge
                   variant={
                     participation.paymentStatus === "PAID"
@@ -157,6 +160,7 @@ export function ParticipationAccessClient({
                         <span className="sf-text-h3 text-stone-900">{ticket.number}</span>
                       </div>
                       {ticket.opportunities.length > 0 && <Badge variant="muted">{ticket.opportunities.length + 1} números</Badge>}
+                      {ticket.shareIndex && ticket.shareCount && <Badge variant="info">Parte {ticket.shareIndex} de {ticket.shareCount}</Badge>}
                     </div>
                     {ticket.opportunities.length > 0 && (
                       <div className="mt-[var(--sf-space-sm)]">

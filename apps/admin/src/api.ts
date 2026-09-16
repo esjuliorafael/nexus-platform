@@ -146,10 +146,11 @@ export const apiUpload = {
     uploadUrl: string,
     file: File,
     onProgress?: (progress: number) => void,
+    contentType = file.type,
   ) => {
     await axios.put(uploadUrl, file, {
       headers: {
-        "Content-Type": file.type,
+        "Content-Type": contentType,
       },
       onUploadProgress: (event) => {
         if (!event.total) return;
@@ -160,6 +161,31 @@ export const apiUpload = {
   completeDirectUpload: async (assetId: string): Promise<MediaUploadResult> => {
     const res = await api.post(`/admin/uploads/${assetId}/complete`);
     return normalizeUploadResult(res.data);
+  },
+  getAsset: async (assetId: string): Promise<MediaUploadResult> => {
+    const res = await api.get(`/admin/uploads/${assetId}`);
+    return normalizeUploadResult(res.data);
+  },
+  reprocessVideo: async (assetId: string): Promise<MediaUploadResult> => {
+    const res = await api.post(`/admin/uploads/${assetId}/reprocess`);
+    return normalizeUploadResult(res.data);
+  },
+  waitForAsset: async (
+    assetId: string,
+    timeoutMs = 15 * 60 * 1000,
+  ): Promise<MediaUploadResult> => {
+    const deadline = Date.now() + timeoutMs;
+    let asset = await apiUpload.getAsset(assetId);
+
+    while (
+      (asset.status === "UPLOADING" || asset.status === "PROCESSING") &&
+      Date.now() < deadline
+    ) {
+      await new Promise((resolve) => window.setTimeout(resolve, 1500));
+      asset = await apiUpload.getAsset(assetId);
+    }
+
+    return asset;
   },
   upload: async (file: File): Promise<MediaUploadResult> => {
     const formData = new FormData();
@@ -314,12 +340,15 @@ const mapApiProduct = (item: any): Product => ({
   coverPosterUrl: item.coverPosterUrl,
   coverMediaType: item.coverMediaType,
   coverAssetStatus: item.coverAssetStatus,
+  coverAssetError: item.coverAssetError,
   gallery: item.gallery
     ? item.gallery.map((g: any) => ({
         id: g.id?.toString(),
         assetId: g.assetId,
         mediaUrl: g.mediaUrl,
         posterUrl: g.posterUrl,
+        assetStatus: g.assetStatus,
+        assetError: g.assetError,
         mediaType: g.mediaType,
         mimeType: g.mimeType,
       }))
@@ -1153,6 +1182,35 @@ export const apiRaffles = {
   closeDateChangeCampaign: async (id: string) => {
     const response = await api.post(
       `/raffles/admin/${encodeURIComponent(id)}/date-change/close`,
+    );
+    return response.data;
+  },
+  getParticipantCouponOverview: async (
+    id: string,
+  ): Promise<import("./types").RaffleParticipantCouponOverview> => {
+    const response = await api.get(
+      `/raffles/admin/${encodeURIComponent(id)}/participant-coupon`,
+    );
+    return response.data;
+  },
+  createParticipantCouponCampaign: async (
+    id: string,
+    data: {
+      couponId: number;
+      purpose: import("./types").RaffleParticipantCouponPurpose;
+      message: string;
+      instructions?: string;
+    },
+  ) => {
+    const response = await api.post(
+      `/raffles/admin/${encodeURIComponent(id)}/participant-coupon/campaign`,
+      data,
+    );
+    return response.data;
+  },
+  retryParticipantCouponCampaign: async (id: string, campaignId: string) => {
+    const response = await api.post(
+      `/raffles/admin/${encodeURIComponent(id)}/participant-coupon/campaigns/${encodeURIComponent(campaignId)}/retry`,
     );
     return response.data;
   },

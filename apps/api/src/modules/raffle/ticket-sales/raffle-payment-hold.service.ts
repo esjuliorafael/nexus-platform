@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient, RaffleStatus, TicketStatus } from "@prisma/client-raffle";
+import { Prisma, PrismaClient, RaffleParticipationMode, RaffleStatus, TicketStatus } from "@prisma/client-raffle";
 import { randomUUID } from "crypto";
 import {
   PrismaClient as StorePrismaClient,
@@ -23,6 +23,11 @@ import {
   PAYMENT_RECONCILIATION_INTERVAL_MS,
   resolvePaymentHoldMinutes,
 } from "../../store/payments/payment-hold-policy";
+import {
+  assertSharedParticipationAllowed,
+  getAvailableSharedShareIndex,
+  getParticipationUnitPrice,
+} from "./shared-participation";
 import { whatsappMarketingConsentService } from "../../../services/whatsapp-marketing-consent.service";
 import {
   calculateRaffleReservationExpiration,
@@ -133,9 +138,11 @@ export const rafflePaymentHoldService = {
       couponCode?: string | null;
       earlyAccessAuthorized?: boolean;
       marketingConsent?: boolean;
+      participationMode?: RaffleParticipationMode;
     },
   ) {
     const tickets = Array.from(new Set(data.tickets));
+    const participationMode = data.participationMode ?? RaffleParticipationMode.FULL;
     const holdSetting = await storePrisma.setting.findUnique({ where: { key: "mp_payment_hold_minutes" } });
     const holdMinutes = resolvePaymentHoldMinutes(holdSetting?.value);
     const expiresAt = new Date(Date.now() + holdMinutes * 60_000);
@@ -145,25 +152,78 @@ export const rafflePaymentHoldService = {
       await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(7421, ${data.raffleId}::integer)`);
       const raffle = await tx.raffle.findFirst({
         where: { id: data.raffleId, status: RaffleStatus.ACTIVE, published: true },
-        select: { id: true, ticketPrice: true, status: true, published: true, participationStartsAt: true, participationEndsAt: true, earlyAccessEnabled: true },
+        select: {
+          id: true,
+          ticketPrice: true,
+          status: true,
+          published: true,
+          participationStartsAt: true,
+          participationEndsAt: true,
+          earlyAccessEnabled: true,
+          sharedParticipationEnabled: true,
+          sharedParticipationActivatedAt: true,
+        },
       });
       if (!raffle || !canParticipateInRaffle(raffle, data.earlyAccessAuthorized)) throw new Error("RAFFLE_UNAVAILABLE");
+      assertSharedParticipationAllowed(raffle, participationMode, raffle.ticketPrice.toString());
 
       const validNumbers = await ticketService.getPrimaryTicketNumbers(tx, data.raffleId);
       if (tickets.some((ticket) => !validNumbers.has(ticket))) throw new Error("INVALID_TICKET_NUMBERS");
       const [sales, held] = await Promise.all([
         tx.ticketSale.findMany({
           where: { raffleId: data.raffleId, ticketNumber: { in: tickets }, paymentStatus: { in: [TicketStatus.PENDING, TicketStatus.PAID] } },
-          select: { ticketNumber: true },
+          select: { ticketNumber: true, participationMode: true, shareIndex: true, shareGroupId: true },
         }),
         tx.rafflePaymentHoldTicket.findMany({
-          where: { raffleId: data.raffleId, ticketNumber: { in: tickets } },
-          select: { ticketNumber: true },
+          where: {
+            raffleId: data.raffleId,
+            ticketNumber: { in: tickets },
+            hold: {
+              status: { in: ["ACTIVE", "PROCESSING"] },
+              expiresAt: { gt: new Date() },
+            },
+          },
+          select: {
+            ticketNumber: true,
+            shareIndex: true,
+            shareGroupId: true,
+            hold: { select: { participationMode: true } },
+          },
         }),
       ]);
-      const unavailable = Array.from(new Set([...sales, ...held].map((entry) => entry.ticketNumber)));
+      const claimsByTicket = new Map<string, Array<{ participationMode: string; shareIndex: number | null; shareGroupId: string | null }>>();
+      sales.forEach((entry) => {
+        const claims = claimsByTicket.get(entry.ticketNumber) ?? [];
+        claims.push({ participationMode: entry.participationMode, shareIndex: entry.shareIndex, shareGroupId: entry.shareGroupId });
+        claimsByTicket.set(entry.ticketNumber, claims);
+      });
+      held.forEach((entry) => {
+        const claims = claimsByTicket.get(entry.ticketNumber) ?? [];
+        claims.push({ participationMode: entry.hold.participationMode, shareIndex: entry.shareIndex, shareGroupId: entry.shareGroupId });
+        claimsByTicket.set(entry.ticketNumber, claims);
+      });
+      const allocations = tickets.map((ticketNumber) => ({
+        ticketNumber,
+        shareIndex: participationMode === RaffleParticipationMode.FULL
+          ? (claimsByTicket.get(ticketNumber)?.length ? null : undefined)
+          : getAvailableSharedShareIndex(claimsByTicket.get(ticketNumber) ?? []),
+      }));
+      const unavailable = allocations
+        .filter((allocation) => allocation.shareIndex === null)
+        .map((allocation) => allocation.ticketNumber);
       if (unavailable.length) throw new TicketAvailabilityConflictError(unavailable);
+      const shareGroupByTicket = new Map(
+        allocations
+          .filter((allocation): allocation is { ticketNumber: string; shareIndex: 1 | 2 } => allocation.shareIndex === 1 || allocation.shareIndex === 2)
+          .map((allocation) => [
+            allocation.ticketNumber,
+            claimsByTicket.get(allocation.ticketNumber)?.find((claim) => claim.shareGroupId)?.shareGroupId ?? randomUUID(),
+          ]),
+      );
 
+      if (participationMode === RaffleParticipationMode.SHARED && data.couponCode) {
+        throw new Error("SHARED_PARTICIPATION_COUPON_UNSUPPORTED");
+      }
       const couponResult = data.couponCode
         ? await raffleCouponService.validate(tx, { code: data.couponCode, raffle, ticketCount: tickets.length })
         : null;
@@ -180,8 +240,16 @@ export const rafflePaymentHoldService = {
           couponCode: couponResult?.code || null,
           discountTotal: couponResult?.discountTotal || 0,
           ticketNumbers: tickets,
+          participationMode,
           expiresAt,
-          tickets: { create: tickets.map((ticketNumber) => ({ raffleId: data.raffleId, ticketNumber })) },
+          tickets: {
+            create: allocations.map(({ ticketNumber, shareIndex }) => ({
+              raffleId: data.raffleId,
+              ticketNumber,
+              shareIndex: shareIndex ?? null,
+              shareGroupId: shareGroupByTicket.get(ticketNumber) ?? null,
+            })),
+          },
         },
         include: { raffle: true, tickets: true },
       });
@@ -206,7 +274,7 @@ export const rafflePaymentHoldService = {
 
     await paymentHoldReleaseQueue.add("raffle-hold", { kind: "raffle", holdId: hold.id }, { delay: holdMinutes * 60_000 });
     void publishTicketAvailabilityChanged(data.raffleId).catch(() => undefined);
-    const subtotal = Number(hold.raffle.ticketPrice) * hold.tickets.length;
+    const subtotal = getParticipationUnitPrice(hold.raffle.ticketPrice.toString(), hold.participationMode) * hold.tickets.length;
     return {
       paymentHoldId: hold.id,
       expiresAt: hold.expiresAt.toISOString(),
@@ -214,6 +282,7 @@ export const rafflePaymentHoldService = {
       discountTotal: Number(hold.discountTotal),
       total: Math.max(0, subtotal - Number(hold.discountTotal)),
       tickets: hold.tickets.map((ticket) => ticket.ticketNumber),
+      participationMode: hold.participationMode,
     };
   },
 
@@ -296,6 +365,9 @@ export const rafflePaymentHoldService = {
           couponId: hold.couponId,
           couponCode: hold.couponCode,
           discountTotal: hold.discountTotal,
+          participationMode: hold.participationMode,
+          shareIndex: ticket.shareIndex,
+          shareGroupId: ticket.shareGroupId,
         })),
       });
       await tx.raffleParticipationEvent.create({
@@ -372,14 +444,14 @@ export const rafflePaymentHoldService = {
         customerPhone: converted.hold.customerPhone,
         tickets: converted.sales.map((sale) => sale.ticketNumber),
         totalAmount: (
-          Number(converted.hold.raffle.ticketPrice) * converted.sales.length
+          getParticipationUnitPrice(converted.hold.raffle.ticketPrice.toString(), converted.hold.participationMode) * converted.sales.length
           - Number(converted.hold.discountTotal)
         ).toFixed(2),
       }).catch(console.error);
       void publishTicketAvailabilityChanged(raffleId).catch(() => undefined);
     }
 
-    const subtotal = Number(converted.hold.raffle.ticketPrice) * converted.sales.length;
+    const subtotal = getParticipationUnitPrice(converted.hold.raffle.ticketPrice.toString(), converted.hold.participationMode) * converted.sales.length;
     const paymentStatus = converted.sales.some((sale) => sale.paymentStatus === TicketStatus.PAID)
       ? TicketStatus.PAID
       : TicketStatus.PENDING;
@@ -395,6 +467,12 @@ export const rafflePaymentHoldService = {
       discountTotal: Number(converted.hold.discountTotal),
       total: Math.max(0, subtotal - Number(converted.hold.discountTotal)),
       couponCode: converted.hold.couponCode,
+      participationMode: converted.hold.participationMode,
+      shareAllocations: converted.sales.flatMap((sale) =>
+        sale.shareIndex === 1 || sale.shareIndex === 2
+          ? [{ ticketNumber: sale.ticketNumber, shareIndex: sale.shareIndex as 1 | 2 }]
+          : [],
+      ),
       rejected: [],
       partial: false,
     };
@@ -431,6 +509,9 @@ export const rafflePaymentHoldService = {
           couponId: hold.couponId,
           couponCode: hold.couponCode,
           discountTotal: hold.discountTotal,
+          participationMode: hold.participationMode,
+          shareIndex: ticket.shareIndex,
+          shareGroupId: ticket.shareGroupId,
           mpPaymentId: String(payment.id),
           mpSellerUserId: sellerUserId || payment.collector_id?.toString() || null,
           mpPaymentStatus: payment.status,

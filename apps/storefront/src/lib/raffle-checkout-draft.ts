@@ -4,6 +4,7 @@ export interface RaffleCheckoutDraft {
   raffleId: number;
   tickets: string[];
   coupon: RaffleCouponValidationResponse | null;
+  participationMode?: 'FULL' | 'SHARED';
 }
 
 const key = 'nexus_raffle_checkout_draft';

@@ -41,6 +41,7 @@ import { BankInfoCard } from '../../../../components/checkout/BankInfoCard';
 import { MercadoPagoCardPayment } from '../../../../components/checkout/MercadoPagoCardPayment';
 import { MarketingConsentField } from '../../../../components/checkout/MarketingConsentField';
 import { getRaffleEarlyAccessToken } from '../../../../lib/raffle-early-access';
+import { getRaffleParticipationUnitPrice } from '../../../../lib/raffle-participation';
 import {
   StorefrontCheckoutMotion,
   useStorefrontCheckoutMotionReady,
@@ -164,6 +165,7 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
           raffleId,
           tickets: recovery.tickets,
           coupon: recovery.coupon,
+          participationMode: recovery.participationMode ?? 'FULL',
         };
         saveRaffleCheckoutDraft(recoveredDraft);
         setDraft(recoveredDraft);
@@ -255,7 +257,7 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
   }, [completionState, embeddedPaymentHoldId, mpCheckoutConfig?.mode, playConfirmationFeedback, raffleId, showToast]);
 
   const subtotal = useMemo(
-    () => (raffle && draft ? draft.tickets.length * Number(raffle.ticketPrice) : 0),
+    () => (raffle && draft ? draft.tickets.length * getRaffleParticipationUnitPrice(raffle.ticketPrice, draft.participationMode ?? 'FULL') : 0),
     [draft, raffle],
   );
   const discount = draft?.coupon?.discountTotal || 0;
@@ -282,6 +284,7 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
       customerState: customerState.trim() || undefined,
       paymentMethod,
       couponCode: draft?.coupon?.code,
+      participationMode: draft?.participationMode ?? 'FULL',
       earlyAccessToken: getRaffleEarlyAccessToken(raffle!.id) || undefined,
       marketingConsent,
     });
@@ -381,6 +384,7 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
           couponCode: draft.coupon?.code,
           earlyAccessToken: getRaffleEarlyAccessToken(raffle.id) || undefined,
           marketingConsent,
+          participationMode: draft.participationMode ?? 'FULL',
         });
         paymentHoldId = hold.paymentHoldId;
         setEmbeddedPaymentHoldId(paymentHoldId);
@@ -665,6 +669,7 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
             selectedTickets={draft.tickets}
             ticketOpportunities={raffle.extraOpportunities ?? []}
             total={total}
+            participationMode={draft.participationMode ?? 'FULL'}
             coupon={draft.coupon}
             discount={discount}
             completionStatus={completionPresentation
@@ -958,8 +963,11 @@ function RaffleCheckoutSummarySheet({
   return (
     <div className="flex flex-col" style={{ gap: 'var(--sf-space-lg)' }}>
       <p className="sf-text-secondary text-stone-500">
-        {draft.tickets.length} boleto{draft.tickets.length === 1 ? '' : 's'} seleccionado{draft.tickets.length === 1 ? '' : 's'}.
+        {draft.tickets.length} boleto{draft.tickets.length === 1 ? '' : 's'} seleccionado{draft.tickets.length === 1 ? '' : 's'} · participación {draft.participationMode === 'SHARED' ? 'compartida' : 'completa'}.
       </p>
+      {draft.participationMode === 'SHARED' && (
+        <p className="sf-text-secondary text-amber-800">Pagas el 50% del boleto y participas por el 50% del derecho económico del premio.</p>
+      )}
       <RaffleTicketSelectionExplorer
         selectedTickets={draft.tickets}
         ticketOpportunities={raffle.extraOpportunities ?? []}

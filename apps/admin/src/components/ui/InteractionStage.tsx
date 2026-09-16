@@ -77,7 +77,10 @@ export const InteractionStage: React.FC<InteractionStageProps> = ({
         />
       </div>
       
-      <h3 className={`${titleClass} text-text-main mb-4 group-hover:text-brand-700 transition-colors`}>
+      <h3
+        className={`${titleClass} text-text-main group-hover:text-brand-700 transition-colors`}
+        style={{ marginBottom: 'var(--space-md)' }}
+      >
         {title}
       </h3>
       
@@ -86,7 +89,7 @@ export const InteractionStage: React.FC<InteractionStageProps> = ({
       </p>
       
       {action && (
-        <div className={isLevel1 ? 'mt-12' : 'mt-8'}>
+        <div style={{ marginTop: isLevel1 ? 'var(--space-xl)' : 'var(--space-lg)' }}>
           {action}
         </div>
       )}

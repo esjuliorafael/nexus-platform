@@ -475,7 +475,9 @@ export type TemplateType =
   | "REMINDER"
   | "OPENING"
   | "DRAW_REMINDER"
+  | "DATE_CHANGE"
   | "RAFFLE_INVITATION"
+  | "PARTICIPANT_COUPON"
   | "RESULT_WINNER"
   | "RESULT_PARTICIPANTS"
   | "PARTICIPATION_LOOKUP_CODE";
@@ -731,6 +733,9 @@ export interface Raffle {
     | "UNAVAILABLE";
   earlyAccessEnabled: boolean;
   earlyAccessConfigured?: boolean;
+  sharedParticipationEnabled?: boolean;
+  sharedParticipationActivatedAt?: string | null;
+  sharedParticipationPrizePolicy?: string | null;
   createdAt: string;
   ticketStats?: {
     total: number;
@@ -799,6 +804,8 @@ export interface RaffleParticipationTicket {
   id: number;
   number: string;
   opportunities: string[];
+  shareIndex?: 1 | 2 | null;
+  shareCount?: 2 | null;
 }
 
 export interface RaffleParticipation {
@@ -816,6 +823,8 @@ export interface RaffleParticipation {
   ticketNumbers: string[];
   ticketCount: number;
   ticketPrice: number;
+  participationMode?: "FULL" | "SHARED";
+  shareAllocations?: Array<{ ticketNumber: string; shareIndex: 1 | 2 }>;
   subtotal: number;
   discountTotal: number;
   total: number;
@@ -1034,6 +1043,49 @@ export interface RaffleDateChangeOverview {
   totalRecipients: number;
   activePendingRecipients: number;
   campaign: RaffleDrawReminderCampaign | null;
+}
+
+export type RaffleParticipantCouponPurpose =
+  | "DATE_CHANGE"
+  | "SEASONAL_PROMOTION"
+  | "OTHER";
+
+export interface RaffleParticipantCouponOption {
+  id: string;
+  code: string;
+  name: string | null;
+  discountType: "PERCENTAGE" | "FIXED";
+  discountValue: number;
+  minTickets: number | null;
+  maxDiscount: number | null;
+  usageLimit: number | null;
+  usedCount: number;
+  availableUses: number | null;
+  expiresAt: string | null;
+  raffleId: number | null;
+}
+
+export interface RaffleParticipantCouponCampaign {
+  id: string;
+  purpose: RaffleParticipantCouponPurpose;
+  campaignMessage: string;
+  couponInstructions: string;
+  status: RaffleResultCampaignStatus;
+  totalRecipients: number;
+  sentCount: number;
+  failedCount: number;
+  initiatedByName: string | null;
+  completedAt: string | null;
+  createdAt: string;
+  coupon: RaffleParticipantCouponOption;
+}
+
+export interface RaffleParticipantCouponOverview {
+  raffleId: number;
+  templateConfigured: boolean;
+  preview: RaffleAudiencePreview;
+  coupons: RaffleParticipantCouponOption[];
+  campaigns: RaffleParticipantCouponCampaign[];
 }
 
 export type RaffleParticipantSegment =

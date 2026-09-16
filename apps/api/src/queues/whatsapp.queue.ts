@@ -122,6 +122,11 @@ export type WhatsappJobData = (
       recipientPhone: string;
     }
   | {
+      kind: "raffle-participant-coupon";
+      campaignRecipientId: string;
+      recipientPhone: string;
+    }
+  | {
       kind: "store-payment-recovery";
       holdId: string;
       recoveryToken: string;

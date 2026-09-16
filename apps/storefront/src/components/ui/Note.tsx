@@ -2,7 +2,7 @@ import type { HTMLAttributes, ReactNode } from 'react';
 import { type LucideIcon, Info } from 'lucide-react';
 import { cn } from '../../utils/cn';
 
-type StorefrontNoteTone = 'default' | 'warning' | 'inverse';
+type StorefrontNoteTone = 'default' | 'info' | 'warning' | 'inverse';
 
 interface StorefrontNoteProps extends Omit<HTMLAttributes<HTMLDivElement>, 'children'> {
   children: ReactNode;
@@ -12,12 +12,14 @@ interface StorefrontNoteProps extends Omit<HTMLAttributes<HTMLDivElement>, 'chil
 
 const toneClasses: Record<StorefrontNoteTone, string> = {
   default: 'border-stone-200 bg-stone-50/70 text-stone-600',
+  info: 'border-stone-200 bg-white text-stone-700',
   warning: 'border-amber-200 bg-amber-50 text-amber-900',
   inverse: 'border-white/10 bg-white/5 text-stone-300',
 };
 
 const iconClasses: Record<StorefrontNoteTone, string> = {
   default: 'text-stone-500',
+  info: 'text-sky-700',
   warning: 'text-amber-700',
   inverse: 'text-brand-400',
 };

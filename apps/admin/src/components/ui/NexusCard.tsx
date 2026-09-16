@@ -364,18 +364,9 @@ export const NexusSectionCard: React.FC<LegacyCardProps> = ({
   const isHorizontal = layout === 'horizontal';
 
   return (
-    <NexusCardBase level={2} swipeable={swipeable} onEdit={onEdit} onDelete={onDelete} isMuted={isMuted} delay={delay} className={`${className} ${onClick ? 'cursor-pointer active:scale-[0.99] transition-transform' : ''}`}>
+    <NexusCardBase level={2} swipeable={swipeable} onEdit={onEdit} onDelete={onDelete} onClick={onClick} isMuted={isMuted} delay={delay} className={`${className} ${onClick ? 'cursor-pointer active:scale-[0.99] transition-transform' : ''}`}>
       <div
-        onClick={onClick}
-        onKeyDown={onClick ? (event) => {
-          if (event.key === 'Enter' || event.key === ' ') {
-            event.preventDefault();
-            onClick();
-          }
-        } : undefined}
-        role={onClick ? 'button' : undefined}
-        tabIndex={onClick ? 0 : undefined}
-        className={`flex justify-between h-full ${isHorizontal ? 'flex-row items-center' : 'flex-col md:flex-row md:items-center'} ${onClick ? 'outline-none focus-visible:ring-4 focus-visible:ring-inset focus-visible:ring-brand-500/20' : ''}`}
+        className={`flex justify-between h-full ${isHorizontal ? 'flex-row items-center' : 'flex-col md:flex-row md:items-center'}`}
         style={{ gap: isHorizontal ? 'var(--space-md)' : 'var(--space-lg)' }}
       >
         <div className="flex items-center min-w-0 flex-1" style={{ gap: 'var(--space-md)' }}>

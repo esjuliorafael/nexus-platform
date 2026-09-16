@@ -1,4 +1,4 @@
-import { Prisma, PrismaClient, RaffleStatus, TicketStatus } from "@prisma/client-raffle";
+import { Prisma, PrismaClient, RaffleParticipationMode, RaffleStatus, TicketStatus } from "@prisma/client-raffle";
 import { randomUUID } from "crypto";
 import {
   PrismaClient as StorePrismaClient,
@@ -24,6 +24,11 @@ import {
   formatRaffleTimeLimit,
 } from "./raffle-reservation-expiration";
 import { createRaffleParticipationAccess } from "./raffle-participation-access.service";
+import {
+  assertSharedParticipationAllowed,
+  getAvailableSharedShareIndex,
+  getParticipationUnitPrice,
+} from "./shared-participation";
 
 export class TicketAvailabilityConflictError extends Error {
   constructor(readonly ticketNumbers: string[]) {
@@ -59,7 +64,10 @@ export const ticketSaleService = {
     );
     const first = sortedSales[0];
     const statuses = Array.from(new Set(sortedSales.map((sale) => sale.paymentStatus)));
-    const subtotal = Number(first.raffle.ticketPrice) * sortedSales.length;
+    const subtotal = sortedSales.reduce(
+      (total, sale) => total + Number(first.raffle.ticketPrice) / (sale.participationMode === "SHARED" ? 2 : 1),
+      0,
+    );
     const discountTotal = Number(first.discountTotal || 0);
 
     return {
@@ -76,6 +84,12 @@ export const ticketSaleService = {
       ticketNumbers: sortedSales.map((sale) => sale.ticketNumber),
       ticketCount: sortedSales.length,
       ticketPrice: Number(first.raffle.ticketPrice),
+      participationMode: first.participationMode,
+      shareAllocations: sortedSales.flatMap((sale) =>
+        sale.shareIndex === 1 || sale.shareIndex === 2
+          ? [{ ticketNumber: sale.ticketNumber, shareIndex: sale.shareIndex as 1 | 2 }]
+          : [],
+      ),
       subtotal: Number(subtotal.toFixed(2)),
       discountTotal,
       total: Number((subtotal - discountTotal).toFixed(2)),
@@ -106,7 +120,9 @@ export const ticketSaleService = {
       left.localeCompare(right, "es-MX", { numeric: true }),
     );
     const hasTicketSnapshot = ticketNumbers.length > 0;
-    const subtotal = Number(hold.raffle.ticketPrice) * ticketNumbers.length;
+    const subtotal = Number(hold.raffle.ticketPrice)
+      * ticketNumbers.length
+      / (hold.participationMode === "SHARED" ? 2 : 1);
     const discountTotal = hasTicketSnapshot ? Number(hold.discountTotal || 0) : 0;
     const latestAttempt = hold.paymentAttempts?.[0] || null;
 
@@ -126,6 +142,7 @@ export const ticketSaleService = {
       ticketCount: ticketNumbers.length,
       hasTicketSnapshot,
       ticketPrice: Number(hold.raffle.ticketPrice),
+      participationMode: hold.participationMode,
       subtotal: Number(subtotal.toFixed(2)),
       discountTotal,
       total: Number((subtotal - discountTotal).toFixed(2)),
@@ -191,7 +208,7 @@ export const ticketSaleService = {
               opportunities: true,
             },
           },
-          tickets: { select: { ticketNumber: true } },
+          tickets: { select: { ticketNumber: true, shareIndex: true } },
           paymentAttempts: { orderBy: { createdAt: "desc" } },
         },
         orderBy: { createdAt: "desc" },
@@ -256,7 +273,7 @@ export const ticketSaleService = {
               opportunities: true,
             },
           },
-          tickets: { select: { ticketNumber: true } },
+          tickets: { select: { ticketNumber: true, shareIndex: true } },
           paymentAttempts: { orderBy: { createdAt: "desc" } },
         },
         orderBy: { createdAt: "desc" },
@@ -288,7 +305,7 @@ export const ticketSaleService = {
         where: { id: holdMatch[1] },
         include: {
           raffle: { include: { extraOpportunities: true } },
-          tickets: { select: { ticketNumber: true } },
+          tickets: { select: { ticketNumber: true, shareIndex: true } },
           paymentAttempts: { orderBy: { createdAt: "desc" } },
         },
       });
@@ -311,6 +328,8 @@ export const ticketSaleService = {
           id: -(index + 1),
           number,
           opportunities: opportunityMap.get(number) || [],
+          shareIndex: hold.tickets.find((ticket: any) => ticket.ticketNumber === number)?.shareIndex ?? null,
+          shareCount: summary.participationMode === "SHARED" ? 2 : null,
         })),
       };
     }
@@ -348,6 +367,8 @@ export const ticketSaleService = {
         id: sale.id,
         number: sale.ticketNumber,
         opportunities: opportunityMap.get(sale.ticketNumber) || [],
+        shareIndex: sale.shareIndex ?? null,
+        shareCount: sale.participationMode === "SHARED" ? 2 : null,
       })),
     };
   },
@@ -519,16 +540,46 @@ export const ticketSaleService = {
           id: { notIn: saleIds },
           paymentStatus: { in: [TicketStatus.PENDING, TicketStatus.PAID] },
         },
-        select: { ticketNumber: true },
+        select: {
+          ticketNumber: true,
+          participationMode: true,
+          shareIndex: true,
+        },
       });
       const conflictingHolds = await tx.rafflePaymentHoldTicket.findMany({
         where: { raffleId, ticketNumber: { in: ticketNumbers } },
-        select: { ticketNumber: true },
+        select: {
+          ticketNumber: true,
+          shareIndex: true,
+          hold: { select: { participationMode: true } },
+        },
       });
-      const unavailable = Array.from(new Set([
-        ...conflictingSales.map((sale) => sale.ticketNumber),
-        ...conflictingHolds.map((hold) => hold.ticketNumber),
-      ])).sort((left, right) => left.localeCompare(right, "es-MX", { numeric: true }));
+      const unavailable = Array.from(new Set(
+        ticketNumbers.filter((ticketNumber) => {
+          const restoredSales = sales.filter((sale) => sale.ticketNumber === ticketNumber);
+          const isShared = restoredSales[0]?.participationMode === RaffleParticipationMode.SHARED;
+          const restoredShareIndexes = new Set(
+            restoredSales
+              .map((sale) => sale.shareIndex)
+              .filter((shareIndex): shareIndex is 1 | 2 => shareIndex === 1 || shareIndex === 2),
+          );
+          const saleConflict = conflictingSales.some((sale) =>
+            sale.ticketNumber === ticketNumber && (
+              !isShared
+              || sale.participationMode === RaffleParticipationMode.FULL
+              || restoredShareIndexes.has(sale.shareIndex as 1 | 2)
+            ),
+          );
+          const holdConflict = conflictingHolds.some((hold) =>
+            hold.ticketNumber === ticketNumber && (
+              !isShared
+              || hold.hold.participationMode === RaffleParticipationMode.FULL
+              || restoredShareIndexes.has(hold.shareIndex as 1 | 2)
+            ),
+          );
+          return saleConflict || holdConflict;
+        }),
+      )).sort((left, right) => left.localeCompare(right, "es-MX", { numeric: true }));
       if (unavailable.length > 0) {
         throw new TicketAvailabilityConflictError(unavailable);
       }
@@ -844,14 +895,24 @@ export const ticketSaleService = {
       administrativeOverride?: boolean;
       actor?: AuditActor;
       marketingConsent?: boolean;
+      participationMode?: RaffleParticipationMode;
     }
   ) {
     const { raffleId, customerName, customerPhone, customerState } = data;
     const tickets = Array.from(new Set(data.tickets));
+    const participationMode = data.participationMode ?? RaffleParticipationMode.FULL;
     const paymentMethod = data.paymentMethod === "MERCADOPAGO" ? "MERCADOPAGO" : "TRANSFER";
     const reservationId = randomUUID();
 
-    let result: { reserved: string[]; subtotal: number; discountTotal: number; total: number; couponCode: string | null };
+    let result: {
+      reserved: string[];
+      subtotal: number;
+      discountTotal: number;
+      total: number;
+      couponCode: string | null;
+      participationMode: RaffleParticipationMode;
+      shareAllocations: Array<{ ticketNumber: string; shareIndex: 1 | 2 }>;
+    };
     try {
       result = await prisma.$transaction(async (tx) => {
       await tx.$executeRaw(Prisma.sql`SELECT pg_advisory_xact_lock(7421, ${raffleId}::integer)`);
@@ -869,6 +930,8 @@ export const ticketSaleService = {
           participationStartsAt: true,
           participationEndsAt: true,
           earlyAccessEnabled: true,
+          sharedParticipationEnabled: true,
+          sharedParticipationActivatedAt: true,
         },
       });
       if (
@@ -878,6 +941,7 @@ export const ticketSaleService = {
       ) {
         throw new Error("RAFFLE_UNAVAILABLE");
       }
+      assertSharedParticipationAllowed(raffle, participationMode, raffle.ticketPrice.toString());
 
       // 0. Only the published main folios are reservable. Their linked
       // opportunities participate automatically with the selected folio.
@@ -892,20 +956,61 @@ export const ticketSaleService = {
           ticketNumber: { in: tickets },
           paymentStatus: { in: [TicketStatus.PENDING, TicketStatus.PAID] },
         },
-        select: { ticketNumber: true },
+        select: { ticketNumber: true, participationMode: true, shareIndex: true, shareGroupId: true },
       });
 
       const held = await tx.rafflePaymentHoldTicket.findMany({
-        where: { raffleId, ticketNumber: { in: tickets } },
-        select: { ticketNumber: true },
+        where: {
+          raffleId,
+          ticketNumber: { in: tickets },
+          hold: {
+            status: { in: ["ACTIVE", "PROCESSING"] },
+            expiresAt: { gt: new Date() },
+          },
+        },
+        select: {
+          ticketNumber: true,
+          shareIndex: true,
+          shareGroupId: true,
+          hold: { select: { participationMode: true } },
+        },
       });
 
-      const takenTickets = Array.from(new Set([
-        ...existing.map((entry) => entry.ticketNumber),
-        ...held.map((entry) => entry.ticketNumber),
-      ]));
-      if (takenTickets.length > 0) throw new TicketAvailabilityConflictError(takenTickets);
+      const claimsByTicket = new Map<string, Array<{ participationMode: string; shareIndex: number | null; shareGroupId: string | null }>>();
+      existing.forEach((entry) => {
+        const claims = claimsByTicket.get(entry.ticketNumber) ?? [];
+        claims.push({ participationMode: entry.participationMode, shareIndex: entry.shareIndex, shareGroupId: entry.shareGroupId });
+        claimsByTicket.set(entry.ticketNumber, claims);
+      });
+      held.forEach((entry) => {
+        const claims = claimsByTicket.get(entry.ticketNumber) ?? [];
+        claims.push({ participationMode: entry.hold.participationMode, shareIndex: entry.shareIndex, shareGroupId: entry.shareGroupId });
+        claimsByTicket.set(entry.ticketNumber, claims);
+      });
 
+      const allocations = tickets.map((ticketNumber) => {
+        const claims = claimsByTicket.get(ticketNumber) ?? [];
+        if (participationMode === RaffleParticipationMode.FULL) {
+          return { ticketNumber, shareIndex: claims.length ? null : undefined };
+        }
+        return { ticketNumber, shareIndex: getAvailableSharedShareIndex(claims) };
+      });
+      const unavailable = allocations
+        .filter((allocation) => allocation.shareIndex === null)
+        .map((allocation) => allocation.ticketNumber);
+      if (unavailable.length > 0) throw new TicketAvailabilityConflictError(unavailable);
+      const shareGroupByTicket = new Map(
+        allocations
+          .filter((allocation): allocation is { ticketNumber: string; shareIndex: 1 | 2 } => allocation.shareIndex === 1 || allocation.shareIndex === 2)
+          .map((allocation) => [
+            allocation.ticketNumber,
+            claimsByTicket.get(allocation.ticketNumber)?.find((claim) => claim.shareGroupId)?.shareGroupId ?? randomUUID(),
+          ]),
+      );
+
+      if (participationMode === RaffleParticipationMode.SHARED && data.couponCode) {
+        throw new Error("SHARED_PARTICIPATION_COUPON_UNSUPPORTED");
+      }
       const couponResult = data.couponCode
         ? await raffleCouponService.validate(tx, {
           code: data.couponCode,
@@ -923,7 +1028,7 @@ export const ticketSaleService = {
 
       // 2. Insert reserved tickets
       await tx.ticketSale.createMany({
-        data: tickets.map((ticketNumber) => ({
+        data: allocations.map(({ ticketNumber, shareIndex }) => ({
           raffleId,
           ticketNumber,
           customerName,
@@ -935,6 +1040,9 @@ export const ticketSaleService = {
           couponId: couponResult?.coupon.id ?? null,
           couponCode: couponResult?.code ?? null,
           discountTotal: couponResult?.discountTotal ?? 0,
+          participationMode,
+          shareIndex: shareIndex ?? null,
+          shareGroupId: shareGroupByTicket.get(ticketNumber) ?? null,
         })),
       });
 
@@ -956,15 +1064,18 @@ export const ticketSaleService = {
           nextState: {
             paymentStatus: "PENDING",
             paymentMethod,
+            participationMode,
           },
           metadata: {
             ticketNumbers: tickets,
+            participationMode,
+            shareAllocations: allocations.filter((allocation) => allocation.shareIndex),
             administrativeOverride: data.administrativeOverride === true,
           },
         },
       });
 
-      const subtotal = Number(raffle.ticketPrice) * tickets.length;
+      const subtotal = getParticipationUnitPrice(raffle.ticketPrice.toString(), participationMode) * tickets.length;
       const discountTotal = couponResult?.discountTotal ?? 0;
       return {
         reserved: tickets,
@@ -972,6 +1083,12 @@ export const ticketSaleService = {
         discountTotal,
         total: Number((subtotal - discountTotal).toFixed(2)),
         couponCode: couponResult?.code ?? null,
+        participationMode,
+        shareAllocations: allocations.flatMap((allocation) =>
+          allocation.shareIndex === 1 || allocation.shareIndex === 2
+            ? [{ ticketNumber: allocation.ticketNumber, shareIndex: allocation.shareIndex }]
+            : [],
+        ),
       };
       });
     } catch (error: any) {

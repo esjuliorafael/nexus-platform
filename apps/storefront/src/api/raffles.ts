@@ -11,6 +11,8 @@ export interface RaffleReservationResponse {
   discountTotal: number;
   total: number;
   couponCode: string | null;
+  participationMode?: 'FULL' | 'SHARED';
+  shareAllocations?: Array<{ ticketNumber: string; shareIndex: 1 | 2 }>;
 }
 
 export interface RafflePaymentHoldResponse {
@@ -20,6 +22,7 @@ export interface RafflePaymentHoldResponse {
   discountTotal: number;
   total: number;
   tickets: string[];
+  participationMode?: 'FULL' | 'SHARED';
 }
 
 export interface RaffleEarlyAccessResponse {
@@ -64,7 +67,8 @@ export interface RaffleParticipationAccessResponse {
     paymentStatus: "PENDING" | "PAID" | "CANCELLED";
     paymentMethod: string | null;
     total: number;
-    tickets: Array<{ number: string; opportunities: string[] }>;
+    participationMode?: 'FULL' | 'SHARED';
+    tickets: Array<{ number: string; opportunities: string[]; shareIndex?: 1 | 2 | null; shareCount?: 2 | null }>;
   }>;
   expiresAt: string | null;
 }
@@ -103,6 +107,7 @@ export const raffleApi = {
     couponCode?: string;
     earlyAccessToken?: string;
     marketingConsent?: boolean;
+    participationMode?: 'FULL' | 'SHARED';
   }) => client.post<RaffleReservationResponse>(`/raffles/${id}/tickets`, data).then(res => res.data),
   createPaymentHold: (id: number, data: {
     tickets: string[];
@@ -112,6 +117,7 @@ export const raffleApi = {
     couponCode?: string;
     earlyAccessToken?: string;
     marketingConsent?: boolean;
+    participationMode?: 'FULL' | 'SHARED';
   }) => client.post<RafflePaymentHoldResponse>(`/raffles/${id}/payment-holds`, {
     ...data,
     paymentMethod: 'MERCADOPAGO',

@@ -13,6 +13,7 @@ export type ChannelTemplateType =
   | "DRAW_REMINDER"
   | "DATE_CHANGE"
   | "RAFFLE_INVITATION"
+  | "PARTICIPANT_COUPON"
   | "RESULT_WINNER"
   | "RESULT_PARTICIPANTS"
   | "PARTICIPATION_LOOKUP_CODE"
@@ -200,6 +201,7 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
           "{{ticket_list}}",
           "{{raffle_name}}",
           "{{amount}}",
+          "{{part_info}}",
           ...BANK_TEMPLATE_VARIABLES,
           "{{time_raffle}}",
         ],
@@ -213,6 +215,7 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
           "{{ticket_list}}",
           "{{raffle_name}}",
           "{{amount}}",
+          "{{part_info}}",
           ...BANK_TEMPLATE_VARIABLES,
           "{{time_raffle}}",
         ],
@@ -226,6 +229,7 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
           "{{ticket_list}}",
           "{{raffle_name}}",
           "{{amount}}",
+          "{{part_info}}",
           ...BANK_TEMPLATE_VARIABLES,
           "{{time_remaining}}",
         ],
@@ -254,6 +258,7 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
           "{{ticket_list}}",
           "{{raffle_name}}",
           "{{amount}}",
+          "{{part_info}}",
         ],
       },
       {
@@ -265,6 +270,7 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
           "{{raffle_name}}",
           "{{ticket_list}}",
           "{{amount}}",
+          "{{part_info}}",
           "{{expires_at}}",
           "{{recovery_url}}",
         ],
@@ -278,6 +284,7 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
           "{{ticket_list}}",
           "{{raffle_name}}",
           "{{refund_amount}}",
+          "{{part_info}}",
           "{{refund_id}}",
           "{{refunded_at}}",
         ],
@@ -399,6 +406,20 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
           "{{opening_date}}",
           "{{ticket_price}}",
           "{{raffle_url}}",
+        ],
+      },
+      {
+        type: "PARTICIPANT_COUPON",
+        key: "whatsapp_global_raffle_participant_coupon",
+        label: "Cupón para participantes",
+        variables: [
+          "{{customer_name}}",
+          "{{raffle_name}}",
+          "{{message}}",
+          "{{coupon_code}}",
+          "{{coupon_amount}}",
+          "{{instructions}}",
+          "{{coupon_expires_at}}",
         ],
       },
     ],
@@ -727,6 +748,18 @@ Consulta el detalle de tu participaci\u00f3n:
 {{participation_url}}
 
 \u00a1Mucha suerte! \u2728`,
+  PARTICIPANT_COUPON: `\u00a1Hola, {{customer_name}}! \u{1F381}
+
+{{message}}
+
+Cupón: {{coupon_code}}
+Descuento: {{coupon_amount}}
+
+{{instructions}}
+
+Válido hasta {{coupon_expires_at}}.
+
+\u00a1Gracias por participar en {{raffle_name}}!`,
   RESULT_WINNER: `\u00a1Hola, {{customer_name}}! \u{1F3C6}
 
 \u00a1Felicidades! Ganaste en la \u201c{{raffle_name}}\u201d.
@@ -769,6 +802,18 @@ const getRaffleCloudTemplateDefault = (
 const SIMPLIFIED_RAFFLE_TEMPLATE_CONTENT: Partial<
   Record<ChannelTemplateType, string>
 > = {
+  PARTICIPANT_COUPON: `\u00a1Hola, {{customer_name}}! \u{1F381}
+
+{{message}}
+
+Cupón: {{coupon_code}}
+Descuento: {{coupon_amount}}
+
+{{instructions}}
+
+Válido hasta {{coupon_expires_at}}.
+
+\u00a1Gracias por participar en {{raffle_name}}!`,
   PARTICIPATION_LOOKUP_CODE: `\u{1F50E} Recibimos tu solicitud para consultar tus participaciones.
 
 Consulta tus boletos y su estado desde el bot\u00f3n Ver participaci\u00f3n:
@@ -777,6 +822,8 @@ Consulta tus boletos y su estado desde el bot\u00f3n Ver participaci\u00f3n:
   RESERVATION: `\u00a1Hola, {{customer_name}}! \u{1F39F}\u{FE0F}
 
 Tu participaci\u00f3n qued\u00f3 apartada correctamente. \u2705
+
+{{part_info}}
 
 \u{1F4B0} Total pendiente: \${{amount}} MXN
 
@@ -791,6 +838,8 @@ Tu participaci\u00f3n qued\u00f3 apartada correctamente. \u2705
 
 Tu participaci\u00f3n fue restaurada correctamente. \u2705
 
+{{part_info}}
+
 \u{1F4B0} Total pendiente: \${{amount}} MXN
 
 \u23f3 Tienes {{time_raffle}} para realizar tu dep\u00f3sito o transferencia.
@@ -803,6 +852,8 @@ Tu participaci\u00f3n fue restaurada correctamente. \u2705
   REMINDER: `\u00a1Hola, {{customer_name}}! \u23f3
 
 Tu participaci\u00f3n contin\u00faa apartada y pendiente de pago.
+
+{{part_info}}
 
 \u{1F4B0} Total pendiente: \${{amount}} MXN
 
@@ -851,6 +902,8 @@ Si necesitas ayuda, escr\u00edbenos por este medio.`,
 
 Tu pago fue confirmado correctamente. \u2705
 
+{{part_info}}
+
 \u{1F4B3} Total pagado: \${{amount}} MXN
 
 \u{1F50E} Consulta el detalle completo de tu participaci\u00f3n en Ver participaci\u00f3n:
@@ -862,6 +915,8 @@ Tu pago fue confirmado correctamente. \u2705
 
 No pudimos confirmar el pago. No se realiz\u00f3 ning\u00fan cobro.
 
+{{part_info}}
+
 \u{1F504} Puedes reintentar antes de {{expires_at}} usando el bot\u00f3n Reintentar pago:
 
 {{recovery_url}}
@@ -869,6 +924,8 @@ No pudimos confirmar el pago. No se realiz\u00f3 ning\u00fan cobro.
   PAYMENT_REFUNDED: `Hola, {{customer_name}}. \u21a9\uFE0F
 
 La devoluci\u00f3n de tu participaci\u00f3n fue procesada correctamente.
+
+{{part_info}}
 
 \u{1F4B0} Monto devuelto: \${{refund_amount}} MXN
 \u{1F4C4} Referencia: {{refund_id}}
@@ -903,18 +960,21 @@ const SIMPLIFIED_TEMPLATE_VARIABLES: Partial<
   RESERVATION: [
     "{{customer_name}}",
     "{{amount}}",
+    "{{part_info}}",
     "{{time_raffle}}",
     "{{participation_url}}",
   ],
   RESTORED: [
     "{{customer_name}}",
     "{{amount}}",
+    "{{part_info}}",
     "{{time_raffle}}",
     "{{participation_url}}",
   ],
   REMINDER: [
     "{{customer_name}}",
     "{{amount}}",
+    "{{part_info}}",
     "{{time_remaining}}",
     "{{participation_url}}",
   ],
@@ -933,16 +993,32 @@ const SIMPLIFIED_TEMPLATE_VARIABLES: Partial<
     "{{ticket_price}}",
     "{{raffle_url}}",
   ],
+  PARTICIPANT_COUPON: [
+    "{{customer_name}}",
+    "{{raffle_name}}",
+    "{{message}}",
+    "{{coupon_code}}",
+    "{{coupon_amount}}",
+    "{{instructions}}",
+    "{{coupon_expires_at}}",
+  ],
   RELEASE: ["{{customer_name}}", "{{participation_url}}"],
   PAYMENT_CONFIRMED: [
     "{{customer_name}}",
     "{{amount}}",
+    "{{part_info}}",
     "{{participation_url}}",
   ],
-  PAYMENT_RECOVERY: ["{{customer_name}}", "{{expires_at}}", "{{recovery_url}}"],
+  PAYMENT_RECOVERY: [
+    "{{customer_name}}",
+    "{{part_info}}",
+    "{{expires_at}}",
+    "{{recovery_url}}",
+  ],
   PAYMENT_REFUNDED: [
     "{{customer_name}}",
     "{{refund_amount}}",
+    "{{part_info}}",
     "{{refund_id}}",
     "{{participation_url}}",
   ],
@@ -1046,7 +1122,7 @@ const TEMPLATE_ORDER_BY_GROUP: Record<string, ChannelTemplateType[]> = {
   "raffle-results": ["DRAW_REMINDER", "RESULT_WINNER", "RESULT_PARTICIPANTS"],
   "raffle-verification": ["PARTICIPATION_LOOKUP_CODE"],
   "raffle-preferences": ["MARKETING_SUBSCRIBED", "MARKETING_UNSUBSCRIBED"],
-  "raffle-promotion": ["RAFFLE_INVITATION"],
+  "raffle-promotion": ["RAFFLE_INVITATION", "PARTICIPANT_COUPON"],
 };
 
 const TEMPLATE_GROUP_ORDER: Record<ChannelTemplateScope, string[]> = {

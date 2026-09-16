@@ -977,6 +977,7 @@ enum TemplateType {
   DRAW_REMINDER             @map("draw_reminder")
   DATE_CHANGE               @map("date_change")
   RAFFLE_INVITATION         @map("raffle_invitation")
+  PARTICIPANT_COUPON        @map("participant_coupon")
   RESULT_WINNER             @map("result_winner")
   RESULT_PARTICIPANTS       @map("result_participants")
   PARTICIPATION_LOOKUP_CODE @map("participation_lookup_code")

@@ -9,6 +9,8 @@ export interface Product {
   coverMediaUrl: string | null;
   coverPosterUrl: string | null;
   coverMediaType: "PHOTO" | "VIDEO" | null;
+  coverAssetStatus?: "UPLOADING" | "PROCESSING" | "READY" | "FAILED" | null;
+  coverAssetError?: string | null;
   stock: number;
   ringNumber: string | null;
   age: string | null;
@@ -30,6 +32,8 @@ export interface ProductGallery {
   assetId: string;
   mediaUrl: string;
   posterUrl: string | null;
+  assetStatus?: "UPLOADING" | "PROCESSING" | "READY" | "FAILED" | null;
+  assetError?: string | null;
   mediaType: "PHOTO" | "VIDEO";
   mimeType?: string;
 }
@@ -53,6 +57,8 @@ export interface Media {
   assetId: string;
   mediaUrl: string;
   posterUrl: string | null;
+  assetStatus?: "UPLOADING" | "PROCESSING" | "READY" | "FAILED" | null;
+  assetError?: string | null;
   mediaType: "PHOTO" | "VIDEO";
   categoryId: number | null;
   category?: {
@@ -170,6 +176,9 @@ export interface Raffle {
     | "UNAVAILABLE";
   earlyAccessEnabled: boolean;
   earlyAccessConfigured: boolean;
+  sharedParticipationEnabled: boolean;
+  sharedParticipationActivatedAt: string | null;
+  sharedParticipationPrizePolicy: string | null;
   gallery?: RaffleGalleryItem[];
   prizes?: RafflePrize[];
   extraOpportunities?: RaffleOpportunity[];
@@ -239,9 +248,21 @@ export interface RaffleGalleryItem {
   posterPath: string | null;
 }
 
-export type RaffleTicketAvailabilityStatus = "RESERVED" | "PAID";
+export type RaffleTicketAvailabilityStatus = "RESERVED" | "PAID" | "SHARED";
+
+export interface RaffleSharedTicketAvailability {
+  total: 2;
+  occupied: number;
+  available: number;
+  shares: Array<{
+    shareIndex: 1 | 2;
+    status: "RESERVED" | "PAID";
+  }>;
+}
 
 export interface RaffleTicketAvailability {
   ticketNumber: string;
   status: RaffleTicketAvailabilityStatus;
+  participationMode?: "FULL" | "SHARED" | null;
+  shared?: RaffleSharedTicketAvailability | null;
 }

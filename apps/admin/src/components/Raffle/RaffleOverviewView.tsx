@@ -28,6 +28,7 @@ import { RaffleResultSection } from "./RaffleResultSection";
 import { RaffleResultCommunicationSection } from "./RaffleResultCommunicationSection";
 import { RaffleInvitationSection } from "./RaffleInvitationSection";
 import { RaffleDateChangeSection } from "./RaffleDateChangeSection";
+import { RaffleParticipantCouponSection } from "./RaffleParticipantCouponSection";
 
 interface RaffleOverviewViewProps {
   raffle: Raffle;
@@ -451,6 +452,12 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
             embedded
           />
           <RaffleDateChangeSection
+            raffle={raffle}
+            canManageOperations={canManageOperations}
+            showToast={showToast}
+            embedded
+          />
+          <RaffleParticipantCouponSection
             raffle={raffle}
             canManageOperations={canManageOperations}
             showToast={showToast}

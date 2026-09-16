@@ -15,6 +15,7 @@ import {
   getCanonicalCloudTemplateSettingKey,
   resolveCloudTemplateOwner,
   omitOptionalRaffleInvitationAdditionalInfo,
+  omitOptionalRaffleParticipationInfo,
   type CloudTemplateScope,
   type CloudTemplateOwner,
   type CloudTemplateType,
@@ -126,11 +127,16 @@ async function resolveActiveTemplateContent(
       renderedText: delivery.renderedText,
     };
   }
-  const content =
+  const contentWithoutRaffleExtra =
     delivery.type === "RAFFLE_INVITATION" &&
     !String(delivery.values.raffle_extra || "").trim()
       ? omitOptionalRaffleInvitationAdditionalInfo(simplified.value)
       : simplified.value;
+  const content =
+    delivery.scope === "RAFFLES" &&
+    !String(delivery.values.part_info || "").trim()
+      ? omitOptionalRaffleParticipationInfo(contentWithoutRaffleExtra)
+      : contentWithoutRaffleExtra;
   return {
     variant: "SIMPLIFIED" as const,
     content,

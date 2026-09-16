@@ -14,7 +14,7 @@ interface StorefrontModalProps {
   description?: string;
   eyebrow?: string;
   icon?: LucideIcon;
-  variant?: 'brand' | 'danger' | 'success';
+  variant?: 'brand' | 'danger' | 'success' | 'warning';
   width?: 'compact' | 'standard' | 'wide';
   confirmLabel?: string;
   cancelLabel?: string;
@@ -121,7 +121,7 @@ export function StorefrontModal({
               <div className="flex min-w-0 items-center" style={{ gap: 'var(--sf-space-md)' }}>
                 <StorefrontIcon 
                   icon={icon} 
-                  variant={variant === 'danger' ? 'warning' : variant} 
+                  variant={variant === 'danger' ? 'warning' : variant}
                   context="section"
                   className={variant === 'danger' ? 'bg-red-50 text-red-500 border-red-100 shadow-none' : ''}
                 />
@@ -170,7 +170,7 @@ export function StorefrontModal({
                   onConfirm();
                   onClose();
                 }}
-                variant={variant === 'danger' ? 'danger' : 'primary'}
+                variant={variant === 'danger' ? 'danger' : variant === 'warning' ? 'warning' : 'primary'}
                 context="section"
                 className="w-full h-16"
               >

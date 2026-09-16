@@ -72,6 +72,11 @@ import {
 } from "../../../lib/raffle-checkout-draft";
 import { getRaffleEarlyAccessToken } from "../../../lib/raffle-early-access";
 import {
+  getRaffleParticipationUnitPrice,
+  getRaffleTicketDisplayStatus,
+  RaffleParticipationMode,
+} from "../../../lib/raffle-participation";
+import {
   STOREFRONT_DETAIL_MOTION_SEQUENCE_MS,
   STOREFRONT_EASING,
   STOREFRONT_MOTION_MS,
@@ -111,6 +116,7 @@ export function RaffleDetailsClient({
     RaffleTicketAvailability[]
   >(initialTicketAvailability);
   const [selectedTickets, setSelectedTickets] = useState<string[]>([]);
+  const [participationMode, setParticipationMode] = useState<RaffleParticipationMode>("FULL");
   const [isOpportunityPeekOpen, setIsOpportunityPeekOpen] = useState(false);
   const [coupon, setCoupon] = useState<RaffleCouponValidationResponse | null>(
     null,
@@ -268,7 +274,13 @@ export function RaffleDetailsClient({
       ?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const selectedTotal = selectedTickets.length * Number(raffle.ticketPrice);
+  const activeParticipationMode = raffle.sharedParticipationEnabled
+    ? participationMode
+    : "FULL";
+  const selectedTotal = selectedTickets.length * getRaffleParticipationUnitPrice(
+    raffle.ticketPrice,
+    activeParticipationMode,
+  );
   const introTransition = (
     delayMs: number,
     durationMs: number = STOREFRONT_DETAIL_MOTION_SEQUENCE_MS.contentDurationMs,
@@ -303,6 +315,13 @@ export function RaffleDetailsClient({
     [],
   );
 
+  const handleParticipationModeChange = useCallback((nextMode: RaffleParticipationMode) => {
+    setParticipationMode(nextMode);
+    setSelectedTickets([]);
+    setCoupon(null);
+    clearRaffleCheckoutDraft();
+  }, []);
+
   const handleSelectionBarAction = () => {
     if (selectedTickets.length === 0) {
       scrollTo("raffle-ticket-selection");
@@ -315,6 +334,7 @@ export function RaffleDetailsClient({
       ticketOpportunities: raffle.extraOpportunities ?? [],
       ticketPrice: raffle.ticketPrice,
       coupon,
+      participationMode: activeParticipationMode,
       onSelectedTicketsChange: handleSelectedTicketsChange,
       onCouponChange: handleCouponChange,
     });
@@ -331,8 +351,14 @@ export function RaffleDetailsClient({
     const checkoutDraft = getRaffleCheckoutDraft(raffle.id);
     if (!checkoutDraft) return;
 
+    const restoredMode = raffle.sharedParticipationEnabled && checkoutDraft.participationMode === "SHARED"
+      ? "SHARED"
+      : "FULL";
+    setParticipationMode(restoredMode);
     const unavailableTickets = new Set(
-      initialTicketAvailability.map((ticket) => ticket.ticketNumber),
+      initialTicketAvailability
+        .filter((ticket) => getRaffleTicketDisplayStatus(ticket, restoredMode) !== "AVAILABLE")
+        .map((ticket) => ticket.ticketNumber),
     );
     const availableTickets = checkoutDraft.tickets.filter(
       (ticket) => !unavailableTickets.has(ticket),
@@ -350,15 +376,16 @@ export function RaffleDetailsClient({
         raffleId: raffle.id,
         tickets: availableTickets,
         coupon: restoredCoupon,
+        participationMode: restoredMode,
       });
     } else {
       clearRaffleCheckoutDraft();
     }
-  }, [initialTicketAvailability, isFinalized, raffle.id]);
+  }, [initialTicketAvailability, isFinalized, raffle.id, raffle.sharedParticipationEnabled]);
 
   useEffect(() => {
-    syncSelection(raffle.id, selectedTickets, coupon);
-  }, [coupon, raffle.id, selectedTickets, syncSelection]);
+    syncSelection(raffle.id, selectedTickets, coupon, activeParticipationMode);
+  }, [activeParticipationMode, coupon, raffle.id, selectedTickets, syncSelection]);
 
   useEffect(() => {
     const titleElement = raffleTitleRef.current;
@@ -396,7 +423,9 @@ export function RaffleDetailsClient({
           if (disposed) return;
 
           const unavailable = new Set(
-            nextAvailability.map((ticket) => ticket.ticketNumber),
+            nextAvailability
+              .filter((ticket) => getRaffleTicketDisplayStatus(ticket, activeParticipationMode) !== "AVAILABLE")
+              .map((ticket) => ticket.ticketNumber),
           );
           setTicketAvailability(nextAvailability);
           setSelectedTickets((current) => {
@@ -441,7 +470,7 @@ export function RaffleDetailsClient({
       window.removeEventListener("focus", refreshAvailability);
       document.removeEventListener("visibilitychange", handleVisibilityChange);
     };
-  }, [isFinalized, raffle.id, showToast]);
+  }, [activeParticipationMode, isFinalized, raffle.id, showToast]);
 
   return (
     <div className="mx-auto max-w-[var(--sf-max-width-content)] px-[var(--sf-inset-page)] pb-[var(--sf-mobile-chrome-content-padding-bottom)] pt-[var(--sf-mobile-chrome-content-padding-top)] md:py-[var(--sf-space-xl)]">
@@ -964,6 +993,8 @@ export function RaffleDetailsClient({
                     raffle={raffle}
                     ticketAvailability={ticketAvailability}
                     selectedTickets={selectedTickets}
+                    participationMode={activeParticipationMode}
+                    onParticipationModeChange={handleParticipationModeChange}
                     onSelectedTicketsChange={(tickets) => {
                       setCoupon(null);
                       setSelectedTickets(tickets);

@@ -108,6 +108,9 @@ async function getActiveRaffles(
     where: {
       status: RaffleStatus.ACTIVE,
       published: true,
+      // The conversational flow has no modality-selection step yet. Keep
+      // shared raffles on the Storefront until that flow is implemented.
+      sharedParticipationEnabled: false,
       resultPublishedAt: null,
       OR: [
         { participationStartsAt: null },

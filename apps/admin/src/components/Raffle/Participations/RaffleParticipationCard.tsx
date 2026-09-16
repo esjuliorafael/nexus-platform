@@ -9,6 +9,7 @@ import {
   CreditCard,
   Hash,
   MoreVertical,
+  UsersRound,
   Ticket,
   type LucideIcon,
 } from "lucide-react";
@@ -148,6 +149,11 @@ export const RaffleParticipationCard: React.FC<RaffleParticipationCardProps> = (
               <NexusAutonomousBadge variant="muted" icon={CreditCard}>
                 {methodLabel}
               </NexusAutonomousBadge>
+              {participation.participationMode === "SHARED" && (
+                <NexusAutonomousBadge variant="info" icon={UsersRound}>
+                  Compartida
+                </NexusAutonomousBadge>
+              )}
               {isDesktop && (
                 <NexusAutonomousBadge variant="brand" icon={Hash}>
                 {participation.ticketCount > 0

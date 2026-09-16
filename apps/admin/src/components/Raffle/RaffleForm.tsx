@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
+  ArrowLeftRight,
   Calendar,
   Check,
   ChevronDown,
@@ -12,17 +13,20 @@ import {
   Image as ImageIcon,
   Layers,
   KeyRound,
+  ListOrdered,
   Loader2,
+  Play,
   PlusCircle,
   Ticket,
   Trash2,
   Upload,
+  UsersRound,
   X,
 } from "lucide-react";
 import { apiRaffles, apiUpload } from "../../api";
 import { Raffle, RaffleGalleryItem, RafflePrize } from "../../types";
 import { extractFramesFromVideo } from "../../utils/video";
-import { NexusInput, NexusSelect, NexusTextarea } from "../ui/NexusInputs";
+import { NexusDateTimeInput, NexusInput, NexusSelect, NexusTextarea } from "../ui/NexusInputs";
 import { NexusAutonomousButton, NexusCardButton, NexusSectionButton } from "../ui/NexusButton";
 import { NexusInlineNotice } from "../ui/NexusInlineNotice";
 import { NexusSegmentedControl } from "../ui/NexusSegmentedControl";
@@ -123,6 +127,12 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
     toDateTimeLocalValue(initialData?.participationEndsAt),
   );
   const [earlyAccessEnabled, setEarlyAccessEnabled] = useState(initialData?.earlyAccessEnabled ?? false);
+  const [sharedParticipationEnabled, setSharedParticipationEnabled] = useState(
+    initialData?.sharedParticipationEnabled ?? false,
+  );
+  const [sharedParticipationPrizePolicy, setSharedParticipationPrizePolicy] = useState(
+    initialData?.sharedParticipationPrizePolicy ?? "",
+  );
   const [earlyAccessCode, setEarlyAccessCode] = useState("");
   const [imageUrl, setImageUrl] = useState(initialData?.image ?? "");
   const [coverMediaType, setCoverMediaType] = useState<"PHOTO" | "VIDEO">(
@@ -263,6 +273,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
     && hasValidParticipationWindow
     && (!earlyAccessEnabled || Boolean(participationStartsAt))
     && hasEarlyAccessCode
+    && (!sharedParticipationEnabled || Boolean(sharedParticipationPrizePolicy.trim()))
     && prizes.length > 0
     && prizes.every((prize) => prize.title.trim() && prize.description.trim());
 
@@ -443,6 +454,8 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
         participationStartsAt: participationStartsAt ? new Date(participationStartsAt).toISOString() : null,
         participationEndsAt: participationEndsAt ? new Date(participationEndsAt).toISOString() : null,
         earlyAccessEnabled,
+        sharedParticipationEnabled,
+        sharedParticipationPrizePolicy: sharedParticipationPrizePolicy.trim() || null,
         earlyAccessCode: earlyAccessCode.trim() || undefined,
         clearEarlyAccessCode: !earlyAccessEnabled,
         image: finalImageUrl || null,
@@ -479,7 +492,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
   };
 
   return (
-    <form id="raffle-form" onSubmit={handleSubmit} className="pb-32">
+    <form id="raffle-form" onSubmit={handleSubmit} className="pb-[var(--admin-page-content-padding-bottom)]">
       <div className="grid grid-cols-1 lg:grid-cols-12" style={{ gap: "var(--space-lg)" }}>
         <div className="lg:col-span-7 flex flex-col" style={{ gap: "var(--space-lg)" }}>
           <div className="w-full">
@@ -603,7 +616,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                       <>
                         <img src={staticThumbUrl} className="absolute inset-0 h-full w-full object-cover opacity-20" alt="Miniatura manual" />
                         <Check size={16} className="z-10" />
-                        <span className="z-10 text-label uppercase tracking-[0.15em]">
+                        <span className="z-10 text-button-card">
                           {staticThumbFile ? "Manual" : "Actual"}
                         </span>
                       </>
@@ -615,7 +628,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                         >
                           {isGeneratingThumbs ? <Loader2 className="animate-spin" size={20} /> : <Upload size={20} />}
                         </span>
-                        <span className="text-label uppercase tracking-[0.15em]">Manual</span>
+                        <span className="text-button-card">Manual</span>
                       </>
                     )}
                   </button>
@@ -696,7 +709,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                   style={{ gap: "var(--space-xs)", borderRadius: "var(--radius-inner-visual)" }}
                 >
                   {isUploading ? <Loader2 className="animate-spin" size={20} /> : <PlusCircle size={20} />}
-                  <span className="text-label uppercase tracking-[0.15em]">Añadir</span>
+                  <span className="text-button-card">Añadir</span>
                 </button>
               )}
             </div>
@@ -704,11 +717,44 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
 
           <NexusSection
             title="Configuración del Universo"
-            subtitle="Define los folios, oportunidades y costo de participación."
+            subtitle="Define el tipo de rifa, los folios y las oportunidades."
             icon={Hash}
             iconVariant="brand"
           >
             <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+              <div className="flex flex-col" style={{ gap: "var(--space-xs)" }}>
+                <span className="text-form-label text-text-muted">Tipo de rifa</span>
+                <div className="grid grid-cols-2" style={{ gap: "var(--space-md)" }}>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setRaffleType("SIMPLE");
+                      setOpportunities("1");
+                    }}
+                    className={`flex items-center justify-center border-2 text-button-section font-semibold transition-colors ${
+                      raffleType === "SIMPLE"
+                        ? "border-brand-500 bg-brand-50/30 text-brand-600 shadow-sm shadow-brand-500/10"
+                        : "border-border-main bg-bg-card text-text-muted hover:border-brand-300 hover:bg-bg-muted"
+                    }`}
+                    style={{ gap: "var(--space-xs)", height: "var(--h-input)", borderRadius: "var(--radius-inner-visual)" }}
+                  >
+                    <Ticket style={{ width: "var(--size-inner-icon-card)", height: "var(--size-inner-icon-card)" }} strokeWidth={2.5} /> Simple
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setRaffleType("OPPORTUNITIES")}
+                    className={`flex items-center justify-center border-2 text-button-section font-semibold transition-colors ${
+                      raffleType === "OPPORTUNITIES"
+                        ? "border-brand-500 bg-brand-50/30 text-brand-600 shadow-sm shadow-brand-500/10"
+                        : "border-border-main bg-bg-card text-text-muted hover:border-brand-300 hover:bg-bg-muted"
+                    }`}
+                    style={{ gap: "var(--space-xs)", height: "var(--h-input)", borderRadius: "var(--radius-inner-visual)" }}
+                  >
+                    <Layers style={{ width: "var(--size-inner-icon-card)", height: "var(--size-inner-icon-card)" }} strokeWidth={2.5} /> Oportunidades
+                  </button>
+                </div>
+              </div>
+
               <div className="grid grid-cols-1" style={{ gap: "var(--space-md)" }}>
                 <NexusInput
                   label="Número de Boletos (Folios) *"
@@ -737,7 +783,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                     placeholder="Mínimo 2"
                   />
                   <div className="flex flex-col" style={{ gap: "var(--space-xs)" }}>
-                    <span className="text-label uppercase tracking-[0.15em] text-text-muted">Distribución</span>
+                    <span className="text-form-label text-text-muted">Distribución</span>
                     <NexusSegmentedControl
                       context="section"
                       value={distribution}
@@ -763,15 +809,104 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                       ? "Universo no válido"
                       : "Configuración del Universo"
                 }
-                style={{
-                  minHeight: "calc(var(--h-input) + var(--space-xl))",
-                }}
               >
                 {universePreview?.isValid
                   ? `El rango ${universePreview.start}–${universePreview.end} queda completamente asignado.`
                   : universeGuidance ?? "Ingresa el número de boletos y oportunidades para validar el universo."}
               </NexusInlineNotice>
 
+              {universePreview && (
+                <div aria-live="polite">
+                  <span className="text-label uppercase text-text-muted">
+                    Vista previa del universo
+                  </span>
+                  <dl
+                    className="mt-[var(--space-sm)] grid grid-cols-2 sm:grid-cols-4"
+                    style={{ gap: "var(--space-md)" }}
+                  >
+                    {[
+                      { label: "Números", value: universePreview.total.toLocaleString(), icon: Hash },
+                      { label: "Rango", value: `${universePreview.start} - ${universePreview.end}`, icon: ArrowLeftRight },
+                      { label: "Cifras", value: universePreview.digits.toString(), icon: ListOrdered },
+                      { label: "Inicio", value: universePreview.startsAtZero ? "Cero" : "Uno", icon: Play },
+                    ].map(({ label, value, icon: Icon }) => (
+                      <div key={label} className="flex min-w-0 items-center" style={{ gap: "var(--space-sm)" }}>
+                        <div
+                          className="grid shrink-0 place-items-center border border-border-main bg-bg-muted text-text-muted"
+                          style={{
+                            width: "var(--h-button-card)",
+                            height: "var(--h-button-card)",
+                            borderRadius: "var(--radius-nested-compact)",
+                          }}
+                        >
+                          <Icon style={{ width: "var(--size-inner-icon-card)", height: "var(--size-inner-icon-card)" }} strokeWidth={1.75} />
+                        </div>
+                        <div className="min-w-0">
+                          <dt className="text-metadata-label text-text-muted">
+                            {label}
+                          </dt>
+                          <dd
+                            className="mt-[var(--space-xs)] truncate text-metadata-value text-text-main"
+                            title={value}
+                          >
+                            {value}
+                          </dd>
+                        </div>
+                      </div>
+                    ))}
+                  </dl>
+                </div>
+              )}
+
+            </div>
+          </NexusSection>
+
+          <NexusSection
+            title="Participación Compartida"
+            subtitle="Permite vender la mitad de un boleto a dos participantes."
+            icon={UsersRound}
+            iconVariant="brand"
+          >
+            <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+              <div
+                className="flex items-center justify-between border border-border-main bg-bg-muted"
+                style={{ gap: "var(--space-md)", padding: "var(--space-md)", borderRadius: "var(--radius-inner-visual)" }}
+              >
+                <div className="min-w-0">
+                  <span className="text-secondary font-semibold text-text-main">Permitir participación compartida</span>
+                  <p className="text-secondary text-text-muted">
+                    Dos personas pueden cubrir la mitad del precio de un mismo número. Solo aplica a números disponibles desde la activación.
+                  </p>
+                </div>
+                <div className="flex shrink-0 flex-col items-center" style={{ gap: "var(--space-xs)" }}>
+                  <NexusSwitch
+                    checked={sharedParticipationEnabled}
+                    onChange={setSharedParticipationEnabled}
+                    aria-label="Permitir participación compartida"
+                  />
+                  <span className="text-caption text-text-muted uppercase">
+                    {sharedParticipationEnabled ? "Activa" : "Inactiva"}
+                  </span>
+                </div>
+              </div>
+
+              {sharedParticipationEnabled && (
+                <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+                  <NexusInlineNotice title="Regla pública requerida" variant="warning">
+                    Puedes activar esta modalidad aunque un premio no se divida físicamente en dos. Define cómo se entregarán o complementarán esos premios; esta regla se mostrará antes de comprar.
+                  </NexusInlineNotice>
+                  <NexusTextarea
+                    label="Regla de entrega para premios indivisibles"
+                    value={sharedParticipationPrizePolicy}
+                    onChange={(event) => setSharedParticipationPrizePolicy(event.target.value)}
+                    helperText="Explica cómo la organización repartirá o complementará un premio que no pueda dividirse materialmente en dos partes equivalentes."
+                    placeholder="Ej. Si un premio no puede dividirse en dos partes iguales, la organización añadirá bienes complementarios sin costo para equilibrar la entrega."
+                    maxLength={1000}
+                    rows={4}
+                    required
+                  />
+                </div>
+              )}
             </div>
           </NexusSection>
         </div>
@@ -784,58 +919,12 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
             iconVariant="brand"
           >
             <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
-              <div className="grid grid-cols-2" style={{ gap: "var(--space-md)" }}>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setRaffleType("SIMPLE");
-                    setOpportunities("1");
-                  }}
-                  className={`flex items-center justify-center border-2 text-label uppercase tracking-[0.15em] transition-colors ${
-                    raffleType === "SIMPLE"
-                      ? "border-brand-500 bg-brand-50/30 text-brand-600 shadow-sm shadow-brand-500/10"
-                      : "border-border-main bg-bg-card text-text-muted hover:border-brand-300 hover:bg-bg-muted"
-                  }`}
-                  style={{ gap: "var(--space-xs)", height: "var(--h-input)", borderRadius: "var(--radius-inner-visual)" }}
-                >
-                  <Ticket size={14} strokeWidth={2.5} /> Simple
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setRaffleType("OPPORTUNITIES")}
-                  className={`flex items-center justify-center border-2 text-label uppercase tracking-[0.15em] transition-colors ${
-                    raffleType === "OPPORTUNITIES"
-                      ? "border-brand-500 bg-brand-50/30 text-brand-600 shadow-sm shadow-brand-500/10"
-                      : "border-border-main bg-bg-card text-text-muted hover:border-brand-300 hover:bg-bg-muted"
-                  }`}
-                  style={{ gap: "var(--space-xs)", height: "var(--h-input)", borderRadius: "var(--radius-inner-visual)" }}
-                >
-                  <Layers size={14} strokeWidth={2.5} /> Oportunidades
-                </button>
-              </div>
-
               <NexusInput
                 label="Título de la Rifa *"
                 required
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="Ej. Gran Rifa Semental Hatch"
-              />
-              <NexusInput
-                label="Descripción breve"
-                value={shortDescription}
-                maxLength={180}
-                onChange={(event) => setShortDescription(event.target.value)}
-                placeholder="Ej. Tres premios de pollos para show a elegir."
-                helperText="Resumen de una sola línea para invitaciones y mensajes breves."
-              />
-              <NexusInput
-                label="Información adicional"
-                value={additionalInfo}
-                maxLength={512}
-                onChange={(event) => setAdditionalInfo(event.target.value)}
-                placeholder="Ej. Cruzas disponibles: Giro PV MT y Giro PA MT."
-                helperText="Dato opcional que complementa la descripción en las invitaciones."
               />
               <NexusInput
                 label="Precio por Boleto *"
@@ -849,15 +938,15 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                 onChange={(event) => setTicketPrice(event.target.value)}
                 placeholder="0.00"
               />
-              <NexusTextarea
-                label="Descripción"
-                rows={6}
-                value={description}
-                onChange={(event) => setDescription(event.target.value)}
-                placeholder="Describe el premio, las bases de la rifa y cualquier información importante."
+              <NexusDateTimeInput
+                label="Fecha y Hora de la Rifa"
+                icon={Calendar}
+                value={drawDate}
+                onChange={setDrawDate}
+                helperText="Indica el momento oficial en que se define el resultado de la rifa."
               />
               <div className="flex flex-col" style={{ gap: "var(--space-xs)" }}>
-                <span className="text-label uppercase tracking-[0.15em] text-text-muted">
+                <span className="text-form-label text-text-muted">
                   Envío del Premio *
                 </span>
                 <NexusSegmentedControl
@@ -881,12 +970,27 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                 />
               </div>
               <NexusInput
-                label="Fecha y Hora de la Rifa"
-                icon={Calendar}
-                type="datetime-local"
-                value={drawDate}
-                onChange={(event) => setDrawDate(event.target.value)}
-                helperText="Indica el momento oficial en que se define el resultado de la rifa."
+                label="Descripción breve"
+                value={shortDescription}
+                maxLength={180}
+                onChange={(event) => setShortDescription(event.target.value)}
+                placeholder="Ej. Tres premios de pollos para show a elegir."
+                helperText="Resumen de una sola línea para invitaciones y mensajes breves."
+              />
+              <NexusTextarea
+                label="Descripción"
+                rows={6}
+                value={description}
+                onChange={(event) => setDescription(event.target.value)}
+                placeholder="Describe el premio, las bases de la rifa y cualquier información importante."
+              />
+              <NexusInput
+                label="Información adicional"
+                value={additionalInfo}
+                maxLength={512}
+                onChange={(event) => setAdditionalInfo(event.target.value)}
+                placeholder="Ej. Cruzas disponibles: Giro PV MT y Giro PA MT."
+                helperText="Dato opcional que complementa la descripción en las invitaciones."
               />
               <NexusSelect label="Estado Actual" value={status} onChange={(event) => setStatus(event.target.value as Raffle["status"])}>
                 <option value="ACTIVE">Activa</option>
@@ -935,7 +1039,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                   <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
                     <div className="flex items-center justify-between" style={{ gap: "var(--space-md)" }}>
                       <div className="min-w-0">
-                        <span className="text-label uppercase tracking-[0.15em] text-text-muted">Lugar</span>
+                        <span className="text-form-label text-text-muted">Lugar</span>
                         <h4 className="text-h2 text-text-main">{formatPrizePosition(index)}</h4>
                       </div>
                       <div className="flex shrink-0" style={{ gap: "var(--space-xs)" }}>
@@ -1050,20 +1154,34 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
             iconVariant="brand"
           >
             <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
-              <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-md)" }}>
-                <NexusInput
+              <div className="grid grid-cols-1" style={{ gap: "var(--space-md)" }}>
+                <NexusDateTimeInput
                   label="Inicio de la Participación"
-                  type="datetime-local"
+                  icon={Calendar}
                   value={participationStartsAt}
-                  onChange={(event) => setParticipationStartsAt(event.target.value)}
+                  onChange={setParticipationStartsAt}
                 />
-                <NexusInput
+                <NexusDateTimeInput
                   label="Cierre de la Participación"
-                  type="datetime-local"
+                  icon={Calendar}
                   value={participationEndsAt}
-                  onChange={(event) => setParticipationEndsAt(event.target.value)}
+                  onChange={setParticipationEndsAt}
                 />
               </div>
+
+              <NexusInlineNotice
+                variant={!hasCompleteParticipationWindow || !hasValidParticipationWindow ? "warning" : "neutral"}
+                icon={Clock3}
+                title="Periodo de Participación"
+              >
+                {!hasCompleteParticipationWindow
+                  ? "Define tanto el inicio como el cierre para programar la participación."
+                  : !hasValidParticipationWindow
+                    ? "El cierre debe ser posterior al inicio."
+                    : participationStartsAt
+                      ? "La rifa será visible antes de abrir. Al llegar la fecha, la participación pública se habilitará automáticamente."
+                      : "Sin fechas, la participación estará disponible inmediatamente mientras la rifa esté publicada y activa."}
+              </NexusInlineNotice>
 
               <div
                 className="flex items-center justify-between border border-border-main bg-bg-muted"
@@ -1074,16 +1192,21 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                 }}
               >
                 <div className="flex min-w-0 flex-col" style={{ gap: "var(--space-xs)" }}>
-                  <span className="text-secondary font-bold text-text-main">Acceso anticipado</span>
-                  <span className="text-label text-text-muted">
+                  <span className="text-secondary font-semibold text-text-main">Acceso anticipado</span>
+                  <span className="text-secondary text-text-muted">
                     Permite participar antes del inicio mediante un código privado.
                   </span>
                 </div>
-                <NexusSwitch
-                  checked={earlyAccessEnabled}
-                  onChange={setEarlyAccessEnabled}
-                  aria-label="Activar acceso anticipado"
-                />
+                <div className="flex shrink-0 flex-col items-center" style={{ gap: "var(--space-xs)" }}>
+                  <NexusSwitch
+                    checked={earlyAccessEnabled}
+                    onChange={setEarlyAccessEnabled}
+                    aria-label="Activar acceso anticipado"
+                  />
+                  <span className="text-caption text-text-muted uppercase">
+                    {earlyAccessEnabled ? "Activa" : "Inactiva"}
+                  </span>
+                </div>
               </div>
 
               {earlyAccessEnabled && (
@@ -1099,49 +1222,9 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                   helperText="Compártelo solo con las personas que podrán participar antes de la apertura pública."
                 />
               )}
-
-              <NexusInlineNotice
-                variant={!hasCompleteParticipationWindow || !hasValidParticipationWindow ? "warning" : "neutral"}
-                icon={Clock3}
-                title="Periodo de Participación"
-              >
-                {!hasCompleteParticipationWindow
-                  ? "Define tanto el inicio como el cierre para programar la participación."
-                  : !hasValidParticipationWindow
-                    ? "El cierre debe ser posterior al inicio."
-                    : participationStartsAt
-                      ? "La rifa será visible antes de abrir. Al llegar la fecha, la participación pública se habilitará automáticamente."
-                      : "Sin fechas, la participación estará disponible inmediatamente mientras la rifa esté publicada y activa."}
-              </NexusInlineNotice>
             </div>
           </NexusSection>
 
-          {universePreview && (
-            <NexusSection
-              title="Resumen del Universo"
-              subtitle="Referencia automática de los folios que se generarán."
-              icon={Hash}
-              iconVariant="muted"
-            >
-              <div className="grid grid-cols-2" style={{ gap: "var(--space-md)" }}>
-                {[
-                  ["Universo", universePreview.total.toLocaleString()],
-                  ["Rango", `${universePreview.start} - ${universePreview.end}`],
-                  ["Cifras", universePreview.digits.toString()],
-                  ["Inicio", universePreview.startsAtZero ? "Cero" : "Uno"],
-                ].map(([label, value]) => (
-                  <div
-                    key={label}
-                    className="flex flex-col border border-border-main bg-bg-muted"
-                    style={{ gap: "var(--space-xs)", padding: "var(--padding-inner)", borderRadius: "var(--radius-inner-visual)" }}
-                  >
-                    <span className="text-label uppercase tracking-[0.15em] text-text-muted">{label}</span>
-                    <span className="text-h2 tabular-nums text-text-main">{value}</span>
-                  </div>
-                ))}
-              </div>
-            </NexusSection>
-          )}
         </div>
       </div>
 
@@ -1152,7 +1235,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
             style={{ gap: "var(--space-md)", padding: "var(--padding-outer)", borderRadius: "var(--radius-outer)" }}
           >
             <Loader2 className="animate-spin text-brand-500" size={32} />
-            <span className="text-label uppercase tracking-[0.15em] text-text-main">Guardando Rifa</span>
+            <span className="text-form-label text-text-main">Guardando Rifa</span>
           </div>
         </div>
       )}

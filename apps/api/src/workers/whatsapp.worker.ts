@@ -16,13 +16,18 @@ import {
   refreshRaffleDrawReminderCampaign,
 } from "../modules/raffle/raffles/raffle-draw-reminder.service";
 import { refreshRaffleInvitationCampaign } from "../modules/raffle/raffles/raffle-invitation-campaign.service";
+import { refreshRaffleParticipantCouponCampaign } from "../modules/raffle/raffles/raffle-participant-coupon.service";
 import { paymentRecoveryService } from "../services/payment-recovery.service";
 import { isKapsoTenantDeliveryEnabled } from "../services/whatsapp/whatsapp-delivery-policy";
 import { createRaffleParticipationAccess } from "../modules/raffle/ticket-sales/raffle-participation-access.service";
+import { getParticipationUnitPrice } from "../modules/raffle/ticket-sales/shared-participation";
 import { createStoreOrderAccess } from "../modules/store/orders/store-order-access.service";
+import { omitOptionalRaffleParticipationInfo } from "../services/whatsapp/whatsapp-cloud-template.service";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
 const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
+const SHARED_PARTICIPATION_INFO =
+  "ℹ️ Participación compartida: pagas el 50% del boleto y, si resulta ganador, te corresponde el 50% del premio. Las oportunidades adicionales, si existen, se incluyen en tu participación y conservan la misma proporción.";
 
 export const whatsappWorker = new Worker<WhatsappJobData>(
   queueName("whatsapp-notifications"),
@@ -73,6 +78,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
               "whatsapp_global_raffle_opening",
               "whatsapp_global_raffle_draw_reminder",
               "whatsapp_global_raffle_invitation",
+              "whatsapp_global_raffle_participant_coupon",
               "whatsapp_global_raffle_winner",
               "whatsapp_global_raffle_results",
               "bank_main_name",
@@ -203,6 +209,15 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           Math.max(0, Number(raffleHold.raffle?.opportunities || 1) - 1),
         );
       }
+      const renderedTemplate =
+        !isStore && !String(values.part_info || "").trim()
+          ? omitOptionalRaffleParticipationInfo(template)
+          : template;
+      const principalTemplateContent = principalTemplate || template;
+      const renderedPrincipalTemplate =
+        !isStore && !String(values.part_info || "").trim()
+          ? omitOptionalRaffleParticipationInfo(principalTemplateContent)
+          : principalTemplateContent;
       const sent = await sendBusinessWhatsappNotification({
         preferredChannel,
         principal: principalWhatsapp,
@@ -211,11 +226,8 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         sourceContent: template,
         principalSourceContent: principalTemplate,
         recipientPhone: data.recipientPhone,
-        renderedText: renderTemplate(template, values),
-        principalRenderedText: renderTemplate(
-          principalTemplate || template,
-          values,
-        ),
+        renderedText: renderTemplate(renderedTemplate, values),
+        principalRenderedText: renderTemplate(renderedPrincipalTemplate, values),
         values,
         templateName: isStore
           ? "store_payment_recovery"
@@ -525,6 +537,120 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           },
         });
         await refreshRaffleDrawReminderCampaign(
+          rafflePrisma,
+          recipient.campaignId,
+        );
+        throw error;
+      }
+    }
+
+    if (data.kind === "raffle-participant-coupon") {
+      const claimed = await rafflePrisma.raffleParticipantCouponRecipient.updateMany({
+        where: {
+          id: data.campaignRecipientId,
+          campaign: { status: { not: "CLOSED" } },
+          status: {
+            in: data.fallbackOfMessageId
+              ? ["PENDING", "FAILED", "PROCESSING"]
+              : ["PENDING", "FAILED"],
+          },
+        },
+        data: {
+          status: "PROCESSING",
+          attempts: { increment: 1 },
+          lastError: null,
+        },
+      });
+      if (claimed.count === 0) return;
+
+      const recipient = await rafflePrisma.raffleParticipantCouponRecipient.findUnique({
+        where: { id: data.campaignRecipientId },
+        include: { campaign: { include: { raffle: true } } },
+      });
+      if (!recipient) return;
+      if (recipient.campaign.status === "CLOSED") return;
+
+      const raffleChannel = resolvedWhatsappChannels.find(
+        (channel) =>
+          channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
+      );
+      const values = { ...(recipient.payload as Record<string, string>) };
+      const renderedText = renderTemplate(
+        recipient.campaign.templateContent,
+        values,
+      );
+      const principalRenderedText = renderTemplate(
+        recipient.campaign.principalTemplateContent,
+        values,
+      );
+
+      try {
+        const sent = await sendBusinessWhatsappNotification({
+          preferredChannel: forcePrincipal ? null : raffleChannel,
+          principal: principalWhatsapp,
+          scope: "RAFFLES",
+          type: "PARTICIPANT_COUPON",
+          sourceContent: recipient.campaign.templateContent,
+          principalSourceContent: recipient.campaign.principalTemplateContent,
+          recipientPhone: recipient.phone,
+          renderedText,
+          principalRenderedText,
+          values,
+          templateName: "raffle_participant_coupon",
+          jobId: String(job.id ?? ""),
+          attempt: recipient.attempts,
+          forceProvider,
+          kapsoEnabled,
+        });
+        if (!sent) {
+          throw new Error(
+            "No existe un proveedor de WhatsApp preparado para este cupón.",
+          );
+        }
+        const messageLog = await storePrisma.whatsappMessageLog.findFirst({
+          where: { jobId: String(job.id ?? "") },
+          orderBy: { id: "desc" },
+        });
+        const waitsForProviderResolution =
+          messageLog?.provider === "KAPSO" &&
+          ["accepted", "pending"].includes(
+            String(messageLog.providerStatus || messageLog.status).toLowerCase(),
+          );
+        await rafflePrisma.raffleParticipantCouponRecipient.update({
+          where: { id: recipient.id },
+          data: {
+            status: waitsForProviderResolution ? "PROCESSING" : "SENT",
+            sentAt: waitsForProviderResolution ? null : new Date(),
+            messageLogId: messageLog?.id ?? null,
+            lastError: null,
+          },
+        });
+        if (messageLog) {
+          await storePrisma.whatsappMarketingPreference.updateMany({
+            where: { phone: recipient.phone, status: "GRANTED" },
+            data: { lastMarketingAt: new Date() },
+          });
+        }
+        await refreshRaffleParticipantCouponCampaign(
+          rafflePrisma,
+          recipient.campaignId,
+        );
+        return;
+      } catch (error: any) {
+        const messageLog = await storePrisma.whatsappMessageLog.findFirst({
+          where: { jobId: String(job.id ?? "") },
+          orderBy: { id: "desc" },
+        });
+        await rafflePrisma.raffleParticipantCouponRecipient.update({
+          where: { id: recipient.id },
+          data: {
+            status: "FAILED",
+            lastError:
+              error?.message || "No se pudo enviar el cupón a participantes.",
+            messageLogId: messageLog?.id ?? null,
+          },
+        });
+        await refreshRaffleParticipantCouponCampaign(
           rafflePrisma,
           recipient.campaignId,
         );
@@ -1118,6 +1244,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           ? data.timeRemaining
           : undefined,
         participationUrl,
+        data.kind !== "reservation-cancelled",
       );
       notification.values.opportunity_count = String(
         sales[0].raffle.opportunities || 1,
@@ -1263,13 +1390,18 @@ function buildRafflePaymentRecoveryValues(hold: any, recoveryUrl: string) {
     })),
   );
   const total =
-    Number(hold.raffle.ticketPrice) * hold.tickets.length -
+    getParticipationUnitPrice(
+      hold.raffle.ticketPrice.toString(),
+      hold.participationMode === "SHARED" ? "SHARED" : "FULL",
+    ) * hold.tickets.length -
     Number(hold.discountTotal);
   return {
     customer_name: hold.customerName || "",
     raffle_name: hold.raffle.title || "",
     ticket_list: ticketList,
     amount: formatRecoveryAmount(Math.max(0, total)),
+    part_info:
+      hold.participationMode === "SHARED" ? SHARED_PARTICIPATION_INFO : "",
     expires_at: formatRecoveryExpiration(hold.expiresAt),
     recovery_url: recoveryUrl,
   };
@@ -1373,11 +1505,18 @@ function buildReservationNotification(
   timeLimit?: string,
   timeRemaining?: string,
   participationUrl?: string,
+  includeParticipationInfo = true,
 ) {
   const firstSale = sales[0];
   const ticketList = formatRaffleTicketList(sales);
+  const isSharedParticipation =
+    includeParticipationInfo &&
+    sales.some((sale) => sale.participationMode === "SHARED");
   const subtotal = sales.reduce(
-    (sum, s) => sum + parseFloat(s.raffle.ticketPrice.toString()),
+    (sum, s) => sum + getParticipationUnitPrice(
+      s.raffle.ticketPrice.toString(),
+      s.participationMode === "SHARED" ? "SHARED" : "FULL",
+    ),
     0,
   );
   const discountTotal = parseFloat(firstSale.discountTotal?.toString() || "0");
@@ -1405,9 +1544,13 @@ function buildReservationNotification(
     ...getBankTemplateValues(bankInfo),
     time_raffle: timeLimit || "",
     time_remaining: timeRemaining || "",
+    part_info: isSharedParticipation ? SHARED_PARTICIPATION_INFO : "",
     participation_url: participationUrl || "",
   };
-  return { message: renderTemplate(template, values), values };
+  const renderedTemplate = isSharedParticipation
+    ? template
+    : omitOptionalRaffleParticipationInfo(template);
+  return { message: renderTemplate(renderedTemplate, values), values };
 }
 
 function formatOpeningDate(value: Date): string {

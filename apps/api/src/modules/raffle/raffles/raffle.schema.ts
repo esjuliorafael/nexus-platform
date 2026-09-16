@@ -33,6 +33,14 @@ const raffleAdditionalInfoSchema = z
   .optional()
   .nullable();
 
+const sharedParticipationPrizePolicySchema = z
+  .string()
+  .trim()
+  .min(1, "Define la regla de entrega para premios indivisibles.")
+  .max(1000, "La regla de entrega no puede superar 1000 caracteres.")
+  .optional()
+  .nullable();
+
 const rafflePrizeSchema = z
   .object({
     title: z.string().trim().min(1).max(120),
@@ -129,6 +137,8 @@ export const createRaffleSchema = z
     description: z.string().optional().nullable(),
     shortDescription: raffleShortDescriptionSchema,
     additionalInfo: raffleAdditionalInfoSchema,
+    sharedParticipationEnabled: z.boolean().optional(),
+    sharedParticipationPrizePolicy: sharedParticipationPrizePolicySchema,
     ticketPrice: z.number().positive(),
     ticketQuantity: z.number().int().positive(),
     opportunities: z.number().int().min(1).default(1),
@@ -161,6 +171,8 @@ export const updateRaffleSchema = z.object({
   description: z.string().optional().nullable(),
   shortDescription: raffleShortDescriptionSchema,
   additionalInfo: raffleAdditionalInfoSchema,
+  sharedParticipationEnabled: z.boolean().optional(),
+  sharedParticipationPrizePolicy: sharedParticipationPrizePolicySchema,
   ticketPrice: z.number().positive().optional(),
   ticketQuantity: z.number().int().positive().optional(),
   opportunities: z.number().int().min(1).optional(),

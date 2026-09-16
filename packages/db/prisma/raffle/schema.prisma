@@ -54,6 +54,9 @@ model Raffle {
   participationEndsAt    DateTime?                   @map("participation_ends_at")
   earlyAccessEnabled     Boolean                     @default(false) @map("early_access_enabled")
   earlyAccessCodeHash    String?                     @map("early_access_code_hash")
+  sharedParticipationEnabled Boolean                  @default(false) @map("shared_participation_enabled")
+  sharedParticipationActivatedAt DateTime?           @map("shared_participation_activated_at")
+  sharedParticipationPrizePolicy String?             @map("shared_participation_prize_policy")
   createdAt              DateTime                    @default(now()) @map("created_at")
   gallery                RaffleGallery[]
   extraOpportunities     RaffleOpportunity[]
@@ -67,6 +70,7 @@ model Raffle {
   resultCampaigns        RaffleResultCampaign[]
   drawReminderCampaigns  RaffleDrawReminderCampaign[]
   invitationCampaigns    RaffleInvitationCampaign[]
+  participantCouponCampaigns RaffleParticipantCouponCampaign[]
   participationAccessTokens RaffleParticipationAccessToken[]
   participationLookupChallenges RaffleParticipationLookupChallenge[]
 
@@ -318,6 +322,61 @@ model RaffleInvitationRecipient {
   @@map("raffle_invitation_recipients")
 }
 
+model RaffleParticipantCouponCampaign {
+  id                       String                              @id @default(uuid()) @db.Uuid
+  raffleId                 Int                                 @map("raffle_id")
+  couponId                 Int                                 @map("coupon_id")
+  purpose                  RaffleParticipantCouponPurpose      @default(OTHER)
+  campaignMessage          String                              @map("campaign_message")
+  couponInstructions       String                              @map("coupon_instructions")
+  status                   RaffleResultCampaignStatus          @default(QUEUED)
+  templateContent          String                              @map("template_content")
+  principalTemplateContent String                              @map("principal_template_content")
+  totalRecipients          Int                                 @default(0) @map("total_recipients")
+  sentCount                Int                                 @default(0) @map("sent_count")
+  failedCount              Int                                 @default(0) @map("failed_count")
+  initiatedByUserId        Int?                                @map("initiated_by_user_id")
+  initiatedByName          String?                             @map("initiated_by_name")
+  initiatedByRole          String?                             @map("initiated_by_role")
+  completedAt              DateTime?                           @map("completed_at")
+  createdAt                DateTime                            @default(now()) @map("created_at")
+  updatedAt                DateTime                            @updatedAt @map("updated_at")
+  raffle                   Raffle                              @relation(fields: [raffleId], references: [id], onDelete: Cascade)
+  coupon                   RaffleCoupon                        @relation(fields: [couponId], references: [id], onDelete: Restrict)
+  recipients               RaffleParticipantCouponRecipient[]
+
+  @@index([raffleId, createdAt])
+  @@index([couponId, createdAt])
+  @@map("raffle_participant_coupon_campaigns")
+}
+
+model RaffleParticipantCouponRecipient {
+  id               String                              @id @default(uuid()) @db.Uuid
+  campaignId       String                              @map("campaign_id") @db.Uuid
+  phone            String
+  customerName     String                              @map("customer_name")
+  participationIds String[]                            @default([]) @map("participation_ids")
+  payload          Json
+  status           RaffleResultRecipientStatus         @default(PENDING)
+  attempts         Int                                 @default(0)
+  lastError        String?                             @map("last_error")
+  messageLogId     Int?                                @map("message_log_id")
+  sentAt           DateTime?                           @map("sent_at")
+  createdAt        DateTime                            @default(now()) @map("created_at")
+  updatedAt        DateTime                            @updatedAt @map("updated_at")
+  campaign         RaffleParticipantCouponCampaign     @relation(fields: [campaignId], references: [id], onDelete: Cascade)
+
+  @@unique([campaignId, phone])
+  @@index([campaignId, status])
+  @@map("raffle_participant_coupon_recipients")
+}
+
+enum RaffleParticipantCouponPurpose {
+  DATE_CHANGE
+  SEASONAL_PROMOTION
+  OTHER
+}
+
 enum RaffleResultCampaignAudience {
   WINNERS
   PARTICIPANTS
@@ -347,6 +406,11 @@ enum RafflePrizeFulfillmentStatus {
   DELIVERED
   NOT_CLAIMED
   NOT_APPLICABLE
+}
+
+enum RaffleParticipationMode {
+  FULL   @map("full")
+  SHARED @map("shared")
 }
 
 enum RaffleDistribution {
@@ -443,6 +507,9 @@ model TicketSale {
   couponId              Int?          @map("coupon_id")
   couponCode            String?       @map("coupon_code")
   discountTotal         Decimal       @default(0.00) @map("discount_total")
+  participationMode     RaffleParticipationMode @default(FULL) @map("participation_mode")
+  shareIndex            Int?          @map("share_index")
+  shareGroupId          String?       @map("share_group_id") @db.Uuid
   createdAt             DateTime      @default(now()) @map("created_at")
   raffle                Raffle        @relation(fields: [raffleId], references: [id], onDelete: Cascade)
   coupon                RaffleCoupon? @relation(fields: [couponId], references: [id], onDelete: SetNull)
@@ -497,6 +564,7 @@ model RafflePaymentHold {
   couponId              Int?                      @map("coupon_id")
   couponCode            String?                   @map("coupon_code")
   discountTotal         Decimal                   @default(0.00) @map("discount_total")
+  participationMode     RaffleParticipationMode  @default(FULL) @map("participation_mode")
   ticketNumbers         String[]                  @default([]) @map("ticket_numbers")
   status                PaymentHoldStatus         @default(ACTIVE)
   expiresAt             DateTime                  @map("expires_at")
@@ -527,9 +595,10 @@ model RafflePaymentHoldTicket {
   holdId       String            @map("hold_id") @db.Uuid
   raffleId     Int               @map("raffle_id")
   ticketNumber String            @map("ticket_number")
+  shareIndex   Int?              @map("share_index")
+  shareGroupId String?           @map("share_group_id") @db.Uuid
   hold         RafflePaymentHold @relation(fields: [holdId], references: [id], onDelete: Cascade)
 
-  @@unique([raffleId, ticketNumber])
   @@index([holdId])
   @@map("raffle_payment_hold_tickets")
 }
@@ -575,6 +644,7 @@ model RaffleCoupon {
   raffle        Raffle?                  @relation(fields: [raffleId], references: [id], onDelete: SetNull)
   ticketSales   TicketSale[]
   paymentHolds  RafflePaymentHold[]
+  participantCouponCampaigns RaffleParticipantCouponCampaign[]
 
   @@index([raffleId, active])
   @@map("raffle_coupons")

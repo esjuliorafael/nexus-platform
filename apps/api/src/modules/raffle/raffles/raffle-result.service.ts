@@ -392,6 +392,16 @@ export const raffleResultService = {
         if (current.status === RaffleStatus.CANCELLED) {
           throw new Error("CANCELLED_RAFFLE_RESULT");
         }
+        const sharedParticipationCount = await tx.ticketSale.count({
+          where: {
+            raffleId,
+            participationMode: "SHARED",
+            paymentStatus: { in: ["PENDING", "PAID"] },
+          },
+        });
+        if (sharedParticipationCount > 0) {
+          throw new Error("SHARED_PARTICIPATION_RESULT_REVIEW");
+        }
 
         const preview = await previewRaffleResult(tx, raffleId, resultInputs);
         if (!preview) throw new Error("RAFFLE_NOT_FOUND");

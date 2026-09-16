@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, Calendar, Clock, CreditCard, Edit2, Hash, History, MapPin, MessageCircle, Phone, RotateCcw, Save, Sparkles, Ticket, UserRound, Waypoints } from "lucide-react";
+import { AlertTriangle, Calendar, CheckCircle2, CircleX, Clock, CreditCard, Edit2, Hash, History, MapPin, MessageCircle, Phone, RotateCcw, Save, Sparkles, Ticket, UserRound, UsersRound, Waypoints } from "lucide-react";
 import { apiRaffleParticipations } from "../../../api";
 import { MEXICO_STATES } from "../../../constants";
 import { RaffleParticipation, RaffleParticipationTicket, WhatsAppMessageLog } from "../../../types";
@@ -36,26 +36,46 @@ const formatDateTime = (value: string) =>
     minute: "2-digit",
   });
 
+const metadataIconStyle = {
+  width: "var(--size-inner-icon-metadata)",
+  height: "var(--size-inner-icon-metadata)",
+};
+
+const badgeIconStyle = {
+  width: "var(--size-inner-icon-badge)",
+  height: "var(--size-inner-icon-badge)",
+};
+
+const sectionCompactIconStyle = {
+  width: "var(--size-inner-icon-section-compact)",
+  height: "var(--size-inner-icon-section-compact)",
+};
+
 const Field = ({ label, value, wide = false }: { label: string; value: React.ReactNode; wide?: boolean }) => (
-  <div className={wide ? "sm:col-span-2" : ""}>
-    <p className="text-label uppercase tracking-[0.15em] text-text-muted">{label}</p>
-    <div className="text-secondary font-bold text-text-main" style={{ marginTop: "var(--space-xs)" }}>{value}</div>
+  <div className={`min-w-0 ${wide ? "sm:col-span-2" : ""}`}>
+    <p className="text-metadata-label text-text-muted">{label}</p>
+    <div
+      className="min-w-0 break-words text-metadata-value text-text-main [overflow-wrap:anywhere]"
+      style={{ marginTop: "var(--space-xs)" }}
+    >
+      {value}
+    </div>
   </div>
 );
 
-const getMercadoPagoStatusLabel = (
+const getMercadoPagoStatusPresentation = (
   status?: string | null,
   participationStatus?: RaffleParticipation["status"],
 ) => {
   const normalized = status?.toLowerCase();
-  if (normalized === "approved") return "Pagado";
-  if (normalized === "refunded") return "Devuelto";
-  if (normalized === "rejected" || normalized === "failed") return "Fallido";
-  if (normalized === "cancelled") return "Cancelado";
-  if (normalized === "in_process" || normalized === "pending") return "Pendiente";
-  if (participationStatus === "PAID") return "Pagado";
-  if (participationStatus === "CANCELLED") return "Cancelado";
-  return "Pendiente";
+  if (normalized === "approved") return { label: "Pagado", variant: "success" as const, icon: CheckCircle2 };
+  if (normalized === "refunded") return { label: "Devuelto", variant: "warning" as const, icon: RotateCcw };
+  if (normalized === "rejected" || normalized === "failed") return { label: "Fallido", variant: "danger" as const, icon: CircleX };
+  if (normalized === "cancelled") return { label: "Cancelado", variant: "danger" as const, icon: CircleX };
+  if (normalized === "in_process" || normalized === "pending") return { label: "Pendiente", variant: "warning" as const, icon: Clock };
+  if (participationStatus === "PAID") return { label: "Pagado", variant: "success" as const, icon: CheckCircle2 };
+  if (participationStatus === "CANCELLED") return { label: "Cancelado", variant: "danger" as const, icon: CircleX };
+  return { label: "Pendiente", variant: "warning" as const, icon: Clock };
 };
 
 const getWhatsappLogBadge = (
@@ -63,18 +83,18 @@ const getWhatsappLogBadge = (
   providerStatus?: string | null,
 ) => {
   const normalizedProviderStatus = String(providerStatus || "").toLowerCase();
-  if (status === "failed") return { label: "Fallida", variant: "danger" as const };
+  if (status === "failed") return { label: "Fallida", variant: "danger" as const, icon: CircleX };
   if (
     status === "pending" &&
     ["accepted", "pending", "server_ack"].includes(normalizedProviderStatus)
   ) {
-    return { label: "Enviada", variant: "info" as const };
+    return { label: "Enviada", variant: "info" as const, icon: MessageCircle };
   }
-  if (status === "pending") return { label: "Pendiente", variant: "warning" as const };
-  if (status === "server_ack") return { label: "Enviada", variant: "info" as const };
-  if (status === "delivered") return { label: "Entregada", variant: "success" as const };
-  if (status === "read") return { label: "Leída", variant: "success" as const };
-  return { label: "Enviada", variant: "success" as const };
+  if (status === "pending") return { label: "Pendiente", variant: "warning" as const, icon: Clock };
+  if (status === "server_ack") return { label: "Enviada", variant: "info" as const, icon: MessageCircle };
+  if (status === "delivered") return { label: "Entregada", variant: "success" as const, icon: CheckCircle2 };
+  if (status === "read") return { label: "Leída", variant: "success" as const, icon: CheckCircle2 };
+  return { label: "Enviada", variant: "success" as const, icon: MessageCircle };
 };
 
 const getWhatsappPurposeLabel = (template: string) => {
@@ -167,6 +187,12 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
       : detail.status === "MIXED"
         ? "muted"
         : "warning";
+  const statusIcon = detail.status === "PAID"
+    ? CheckCircle2
+    : ["CANCELLED", "NOT_COMPLETED"].includes(detail.status)
+      ? CircleX
+      : Clock;
+  const mercadoPagoStatus = getMercadoPagoStatusPresentation(detail.mpPaymentStatus, detail.status);
   const canRefundMercadoPago =
     canManageOperations &&
     detail.paymentMethod === "MERCADOPAGO" &&
@@ -257,14 +283,20 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
           iconVariant={detail.status === "PAYMENT_REVIEW" ? "orange" : "brand"}
         >
           <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-lg)" }}>
-            <Field label="Estado" value={<NexusBadge variant={statusVariant}>{statusLabel}</NexusBadge>} />
+            <Field label="Estado" value={<NexusBadge variant={statusVariant} icon={statusIcon}>{statusLabel}</NexusBadge>} />
             <Field label="Método de pago" value={detail.paymentMethod === "MERCADOPAGO" ? "Tarjeta de crédito o débito" : "Depósito / Transferencia"} />
+            <Field
+              label="Modalidad"
+              value={detail.participationMode === "SHARED"
+                ? <NexusBadge variant="info" icon={UsersRound}>Compartida</NexusBadge>
+                : <NexusBadge variant="muted" icon={Ticket}>Completa</NexusBadge>}
+            />
             <Field label="Rifa" value={detail.raffleTitle} />
-            <Field label="Fecha" value={<span className="flex items-center" style={{ gap: "var(--space-xs)" }}><Calendar size={14} />{formatDateTime(detail.createdAt)}</span>} />
+            <Field label="Fecha" value={<span className="flex items-center" style={{ gap: "var(--space-xs)" }}><Calendar style={metadataIconStyle} aria-hidden="true" />{formatDateTime(detail.createdAt)}</span>} />
             {isPaymentHold && detail.expiresAt && <Field label="Retención hasta" value={formatDateTime(detail.expiresAt)} />}
             <Field label="Subtotal" value={formatCurrency(detail.subtotal)} />
             <Field label="Descuento" value={formatCurrency(detail.discountTotal)} />
-            <Field label="Total" value={<span className="text-h1 font-black">{detail.ticketCount > 0 ? formatCurrency(detail.total) : "No disponible"}</span>} />
+            <Field label="Total" value={<span className="text-h1 tabular-nums">{detail.ticketCount > 0 ? formatCurrency(detail.total) : "No disponible"}</span>} />
             {detail.couponCode && <Field label="Cupón" value={detail.couponCode} />}
           </div>
         </NexusSection>
@@ -282,7 +314,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
               </p>
             )}
             {(detail.tickets || []).map((ticket) => (
-              <NexusSectionCard
+                      <NexusSectionCard
                 key={ticket.id}
                 icon={Ticket}
                 iconVariant="solid-brand"
@@ -290,19 +322,28 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
                 onClick={() => setSelectedTicket(ticket)}
                 title={(
                   <div className="flex min-w-0 flex-col" style={{ gap: "var(--space-xs)" }}>
-                    <span className="text-label uppercase tracking-[0.15em] text-text-muted">
+                    <span className="text-metadata-label text-text-muted">
                       Núm. princ.
                     </span>
-                    <span className="text-h1 font-black leading-none text-text-main">
+                    <span className="text-h1 leading-none tabular-nums text-text-main">
                       {ticket.number}
                     </span>
                   </div>
                 )}
-                rightContent={ticket.opportunities.length > 0 ? (
-                  <NexusCardBadge variant="brand">
-                    {ticket.opportunities.length + 1} núms.
-                  </NexusCardBadge>
-                ) : undefined}
+                rightContent={(
+                  <div className="flex flex-wrap items-center justify-end" style={{ gap: "var(--space-xs)" }}>
+                    {ticket.shareIndex && (
+                      <NexusCardBadge variant="info" icon={UsersRound}>
+                        Parte {ticket.shareIndex}/2
+                      </NexusCardBadge>
+                    )}
+                    {ticket.opportunities.length > 0 && (
+                      <NexusCardBadge variant="brand" icon={Waypoints}>
+                        {ticket.opportunities.length + 1} núms.
+                      </NexusCardBadge>
+                    )}
+                  </div>
+                )}
               />
             ))}
           </div>
@@ -324,15 +365,15 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
                 <div className="flex min-w-0 items-center" style={{ gap: "var(--space-md)" }}>
                   <NexusAutonomousIcon icon={Ticket} variant="solid-brand" />
                   <div className="flex min-w-0 flex-col" style={{ gap: "var(--space-xs)" }}>
-                    <span className="text-label uppercase tracking-[0.15em] text-text-muted">
+                    <span className="text-metadata-label text-text-muted">
                       Núm. princ.
                     </span>
-                    <span className="text-display font-black leading-none text-text-main">
+                    <span className="text-display leading-none tabular-nums text-text-main">
                       {selectedTicket.number}
                     </span>
                   </div>
                 </div>
-                <NexusAutonomousBadge variant="brand">
+                <NexusAutonomousBadge variant="brand" icon={Hash}>
                   {selectedTicket.opportunities.length + 1}{" "}
                   {selectedTicket.opportunities.length === 0 ? "núm." : "núms."}
                 </NexusAutonomousBadge>
@@ -343,9 +384,14 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
                 style={{ gap: "var(--space-md)" }}
               >
                 <div className="flex items-start" style={{ gap: "var(--space-sm)" }}>
-                  <Sparkles className="mt-0.5 shrink-0 text-brand-500" size={18} strokeWidth={2.25} />
+                  <Sparkles
+                    className="shrink-0 text-brand-500"
+                    style={{ ...sectionCompactIconStyle, marginTop: "calc(var(--space-xs) / 2)" }}
+                    strokeWidth={2.25}
+                    aria-hidden="true"
+                  />
                   <div className="flex min-w-0 flex-col" style={{ gap: "var(--space-xs)" }}>
-                    <h4 className="text-h2 font-bold text-text-main">
+                    <h4 className="text-h2 text-text-main">
                       Oportunidades adicionales
                     </h4>
                     <p className="text-secondary text-text-muted">
@@ -361,7 +407,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
                     {selectedTicket.opportunities.map((number) => (
                       <span
                         key={number}
-                        className="flex min-w-0 items-center justify-center border border-border-main bg-bg-muted text-secondary font-bold text-text-main"
+                        className="flex min-w-0 items-center justify-center border border-border-main bg-bg-muted text-metadata-value text-text-main"
                         style={{
                           minHeight: "var(--h-button-card)",
                           borderRadius: "var(--radius-inner-visual)",
@@ -396,8 +442,8 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
         >
           <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-lg)" }}>
             <Field label="Nombre completo" value={detail.customerName} />
-            <Field label="WhatsApp" value={<span className="flex items-center" style={{ gap: "var(--space-xs)" }}><Phone size={14} />{detail.customerPhone}</span>} />
-            <Field label="Estado" value={<span className="flex items-center" style={{ gap: "var(--space-xs)" }}><MapPin size={14} />{detail.customerState || "Sin especificar"}</span>} />
+            <Field label="WhatsApp" value={<span className="flex items-center" style={{ gap: "var(--space-xs)" }}><Phone style={metadataIconStyle} aria-hidden="true" />{detail.customerPhone}</span>} />
+            <Field label="Estado" value={<span className="flex items-center" style={{ gap: "var(--space-xs)" }}><MapPin style={metadataIconStyle} aria-hidden="true" />{detail.customerState || "Sin especificar"}</span>} />
           </div>
         </NexusSection>
 
@@ -486,7 +532,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
             <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-md)" }}>
               <Field
                 label="Estado"
-                value={getMercadoPagoStatusLabel(detail.mpPaymentStatus, detail.status)}
+                value={<NexusBadge variant={mercadoPagoStatus.variant} icon={mercadoPagoStatus.icon}>{mercadoPagoStatus.label}</NexusBadge>}
               />
               <Field
                 label="Monto pagado"
@@ -533,7 +579,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
             {isPaymentHold && detail.paymentAttempts?.length ? (
               <div className="flex flex-col border-t border-border-main pt-[var(--space-lg)]" style={{ gap: "var(--space-md)", marginTop: "var(--space-lg)" }}>
                 <div>
-                  <h3 className="text-h2 font-bold text-text-main">Historial de intentos</h3>
+                  <h3 className="text-h2 text-text-main">Historial de intentos</h3>
                   <p className="text-secondary text-text-muted" style={{ marginTop: "var(--space-xs)" }}>
                     Cada envío de tarjeta se registra por separado para conservar la trazabilidad.
                   </p>
@@ -552,6 +598,11 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
                       : attemptStatus === "UNKNOWN"
                         ? "Por conciliar"
                         : "Rechazado";
+                  const attemptIcon = attemptStatus === "APPROVED"
+                    ? CheckCircle2
+                    : ["PROCESSING", "UNKNOWN"].includes(attemptStatus)
+                      ? Clock
+                      : CircleX;
 
                   return (
                     <div
@@ -561,10 +612,10 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
                     >
                       <div className="flex flex-wrap items-center justify-between" style={{ gap: "var(--space-sm)" }}>
                         <div className="flex items-center" style={{ gap: "var(--space-sm)" }}>
-                          <span className="text-label uppercase tracking-[0.15em] text-text-muted">Intento {detail.paymentAttempts!.length - index}</span>
-                          <NexusBadge variant={attemptVariant}>{attemptLabel}</NexusBadge>
+                          <span className="text-metadata-label text-text-muted">Intento {detail.paymentAttempts!.length - index}</span>
+                          <NexusBadge variant={attemptVariant} icon={attemptIcon}>{attemptLabel}</NexusBadge>
                         </div>
-                        <span className="text-label text-text-muted">{formatDateTime(attempt.createdAt)}</span>
+                        <span className="text-metadata-label text-text-muted">{formatDateTime(attempt.createdAt)}</span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-md)", marginTop: "var(--space-md)" }}>
                         <Field label="Mensaje" value={attempt.customerMessage || "Sin mensaje"} wide />
@@ -597,7 +648,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
           ) : undefined}
         >
           {detail.whatsappLogs?.length ? (
-            <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+            <div className="flex flex-col">
               {detail.whatsappLogs.map((log) => {
                 const badge = getWhatsappLogBadge(log.status, log.providerStatus);
                 return (
@@ -609,14 +660,14 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
                   style={{ gap: "var(--space-md)" }}
                 >
                   <div className="min-w-0">
-                    <p className="text-secondary font-bold text-text-main">{getWhatsappPurposeLabel(log.templateUsed)}</p>
+                    <p className="text-secondary font-semibold text-text-main">{getWhatsappPurposeLabel(log.templateUsed)}</p>
                     <p className="truncate text-secondary text-text-muted">
                       {getWhatsappProviderLabel(log.provider)} · {getWhatsappDeliveryRouteLabel(log.responsePayload) || "Ruta no identificada"}
                     </p>
                   </div>
                   <div className="shrink-0 text-right">
-                    <NexusBadge variant={badge.variant}>{badge.label}</NexusBadge>
-                    <p className="text-label text-text-muted" style={{ marginTop: "var(--space-xs)" }}><Clock size={11} className="inline" /> {formatDateTime(log.sentAt)}</p>
+                    <NexusBadge variant={badge.variant} icon={badge.icon}>{badge.label}</NexusBadge>
+                    <p className="text-metadata-label text-text-muted" style={{ marginTop: "var(--space-xs)" }}><Clock style={badgeIconStyle} className="inline" aria-hidden="true" /> {formatDateTime(log.sentAt)}</p>
                   </div>
                 </button>
               );})}
@@ -663,8 +714,8 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
                   className="border border-rose-100 bg-rose-50 text-rose-600"
                   style={{ padding: "var(--padding-inner)", borderRadius: "var(--radius-card-inner)" }}
                 >
-                  <p className="text-label uppercase tracking-[0.15em]">Error</p>
-                  <p className="text-secondary leading-relaxed" style={{ marginTop: "var(--space-xs)" }}>
+                  <p className="text-metadata-label">Error</p>
+                  <p className="break-words text-secondary leading-relaxed [overflow-wrap:anywhere]" style={{ marginTop: "var(--space-xs)" }}>
                     {selectedWhatsappLog.errorMessage}
                   </p>
                 </div>

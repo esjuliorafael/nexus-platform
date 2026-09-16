@@ -6,6 +6,7 @@ import { STOREFRONT_EASING, STOREFRONT_MOTION_MS, toMotionSeconds } from '../../
 import { Button } from '../ui/Button';
 import { StorefrontAutonomousCard } from '../ui/Card';
 import { RaffleTicketSelectionExplorer } from './RaffleTicketSelectionExplorer';
+import { RaffleParticipationMode } from '../../lib/raffle-participation';
 
 interface RaffleSelectionSummaryCardProps {
   selectedTickets: string[];
@@ -23,6 +24,7 @@ interface RaffleSelectionSummaryCardProps {
     label: string;
     tone: 'success' | 'pending';
   };
+  participationMode?: RaffleParticipationMode;
 }
 
 export function RaffleSelectionSummaryCard({
@@ -38,6 +40,7 @@ export function RaffleSelectionSummaryCard({
   actionLoading = false,
   actionTestId,
   completionStatus,
+  participationMode = 'FULL',
 }: RaffleSelectionSummaryCardProps) {
   const reduceMotion = useReducedMotion();
   const feedbackTransition = {
@@ -59,7 +62,7 @@ export function RaffleSelectionSummaryCard({
         <h2 className="sf-text-h1">Mi selección</h2>
         <p className="sf-text-secondary text-stone-400">
           {selectedTickets.length > 0
-            ? `${selectedTickets.length} boleto${selectedTickets.length === 1 ? '' : 's'} seleccionado${selectedTickets.length === 1 ? '' : 's'}.`
+            ? `${selectedTickets.length} boleto${selectedTickets.length === 1 ? '' : 's'} seleccionado${selectedTickets.length === 1 ? '' : 's'} · participación ${participationMode === 'SHARED' ? 'compartida' : 'completa'}.`
             : 'Elige los números con los que deseas participar.'}
         </p>
       </div>
@@ -71,6 +74,10 @@ export function RaffleSelectionSummaryCard({
           variant="dark"
           onRemoveTicket={onRemoveTicket}
         />
+      )}
+
+      {selectedTickets.length > 0 && participationMode === 'SHARED' && (
+        <p className="sf-text-secondary text-amber-200">Pagas el 50% del boleto. La entrega del premio se realiza conforme a las reglas de esta rifa.</p>
       )}
 
       <div className="flex flex-col border-t border-stone-800 pt-[var(--sf-space-md)]" style={{ gap: 'var(--sf-space-md)' }}>

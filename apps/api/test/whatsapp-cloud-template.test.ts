@@ -6,6 +6,7 @@ import {
   getCloudTemplateDefinitionHash,
   normalizeCloudTemplateParameterValue,
   omitOptionalRaffleInvitationAdditionalInfo,
+  omitOptionalRaffleParticipationInfo,
   resolveCloudTemplateOwner,
 } from "../src/services/whatsapp/whatsapp-cloud-template.service";
 import { getInitialWhatsappLogStatus } from "../src/services/whatsapp/whatsapp-send.service";
@@ -163,6 +164,23 @@ test("omits optional raffle invitation info when it is empty", () => {
     omitOptionalRaffleInvitationAdditionalInfo(withOptionalInfo),
     "¡Hola, {{customer_name}}!\n\nℹ️ {{raffle_description}}\n\n📅 Apertura: {{opening_date}}",
   );
+});
+
+test("omits optional shared participation info when it is empty", () => {
+  const withOptionalInfo =
+    "Tu participación quedó apartada correctamente. ✅\n\n{{part_info}}\n\n💰 Total pendiente: $250.00 MXN";
+
+  assert.equal(
+    omitOptionalRaffleParticipationInfo(withOptionalInfo),
+    "Tu participación quedó apartada correctamente. ✅\n\n💰 Total pendiente: $250.00 MXN",
+  );
+});
+
+test("keeps templates without shared participation info unchanged", () => {
+  const content =
+    "Tu participación quedó apartada correctamente. ✅\n\n💰 Total pendiente: $250.00 MXN";
+
+  assert.equal(omitOptionalRaffleParticipationInfo(content), content);
 });
 
 test("keeps the Evolution source content unchanged for ordinary templates", () => {

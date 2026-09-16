@@ -43,7 +43,7 @@ export const NexusInlineNotice: React.FC<NexusInlineNoticeProps> = ({
     className={`flex flex-col border ${variantStyles[variant]} ${className}`}
     role={variant === "warning" || variant === "danger" ? "alert" : "status"}
     style={{
-      gap: "var(--space-md)",
+      gap: "var(--space-base)",
       padding: "var(--padding-inner)",
       borderRadius: context === "section" ? "var(--radius-inner-visual)" : "var(--radius-nested-simple)",
       ...style,
@@ -51,7 +51,7 @@ export const NexusInlineNotice: React.FC<NexusInlineNoticeProps> = ({
   >
     <div className="flex items-center" style={{ gap: "var(--space-sm)" }}>
       <Icon size={18} className="shrink-0" />
-      <span className="text-label uppercase tracking-[0.15em]">{title}</span>
+      <span className="text-form-label">{title}</span>
     </div>
     <div className="text-secondary">{children}</div>
   </div>

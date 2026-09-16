@@ -21,6 +21,7 @@ export type CloudTemplateType =
   | "DRAW_REMINDER"
   | "DATE_CHANGE"
   | "RAFFLE_INVITATION"
+  | "PARTICIPANT_COUPON"
   | "RESULT_WINNER"
   | "RESULT_PARTICIPANTS"
   | "PARTICIPATION_LOOKUP_CODE";
@@ -112,6 +113,11 @@ export const CLOUD_TEMPLATE_SETTING_KEYS: Array<{
   },
   {
     scope: "RAFFLES",
+    type: "PARTICIPANT_COUPON",
+    key: "whatsapp_global_raffle_participant_coupon",
+  },
+  {
+    scope: "RAFFLES",
     type: "RESULT_WINNER",
     key: "whatsapp_global_raffle_winner",
   },
@@ -181,6 +187,18 @@ Te invitamos a participar en la “{{raffle_name}}”.
 🔎 Consulta los detalles, conoce los premios y selecciona tus boletos.
 
 {{raffle_url}}`,
+  PARTICIPANT_COUPON: `¡Hola, {{customer_name}}! 🎁
+
+{{message}}
+
+Cupón: {{coupon_code}}
+Descuento: {{coupon_amount}}
+
+{{instructions}}
+
+Válido hasta {{coupon_expires_at}}.
+
+¡Gracias por participar en {{raffle_name}}!`,
   RESULT_WINNER:
     '¡Felicidades, {{customer_name}}! 🏆\n\nEl resultado de tu participación en "{{raffle_name}}" ya está disponible.\n\nTu participación resultó ganadora. ✅\n\n🔎 Consulta el lugar, el premio y el número ganador en el botón Ver participación:\n\n{{participation_url}}',
   PARTICIPATION_LOOKUP_CODE:
@@ -360,6 +378,8 @@ const VARIABLE_EXAMPLES: Record<string, string> = {
   raffle_name: "Rifa Especial de Junio",
   raffle_description: "Tres premios de pollos para show a elegir.",
   raffle_extra: "📌 Cruzas disponibles: Alimonados, Colorados y Giros.",
+  part_info:
+    "ℹ️ Participación compartida: pagas el 50% del boleto y, si resulta ganador, te corresponde el 50% del premio. Las oportunidades adicionales, si existen, se incluyen en tu participación y conservan la misma proporción.",
   raffle_url: "https://example.com/raffles/1",
   opening_date: "Lunes, 20 de julio de 2026, 8:00 a. m.",
   raffle_date: "Hoy, 31 de julio de 2026 a las 8:00 p. m.",
@@ -370,6 +390,11 @@ const VARIABLE_EXAMPLES: Record<string, string> = {
   winning_rule:
     "El número ganador se determina con los últimos 3 dígitos del Premio Mayor de la Lotería Nacional.",
   ticket_price: "320.00",
+  message: "Gracias por seguir participando con nosotros.",
+  instructions: "Úsalo al finalizar tu próxima participación.",
+  coupon_code: "TROJES100",
+  coupon_amount: "$100",
+  coupon_expires_at: "30 de septiembre de 2026",
   ticket_list:
     "002, 005 y 009\n\n✨ Oportunidades adicionales:\n\n002: 164, 246, 271",
   prize_list:
@@ -599,6 +624,16 @@ export function omitOptionalRaffleInvitationAdditionalInfo(content: string) {
   return content
     .replace(
       /(?:^|\n)[^\n]*\{\{raffle_extra\}\}[^\n]*(?:\n|$)/gi,
+      "",
+    )
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+export function omitOptionalRaffleParticipationInfo(content: string) {
+  return content
+    .replace(
+      /(?:^|\n)[^\n]*\{\{part_info\}\}[^\n]*(?:\n|$)/gi,
       "",
     )
     .replace(/\n{3,}/g, "\n\n")
@@ -869,7 +904,8 @@ export function getCloudTemplateCategory(
 ): "UTILITY" | "MARKETING" | "AUTHENTICATION" {
   return type === "RAFFLE_INVITATION" ||
     type === "OPENING" ||
-    type === "RESULT_WINNER"
+    type === "RESULT_WINNER" ||
+    type === "PARTICIPANT_COUPON"
     ? "MARKETING"
     : "UTILITY";
 }

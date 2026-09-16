@@ -44,12 +44,14 @@ import { raffleResultService } from "./raffle-result.service";
 import { raffleResultCommunicationService } from "./raffle-result-communication.service";
 import { raffleDrawReminderService } from "./raffle-draw-reminder.service";
 import { raffleInvitationCampaignService } from "./raffle-invitation-campaign.service";
+import { raffleParticipantCouponService } from "./raffle-participant-coupon.service";
 import { getRaffleParticipationAccess } from "../ticket-sales/raffle-participation-access.service";
 import {
   createParticipationLookupAccess,
   requestParticipationLookup,
   verifyParticipationLookup,
 } from "../ticket-sales/raffle-participation-lookup.service";
+import { isSharedParticipationPriceSupported } from "../ticket-sales/shared-participation";
 
 const recordRaffleActivity = async (
   prisma: any,
@@ -87,6 +89,7 @@ const reserveTicketsBodySchema = z.object({
   couponCode: z.string().trim().min(1).max(40).optional(),
   earlyAccessToken: z.string().min(1).optional(),
   marketingConsent: z.boolean().optional().default(false),
+  participationMode: z.enum(["FULL", "SHARED"]).optional().default("FULL"),
 });
 
 const earlyAccessBodySchema = z.object({
@@ -181,6 +184,13 @@ const raffleInvitationCampaignBodySchema = z.object({
     .enum(["PAID_PARTICIPANTS", "AUTHORIZED_PARTICIPANTS"])
     .optional(),
   frequencyWindowDays: z.number().int().min(0).max(365).default(0),
+});
+
+const raffleParticipantCouponCampaignBodySchema = z.object({
+  couponId: z.coerce.number().int().positive(),
+  purpose: z.enum(["DATE_CHANGE", "SEASONAL_PROMOTION", "OTHER"]),
+  message: z.string().trim().min(1).max(280),
+  instructions: z.string().trim().max(240).optional(),
 });
 
 const rafflePrizeFulfillmentParamsSchema = z.object({
@@ -615,7 +625,7 @@ export async function raffleRoutes(server: FastifyInstance) {
     const [occupied, held] = await Promise.all([
       getPrisma().ticketSale.findMany({
         where: { raffleId, paymentStatus: { in: ["PAID", "PENDING"] } },
-        select: { ticketNumber: true, paymentStatus: true },
+        select: { ticketNumber: true, paymentStatus: true, participationMode: true, shareIndex: true },
       }),
       getPrisma().rafflePaymentHoldTicket.findMany({
         where: {
@@ -625,24 +635,57 @@ export async function raffleRoutes(server: FastifyInstance) {
             expiresAt: { gt: new Date() },
           },
         },
-        select: { ticketNumber: true },
+        select: {
+          ticketNumber: true,
+          shareIndex: true,
+          hold: { select: { participationMode: true } },
+        },
       }),
     ]);
-    const availability = new Map<string, "PAID" | "RESERVED">();
-    held.forEach((entry: { ticketNumber: string }) =>
-      availability.set(entry.ticketNumber, "RESERVED"),
-    );
-    occupied.forEach(
-      (sale: { ticketNumber: string; paymentStatus: "PAID" | "PENDING" }) =>
-        availability.set(
-          sale.ticketNumber,
-          sale.paymentStatus === "PAID" ? "PAID" : "RESERVED",
-        ),
-    );
-    return Array.from(availability, ([ticketNumber, status]) => ({
-      ticketNumber,
-      status,
-    }));
+    const claimsByTicket = new Map<string, Array<{
+      participationMode: "FULL" | "SHARED";
+      shareIndex: 1 | 2 | null;
+      status: "PAID" | "RESERVED";
+    }>>();
+    held.forEach((entry: { ticketNumber: string; shareIndex: number | null; hold: { participationMode: "FULL" | "SHARED" } }) => {
+      const claims = claimsByTicket.get(entry.ticketNumber) ?? [];
+      claims.push({
+        participationMode: entry.hold.participationMode,
+        shareIndex: entry.shareIndex === 1 || entry.shareIndex === 2 ? entry.shareIndex : null,
+        status: "RESERVED",
+      });
+      claimsByTicket.set(entry.ticketNumber, claims);
+    });
+    occupied.forEach((sale: { ticketNumber: string; paymentStatus: "PAID" | "PENDING"; participationMode: "FULL" | "SHARED"; shareIndex: number | null }) => {
+      const claims = claimsByTicket.get(sale.ticketNumber) ?? [];
+      claims.push({
+        participationMode: sale.participationMode,
+        shareIndex: sale.shareIndex === 1 || sale.shareIndex === 2 ? sale.shareIndex : null,
+        status: sale.paymentStatus === "PAID" ? "PAID" : "RESERVED",
+      });
+      claimsByTicket.set(sale.ticketNumber, claims);
+    });
+
+    return Array.from(claimsByTicket, ([ticketNumber, claims]) => {
+      const fullClaim = claims.find((claim) => claim.participationMode === "FULL");
+      if (fullClaim) return { ticketNumber, status: fullClaim.status, participationMode: "FULL", shared: null };
+
+      const shares = claims
+        .filter((claim) => claim.shareIndex === 1 || claim.shareIndex === 2)
+        .map((claim) => ({ shareIndex: claim.shareIndex as 1 | 2, status: claim.status }))
+        .sort((left, right) => left.shareIndex - right.shareIndex);
+      return {
+        ticketNumber,
+        status: "SHARED" as const,
+        participationMode: "SHARED" as const,
+        shared: {
+          total: 2 as const,
+          occupied: shares.length,
+          available: Math.max(0, 2 - shares.length),
+          shares,
+        },
+      };
+    });
   });
 
   server.post(
@@ -728,6 +771,24 @@ export async function raffleRoutes(server: FastifyInstance) {
             .status(409)
             .send({ message: "This raffle is not available" });
         }
+        if (error.message === "SHARED_PARTICIPATION_DISABLED" || error.message === "SHARED_PARTICIPATION_NOT_ACTIVE") {
+          return reply.status(409).send({
+            message: "La participación compartida no está disponible en esta rifa.",
+            code: error.message,
+          });
+        }
+        if (error.message === "SHARED_PARTICIPATION_PRICE_NOT_DIVISIBLE") {
+          return reply.status(400).send({
+            message: "El precio del boleto debe poder dividirse exactamente entre dos.",
+            code: error.message,
+          });
+        }
+        if (error.message === "SHARED_PARTICIPATION_COUPON_UNSUPPORTED") {
+          return reply.status(400).send({
+            message: "Los cupones todavía no aplican a participaciones compartidas.",
+            code: error.message,
+          });
+        }
         throw error;
       }
     },
@@ -797,6 +858,22 @@ export async function raffleRoutes(server: FastifyInstance) {
           return reply
             .status(409)
             .send({ message: "This raffle is not available" });
+        if (error?.message === "SHARED_PARTICIPATION_DISABLED" || error?.message === "SHARED_PARTICIPATION_NOT_ACTIVE") {
+          return reply.status(409).send({
+            message: "La participación compartida no está disponible en esta rifa.",
+            code: error.message,
+          });
+        }
+        if (error?.message === "SHARED_PARTICIPATION_PRICE_NOT_DIVISIBLE")
+          return reply.status(400).send({
+            message: "El precio del boleto debe poder dividirse exactamente entre dos.",
+            code: error.message,
+          });
+        if (error?.message === "SHARED_PARTICIPATION_COUPON_UNSUPPORTED")
+          return reply.status(400).send({
+            message: "Los cupones todavía no aplican a participaciones compartidas.",
+            code: error.message,
+          });
         throw error;
       }
     },
@@ -1058,6 +1135,11 @@ export async function raffleRoutes(server: FastifyInstance) {
             message:
               "El número ganador pertenece a un pago en revisión. Espera la resolución de Mercado Pago.",
           },
+          SHARED_PARTICIPATION_RESULT_REVIEW: {
+            status: 409,
+            message:
+              "Esta rifa tiene participaciones compartidas. Antes de publicar el resultado debes definir y validar el reparto de premios.",
+          },
         };
         const mapped = errors[error?.message];
         if (mapped) {
@@ -1278,6 +1360,112 @@ export async function raffleRoutes(server: FastifyInstance) {
           return reply
             .status(400)
             .send({ message: "Validation error", errors: error.issues });
+        throw error;
+      }
+    },
+  );
+
+  server.get(
+    "/admin/:id/participant-coupon",
+    { preHandler: [server.authenticate] },
+    async (request, reply) => {
+      try {
+        const { id } = raffleResultParamsSchema.parse(request.params);
+        const overview = await raffleParticipantCouponService.getOverview(
+          getPrisma(),
+          server.storePrisma,
+          id,
+        );
+        if (!overview) return reply.status(404).send({ message: "La rifa no existe." });
+        return overview;
+      } catch (error: any) {
+        if (error?.issues) {
+          return reply.status(400).send({ message: "Validation error", errors: error.issues });
+        }
+        throw error;
+      }
+    },
+  );
+
+  server.post(
+    "/admin/:id/participant-coupon/campaign",
+    { preHandler: [server.authenticate] },
+    async (request, reply) => {
+      try {
+        const actor = await requireAdminActor(server, request, reply);
+        if (!actor) return;
+        const { id } = raffleResultParamsSchema.parse(request.params);
+        const input = raffleParticipantCouponCampaignBodySchema.parse(request.body);
+        return await raffleParticipantCouponService.createCampaign(
+          getPrisma(),
+          server.storePrisma,
+          id,
+          input,
+          actor,
+        );
+      } catch (error: any) {
+        if (error?.issues) {
+          return reply.status(400).send({ message: "Validation error", errors: error.issues });
+        }
+        const errors: Record<string, { status: number; message: string }> = {
+          RAFFLE_NOT_FOUND: { status: 404, message: "La rifa no existe." },
+          RAFFLE_PARTICIPANT_COUPON_TEMPLATE_MISSING: {
+            status: 409,
+            message: "Configura la plantilla de cupón para participantes antes de iniciar la campaña.",
+          },
+          RAFFLE_PARTICIPANT_COUPON_NOT_AVAILABLE: {
+            status: 409,
+            message: "El cupón no está activo, vigente o disponible para esta rifa.",
+          },
+          RAFFLE_PARTICIPANT_COUPON_EXHAUSTED: {
+            status: 409,
+            message: "El cupón ya alcanzó su límite de uso.",
+          },
+          RAFFLE_PARTICIPANT_COUPON_MESSAGE_INVALID: {
+            status: 400,
+            message: "Escribe un mensaje válido de hasta 280 caracteres.",
+          },
+          RAFFLE_PARTICIPANT_COUPON_INSTRUCTIONS_INVALID: {
+            status: 400,
+            message: "Las instrucciones pueden tener hasta 240 caracteres.",
+          },
+          RAFFLE_PARTICIPANT_COUPON_USAGE_LIMIT_LOW: {
+            status: 409,
+            message: "El cupón no tiene usos suficientes para toda la audiencia elegible.",
+          },
+        };
+        const mapped = errors[error?.message];
+        if (mapped) return reply.status(mapped.status).send({ message: mapped.message, code: error.message });
+        throw error;
+      }
+    },
+  );
+
+  server.post(
+    "/admin/:id/participant-coupon/campaigns/:campaignId/retry",
+    { preHandler: [server.authenticate] },
+    async (request, reply) => {
+      try {
+        const actor = await requireAdminActor(server, request, reply);
+        if (!actor) return;
+        const { id, campaignId } = raffleResultCampaignParamsSchema.parse(request.params);
+        return await raffleParticipantCouponService.retryFailed(getPrisma(), id, campaignId);
+      } catch (error: any) {
+        if (error?.issues) {
+          return reply.status(400).send({ message: "Validation error", errors: error.issues });
+        }
+        const errors: Record<string, { status: number; message: string }> = {
+          RAFFLE_PARTICIPANT_COUPON_CAMPAIGN_NOT_FOUND: {
+            status: 404,
+            message: "La campaña de cupón no existe.",
+          },
+          NO_RETRYABLE_RECIPIENTS: {
+            status: 409,
+            message: "No hay envíos fallidos para reintentar.",
+          },
+        };
+        const mapped = errors[error?.message];
+        if (mapped) return reply.status(mapped.status).send({ message: mapped.message, code: error.message });
         throw error;
       }
     },
@@ -1706,6 +1894,18 @@ export async function raffleRoutes(server: FastifyInstance) {
           code: "RAFFLE_RESULT_MANAGED_OPERATIONALLY",
         });
       }
+      if (validated.sharedParticipationEnabled && !isSharedParticipationPriceSupported(validated.ticketPrice)) {
+        return reply.status(400).send({
+          message: "El precio del boleto debe poder dividirse exactamente entre dos para activar la participación compartida.",
+          code: "SHARED_PARTICIPATION_PRICE_NOT_DIVISIBLE",
+        });
+      }
+      if (validated.sharedParticipationEnabled && !validated.sharedParticipationPrizePolicy) {
+        return reply.status(400).send({
+          message: "Define la regla de entrega para premios indivisibles antes de activar la participación compartida.",
+          code: "SHARED_PARTICIPATION_PRIZE_POLICY_REQUIRED",
+        });
+      }
       const actor = await requireAdminActor(server, request, reply);
       if (!actor) return;
       const created = await raffleService.create(getPrisma(), validated);
@@ -1801,6 +2001,22 @@ export async function raffleRoutes(server: FastifyInstance) {
         validated.ticketQuantity ?? current.ticketQuantity;
       const nextOpportunities =
         validated.opportunities ?? current.opportunities;
+      const nextSharedParticipationEnabled =
+        validated.sharedParticipationEnabled ?? current.sharedParticipationEnabled;
+      const nextSharedParticipationPrizePolicy =
+        validated.sharedParticipationPrizePolicy ?? current.sharedParticipationPrizePolicy;
+      if (validated.sharedParticipationEnabled && !isSharedParticipationPriceSupported(validated.ticketPrice ?? current.ticketPrice.toString())) {
+        return reply.status(400).send({
+          message: "El precio del boleto debe poder dividirse exactamente entre dos para activar la participación compartida.",
+          code: "SHARED_PARTICIPATION_PRICE_NOT_DIVISIBLE",
+        });
+      }
+      if (nextSharedParticipationEnabled && !nextSharedParticipationPrizePolicy) {
+        return reply.status(400).send({
+          message: "Define la regla de entrega para premios indivisibles antes de activar la participación compartida.",
+          code: "SHARED_PARTICIPATION_PRIZE_POLICY_REQUIRED",
+        });
+      }
       if (!isClosedRaffleUniverse(nextTicketQuantity, nextOpportunities)) {
         return reply.status(400).send({
           message:

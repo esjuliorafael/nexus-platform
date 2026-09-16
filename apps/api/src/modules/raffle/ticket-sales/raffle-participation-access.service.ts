@@ -194,17 +194,23 @@ export async function getRaffleParticipationAccess(
       })),
     },
     participations: Array.from(groups.entries()).map(([reference, items]) => {
-      const subtotal = items.reduce((total, item) => total + Number(raffle.ticketPrice), 0);
+      const subtotal = items.reduce(
+        (total, item) => total + Number(raffle.ticketPrice) / (item.participationMode === "SHARED" ? 2 : 1),
+        0,
+      );
       const discount = Number(items[0]?.discountTotal || 0);
       return {
         reference,
         status: paymentStatusLabel(items[0].paymentStatus),
         paymentStatus: items[0].paymentStatus,
         paymentMethod: items[0].paymentMethod,
+        participationMode: items[0].participationMode,
         total: Math.max(0, subtotal - discount),
         tickets: items.map((item) => ({
           number: item.ticketNumber,
           opportunities: opportunitiesByTicket.get(item.ticketNumber) || [],
+          shareIndex: item.shareIndex,
+          shareCount: item.participationMode === "SHARED" ? 2 : null,
         })),
       };
     }),

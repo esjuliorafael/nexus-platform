@@ -24,6 +24,7 @@ export function NexusSegmentedControl<T extends string>({
   className = '',
 }: NexusSegmentedControlProps<T>) {
   const isSectionContext = context === 'section';
+  const optionTypography = isSectionContext ? 'text-button-section' : 'text-button-card';
 
   return (
     <div
@@ -48,7 +49,7 @@ export function NexusSegmentedControl<T extends string>({
             role="tab"
             aria-selected={isActive}
             onClick={() => onChange(option.value)}
-            className={`text-label font-black uppercase transition-all duration-300 ${
+            className={`${optionTypography} font-semibold transition-all duration-300 ${
               isActive
                 ? option.activeClassName || 'bg-white text-brand-600 shadow-sm'
                 : 'text-stone-400 hover:text-stone-600'

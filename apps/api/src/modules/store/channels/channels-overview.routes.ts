@@ -126,6 +126,7 @@ const requiredTemplatesForPurpose = (purpose: string) =>
         "REMINDER",
         "RELEASE",
         "RAFFLE_INVITATION",
+        "PARTICIPANT_COUPON",
         "RESULT_WINNER",
         "RESULT_PARTICIPANTS",
         "PARTICIPATION_LOOKUP_CODE",
@@ -162,6 +163,7 @@ const PRINCIPAL_TEMPLATE_KEYS: Record<string, string> = {
   "RAFFLES:REMINDER": "whatsapp_global_raffle_reminder",
   "RAFFLES:RELEASE": "whatsapp_global_raffle_rel",
   "RAFFLES:RAFFLE_INVITATION": "whatsapp_global_raffle_invitation",
+  "RAFFLES:PARTICIPANT_COUPON": "whatsapp_global_raffle_participant_coupon",
   "RAFFLES:RESULT_WINNER": "whatsapp_global_raffle_winner",
   "RAFFLES:RESULT_PARTICIPANTS": "whatsapp_global_raffle_results",
   "RAFFLES:PARTICIPATION_LOOKUP_CODE":

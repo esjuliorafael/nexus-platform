@@ -24,6 +24,7 @@ const CRITICAL_TYPES = new Set<CloudTemplateType>([
 const CAMPAIGN_TYPES = new Set<CloudTemplateType>([
   "OPENING",
   "RAFFLE_INVITATION",
+  "PARTICIPANT_COUPON",
   "RESULT_PARTICIPANTS",
 ]);
 
