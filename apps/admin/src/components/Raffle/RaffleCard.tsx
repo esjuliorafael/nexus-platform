@@ -17,7 +17,6 @@ import {
 } from "lucide-react";
 import { ASSET_BASE_URL } from "../../api";
 import { Raffle } from "../../types";
-import { parseCalendarDate } from "../../utils/calendarDate";
 import { NexusAutonomousBadge } from "../ui/NexusBadge";
 import { NexusAutonomousButton } from "../ui/NexusButton";
 import { NexusAutonomousCard } from "../ui/NexusCard";
@@ -53,14 +52,25 @@ const statusConfig: Record<Raffle["status"], { label: string; variant: "success"
   CANCELLED: { label: "Cancelada", variant: "danger", icon: CircleX },
 };
 
+const MEXICO_CITY_TIME_ZONE = "America/Mexico_City";
+const LEGACY_CALENDAR_DATE_PATTERN = /^(\d{4}-\d{2}-\d{2})(?:T00:00:00(?:\.000)?Z)?$/;
+
 const formatDrawDate = (drawDate?: string) => {
-  const date = parseCalendarDate(drawDate);
-  if (!date) return "Sin fecha";
+  if (!drawDate) return "Sin fecha";
+
+  // Older raffles stored a calendar date at midnight UTC. Keep that date intact;
+  // new values are instants and must be rendered in the tenant's local timezone.
+  const legacyCalendarDate = LEGACY_CALENDAR_DATE_PATTERN.exec(drawDate)?.[1];
+  const date = legacyCalendarDate
+    ? new Date(`${legacyCalendarDate}T12:00:00.000Z`)
+    : new Date(drawDate);
+  if (Number.isNaN(date.getTime())) return "Sin fecha";
 
   return new Intl.DateTimeFormat("es-MX", {
     day: "2-digit",
     month: "2-digit",
     year: "numeric",
+    timeZone: MEXICO_CITY_TIME_ZONE,
   }).format(date);
 };
 
