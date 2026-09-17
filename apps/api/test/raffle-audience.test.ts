@@ -117,3 +117,48 @@ test("explains consent, target-raffle and frequency exclusions without sending",
   assert.equal(preview.summary.exclusions.optedOut, 1);
   assert.equal(preview.summary.exclusions.recentlyContacted, 1);
 });
+
+test("can include paid participants without marketing consent for operational messages", async () => {
+  const rafflePrisma = {
+    ticketSale: {
+      findMany: async () => [
+        sale(1, "reservation-a", "+522218626379", 10, "2026-07-01T10:00:00.000Z"),
+        sale(2, "reservation-b", "+15005550006", 10, "2026-07-01T10:00:00.000Z"),
+        sale(3, "reservation-c", "+50255555555", 10, "2026-07-01T10:00:00.000Z"),
+      ],
+    },
+    raffleParticipationEvent: {
+      findMany: async () => [
+        { participationId: "reservation-a", createdAt: new Date("2026-07-01T11:00:00.000Z") },
+        { participationId: "reservation-b", createdAt: new Date("2026-07-01T12:00:00.000Z") },
+        { participationId: "reservation-c", createdAt: new Date("2026-07-01T13:00:00.000Z") },
+      ],
+    },
+    rafflePrize: { findMany: async () => [] },
+    raffleOpeningSubscription: { findMany: async () => [] },
+  };
+  const storePrisma = {
+    whatsappMarketingPreference: {
+      findMany: async () => [
+        { phone: "+522218626379", status: "GRANTED", lastMarketingAt: null },
+        { phone: "+15005550006", status: "UNKNOWN", lastMarketingAt: null },
+        { phone: "+50255555555", status: "OPTED_OUT", lastMarketingAt: null },
+      ],
+    },
+  };
+
+  const preview = await raffleAudienceService.preview(
+    rafflePrisma,
+    storePrisma,
+    {
+      rules: { minPaidParticipations: 1, paidInRaffleId: 10 },
+      frequencyWindowDays: 0,
+      consentPolicy: "OPTIONAL",
+    },
+  );
+
+  assert.equal(preview.summary.audienceMatched, 3);
+  assert.equal(preview.summary.eligible, 2);
+  assert.equal(preview.summary.exclusions.noConsent, 0);
+  assert.equal(preview.summary.exclusions.optedOut, 1);
+});

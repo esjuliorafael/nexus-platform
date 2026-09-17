@@ -1084,6 +1084,7 @@ export interface RaffleParticipantCouponOverview {
   raffleId: number;
   templateConfigured: boolean;
   preview: RaffleAudiencePreview;
+  paidParticipantPreview: RaffleAudiencePreview;
   coupons: RaffleParticipantCouponOption[];
   campaigns: RaffleParticipantCouponCampaign[];
 }

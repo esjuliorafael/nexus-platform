@@ -111,7 +111,16 @@ export const RaffleParticipantCouponSection: React.FC<Props> = ({
   }, [load]);
 
   const latest = overview?.campaigns[0] || null;
-  const eligible = overview?.preview.summary.eligible || 0;
+  const marketingEligible = overview?.preview.summary.eligible || 0;
+  const paidParticipantEligible =
+    overview?.paidParticipantPreview.summary.eligible || 0;
+  const selectedAudience =
+    purpose === "DATE_CHANGE"
+      ? overview?.paidParticipantPreview
+      : overview?.preview;
+  const eligible = selectedAudience?.summary.eligible || 0;
+  const audienceLabel =
+    purpose === "DATE_CHANGE" ? "Participantes pagados" : "Audiencia consentida";
   const selectedCoupon = overview?.coupons.find((coupon) => coupon.id === couponId) || null;
   const hasActiveCampaign = Boolean(
     latest && ["QUEUED", "PROCESSING", "PARTIAL"].includes(latest.status),
@@ -176,7 +185,7 @@ export const RaffleParticipantCouponSection: React.FC<Props> = ({
   return (
     <>
       <NexusSection
-        title="Cupón para participantes"
+        title="Cupón para Participantes"
         subtitle="Envía una promoción a quienes ya participan en esta rifa."
         icon={Gift}
         bare={embedded}
@@ -184,27 +193,32 @@ export const RaffleParticipantCouponSection: React.FC<Props> = ({
         <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
           <NexusSectionCard
             icon={Gift}
-            title="Cupón para participantes"
+            title="Cupón para Participantes"
             subtitle="Personaliza el motivo y las instrucciones del descuento."
             rightContent={
               <div
                 className="flex w-full min-w-0 flex-col md:w-[18rem]"
                 style={{ gap: "var(--space-sm)" }}
               >
-                <NexusCardBadge variant="brand">Audiencia consentida</NexusCardBadge>
+                <NexusCardBadge variant="brand">Audiencias según motivo</NexusCardBadge>
                 <div
-                  className="flex items-center justify-between md:justify-end"
+                  className="flex flex-col items-start md:items-end"
                   style={{ gap: "var(--space-sm)" }}
                 >
-                  <UsersRound
-                    className="text-brand-600"
-                    style={{
-                      width: "var(--size-inner-icon-card)",
-                      height: "var(--size-inner-icon-card)",
-                    }}
-                  />
-                  <span className="text-secondary font-semibold text-text-main tabular-nums">
-                    {loading ? "..." : `${eligible} participantes`}
+                  <div className="flex items-center" style={{ gap: "var(--space-sm)" }}>
+                    <UsersRound
+                      className="text-brand-600"
+                      style={{
+                        width: "var(--size-inner-icon-card)",
+                        height: "var(--size-inner-icon-card)",
+                      }}
+                    />
+                    <span className="text-secondary font-semibold text-text-main tabular-nums">
+                      {loading ? "..." : `${paidParticipantEligible} pagados`}
+                    </span>
+                  </div>
+                  <span className="text-label text-text-muted">
+                    {loading ? "..." : `${marketingEligible} con consentimiento para promociones`}
                   </span>
                   {latest && (
                     <NexusCardBadge variant={statusVariant(latest.status)}>
@@ -236,7 +250,7 @@ export const RaffleParticipantCouponSection: React.FC<Props> = ({
                     className="w-full md:w-auto"
                     disabled={
                       loading ||
-                      eligible === 0 ||
+                      marketingEligible === 0 && paidParticipantEligible === 0 ||
                       !overview?.templateConfigured ||
                       !overview?.coupons.length ||
                       submitting ||
@@ -261,7 +275,7 @@ export const RaffleParticipantCouponSection: React.FC<Props> = ({
           >
             <Info className="mt-0.5 shrink-0" size={18} />
             <p className="text-secondary">
-              Solo se consideran participantes pagados con consentimiento para recibir novedades de WhatsApp.
+              La compensación por cambio de fecha puede enviarse a participantes pagados. Las promociones especiales se envían solo a quienes tienen consentimiento para recibir novedades de WhatsApp; se respetan las bajas solicitadas.
             </p>
           </div>
 
@@ -274,7 +288,7 @@ export const RaffleParticipantCouponSection: React.FC<Props> = ({
               }}
             >
               <p className="text-secondary">
-                Configura la plantilla “Cupón para participantes” en Canales de WhatsApp para habilitar el envío.
+                Configura la plantilla “Cupón para Participantes” en Canales de WhatsApp para habilitar el envío.
               </p>
             </div>
           )}
@@ -389,6 +403,12 @@ export const RaffleParticipantCouponSection: React.FC<Props> = ({
             </NexusSelect>
           </div>
 
+          <p className="text-secondary text-text-muted">
+            {purpose === "DATE_CHANGE"
+              ? "Este motivo se enviará a participantes pagados de la rifa. Se respetan las bajas solicitadas."
+              : "Este motivo se enviará únicamente a participantes pagados con consentimiento para recibir novedades de WhatsApp."}
+          </p>
+
           <NexusTextarea
             label="Mensaje"
             value={message}
@@ -440,7 +460,7 @@ export const RaffleParticipantCouponSection: React.FC<Props> = ({
           </div>
 
           <p className="text-secondary text-text-muted">
-            La campaña se enviará a {eligible} participante{eligible === 1 ? "" : "s"} de “{raffle.title}”.
+            La campaña se enviará a {eligible} participante{eligible === 1 ? "" : "s"} de “{raffle.title}” ({audienceLabel.toLowerCase()}).
           </p>
         </div>
       </NexusModal>

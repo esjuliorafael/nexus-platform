@@ -106,6 +106,16 @@ const selectionInput = (raffleId: number) => ({
   frequencyWindowDays: 0,
 });
 
+const selectionInputForPurpose = (
+  raffleId: number,
+  purpose: RaffleParticipantCouponPurpose,
+) => ({
+  ...selectionInput(raffleId),
+  ...(purpose === RaffleParticipantCouponPurpose.DATE_CHANGE
+    ? { consentPolicy: "OPTIONAL" as const }
+    : {}),
+});
+
 const refreshCampaign = async (
   rafflePrisma: RafflePrismaClient,
   campaignId: string,
@@ -192,11 +202,16 @@ export const raffleParticipantCouponService = {
       select: { id: true, title: true },
     });
     if (!raffle) return null;
-    const [selection, coupons, templateConfigured, campaigns] = await Promise.all([
+    const [selection, paidParticipantSelection, coupons, templateConfigured, campaigns] = await Promise.all([
       raffleAudienceService.selectEligible(
         rafflePrisma,
         storePrisma,
         selectionInput(raffleId),
+      ),
+      raffleAudienceService.selectEligible(
+        rafflePrisma,
+        storePrisma,
+        selectionInputForPurpose(raffleId, RaffleParticipantCouponPurpose.DATE_CHANGE),
       ),
       getEligibleCoupons(rafflePrisma, raffleId),
       resolveTemplate(storePrisma)
@@ -217,6 +232,10 @@ export const raffleParticipantCouponService = {
       raffleId,
       templateConfigured,
       preview: { summary: selection.summary, sample: selection.sample },
+      paidParticipantPreview: {
+        summary: paidParticipantSelection.summary,
+        sample: paidParticipantSelection.sample,
+      },
       coupons: coupons.map(serializeCoupon),
       campaigns: (
         await Promise.all(campaigns.map((campaign) => campaignView(rafflePrisma, campaign.id)))
@@ -266,7 +285,7 @@ export const raffleParticipantCouponService = {
     const selection = await raffleAudienceService.selectEligible(
       rafflePrisma,
       storePrisma,
-      selectionInput(raffleId),
+      selectionInputForPurpose(raffleId, input.purpose),
     );
     if (
       coupon.usageLimit !== null &&

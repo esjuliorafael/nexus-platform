@@ -300,6 +300,7 @@ export const raffleAudienceService = {
       rules: RaffleAudienceRules;
       targetRaffleId?: number;
       frequencyWindowDays: number;
+      consentPolicy?: "REQUIRED" | "OPTIONAL";
     },
   ) {
     const profiles = await buildProfiles(rafflePrisma, storePrisma, input.targetRaffleId);
@@ -321,7 +322,10 @@ export const raffleAudienceService = {
     for (const profile of matched) {
       if (!profile.validPhone) exclusions.invalidPhone += 1;
       else if (profile.consentStatus === "OPTED_OUT") exclusions.optedOut += 1;
-      else if (profile.consentStatus !== "GRANTED") exclusions.noConsent += 1;
+      else if (
+        input.consentPolicy !== "OPTIONAL"
+        && profile.consentStatus !== "GRANTED"
+      ) exclusions.noConsent += 1;
       else if (profile.targetRaffleParticipant) exclusions.alreadyParticipating += 1;
       else if (
         input.frequencyWindowDays > 0
@@ -352,6 +356,7 @@ export const raffleAudienceService = {
       rules: RaffleAudienceRules;
       targetRaffleId?: number;
       frequencyWindowDays: number;
+      consentPolicy?: "REQUIRED" | "OPTIONAL";
     },
   ) {
     const result = await this.selectEligible(rafflePrisma, storePrisma, input);
