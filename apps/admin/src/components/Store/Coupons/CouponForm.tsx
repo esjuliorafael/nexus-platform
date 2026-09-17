@@ -6,7 +6,12 @@ import React, {
 } from "react";
 import { BadgePercent, CalendarClock, Settings2 } from "lucide-react";
 import { apiCoupons } from "../../../api";
-import type { Coupon, CouponDiscountType, CouponScope } from "../../../types";
+import type {
+  Coupon,
+  CouponBirdPurpose,
+  CouponDiscountType,
+  CouponScope,
+} from "../../../types";
 import { NexusInput, NexusSelect } from "../../ui/NexusInputs";
 import { NexusSection } from "../../ui/NexusSection";
 
@@ -40,6 +45,9 @@ export const CouponForm = forwardRef<
     initialData ? String(initialData.discountValue) : "",
   );
   const [scope, setScope] = useState<CouponScope>(initialData?.scope || "ALL");
+  const [birdPurpose, setBirdPurpose] = useState<CouponBirdPurpose | "">(
+    initialData?.birdPurpose || "",
+  );
   const [minSubtotal, setMinSubtotal] = useState(
     initialData?.minSubtotal ? String(initialData.minSubtotal) : "",
   );
@@ -55,6 +63,10 @@ export const CouponForm = forwardRef<
 
   const discountNumber = Number(discountValue);
   const isFormValid = Boolean(code.trim().length >= 2 && discountNumber > 0);
+
+  useEffect(() => {
+    if (scope !== "BIRD") setBirdPurpose("");
+  }, [scope]);
 
   useEffect(() => {
     onValidationChange?.(isFormValid);
@@ -84,6 +96,7 @@ export const CouponForm = forwardRef<
         discountType,
         discountValue: discountNumber,
         scope,
+        birdPurpose: scope === "BIRD" && birdPurpose ? birdPurpose : null,
         minSubtotal: optionalNumber(minSubtotal),
         maxDiscount: optionalNumber(maxDiscount),
         usageLimit: usageLimit.trim() ? Number(usageLimit) : null,
@@ -170,6 +183,19 @@ export const CouponForm = forwardRef<
             <option value="BIRD">Aves</option>
             <option value="ITEM">Artículos</option>
           </NexusSelect>
+          {scope === "BIRD" && (
+            <NexusSelect
+              label="Propósito de las aves"
+              value={birdPurpose}
+              onChange={(event) =>
+                setBirdPurpose(event.target.value as CouponBirdPurpose | "")
+              }
+            >
+              <option value="">Cualquier propósito</option>
+              <option value="COMBAT">Combate</option>
+              <option value="BREEDING">Cría</option>
+            </NexusSelect>
+          )}
           <NexusInput
             label="Límite de usos"
             type="number"

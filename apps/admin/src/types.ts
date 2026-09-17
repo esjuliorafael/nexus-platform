@@ -227,6 +227,7 @@ export type StoreHeroScope = "ALL" | "BIRD" | "ITEM";
 
 export type CouponDiscountType = "PERCENTAGE" | "FIXED";
 export type CouponScope = "ALL" | "BIRD" | "ITEM";
+export type CouponBirdPurpose = "COMBAT" | "BREEDING";
 
 export interface Coupon {
   id: string;
@@ -235,6 +236,7 @@ export interface Coupon {
   discountType: CouponDiscountType;
   discountValue: number;
   scope: CouponScope;
+  birdPurpose?: CouponBirdPurpose | null;
   minSubtotal?: number | null;
   maxDiscount?: number | null;
   usageLimit?: number | null;

@@ -99,6 +99,7 @@ export type PaymentRecoveryResponse =
         state?: string | null;
       };
       totals: { discountTotal: number };
+      participationMode?: 'FULL' | 'SHARED';
       coupon: any | null;
       tickets: string[];
     };

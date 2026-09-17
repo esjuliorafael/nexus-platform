@@ -1,5 +1,5 @@
 import { storePrisma } from "@nexus/db/store";
-import { ProductType } from "@prisma/client-store";
+import { BirdPurpose, ProductType } from "@prisma/client-store";
 
 type CouponItemInput = {
   productId: number;
@@ -10,6 +10,7 @@ type CouponProduct = {
   id: number;
   name: string;
   type: ProductType;
+  purpose: BirdPurpose | null;
   price: any;
 };
 
@@ -21,15 +22,26 @@ const createCouponError = (message: string, statusCode = 400) => {
   return error;
 };
 
-function isProductEligible(scope: string, productType: ProductType) {
+function isProductEligible(
+  scope: string,
+  birdPurpose: BirdPurpose | null | undefined,
+  product: Pick<CouponProduct, "type" | "purpose">,
+) {
   if (scope === "ALL") return true;
-  return scope === productType;
+  if (scope === "ITEM") return product.type === ProductType.ITEM;
+  if (product.type !== ProductType.BIRD) return false;
+  return !birdPurpose || product.purpose === birdPurpose;
 }
 
-function calculateEligibleSubtotal(items: CouponItemInput[], products: CouponProduct[], scope: string) {
+function calculateEligibleSubtotal(
+  items: CouponItemInput[],
+  products: CouponProduct[],
+  scope: string,
+  birdPurpose: BirdPurpose | null | undefined,
+) {
   return items.reduce((total, item) => {
     const product = products.find((entry) => entry.id === item.productId);
-    if (!product || !isProductEligible(scope, product.type)) return total;
+    if (!product || !isProductEligible(scope, birdPurpose, product)) return total;
     return total + Number(product.price) * item.quantity;
   }, 0);
 }
@@ -76,7 +88,7 @@ export async function validateCouponForItems(code: string, items: CouponItemInpu
   const productIds = Array.from(new Set(items.map((item) => item.productId)));
   const products = await storePrisma.product.findMany({
     where: { id: { in: productIds } },
-    select: { id: true, name: true, type: true, price: true },
+    select: { id: true, name: true, type: true, purpose: true, price: true },
   });
 
   if (products.length !== productIds.length) {
@@ -87,7 +99,12 @@ export async function validateCouponForItems(code: string, items: CouponItemInpu
     const product = products.find((entry) => entry.id === item.productId)!;
     return total + Number(product.price) * item.quantity;
   }, 0);
-  const eligibleSubtotal = calculateEligibleSubtotal(items, products, coupon.scope);
+  const eligibleSubtotal = calculateEligibleSubtotal(
+    items,
+    products,
+    coupon.scope,
+    coupon.birdPurpose,
+  );
 
   if (coupon.minSubtotal !== null && subtotal < Number(coupon.minSubtotal)) {
     throw createCouponError(`El cupón requiere un subtotal mínimo de $${Number(coupon.minSubtotal).toFixed(2)}.`);
@@ -110,6 +127,7 @@ export async function validateCouponForItems(code: string, items: CouponItemInpu
     discountType: coupon.discountType,
     discountValue: Number(coupon.discountValue),
     scope: coupon.scope,
+    birdPurpose: coupon.birdPurpose,
     eligibleSubtotal,
     discountTotal,
   };
@@ -136,6 +154,7 @@ export const couponService = {
         discountType: data.discountType,
         discountValue: data.discountValue,
         scope: data.scope || "ALL",
+        birdPurpose: data.scope === "BIRD" ? data.birdPurpose ?? null : null,
         minSubtotal: data.minSubtotal ?? null,
         maxDiscount: data.maxDiscount ?? null,
         usageLimit: data.usageLimit ?? null,
@@ -154,7 +173,14 @@ export const couponService = {
         ...(data.name !== undefined ? { name: data.name || null } : {}),
         ...(data.discountType !== undefined ? { discountType: data.discountType } : {}),
         ...(data.discountValue !== undefined ? { discountValue: data.discountValue } : {}),
-        ...(data.scope !== undefined ? { scope: data.scope } : {}),
+        ...(data.scope !== undefined
+          ? {
+              scope: data.scope,
+              birdPurpose: data.scope === "BIRD" ? data.birdPurpose ?? null : null,
+            }
+          : data.birdPurpose !== undefined
+            ? { birdPurpose: data.birdPurpose }
+            : {}),
         ...(data.minSubtotal !== undefined ? { minSubtotal: data.minSubtotal ?? null } : {}),
         ...(data.maxDiscount !== undefined ? { maxDiscount: data.maxDiscount ?? null } : {}),
         ...(data.usageLimit !== undefined ? { usageLimit: data.usageLimit ?? null } : {}),

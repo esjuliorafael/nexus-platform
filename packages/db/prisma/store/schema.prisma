@@ -362,6 +362,7 @@ model Coupon {
   discountType  CouponDiscountType @map("discount_type")
   discountValue Decimal            @map("discount_value")
   scope         CouponScope        @default(ALL) @map("scope")
+  birdPurpose   BirdPurpose?       @map("bird_purpose")
   minSubtotal   Decimal?           @map("min_subtotal")
   maxDiscount   Decimal?           @map("max_discount")
   usageLimit    Int?               @map("usage_limit")

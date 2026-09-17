@@ -18,6 +18,7 @@ export interface CartCoupon {
   discountType: 'PERCENTAGE' | 'FIXED';
   discountValue: number;
   scope: 'ALL' | 'ITEM' | 'BIRD';
+  birdPurpose: 'COMBAT' | 'BREEDING' | null;
   discountTotal: number;
   eligibleSubtotal: number;
 }

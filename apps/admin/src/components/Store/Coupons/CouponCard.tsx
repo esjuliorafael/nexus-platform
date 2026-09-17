@@ -7,7 +7,7 @@ import {
   Trash2,
   Users,
 } from "lucide-react";
-import type { Coupon, CouponScope } from "../../../types";
+import type { Coupon, CouponBirdPurpose, CouponScope } from "../../../types";
 import { NexusAutonomousBadge } from "../../ui/NexusBadge";
 import { NexusAutonomousButton } from "../../ui/NexusButton";
 import { NexusAutonomousCard } from "../../ui/NexusCard";
@@ -25,6 +25,11 @@ const SCOPE_LABELS: Record<CouponScope, string> = {
   ALL: "Todos",
   BIRD: "Aves",
   ITEM: "Artículos",
+};
+
+const BIRD_PURPOSE_LABELS: Record<CouponBirdPurpose, string> = {
+  COMBAT: "Combate",
+  BREEDING: "Cría",
 };
 
 const formatCurrency = (value?: number | null) =>
@@ -77,6 +82,9 @@ export const CouponCard: React.FC<CouponCardProps> = ({
             </NexusAutonomousBadge>
             <NexusAutonomousBadge variant="muted" icon={Tags}>
               {SCOPE_LABELS[coupon.scope]}
+              {coupon.scope === "BIRD" && coupon.birdPurpose
+                ? ` · ${BIRD_PURPOSE_LABELS[coupon.birdPurpose]}`
+                : ""}
             </NexusAutonomousBadge>
             <NexusAutonomousBadge variant="muted" icon={Users}>
               {usageLabel}

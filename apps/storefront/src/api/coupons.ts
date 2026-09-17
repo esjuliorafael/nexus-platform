@@ -11,6 +11,7 @@ export interface CouponValidationResponse {
   discountType: 'PERCENTAGE' | 'FIXED';
   discountValue: number;
   scope: 'ALL' | 'ITEM' | 'BIRD';
+  birdPurpose: 'COMBAT' | 'BREEDING' | null;
   eligibleSubtotal: number;
   discountTotal: number;
 }

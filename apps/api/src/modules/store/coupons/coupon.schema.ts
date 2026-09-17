@@ -10,6 +10,11 @@ export const couponScopeSchema = z.preprocess(
   z.enum(["ALL", "ITEM", "BIRD"]),
 );
 
+export const couponBirdPurposeSchema = z.preprocess(
+  (value) => (typeof value === "string" ? value.toUpperCase() : value),
+  z.enum(["COMBAT", "BREEDING"]).nullable(),
+);
+
 export const couponItemSchema = z.object({
   productId: z.number().int().positive(),
   quantity: z.number().int().positive(),
@@ -26,6 +31,7 @@ export const createCouponSchema = z.object({
   discountType: couponDiscountTypeSchema,
   discountValue: z.number().positive(),
   scope: couponScopeSchema.default("ALL"),
+  birdPurpose: couponBirdPurposeSchema.optional(),
   minSubtotal: z.number().min(0).optional().nullable(),
   maxDiscount: z.number().positive().optional().nullable(),
   usageLimit: z.number().int().positive().optional().nullable(),
