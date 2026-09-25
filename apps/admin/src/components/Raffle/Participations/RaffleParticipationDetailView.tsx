@@ -1,8 +1,8 @@
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, Calendar, CheckCircle2, CircleX, Clock, CreditCard, Edit2, Hash, History, MapPin, MessageCircle, Phone, RotateCcw, Save, Sparkles, Ticket, UserRound, UsersRound, Waypoints } from "lucide-react";
+import { AlertTriangle, Calendar, CheckCircle2, CircleX, Clock, CreditCard, Edit2, Hash, History, MapPin, MessageCircle, Phone, RotateCcw, Save, ShieldCheck, Sparkles, Ticket, UserRound, UsersRound, Waypoints } from "lucide-react";
 import { apiRaffleParticipations } from "../../../api";
 import { MEXICO_STATES } from "../../../constants";
-import { RaffleParticipation, RaffleParticipationTicket, WhatsAppMessageLog } from "../../../types";
+import { RaffleFinancialReason, RaffleParticipation, RaffleParticipationTicket, WhatsAppMessageLog } from "../../../types";
 import { NexusAutonomousBadge, NexusBadge, NexusCardBadge } from "../../ui/NexusBadge";
 import { NexusSectionCard } from "../../ui/NexusCard";
 import { NexusAutonomousIcon, NexusCardIcon } from "../../ui/NexusIcon";
@@ -10,7 +10,7 @@ import { NexusSection } from "../../ui/NexusSection";
 import { NexusSpinner } from "../../ui/NexusSpinner";
 import { NexusAutonomousButton, NexusSectionButton } from "../../ui/NexusButton";
 import { NexusConfirmModal } from "../../ui/NexusConfirmModal";
-import { NexusInput, NexusSelect } from "../../ui/NexusInputs";
+import { NexusInput, NexusSelect, NexusTextarea } from "../../ui/NexusInputs";
 import { NexusModal, NexusModalActions } from "../../ui/NexusModal";
 import { NexusPhoneField } from "../../ui/NexusPhoneField";
 import { isCustomerPhoneComplete } from "../../../utils/customer-phone";
@@ -109,6 +109,18 @@ const getWhatsappPurposeLabel = (template: string) => {
   return template;
 };
 
+const financialReasonOptions: Array<{ value: RaffleFinancialReason; label: string }> = [
+  { value: "OPERATIONAL_PROTECTION", label: "Protección operativa" },
+  { value: "PAYMENT_NOT_RECEIVED", label: "Pago no recibido" },
+  { value: "DATA_ENTRY_ERROR", label: "Error de captura" },
+  { value: "DUPLICATE", label: "Registro duplicado" },
+  { value: "REFUND_OR_RETURN", label: "Reembolso o devolución" },
+  { value: "OTHER", label: "Otro" },
+];
+
+const financialReasonLabel = (value?: string | null) =>
+  financialReasonOptions.find((option) => option.value === value)?.label || value || "Sin motivo";
+
 export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailViewProps> = ({ participation, onLoaded, showToast, canManageOperations }) => {
   const [detail, setDetail] = useState<RaffleParticipation>(participation);
   const [isLoading, setIsLoading] = useState(true);
@@ -116,6 +128,8 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
   const [isRefunding, setIsRefunding] = useState(false);
   const [isParticipantModalOpen, setIsParticipantModalOpen] = useState(false);
   const [isSavingParticipant, setIsSavingParticipant] = useState(false);
+  const [isFinancialDispositionModalOpen, setIsFinancialDispositionModalOpen] = useState(false);
+  const [isSavingFinancialDisposition, setIsSavingFinancialDisposition] = useState(false);
   const [isResendingWhatsApp, setIsResendingWhatsApp] = useState(false);
   const [selectedWhatsappLog, setSelectedWhatsappLog] = useState<WhatsAppMessageLog | null>(null);
   const [participantForm, setParticipantForm] = useState({
@@ -124,6 +138,17 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
     customerState: participation.customerState || "",
   });
   const [selectedTicket, setSelectedTicket] = useState<RaffleParticipationTicket | null>(null);
+  const [financialForm, setFinancialForm] = useState<{
+    financialStatus: "RECOGNIZED" | "NOT_RECOGNIZED";
+    origin: "PARTICIPANT" | "OPERATIONAL_PROTECTION";
+    reason: RaffleFinancialReason | "";
+    note: string;
+  }>({
+    financialStatus: "RECOGNIZED",
+    origin: "PARTICIPANT",
+    reason: "",
+    note: "",
+  });
 
   useEffect(() => {
     setDetail(participation);
@@ -192,6 +217,30 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
     : ["CANCELLED", "NOT_COMPLETED"].includes(detail.status)
       ? CircleX
       : Clock;
+  const financialStatusIsMixed = detail.financialStatus === "MIXED";
+  const financialStatusIsRecognized = detail.financialStatus !== "NOT_RECOGNIZED" && !financialStatusIsMixed;
+  const financialStatusLabel = financialStatusIsMixed
+    ? "Mixta"
+    : financialStatusIsRecognized
+      ? "Reconocida"
+      : "No reconocida";
+  const financialStatusVariant = financialStatusIsMixed
+    ? "muted" as const
+    : financialStatusIsRecognized
+      ? "success" as const
+      : "warning" as const;
+  const financialStatusIcon = financialStatusIsMixed
+    ? AlertTriangle
+    : financialStatusIsRecognized
+      ? CheckCircle2
+      : AlertTriangle;
+  const originLabel = detail.origin === "OPERATIONAL_PROTECTION"
+    ? "Protección operativa"
+    : detail.origin === "MIXED"
+      ? "Mixto"
+      : "Participante";
+  const originIcon = detail.origin === "OPERATIONAL_PROTECTION" ? ShieldCheck : UsersRound;
+  const originVariant = detail.origin === "OPERATIONAL_PROTECTION" ? "info" as const : "muted" as const;
   const mercadoPagoStatus = getMercadoPagoStatusPresentation(detail.mpPaymentStatus, detail.status);
   const canRefundMercadoPago =
     canManageOperations &&
@@ -228,6 +277,50 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
     setIsParticipantModalOpen(true);
   };
 
+  const handleOpenFinancialDispositionModal = () => {
+    setFinancialForm({
+      financialStatus: detail.financialStatus === "NOT_RECOGNIZED" ? "NOT_RECOGNIZED" : "RECOGNIZED",
+      origin: detail.origin === "OPERATIONAL_PROTECTION" ? "OPERATIONAL_PROTECTION" : "PARTICIPANT",
+      reason: (detail.financialStatusReason as RaffleFinancialReason) || "",
+      note: detail.financialStatusNote || "",
+    });
+    setIsFinancialDispositionModalOpen(true);
+  };
+
+  const handleSaveFinancialDisposition = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (
+      isSavingFinancialDisposition ||
+      (financialForm.financialStatus === "NOT_RECOGNIZED" && !financialForm.reason)
+    ) {
+      if (!financialForm.reason) {
+        showToast("Selecciona un motivo para marcarla como no reconocida.", "error");
+      }
+      return;
+    }
+
+    setIsSavingFinancialDisposition(true);
+    try {
+      const updated = await apiRaffleParticipations.updateFinancialDisposition(detail.id, {
+        financialStatus: financialForm.financialStatus,
+        origin: financialForm.origin,
+        reason: financialForm.reason || null,
+        note: financialForm.note.trim() || null,
+      });
+      setDetail(updated);
+      onLoaded(updated);
+      setIsFinancialDispositionModalOpen(false);
+      showToast("Estado financiero actualizado.", "success");
+    } catch (error: any) {
+      showToast(
+        error?.response?.data?.message || "No se pudo actualizar el estado financiero.",
+        "error",
+      );
+    } finally {
+      setIsSavingFinancialDisposition(false);
+    }
+  };
+
   const handleSaveParticipant = async (event: React.FormEvent) => {
     event.preventDefault();
     setIsSavingParticipant(true);
@@ -252,7 +345,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
   };
 
   const handleResendWhatsApp = async () => {
-    if (isResendingWhatsApp || isPaymentHold) return;
+    if (isResendingWhatsApp || isPaymentHold || detail.origin === "OPERATIONAL_PROTECTION") return;
     setIsResendingWhatsApp(true);
     try {
       await apiRaffleParticipations.resendWhatsApp(detail.id);
@@ -281,10 +374,45 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
           subtitle={isPaymentHold ? "Trazabilidad del pago con tarjeta" : "Resumen del apartado"}
           icon={isPaymentHold ? AlertTriangle : Ticket}
           iconVariant={detail.status === "PAYMENT_REVIEW" ? "orange" : "brand"}
+          actionPlacement="below"
+          action={
+            !isPaymentHold && canManageOperations ? (
+              <NexusSectionButton
+                onClick={handleOpenFinancialDispositionModal}
+                icon={ShieldCheck}
+                variant="secondary"
+              >
+                Ajustar estado financiero
+              </NexusSectionButton>
+            ) : undefined
+          }
         >
           <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-lg)" }}>
             <Field label="Estado" value={<NexusBadge variant={statusVariant} icon={statusIcon}>{statusLabel}</NexusBadge>} />
             <Field label="Método de pago" value={detail.paymentMethod === "MERCADOPAGO" ? "Tarjeta de crédito o débito" : "Depósito / Transferencia"} />
+            {!isPaymentHold && (
+              <Field
+                label="Estado financiero"
+                value={(
+                  <div className="flex flex-col items-start" style={{ gap: "var(--space-xs)" }}>
+                    <NexusBadge variant={financialStatusVariant} icon={financialStatusIcon}>
+                      {financialStatusLabel}
+                    </NexusBadge>
+                    {!financialStatusIsRecognized && detail.financialStatusReason && (
+                      <span className="text-secondary text-text-muted">
+                        {financialReasonLabel(detail.financialStatusReason)}
+                      </span>
+                    )}
+                  </div>
+                )}
+              />
+            )}
+            {!isPaymentHold && (
+              <Field
+                label="Origen"
+                value={<NexusBadge variant={originVariant} icon={originIcon}>{originLabel}</NexusBadge>}
+              />
+            )}
             <Field
               label="Modalidad"
               value={detail.participationMode === "SHARED"
@@ -300,6 +428,109 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
             {detail.couponCode && <Field label="Cupón" value={detail.couponCode} />}
           </div>
         </NexusSection>
+
+        <NexusModal
+          isOpen={isFinancialDispositionModalOpen}
+          onClose={() => setIsFinancialDispositionModalOpen(false)}
+          title="Estado financiero"
+          eyebrow="Ajuste administrativo"
+          icon={ShieldCheck}
+          iconTone="brand"
+          size="standard"
+          zIndex={260}
+        >
+          <form onSubmit={handleSaveFinancialDisposition} className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
+            <div
+              className="border border-blue-100 bg-blue-50 text-blue-800"
+              style={{ padding: "var(--padding-inner)", borderRadius: "var(--radius-card-inner)" }}
+            >
+              <p className="text-secondary leading-relaxed">
+                Este ajuste no cambia el pago, no libera boletos y no modifica un resultado publicado. Solo determina si el importe se reconoce en las métricas financieras.
+              </p>
+            </div>
+
+            <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+              <NexusSelect
+                label="Estado financiero"
+                icon={financialForm.financialStatus === "RECOGNIZED" ? CheckCircle2 : AlertTriangle}
+                value={financialForm.financialStatus}
+                onChange={(event) => setFinancialForm((current) => ({
+                  ...current,
+                  financialStatus: event.target.value as "RECOGNIZED" | "NOT_RECOGNIZED",
+                  origin: event.target.value === "RECOGNIZED" ? "PARTICIPANT" : current.origin,
+                  reason: event.target.value === "RECOGNIZED" ? "" : current.reason,
+                }))}
+              >
+                <option value="RECOGNIZED">Reconocida</option>
+                <option value="NOT_RECOGNIZED">No reconocida</option>
+              </NexusSelect>
+              <NexusSelect
+                label="Origen"
+                icon={ShieldCheck}
+                value={financialForm.origin}
+                onChange={(event) => setFinancialForm((current) => ({
+                  ...current,
+                  financialStatus: event.target.value === "OPERATIONAL_PROTECTION"
+                    ? "NOT_RECOGNIZED"
+                    : current.financialStatus,
+                  origin: event.target.value as "PARTICIPANT" | "OPERATIONAL_PROTECTION",
+                  reason: event.target.value === "OPERATIONAL_PROTECTION"
+                    ? "OPERATIONAL_PROTECTION"
+                    : current.reason === "OPERATIONAL_PROTECTION" ? "" : current.reason,
+                }))}
+              >
+                <option value="PARTICIPANT">Participante</option>
+                <option value="OPERATIONAL_PROTECTION">Protección operativa</option>
+              </NexusSelect>
+              {financialForm.financialStatus === "NOT_RECOGNIZED" && (
+                <NexusSelect
+                  label="Motivo *"
+                  icon={AlertTriangle}
+                  value={financialForm.reason}
+                  onChange={(event) => setFinancialForm((current) => ({
+                    ...current,
+                    reason: event.target.value as RaffleFinancialReason | "",
+                  }))}
+                >
+                  <option value="">Selecciona un motivo</option>
+                  {financialReasonOptions.map((option) => (
+                    <option key={option.value} value={option.value}>{option.label}</option>
+                  ))}
+                </NexusSelect>
+              )}
+              <NexusTextarea
+                label="Nota interna"
+                value={financialForm.note}
+                onChange={(event) => setFinancialForm((current) => ({ ...current, note: event.target.value }))}
+                placeholder="Añade contexto para la revisión administrativa."
+                rows={4}
+                maxLength={500}
+              />
+            </div>
+
+            <NexusModalActions>
+              <NexusAutonomousButton
+                type="button"
+                variant="secondary"
+                className="flex-1"
+                disabled={isSavingFinancialDisposition}
+                onClick={() => setIsFinancialDispositionModalOpen(false)}
+              >
+                Cancelar
+              </NexusAutonomousButton>
+              <NexusAutonomousButton
+                type="submit"
+                variant="brand"
+                icon={Save}
+                isLoading={isSavingFinancialDisposition}
+                disabled={financialForm.financialStatus === "NOT_RECOGNIZED" && !financialForm.reason}
+                className="flex-[2]"
+              >
+                Guardar ajuste
+              </NexusAutonomousButton>
+            </NexusModalActions>
+          </form>
+        </NexusModal>
 
         <NexusSection
           title="Boletos"
@@ -637,7 +868,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
           icon={MessageCircle}
           iconVariant="emerald"
           actionPlacement="below"
-          action={canManageOperations ? (
+          action={canManageOperations && detail.origin !== "OPERATIONAL_PROTECTION" ? (
             <NexusSectionButton
               onClick={handleResendWhatsApp}
               isLoading={isResendingWhatsApp}

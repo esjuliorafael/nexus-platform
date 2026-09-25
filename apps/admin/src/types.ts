@@ -790,6 +790,24 @@ export type RaffleParticipationStatus =
   | "PAYMENT_REVIEW"
   | "NOT_COMPLETED";
 
+export type RaffleFinancialStatus =
+  | "RECOGNIZED"
+  | "NOT_RECOGNIZED"
+  | "MIXED";
+
+export type RaffleParticipationOrigin =
+  | "PARTICIPANT"
+  | "OPERATIONAL_PROTECTION"
+  | "MIXED";
+
+export type RaffleFinancialReason =
+  | "OPERATIONAL_PROTECTION"
+  | "PAYMENT_NOT_RECEIVED"
+  | "DATA_ENTRY_ERROR"
+  | "DUPLICATE"
+  | "REFUND_OR_RETURN"
+  | "OTHER";
+
 export interface RafflePaymentAttempt {
   id: string;
   status: string;
@@ -845,6 +863,12 @@ export interface RaffleParticipation {
   holdStatus?: string | null;
   expiresAt?: string | null;
   status: RaffleParticipationStatus;
+  financialStatus?: RaffleFinancialStatus | null;
+  financialStatusReason?: RaffleFinancialReason | string | null;
+  financialStatusNote?: string | null;
+  financialStatusChangedAt?: string | null;
+  financialStatusChangedBy?: number | null;
+  origin?: RaffleParticipationOrigin | null;
   createdAt: string;
   ticketSaleIds: number[];
   tickets?: RaffleParticipationTicket[];
@@ -868,6 +892,9 @@ export interface RaffleOperationalOverview {
     occupied: number;
     available: number;
     revenue: number;
+    recognizedPaid?: number;
+    notRecognizedPaid?: number;
+    notRecognizedRevenue?: number;
     occupancy: number;
   };
   ticketStatuses: Array<{

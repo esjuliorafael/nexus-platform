@@ -23,12 +23,14 @@ async function assertAssetUsable(assetId: string) {
   const asset = await storePrisma.mediaAsset.findFirst({
     where: {
       id: assetId,
-      status: { in: ["UPLOADING", "READY"] },
+      status: { in: ["UPLOADING", "PROCESSING", "READY", "FAILED"] },
       mediaUrl: { not: null },
     },
   });
   if (!asset) {
-    const error = new Error("El medio del hero no esta disponible.") as Error & {
+    const error = new Error(
+      "El medio del hero no esta disponible.",
+    ) as Error & {
       statusCode?: number;
     };
     error.statusCode = 409;
@@ -50,7 +52,9 @@ const assertSortOrderAvailable = async (
     select: { id: true },
   });
   if (existing) {
-    const error = new Error("Ya existe un hero con ese orden para este tipo.") as Error & {
+    const error = new Error(
+      "Ya existe un hero con ese orden para este tipo.",
+    ) as Error & {
       statusCode?: number;
     };
     error.statusCode = 409;
@@ -123,7 +127,9 @@ export const storeHeroService = {
   async reorder(scope: string, ids: number[]) {
     const uniqueIds = Array.from(new Set(ids));
     if (uniqueIds.length !== ids.length) {
-      const error = new Error("La lista de heroes contiene duplicados.") as Error & {
+      const error = new Error(
+        "La lista de heroes contiene duplicados.",
+      ) as Error & {
         statusCode?: number;
       };
       error.statusCode = 400;
@@ -135,8 +141,13 @@ export const storeHeroService = {
       select: { id: true, sortOrder: true },
     });
     const existingIds = new Set(existingHeroes.map((hero) => hero.id));
-    if (ids.length !== existingHeroes.length || ids.some((id) => !existingIds.has(id))) {
-      const error = new Error("La lista de heroes no coincide con los registros actuales.") as Error & {
+    if (
+      ids.length !== existingHeroes.length ||
+      ids.some((id) => !existingIds.has(id))
+    ) {
+      const error = new Error(
+        "La lista de heroes no coincide con los registros actuales.",
+      ) as Error & {
         statusCode?: number;
       };
       error.statusCode = 400;

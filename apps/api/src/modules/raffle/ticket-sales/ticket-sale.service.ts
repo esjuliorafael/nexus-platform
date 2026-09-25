@@ -1,4 +1,12 @@
-import { Prisma, PrismaClient, RaffleParticipationMode, RaffleStatus, TicketStatus } from "@prisma/client-raffle";
+import {
+  Prisma,
+  PrismaClient,
+  RaffleParticipationMode,
+  RaffleStatus,
+  TicketFinancialStatus,
+  TicketSaleOrigin,
+  TicketStatus,
+} from "@prisma/client-raffle";
 import { randomUUID } from "crypto";
 import {
   PrismaClient as StorePrismaClient,
@@ -64,6 +72,8 @@ export const ticketSaleService = {
     );
     const first = sortedSales[0];
     const statuses = Array.from(new Set(sortedSales.map((sale) => sale.paymentStatus)));
+    const financialStatuses = Array.from(new Set(sortedSales.map((sale) => sale.financialStatus)));
+    const origins = Array.from(new Set(sortedSales.map((sale) => sale.origin)));
     const subtotal = sortedSales.reduce(
       (total, sale) => total + Number(first.raffle.ticketPrice) / (sale.participationMode === "SHARED" ? 2 : 1),
       0,
@@ -107,6 +117,12 @@ export const ticketSaleService = {
         first.mpRefundedAmount == null ? null : Number(first.mpRefundedAmount),
       mpRefundedAt: first.mpRefundedAt,
       status: statuses.length === 1 ? statuses[0] : "MIXED",
+      financialStatus: financialStatuses.length === 1 ? financialStatuses[0] : "MIXED",
+      financialStatusReason: first.financialStatusReason,
+      financialStatusNote: first.financialStatusNote,
+      financialStatusChangedAt: first.financialStatusChangedAt,
+      financialStatusChangedBy: first.financialStatusChangedBy,
+      origin: origins.length === 1 ? origins[0] : "MIXED",
       createdAt: first.createdAt,
       ticketSaleIds: sortedSales.map((sale) => sale.id),
     };
@@ -156,6 +172,12 @@ export const ticketSaleService = {
       mpPaymentTypeId: null,
       mpPaidAmount: null,
       status: toPaymentHoldAdminStatus(hold),
+      financialStatus: null,
+      financialStatusReason: null,
+      financialStatusNote: null,
+      financialStatusChangedAt: null,
+      financialStatusChangedBy: null,
+      origin: "PARTICIPANT",
       holdStatus: hold.status,
       expiresAt: hold.expiresAt,
       createdAt: hold.createdAt,
@@ -386,6 +408,8 @@ export const ticketSaleService = {
     const sales = await prisma.ticketSale.findMany({ where });
     if (sales.length === 0) return null;
 
+    const isParticipantOrigin = sales[0].origin !== TicketSaleOrigin.OPERATIONAL_PROTECTION;
+
     if (paymentStatus === "PAID") {
       const raffle = await prisma.raffle.findUnique({
         where: { id: sales[0].raffleId },
@@ -437,19 +461,117 @@ export const ticketSaleService = {
       console.error("[Raffle availability] Could not publish admin status change:", error);
     });
 
-    if (paymentStatus === "PAID") {
+    if (paymentStatus === "PAID" && isParticipantOrigin) {
       await whatsappQueue.add("reservation-paid", {
         kind: "reservation-paid",
         ticketSaleIds: sales.map((sale) => sale.id),
         recipientPhone: sales[0].customerPhone,
       });
-    } else if (sales[0].paymentMethod !== "MERCADOPAGO") {
+    } else if (paymentStatus === "CANCELLED" && isParticipantOrigin && sales[0].paymentMethod !== "MERCADOPAGO") {
       await whatsappQueue.add("reservation-cancelled", {
         kind: "reservation-cancelled",
         ticketSaleIds: sales.map((sale) => sale.id),
         recipientPhone: sales[0].customerPhone,
       });
     }
+
+    return this.getParticipationAdmin(prisma, participationKey);
+  },
+
+  async updateParticipationFinancialDisposition(
+    prisma: PrismaClient,
+    participationKey: string,
+    data: {
+      financialStatus: TicketFinancialStatus;
+      origin: TicketSaleOrigin;
+      reason?: string | null;
+      note?: string | null;
+    },
+    actor: AuditActor,
+  ) {
+    const legacyMatch = /^sale-(\d+)$/.exec(participationKey);
+    const sales = await prisma.ticketSale.findMany({
+      where: legacyMatch
+        ? { id: Number(legacyMatch[1]) }
+        : { reservationId: participationKey },
+      orderBy: { ticketNumber: "asc" },
+    });
+    if (sales.length === 0) return null;
+
+    const reason = data.reason?.trim() || null;
+    const note = data.note?.trim() || null;
+    if (
+      data.financialStatus === TicketFinancialStatus.RECOGNIZED &&
+      data.origin === TicketSaleOrigin.OPERATIONAL_PROTECTION
+    ) {
+      throw new Error("OPERATIONAL_PROTECTION_MUST_BE_NOT_RECOGNIZED");
+    }
+    if (data.financialStatus === TicketFinancialStatus.NOT_RECOGNIZED && !reason) {
+      throw new Error("FINANCIAL_STATUS_REASON_REQUIRED");
+    }
+
+    const participationId = sales[0].reservationId || participationKey;
+    const publishedWinner = await prisma.rafflePrize.findFirst({
+      where: {
+        raffleId: sales[0].raffleId,
+        resultPublishedAt: { not: null },
+        OR: [
+          { winningParticipationId: participationId },
+          { winningTicketNumber: { in: sales.map((sale) => sale.ticketNumber) } },
+        ],
+      },
+      select: { id: true, position: true },
+    });
+    if (
+      data.financialStatus === TicketFinancialStatus.NOT_RECOGNIZED &&
+      publishedWinner
+    ) {
+      throw new Error("FINANCIAL_STATUS_WINNER_REQUIRES_REVIEW");
+    }
+
+    const changedAt = new Date();
+    await prisma.$transaction(async (tx) => {
+      await tx.ticketSale.updateMany({
+        where: { id: { in: sales.map((sale) => sale.id) } },
+        data: {
+          financialStatus: data.financialStatus,
+          origin: data.origin,
+          financialStatusReason: reason,
+          financialStatusNote: note,
+          financialStatusChangedAt: changedAt,
+          financialStatusChangedBy: actor.userId ?? null,
+        },
+      });
+
+      await tx.raffleParticipationEvent.create({
+        data: {
+          participationId,
+          raffleId: sales[0].raffleId,
+          eventType: "FINANCIAL_STATUS_CHANGED",
+          message:
+            data.financialStatus === TicketFinancialStatus.NOT_RECOGNIZED
+              ? "Estado financiero cambiado a No reconocida desde Admin."
+              : "Estado financiero restaurado a Reconocida desde Admin.",
+          ...auditActorData(actor),
+          previousState: {
+            financialStatus: sales[0].financialStatus,
+            origin: sales[0].origin,
+            reason: sales[0].financialStatusReason,
+            note: sales[0].financialStatusNote,
+          },
+          nextState: {
+            financialStatus: data.financialStatus,
+            origin: data.origin,
+            reason,
+            note,
+          },
+          metadata: {
+            ticketNumbers: sales.map((sale) => sale.ticketNumber),
+            publishedWinnerPosition: publishedWinner?.position ?? null,
+          },
+        },
+      });
+    });
 
     return this.getParticipationAdmin(prisma, participationKey);
   },
@@ -896,11 +1018,16 @@ export const ticketSaleService = {
       actor?: AuditActor;
       marketingConsent?: boolean;
       participationMode?: RaffleParticipationMode;
+      origin?: TicketSaleOrigin;
     }
   ) {
     const { raffleId, customerName, customerPhone, customerState } = data;
     const tickets = Array.from(new Set(data.tickets));
     const participationMode = data.participationMode ?? RaffleParticipationMode.FULL;
+    const origin = data.origin ?? TicketSaleOrigin.PARTICIPANT;
+    const financialStatus = origin === TicketSaleOrigin.OPERATIONAL_PROTECTION
+      ? TicketFinancialStatus.NOT_RECOGNIZED
+      : TicketFinancialStatus.RECOGNIZED;
     const paymentMethod = data.paymentMethod === "MERCADOPAGO" ? "MERCADOPAGO" : "TRANSFER";
     const reservationId = randomUUID();
 
@@ -1034,10 +1161,12 @@ export const ticketSaleService = {
           customerName,
           customerPhone,
           customerState,
-          reservationId,
-          paymentMethod,
-          paymentStatus: TicketStatus.PENDING,
-          couponId: couponResult?.coupon.id ?? null,
+           reservationId,
+           paymentMethod,
+           paymentStatus: TicketStatus.PENDING,
+           financialStatus,
+           origin,
+           couponId: couponResult?.coupon.id ?? null,
           couponCode: couponResult?.code ?? null,
           discountTotal: couponResult?.discountTotal ?? 0,
           participationMode,
@@ -1065,6 +1194,8 @@ export const ticketSaleService = {
             paymentStatus: "PENDING",
             paymentMethod,
             participationMode,
+            financialStatus,
+            origin,
           },
           metadata: {
             ticketNumbers: tickets,
@@ -1214,7 +1345,12 @@ export const ticketSaleService = {
             0,
             expectedReleaseAt.getTime() - Date.now() - reminderHoursBefore * 3600 * 1000,
           );
-          if (paymentMethod === "TRANSFER" && isReminderActive && reminderDelay) {
+          if (
+            paymentMethod === "TRANSFER" &&
+            origin === TicketSaleOrigin.PARTICIPANT &&
+            isReminderActive &&
+            reminderDelay
+          ) {
             await reservationReminderQueue.add(
               "raffle-reminder",
               {
@@ -1227,7 +1363,7 @@ export const ticketSaleService = {
           }
         }
 
-        if (paymentMethod === "TRANSFER") {
+        if (paymentMethod === "TRANSFER" && origin === TicketSaleOrigin.PARTICIPANT) {
           await whatsappQueue.add("reservation-notification", {
             kind: "reservation",
             ticketSaleIds: sales.map(s => s.id),
@@ -1241,13 +1377,15 @@ export const ticketSaleService = {
       }
 
       // Fire and forget email notification
-      raffleNotificationService.sendTicketReservationEmail(storePrisma, prisma, {
-        raffleTitle: raffle.title,
-        customerName,
-        customerPhone,
-        tickets: result.reserved,
-        totalAmount,
-      }).catch(console.error);
+      if (origin === TicketSaleOrigin.PARTICIPANT) {
+        raffleNotificationService.sendTicketReservationEmail(storePrisma, prisma, {
+          raffleTitle: raffle.title,
+          customerName,
+          customerPhone,
+          tickets: result.reserved,
+          totalAmount,
+        }).catch(console.error);
+      }
     }
 
     return {

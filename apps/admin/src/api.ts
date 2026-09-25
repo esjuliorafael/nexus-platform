@@ -19,6 +19,9 @@ import {
   ExtraCharge,
   Raffle,
   RaffleParticipation,
+  RaffleFinancialStatus,
+  RaffleParticipationOrigin,
+  RaffleFinancialReason,
   RaffleOperationalOverview,
   RaffleResultAdmin,
   RaffleResultPreview,
@@ -1324,6 +1327,7 @@ export const apiRaffleParticipations = {
       customerPhone: string;
       customerState?: string | null;
       couponCode?: string | null;
+      origin?: Exclude<RaffleParticipationOrigin, "MIXED">;
     },
   ): Promise<RaffleParticipation> => {
     const response = await api.post(
@@ -1340,6 +1344,21 @@ export const apiRaffleParticipations = {
       { paymentStatus },
     );
     return response.data as RaffleParticipation;
+  },
+  updateFinancialDisposition: async (
+    id: string,
+    data: {
+      financialStatus: Exclude<RaffleFinancialStatus, "MIXED">;
+      origin: Exclude<RaffleParticipationOrigin, "MIXED">;
+      reason?: RaffleFinancialReason | null;
+      note?: string | null;
+    },
+  ): Promise<RaffleParticipation> => {
+    const response = await api.patch(
+      `/ticket-sales/admin/participations/${encodeURIComponent(id)}/financial-disposition`,
+      data,
+    );
+    return response.data;
   },
   restore: async (id: string): Promise<RaffleParticipation> => {
     const response = await api.post(

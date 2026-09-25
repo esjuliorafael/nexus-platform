@@ -140,6 +140,9 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
     occupied: 0,
     available: raffle.ticketQuantity,
     revenue: 0,
+    recognizedPaid: 0,
+    notRecognizedPaid: 0,
+    notRecognizedRevenue: 0,
     occupancy: 0,
   };
 
@@ -188,7 +191,9 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
         <OverviewMetricCard
           label="Total vendido"
           value={formatCurrency(metrics.revenue)}
-          detail={`${metrics.paid} boletos pagados`}
+          detail={metrics.notRecognizedPaid
+            ? `${metrics.recognizedPaid ?? 0} reconocidos · ${metrics.notRecognizedPaid} de protección`
+            : `${metrics.recognizedPaid ?? metrics.paid} boletos reconocidos`}
           icon={WalletCards}
           variant="emerald"
           isLoading={isLoading}

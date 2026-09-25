@@ -3,7 +3,11 @@ import {
   TicketAvailabilityConflictError,
   ticketSaleService,
 } from "./ticket-sale.service";
-import { TicketStatus } from "@prisma/client-raffle";
+import {
+  TicketFinancialStatus,
+  TicketSaleOrigin,
+  TicketStatus,
+} from "@prisma/client-raffle";
 import { z } from "zod";
 import { mpService } from "../../store/payments/mercadopago.service";
 import { customerPhoneSchema } from "../../../utils/customer-phone";
@@ -80,6 +84,7 @@ export async function ticketSaleRoutes(server: FastifyInstance) {
       customerPhone: customerPhoneSchema,
       customerState: z.string().trim().max(80).nullable().optional(),
       couponCode: z.string().trim().min(1).max(40).nullable().optional(),
+      origin: z.nativeEnum(TicketSaleOrigin).optional(),
     });
 
     try {
@@ -167,6 +172,58 @@ export async function ticketSaleRoutes(server: FastifyInstance) {
       if (error?.message === "RAFFLE_RESULT_ALREADY_PUBLISHED") {
         return reply.status(409).send({
           message: "El resultado ya fue publicado; no es posible confirmar pagos posteriores a la rifa.",
+        });
+      }
+      throw error;
+    }
+  });
+
+  server.patch("/admin/participations/:participationId/financial-disposition", { preHandler: [server.authenticate] }, async (request, reply) => {
+    const schema = z.object({
+      financialStatus: z.nativeEnum(TicketFinancialStatus),
+      origin: z.nativeEnum(TicketSaleOrigin),
+      reason: z.enum([
+        "OPERATIONAL_PROTECTION",
+        "PAYMENT_NOT_RECEIVED",
+        "DATA_ENTRY_ERROR",
+        "DUPLICATE",
+        "REFUND_OR_RETURN",
+        "OTHER",
+      ]).nullable().optional(),
+      note: z.string().trim().max(500).nullable().optional(),
+    });
+    try {
+      const actor = await requireAdminActor(server, request, reply);
+      if (!actor) return;
+      const { participationId } = request.params as { participationId: string };
+      const body = schema.parse(request.body);
+      const participation = await ticketSaleService.updateParticipationFinancialDisposition(
+        rafflePrisma,
+        participationId,
+        body,
+        actor,
+      );
+      if (!participation) {
+        return reply.status(404).send({ message: "Raffle participation not found" });
+      }
+      return attachWhatsappLogs(participation);
+    } catch (error: any) {
+      if (error?.issues) {
+        return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      }
+      if (error?.message === "FINANCIAL_STATUS_REASON_REQUIRED") {
+        return reply.status(400).send({
+          message: "Debes seleccionar un motivo para marcar la participación como no reconocida.",
+        });
+      }
+      if (error?.message === "OPERATIONAL_PROTECTION_MUST_BE_NOT_RECOGNIZED") {
+        return reply.status(400).send({
+          message: "Una protección operativa solo puede tener un estado financiero no reconocido.",
+        });
+      }
+      if (error?.message === "FINANCIAL_STATUS_WINNER_REQUIRES_REVIEW") {
+        return reply.status(409).send({
+          message: "La participación está vinculada a un premio publicado; requiere una revisión explícita del resultado.",
         });
       }
       throw error;

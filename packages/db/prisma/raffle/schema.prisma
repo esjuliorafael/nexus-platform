@@ -493,6 +493,12 @@ model TicketSale {
   customerState         String?       @map("customer_state")
   reservationId         String?       @map("reservation_id")
   paymentStatus         TicketStatus  @default(PENDING) @map("payment_status")
+  financialStatus       TicketFinancialStatus @default(RECOGNIZED) @map("financial_status")
+  origin                TicketSaleOrigin @default(PARTICIPANT)
+  financialStatusReason String?       @map("financial_status_reason")
+  financialStatusNote   String?       @map("financial_status_note")
+  financialStatusChangedAt DateTime?  @map("financial_status_changed_at")
+  financialStatusChangedBy Int?       @map("financial_status_changed_by")
   paymentMethod         String?       @map("payment_method")
   mpPaymentId           String?       @map("mp_payment_id")
   mpSellerUserId        String?       @map("mp_seller_user_id")
@@ -517,6 +523,8 @@ model TicketSale {
   @@index([reservationId])
   @@index([couponId])
   @@index([mpPaymentId])
+  @@index([raffleId, financialStatus])
+  @@index([origin, financialStatus])
   @@map("ticket_sales")
 }
 
@@ -659,6 +667,16 @@ enum TicketStatus {
   PENDING   @map("pending")
   PAID      @map("paid")
   CANCELLED @map("cancelled")
+}
+
+enum TicketFinancialStatus {
+  RECOGNIZED     @map("recognized")
+  NOT_RECOGNIZED @map("not_recognized")
+}
+
+enum TicketSaleOrigin {
+  PARTICIPANT            @map("participant")
+  OPERATIONAL_PROTECTION @map("operational_protection")
 }
 
 enum PaymentHoldStatus {

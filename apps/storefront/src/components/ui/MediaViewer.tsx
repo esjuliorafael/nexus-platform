@@ -5,8 +5,11 @@ import { createPortal } from "react-dom";
 import {
   CalendarDays,
   Camera,
+  CircleAlert,
   ChevronLeft,
   ChevronRight,
+  Film,
+  Loader2,
   Pause,
   Play,
   MapPin,
@@ -71,7 +74,8 @@ function MediaViewerLayeredVideoControls({
   onMuteToggle: () => void;
   onSeek: (value: number) => void;
 }) {
-  const progress = duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
+  const progress =
+    duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   return (
     <div
@@ -131,9 +135,19 @@ function MediaViewerLayeredVideoControls({
         aria-label={isMuted ? "Activar sonido" : "Silenciar video"}
       >
         {isMuted ? (
-          <VolumeX style={{ width: "var(--sf-size-inner-icon-card)", height: "var(--sf-size-inner-icon-card)" }} />
+          <VolumeX
+            style={{
+              width: "var(--sf-size-inner-icon-card)",
+              height: "var(--sf-size-inner-icon-card)",
+            }}
+          />
         ) : (
-          <Volume2 style={{ width: "var(--sf-size-inner-icon-card)", height: "var(--sf-size-inner-icon-card)" }} />
+          <Volume2
+            style={{
+              width: "var(--sf-size-inner-icon-card)",
+              height: "var(--sf-size-inner-icon-card)",
+            }}
+          />
         )}
       </button>
 
@@ -156,7 +170,9 @@ function MediaViewerLayeredVideoControls({
           value={duration ? currentTime : 0}
           onChange={(event) => onSeek(Number(event.currentTarget.value))}
           className="sf-media-viewer-range min-w-0 flex-1"
-          style={{ "--sf-media-viewer-progress": `${progress}%` } as CSSProperties}
+          style={
+            { "--sf-media-viewer-progress": `${progress}%` } as CSSProperties
+          }
           aria-label="Progreso del video"
           disabled={!duration}
         />
@@ -181,12 +197,19 @@ function MediaViewerInfo({
   showDetails: boolean;
   className?: string;
 }) {
-  const hasEditorialCopy = showDetails && Boolean(media.title || media.description);
+  const hasEditorialCopy =
+    showDetails && Boolean(media.title || media.description);
   const hasMetadata = showDetails && Boolean(media.location || formattedDate);
 
   return (
-    <div className={`flex min-w-0 flex-col ${className}`} style={{ gap: "var(--sf-space-md)" }}>
-      <div className="flex min-w-0 flex-col" style={{ gap: "var(--sf-space-sm)" }}>
+    <div
+      className={`flex min-w-0 flex-col ${className}`}
+      style={{ gap: "var(--sf-space-md)" }}
+    >
+      <div
+        className="flex min-w-0 flex-col"
+        style={{ gap: "var(--sf-space-sm)" }}
+      >
         <Badge
           variant="overlayBrand"
           context="card"
@@ -197,8 +220,13 @@ function MediaViewerInfo({
         </Badge>
 
         {hasEditorialCopy && (
-          <div className="flex min-w-0 flex-col" style={{ gap: "var(--sf-space-xs)" }}>
-            {media.title && <h2 className="sf-text-h1 text-white">{media.title}</h2>}
+          <div
+            className="flex min-w-0 flex-col"
+            style={{ gap: "var(--sf-space-xs)" }}
+          >
+            {media.title && (
+              <h2 className="sf-text-h1 text-white">{media.title}</h2>
+            )}
             {media.description && (
               <p className="sf-text-secondary max-w-2xl truncate text-stone-300">
                 {media.description}
@@ -299,7 +327,9 @@ export function MediaViewer({
       );
       if (focusable.length === 0) return;
 
-      const activeIndex = focusable.indexOf(document.activeElement as HTMLElement);
+      const activeIndex = focusable.indexOf(
+        document.activeElement as HTMLElement,
+      );
       const nextIndex = event.shiftKey
         ? activeIndex <= 0
           ? focusable.length - 1
@@ -330,7 +360,25 @@ export function MediaViewer({
     setVideoCurrentTime(0);
     setVideoDuration(0);
     setAreVideoControlsVisible(true);
-  }, [isOpen, media?.mediaUrl, media?.filePath]);
+  }, [isOpen, media?.assetStatus, media?.mediaUrl, media?.filePath]);
+
+  useEffect(() => {
+    if (
+      !isOpen ||
+      !media ||
+      media.mediaType !== "VIDEO" ||
+      !media.assetStatus ||
+      media.assetStatus === "READY" ||
+      media.posterUrl
+    ) {
+      return;
+    }
+
+    setMediaGeometry({
+      key: getAssetUrl(media.mediaUrl || media.filePath),
+      aspectRatio: 1,
+    });
+  }, [isOpen, media]);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -361,10 +409,11 @@ export function MediaViewer({
   const mediaUrl = getAssetUrl(media.mediaUrl || media.filePath);
   const posterUrl = media.posterUrl ? getAssetUrl(media.posterUrl) : undefined;
   const isVideo = media.mediaType === "VIDEO";
+  const isVideoPlayable =
+    !isVideo || !media.assetStatus || media.assetStatus === "READY";
   const formattedDate = formatMediaDate(media.mediaDate);
-  const activeAspectRatio = mediaGeometry?.key === mediaUrl
-    ? mediaGeometry.aspectRatio
-    : null;
+  const activeAspectRatio =
+    mediaGeometry?.key === mediaUrl ? mediaGeometry.aspectRatio : null;
   const isMediaReady = activeAspectRatio !== null;
   const isCompactMedia = activeAspectRatio !== null && activeAspectRatio >= 0.7;
 
@@ -567,7 +616,72 @@ export function MediaViewer({
           onFocusCapture={isVideo ? revealVideoControls : undefined}
           onPointerDown={isVideo ? revealVideoControls : undefined}
         >
-          {isVideo ? (
+          {isVideo && !isVideoPlayable ? (
+            <div
+              className="relative flex w-[min(80vw,44rem)] items-center justify-center overflow-hidden bg-stone-900"
+              style={{ aspectRatio: activeAspectRatio || 1 }}
+            >
+              {posterUrl ? (
+                <img
+                  src={posterUrl}
+                  alt={media.title}
+                  className="h-full w-full object-contain"
+                  onLoad={(event) => {
+                    const image = event.currentTarget;
+                    if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+                      setMediaGeometry({
+                        key: mediaUrl,
+                        aspectRatio: image.naturalWidth / image.naturalHeight,
+                      });
+                    }
+                  }}
+                  onError={() => {
+                    setMediaGeometry({ key: mediaUrl, aspectRatio: 1 });
+                  }}
+                />
+              ) : (
+                <Film
+                  className="text-stone-500"
+                  style={{
+                    width: "var(--sf-size-stage-icon-compact)",
+                    height: "var(--sf-size-stage-icon-compact)",
+                  }}
+                  strokeWidth={1.5}
+                />
+              )}
+              <div className="absolute inset-0 flex items-center justify-center bg-stone-950/25">
+                <span
+                  className="sf-text-label inline-flex items-center border border-white/20 bg-stone-950/60 text-white backdrop-blur-md"
+                  style={{
+                    gap: "var(--sf-space-xs)",
+                    minHeight: "var(--sf-h-button-card)",
+                    paddingInline: "var(--sf-space-md)",
+                    borderRadius: "var(--sf-radius-card-inner)",
+                  }}
+                >
+                  {media.assetStatus === "FAILED" ? (
+                    <CircleAlert
+                      style={{
+                        width: "var(--sf-size-inner-icon-card)",
+                        height: "var(--sf-size-inner-icon-card)",
+                      }}
+                    />
+                  ) : (
+                    <Loader2
+                      className="animate-spin"
+                      style={{
+                        width: "var(--sf-size-inner-icon-card)",
+                        height: "var(--sf-size-inner-icon-card)",
+                      }}
+                    />
+                  )}
+                  {media.assetStatus === "FAILED"
+                    ? "Video no disponible"
+                    : "Preparando video"}
+                </span>
+              </div>
+            </div>
+          ) : isVideo ? (
             <video
               ref={videoRef}
               src={mediaUrl}
@@ -620,7 +734,7 @@ export function MediaViewer({
             />
           )}
 
-          {isVideo && (
+          {isVideo && isVideoPlayable && (
             <MediaViewerLayeredVideoControls
               isPlaying={isVideoPlaying}
               isMuted={isVideoMuted}

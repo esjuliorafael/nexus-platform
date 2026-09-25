@@ -1,7 +1,10 @@
 import { storePrisma } from "@nexus/db/store";
 import { ProductType, SaleStatus } from "@prisma/client-store";
 import { mediaAssetService } from "../media-assets/media-asset.service";
-import { auditActorData, type AuditActor } from "../../../utils/admin-authorization";
+import {
+  auditActorData,
+  type AuditActor,
+} from "../../../utils/admin-authorization";
 
 export interface ProductFilters {
   type?: ProductType;
@@ -34,6 +37,8 @@ function serializeProduct(product: any) {
     assetId: item.assetId,
     mediaUrl: item.asset.mediaUrl,
     posterUrl: item.asset.posterUrl,
+    assetStatus: item.asset.status,
+    assetError: item.asset.errorMessage,
     mediaType: item.asset.mediaType,
     mimeType: item.asset.mimeType,
     createdAt: item.createdAt,
@@ -56,6 +61,7 @@ function serializeProduct(product: any) {
     coverPosterUrl: cover?.posterUrl || null,
     coverMediaType: cover?.mediaType || null,
     coverAssetStatus: cover?.status || null,
+    coverAssetError: cover?.errorMessage || null,
     thumbnail: displayImage,
   };
 }
@@ -83,10 +89,14 @@ const productEventType = (previous: any, next: any) => {
 };
 
 const productEventMessage = (eventType: string) => {
-  if (eventType === "PRODUCT_PUBLISHED") return "El producto se publico en el Storefront.";
-  if (eventType === "PRODUCT_PAUSED") return "El producto se pauso en el Storefront.";
-  if (eventType === "PRODUCT_FEATURED") return "El producto se agrego a destacados.";
-  if (eventType === "PRODUCT_UNFEATURED") return "El producto se retiro de destacados.";
+  if (eventType === "PRODUCT_PUBLISHED")
+    return "El producto se publico en el Storefront.";
+  if (eventType === "PRODUCT_PAUSED")
+    return "El producto se pauso en el Storefront.";
+  if (eventType === "PRODUCT_FEATURED")
+    return "El producto se agrego a destacados.";
+  if (eventType === "PRODUCT_UNFEATURED")
+    return "El producto se retiro de destacados.";
   return "Se actualizaron los datos del producto.";
 };
 
@@ -96,12 +106,14 @@ async function assertAssetsUsable(ids: string[]) {
   const usableCount = await storePrisma.mediaAsset.count({
     where: {
       id: { in: uniqueIds },
-      status: { in: ["UPLOADING", "READY"] },
+      status: { in: ["UPLOADING", "PROCESSING", "READY", "FAILED"] },
       mediaUrl: { not: null },
     },
   });
   if (usableCount !== uniqueIds.length) {
-    const error = new Error("Uno o mas medios no estan disponibles para asociarse.") as Error & {
+    const error = new Error(
+      "Uno o mas medios no estan disponibles para asociarse.",
+    ) as Error & {
       statusCode?: number;
     };
     error.statusCode = 409;
@@ -116,14 +128,15 @@ export const productService = {
     if (filters.onlyPublished) where.published = true;
     if (filters.onlyReadyMedia) {
       where.coverAsset = {
-        status: "READY",
+        status: { in: ["PROCESSING", "READY", "FAILED"] },
         mediaUrl: { not: null },
       };
     }
     if (filters.type) where.type = filters.type;
     if (filters.status) where.saleStatus = filters.status;
     if (filters.purpose) where.purpose = filters.purpose;
-    if (typeof filters.featured === "boolean") where.featured = filters.featured;
+    if (typeof filters.featured === "boolean")
+      where.featured = filters.featured;
     if (filters.search) {
       where.OR = [
         { name: { contains: filters.search } },
@@ -144,7 +157,11 @@ export const productService = {
 
   async getById(
     id: number,
-    options: { onlyActive?: boolean; onlyPublished?: boolean; onlyReadyMedia?: boolean } = {},
+    options: {
+      onlyActive?: boolean;
+      onlyPublished?: boolean;
+      onlyReadyMedia?: boolean;
+    } = {},
   ) {
     const product = await storePrisma.product.findFirst({
       where: {
@@ -154,7 +171,7 @@ export const productService = {
         ...(options.onlyReadyMedia
           ? {
               coverAsset: {
-                status: "READY",
+                status: { in: ["PROCESSING", "READY", "FAILED"] },
                 mediaUrl: { not: null },
               },
             }
@@ -190,7 +207,9 @@ export const productService = {
             mpRefundedAmount: true,
             mpRefundedAt: true,
             events: {
-              where: { eventType: { in: ["PAYMENT_CONFIRMED", "PAYMENT_REFUNDED"] } },
+              where: {
+                eventType: { in: ["PAYMENT_CONFIRMED", "PAYMENT_REFUNDED"] },
+              },
               orderBy: { createdAt: "desc" },
             },
           },
@@ -206,17 +225,23 @@ export const productService = {
         Boolean(item.order.mpRefundedAt) ||
         item.order.paymentStatus === "REFUNDED",
     );
-    const pendingItems = orderItems.filter((item) => item.order.status === "PENDING");
+    const pendingItems = orderItems.filter(
+      (item) => item.order.status === "PENDING",
+    );
     const cancelledItems = orderItems.filter(
       (item) =>
         item.order.status === "CANCELLED" &&
         !item.order.mpRefundedAt &&
         item.order.paymentStatus !== "REFUNDED",
     );
-    const cancelledOrderIds = new Set(cancelledItems.map((item) => item.orderId));
+    const cancelledOrderIds = new Set(
+      cancelledItems.map((item) => item.orderId),
+    );
 
     const sales = confirmedItems.map((item) => {
-      const confirmation = item.order.events.find((event) => event.eventType === "PAYMENT_CONFIRMED");
+      const confirmation = item.order.events.find(
+        (event) => event.eventType === "PAYMENT_CONFIRMED",
+      );
       return {
         orderId: String(item.orderId),
         customerName: item.order.customerName,
@@ -238,7 +263,10 @@ export const productService = {
     const orderActivity = confirmedItems.flatMap((item) => {
       const relevantEvents = item.order.events.map((event) => ({
         id: `order-${item.orderId}-${event.id}`,
-        eventType: event.eventType === "PAYMENT_CONFIRMED" ? "SALE_CONFIRMED" : event.eventType,
+        eventType:
+          event.eventType === "PAYMENT_CONFIRMED"
+            ? "SALE_CONFIRMED"
+            : event.eventType,
         message:
           event.eventType === "PAYMENT_CONFIRMED"
             ? `Venta confirmada en la orden #${item.orderId} para ${item.order.customerName}.`
@@ -254,7 +282,9 @@ export const productService = {
         createdAt: event.createdAt,
       }));
 
-      if (relevantEvents.some((event) => event.eventType === "SALE_CONFIRMED")) {
+      if (
+        relevantEvents.some((event) => event.eventType === "SALE_CONFIRMED")
+      ) {
         return relevantEvents;
       }
       return [
@@ -277,34 +307,49 @@ export const productService = {
     });
 
     const { events, ...productWithoutEvents } = product as any;
-    const legacyCreationEvent = events.some((event: any) => event.eventType === "PRODUCT_CREATED")
+    const legacyCreationEvent = events.some(
+      (event: any) => event.eventType === "PRODUCT_CREATED",
+    )
       ? []
-      : [{
-          id: `product-${product.id}-created`,
-          eventType: "PRODUCT_CREATED",
-          message: "El producto se registro en el inventario.",
-          actorType: "SYSTEM",
-          actorUserId: null,
-          actorName: "Registro historico",
-          actorRole: null,
-          origin: "SYSTEM",
-          previousState: null,
-          nextState: productSnapshot(product),
-          metadata: { legacy: true },
-          createdAt: product.createdAt,
-        }];
-    const activityEvents = [...events, ...orderActivity, ...legacyCreationEvent].sort(
+      : [
+          {
+            id: `product-${product.id}-created`,
+            eventType: "PRODUCT_CREATED",
+            message: "El producto se registro en el inventario.",
+            actorType: "SYSTEM",
+            actorUserId: null,
+            actorName: "Registro historico",
+            actorRole: null,
+            origin: "SYSTEM",
+            previousState: null,
+            nextState: productSnapshot(product),
+            metadata: { legacy: true },
+            createdAt: product.createdAt,
+          },
+        ];
+    const activityEvents = [
+      ...events,
+      ...orderActivity,
+      ...legacyCreationEvent,
+    ].sort(
       (left: any, right: any) =>
-        new Date(right.createdAt).getTime() - new Date(left.createdAt).getTime(),
+        new Date(right.createdAt).getTime() -
+        new Date(left.createdAt).getTime(),
     );
 
     return {
       product: serializeProduct(productWithoutEvents),
       metrics: {
-        confirmedRevenue: netSales.reduce((sum, sale) => sum + sale.lineTotal, 0),
+        confirmedRevenue: netSales.reduce(
+          (sum, sale) => sum + sale.lineTotal,
+          0,
+        ),
         unitsSold: netSales.reduce((sum, sale) => sum + sale.quantity, 0),
         confirmedOrders: confirmedOrderIds.size,
-        activeReservations: pendingItems.reduce((sum, item) => sum + item.quantity, 0),
+        activeReservations: pendingItems.reduce(
+          (sum, item) => sum + item.quantity,
+          0,
+        ),
         releasedReservations: cancelledOrderIds.size,
         currentStock: product.stock,
       },
@@ -326,7 +371,10 @@ export const productService = {
     await assertAssetsUsable(assetIds);
 
     if (coverPosterAssetId && productData.coverAssetId) {
-      await mediaAssetService.adoptPoster(productData.coverAssetId, coverPosterAssetId);
+      await mediaAssetService.adoptPoster(
+        productData.coverAssetId,
+        coverPosterAssetId,
+      );
     }
 
     const product = await storePrisma.$transaction(async (tx) => {
@@ -350,7 +398,10 @@ export const productService = {
           })),
         });
       }
-      return tx.product.findUnique({ where: { id: created.id }, include: productInclude });
+      return tx.product.findUnique({
+        where: { id: created.id },
+        include: productInclude,
+      });
     });
 
     return serializeProduct(product);
@@ -377,7 +428,10 @@ export const productService = {
     await assertAssetsUsable(assetIds);
 
     if (coverPosterAssetId && productData.coverAssetId) {
-      await mediaAssetService.adoptPoster(productData.coverAssetId, coverPosterAssetId);
+      await mediaAssetService.adoptPoster(
+        productData.coverAssetId,
+        coverPosterAssetId,
+      );
     }
 
     const previousAssetIds = [
@@ -409,7 +463,10 @@ export const productService = {
         await tx.productGallery.deleteMany({ where: { productId: id } });
         if (nextGallery.length > 0) {
           await tx.productGallery.createMany({
-            data: nextGallery.map((item: any) => ({ productId: id, assetId: item.assetId })),
+            data: nextGallery.map((item: any) => ({
+              productId: id,
+              assetId: item.assetId,
+            })),
           });
         }
       }
@@ -417,10 +474,14 @@ export const productService = {
       return tx.product.findUnique({ where: { id }, include: productInclude });
     });
 
-    const retainedIds = new Set([
-      productData.coverAssetId ?? current.coverAssetId,
-      ...(nextGallery ? nextGallery.map((item: any) => item.assetId) : current.gallery.map((item) => item.assetId)),
-    ].filter(Boolean));
+    const retainedIds = new Set(
+      [
+        productData.coverAssetId ?? current.coverAssetId,
+        ...(nextGallery
+          ? nextGallery.map((item: any) => item.assetId)
+          : current.gallery.map((item) => item.assetId)),
+      ].filter(Boolean),
+    );
     await Promise.all(
       previousAssetIds
         .filter((assetId) => !retainedIds.has(assetId))
@@ -461,7 +522,11 @@ export const productService = {
       return archived;
     });
 
-    await Promise.all(assetIds.map((assetId) => mediaAssetService.releaseIfUnreferenced(assetId)));
+    await Promise.all(
+      assetIds.map((assetId) =>
+        mediaAssetService.releaseIfUnreferenced(assetId),
+      ),
+    );
     return result;
   },
 };

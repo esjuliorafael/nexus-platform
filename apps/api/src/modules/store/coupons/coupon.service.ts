@@ -50,18 +50,23 @@ function calculateDiscount(coupon: any, eligibleSubtotal: number) {
   if (eligibleSubtotal <= 0) return 0;
 
   const discountValue = Number(coupon.discountValue);
-  const rawDiscount = coupon.discountType === "PERCENTAGE"
-    ? eligibleSubtotal * (discountValue / 100)
-    : discountValue;
+  const rawDiscount =
+    coupon.discountType === "PERCENTAGE"
+      ? eligibleSubtotal * (discountValue / 100)
+      : discountValue;
   const cappedBySubtotal = Math.min(rawDiscount, eligibleSubtotal);
-  const maxDiscount = coupon.maxDiscount === null || coupon.maxDiscount === undefined
-    ? cappedBySubtotal
-    : Math.min(cappedBySubtotal, Number(coupon.maxDiscount));
+  const maxDiscount =
+    coupon.maxDiscount === null || coupon.maxDiscount === undefined
+      ? cappedBySubtotal
+      : Math.min(cappedBySubtotal, Number(coupon.maxDiscount));
 
   return Math.max(0, Math.round(maxDiscount * 100) / 100);
 }
 
-export async function validateCouponForItems(code: string, items: CouponItemInput[]) {
+export async function validateCouponForItems(
+  code: string,
+  items: CouponItemInput[],
+) {
   const normalizedCode = normalizeCode(code);
   const now = new Date();
 
@@ -107,11 +112,15 @@ export async function validateCouponForItems(code: string, items: CouponItemInpu
   );
 
   if (coupon.minSubtotal !== null && subtotal < Number(coupon.minSubtotal)) {
-    throw createCouponError(`El cupón requiere un subtotal mínimo de $${Number(coupon.minSubtotal).toFixed(2)}.`);
+    throw createCouponError(
+      `El cupón requiere un subtotal mínimo de $${Number(coupon.minSubtotal).toFixed(2)}.`,
+    );
   }
 
   if (eligibleSubtotal <= 0) {
-    throw createCouponError("El cupón no aplica para los productos seleccionados.");
+    throw createCouponError(
+      "El cupón no aplica para los productos seleccionados.",
+    );
   }
 
   const discountTotal = calculateDiscount(coupon, eligibleSubtotal);
@@ -185,8 +194,12 @@ export const couponService = {
         ...(data.maxDiscount !== undefined ? { maxDiscount: data.maxDiscount ?? null } : {}),
         ...(data.usageLimit !== undefined ? { usageLimit: data.usageLimit ?? null } : {}),
         ...(data.active !== undefined ? { active: data.active } : {}),
-        ...(data.startsAt !== undefined ? { startsAt: data.startsAt ? new Date(data.startsAt) : null } : {}),
-        ...(data.expiresAt !== undefined ? { expiresAt: data.expiresAt ? new Date(data.expiresAt) : null } : {}),
+        ...(data.startsAt !== undefined
+          ? { startsAt: data.startsAt ? new Date(data.startsAt) : null }
+          : {}),
+        ...(data.expiresAt !== undefined
+          ? { expiresAt: data.expiresAt ? new Date(data.expiresAt) : null }
+          : {}),
       },
     });
   },

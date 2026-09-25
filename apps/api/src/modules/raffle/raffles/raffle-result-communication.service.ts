@@ -5,6 +5,8 @@ import {
   RaffleResultCampaignAudience,
   RaffleResultCampaignStatus,
   RaffleResultRecipientStatus,
+  TicketFinancialStatus,
+  TicketSaleOrigin,
   TicketStatus,
 } from "@prisma/client-raffle";
 import type { PrismaClient as StorePrismaClient } from "@prisma/client-store";
@@ -195,7 +197,11 @@ const buildRecipientDrafts = async (
     include: {
       prizes: { orderBy: { position: "asc" } },
       ticketSales: {
-        where: { paymentStatus: TicketStatus.PAID },
+        where: {
+          paymentStatus: TicketStatus.PAID,
+          financialStatus: TicketFinancialStatus.RECOGNIZED,
+          origin: TicketSaleOrigin.PARTICIPANT,
+        },
         orderBy: { createdAt: "asc" },
       },
     },

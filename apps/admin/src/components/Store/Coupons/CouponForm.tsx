@@ -58,7 +58,9 @@ export const CouponForm = forwardRef<
     initialData?.usageLimit ? String(initialData.usageLimit) : "",
   );
   const [startsAt, setStartsAt] = useState(toDateInput(initialData?.startsAt));
-  const [expiresAt, setExpiresAt] = useState(toDateInput(initialData?.expiresAt));
+  const [expiresAt, setExpiresAt] = useState(
+    toDateInput(initialData?.expiresAt),
+  );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const discountNumber = Number(discountValue);
@@ -100,8 +102,12 @@ export const CouponForm = forwardRef<
         minSubtotal: optionalNumber(minSubtotal),
         maxDiscount: optionalNumber(maxDiscount),
         usageLimit: usageLimit.trim() ? Number(usageLimit) : null,
-        startsAt: startsAt ? new Date(`${startsAt}T00:00:00`).toISOString() : null,
-        expiresAt: expiresAt ? new Date(`${expiresAt}T23:59:59`).toISOString() : null,
+        startsAt: startsAt
+          ? new Date(`${startsAt}T00:00:00`).toISOString()
+          : null,
+        expiresAt: expiresAt
+          ? new Date(`${expiresAt}T23:59:59`).toISOString()
+          : null,
       };
 
       if (initialData) {
@@ -113,7 +119,10 @@ export const CouponForm = forwardRef<
       onSave();
     } catch (error: any) {
       console.error("Error guardando cupón:", error);
-      showToast(error?.response?.data?.message || "No se pudo guardar el cupón", "error");
+      showToast(
+        error?.response?.data?.message || "No se pudo guardar el cupón",
+        "error",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -135,7 +144,10 @@ export const CouponForm = forwardRef<
         title="Descuento"
         subtitle="Código y valor aplicado al carrito"
       >
-        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "var(--space-md)" }}>
+        <div
+          className="grid grid-cols-1 md:grid-cols-2"
+          style={{ gap: "var(--space-md)" }}
+        >
           <NexusInput
             label="Código *"
             value={code}
@@ -151,7 +163,9 @@ export const CouponForm = forwardRef<
           <NexusSelect
             label="Tipo de descuento *"
             value={discountType}
-            onChange={(event) => setDiscountType(event.target.value as CouponDiscountType)}
+            onChange={(event) =>
+              setDiscountType(event.target.value as CouponDiscountType)
+            }
           >
             <option value="PERCENTAGE">Porcentaje</option>
             <option value="FIXED">Monto fijo</option>
@@ -173,7 +187,10 @@ export const CouponForm = forwardRef<
         title="Reglas"
         subtitle="Alcance, límites y condiciones"
       >
-        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "var(--space-md)" }}>
+        <div
+          className="grid grid-cols-1 md:grid-cols-2"
+          style={{ gap: "var(--space-md)" }}
+        >
           <NexusSelect
             label="Aplicar a *"
             value={scope}
@@ -231,7 +248,10 @@ export const CouponForm = forwardRef<
         title="Vigencia"
         subtitle="Opcional, si el cupón tiene fechas definidas"
       >
-        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "var(--space-md)" }}>
+        <div
+          className="grid grid-cols-1 md:grid-cols-2"
+          style={{ gap: "var(--space-md)" }}
+        >
           <NexusInput
             label="Publicar desde"
             type="date"

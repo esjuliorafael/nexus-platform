@@ -79,12 +79,34 @@ function normalizeDirectVideoMime(fileName: string, inputMimeType: string) {
 
 function normalizeOriginalMediaMime(fileName: string, inputMimeType: string) {
   const mimeType = inputMimeType.trim().toLowerCase();
-  if (ACCEPTED_IMAGE_MIMES.has(mimeType) || ACCEPTED_VIDEO_MIMES.has(mimeType)) {
+  if (
+    ACCEPTED_IMAGE_MIMES.has(mimeType) ||
+    ACCEPTED_VIDEO_MIMES.has(mimeType)
+  ) {
     return mimeType;
   }
 
   const extension = fileName.split(".").pop()?.trim().toLowerCase() || "";
-  return IMAGE_MIME_BY_EXTENSION[extension] || VIDEO_MIME_BY_EXTENSION[extension] || mimeType;
+  return (
+    IMAGE_MIME_BY_EXTENSION[extension] ||
+    VIDEO_MIME_BY_EXTENSION[extension] ||
+    mimeType
+  );
+}
+
+async function enqueueVideoProcessing(assetId: string) {
+  const revision = randomUUID().replace(/-/g, "").slice(0, 12);
+  await mediaProcessingQueue.add(
+    "optimize-video",
+    { assetId, revision },
+    {
+      jobId: `${assetId}:${revision}`,
+      attempts: 3,
+      backoff: { type: "exponential", delay: 5000 },
+      removeOnComplete: 100,
+      removeOnFail: 200,
+    },
+  );
 }
 
 async function createImageAsset(inputPath: string, originalName: string) {
@@ -98,7 +120,9 @@ async function createImageAsset(inputPath: string, originalName: string) {
       withoutEnlargement: true,
     })
     .webp({ quality: 90 });
-  const { data: output, info } = await pipeline.toBuffer({ resolveWithObject: true });
+  const { data: output, info } = await pipeline.toBuffer({
+    resolveWithObject: true,
+  });
   const key = createStorageKey(assetId, "webp");
   let mediaUrl: string | null = null;
 
@@ -149,33 +173,31 @@ async function createVideoAsset(
         mediaType: "VIDEO",
         mimeType,
         originalName: normalizeOriginalName(originalName),
-        status: "READY",
+        status: "PROCESSING",
         sizeBytes: fileStats.size,
       },
     });
   } catch (error) {
     if (mediaUrl) await storageService.deleteFile(mediaUrl);
-    await storePrisma.mediaAsset.delete({ where: { id: assetId } }).catch(() => undefined);
+    await storePrisma.mediaAsset
+      .delete({ where: { id: assetId } })
+      .catch(() => undefined);
     throw error;
   }
 
   try {
-    await mediaProcessingQueue.add(
-      "enrich-video",
-      { assetId },
-      {
-        jobId: assetId,
-        attempts: 2,
-        backoff: { type: "exponential", delay: 3000 },
-        removeOnComplete: 100,
-        removeOnFail: 200,
-      },
-    );
+    await enqueueVideoProcessing(assetId);
   } catch (error) {
-    console.error(`[Media] No se pudo programar el poster de ${assetId}:`, error);
+    console.error(
+      `[Media] No se pudo programar la optimizacion de ${assetId}:`,
+      error,
+    );
     asset = await storePrisma.mediaAsset.update({
       where: { id: assetId },
-      data: { sourceKey: null },
+      data: {
+        status: "FAILED",
+        errorMessage: "No fue posible programar la optimizacion del video.",
+      },
     });
   }
 
@@ -200,7 +222,10 @@ export const mediaAssetService = {
     const assetId = randomUUID();
     const extension = extensionForDirectUpload(input.fileName, mimeType);
     const sourceKey = createVaultStorageKey(assetId, extension);
-    const signedUpload = await storageService.createSignedPutUrl(sourceKey, mimeType);
+    const signedUpload = await storageService.createSignedPutUrl(
+      sourceKey,
+      mimeType,
+    );
     const asset = await storePrisma.mediaAsset.create({
       data: {
         id: assetId,
@@ -234,7 +259,10 @@ export const mediaAssetService = {
     const assetId = randomUUID();
     const extension = extensionForDirectUpload(input.fileName, mimeType);
     const sourceKey = createStorageKey(assetId, extension);
-    const signedUpload = await storageService.createSignedPutUrl(sourceKey, mimeType);
+    const signedUpload = await storageService.createSignedPutUrl(
+      sourceKey,
+      mimeType,
+    );
 
     const asset = await storePrisma.mediaAsset.create({
       data: {
@@ -257,14 +285,26 @@ export const mediaAssetService = {
   },
 
   async completeDirectUpload(assetId: string) {
-    const asset = await storePrisma.mediaAsset.findUnique({ where: { id: assetId } });
+    const asset = await storePrisma.mediaAsset.findUnique({
+      where: { id: assetId },
+    });
     if (!asset) {
-      const error = new Error("Asset no encontrado.") as Error & { statusCode?: number };
+      const error = new Error("Asset no encontrado.") as Error & {
+        statusCode?: number;
+      };
       error.statusCode = 404;
       throw error;
     }
+    if (
+      asset.mediaType === "VIDEO" &&
+      ["PROCESSING", "READY"].includes(asset.status)
+    ) {
+      return asset;
+    }
     if (!asset.sourceKey || asset.status !== "UPLOADING") {
-      const error = new Error("El asset no espera una carga directa.") as Error & {
+      const error = new Error(
+        "El asset no espera una carga directa.",
+      ) as Error & {
         statusCode?: number;
       };
       error.statusCode = 409;
@@ -276,8 +316,10 @@ export const mediaAssetService = {
       const completed = await storePrisma.mediaAsset.update({
         where: { id: assetId },
         data: {
-          status: "READY",
-          sizeBytes: Number(head.ContentLength || asset.sizeBytes || 0) || asset.sizeBytes,
+          status: asset.mediaType === "VIDEO" ? "PROCESSING" : "READY",
+          sizeBytes:
+            Number(head.ContentLength || asset.sizeBytes || 0) ||
+            asset.sizeBytes,
           errorMessage: null,
         },
       });
@@ -285,34 +327,32 @@ export const mediaAssetService = {
       if (completed.mediaType !== "VIDEO") return completed;
 
       try {
-        await mediaProcessingQueue.add(
-          "enrich-video",
-          { assetId },
-          {
-            jobId: assetId,
-            attempts: 2,
-            backoff: { type: "exponential", delay: 3000 },
-            removeOnComplete: 100,
-            removeOnFail: 200,
-          },
-        );
+        await enqueueVideoProcessing(assetId);
       } catch (error) {
-        console.error(`[Media] No se pudo programar el poster de ${assetId}:`, error);
-        await storePrisma.mediaAsset.update({
+        console.error(
+          `[Media] No se pudo programar la optimizacion de ${assetId}:`,
+          error,
+        );
+        return await storePrisma.mediaAsset.update({
           where: { id: assetId },
-          data: { sourceKey: null },
+          data: {
+            status: "FAILED",
+            errorMessage: "No fue posible programar la optimizacion del video.",
+          },
         });
       }
 
       return completed;
     } catch (error) {
-      await storePrisma.mediaAsset.update({
-        where: { id: assetId },
-        data: {
-          status: "FAILED",
-          errorMessage: "No fue posible confirmar la carga directa.",
-        },
-      }).catch(() => undefined);
+      await storePrisma.mediaAsset
+        .update({
+          where: { id: assetId },
+          data: {
+            status: "FAILED",
+            errorMessage: "No fue posible confirmar la carga directa.",
+          },
+        })
+        .catch(() => undefined);
       throw error;
     }
   },
@@ -320,16 +360,25 @@ export const mediaAssetService = {
   async createFromFile(inputPath: string, originalName: string) {
     const detected = await fromFile(inputPath);
     if (!detected) {
-      throw unsupportedMedia("No fue posible identificar el formato del archivo.");
+      throw unsupportedMedia(
+        "No fue posible identificar el formato del archivo.",
+      );
     }
 
     if (ACCEPTED_IMAGE_MIMES.has(detected.mime)) {
-      return serializeMediaAsset(await createImageAsset(inputPath, originalName));
+      return serializeMediaAsset(
+        await createImageAsset(inputPath, originalName),
+      );
     }
 
     if (ACCEPTED_VIDEO_MIMES.has(detected.mime)) {
       return serializeMediaAsset(
-        await createVideoAsset(inputPath, originalName, detected.mime, detected.ext),
+        await createVideoAsset(
+          inputPath,
+          originalName,
+          detected.mime,
+          detected.ext,
+        ),
       );
     }
 
@@ -341,6 +390,67 @@ export const mediaAssetService = {
   async getById(id: string) {
     const asset = await storePrisma.mediaAsset.findUnique({ where: { id } });
     return asset ? serializeMediaAsset(asset) : null;
+  },
+
+  async reprocessVideo(id: string) {
+    const asset = await storePrisma.mediaAsset.findUnique({ where: { id } });
+    if (!asset) {
+      const error = new Error("Asset no encontrado.") as Error & {
+        statusCode?: number;
+      };
+      error.statusCode = 404;
+      throw error;
+    }
+    if (asset.mediaType !== "VIDEO" || !asset.mediaUrl) {
+      throw unsupportedMedia("El asset no contiene un video para optimizar.");
+    }
+
+    const sourceKey =
+      asset.sourceKey || (await storageService.keyFromUrl(asset.mediaUrl));
+    if (!sourceKey) {
+      const error = new Error(
+        "No se encontro el archivo de origen del video.",
+      ) as Error & {
+        statusCode?: number;
+      };
+      error.statusCode = 409;
+      throw error;
+    }
+
+    try {
+      await storageService.headObject(sourceKey);
+    } catch {
+      const error = new Error(
+        "El archivo de origen ya no esta disponible.",
+      ) as Error & {
+        statusCode?: number;
+      };
+      error.statusCode = 409;
+      throw error;
+    }
+
+    const processing = await storePrisma.mediaAsset.update({
+      where: { id },
+      data: {
+        sourceKey,
+        status: "PROCESSING",
+        errorMessage: null,
+      },
+    });
+
+    try {
+      await enqueueVideoProcessing(id);
+      return serializeMediaAsset(processing);
+    } catch (error) {
+      const failed = await storePrisma.mediaAsset.update({
+        where: { id },
+        data: {
+          status: "FAILED",
+          errorMessage: "No fue posible programar la optimizacion del video.",
+        },
+      });
+      return serializeMediaAsset(failed);
+    }
   },
 
   async adoptPoster(videoAssetId: string, posterAssetId: string) {
@@ -365,12 +475,20 @@ export const mediaAssetService = {
     if (
       !videoAsset ||
       videoAsset.mediaType !== "VIDEO" ||
-      !["UPLOADING", "READY"].includes(videoAsset.status)
+      !["UPLOADING", "PROCESSING", "READY", "FAILED"].includes(
+        videoAsset.status,
+      )
     ) {
       throw unsupportedMedia("El asset de portada no es un video disponible.");
     }
-    if (!posterAsset || posterAsset.mediaType !== "PHOTO" || !posterAsset.mediaUrl) {
-      throw unsupportedMedia("La miniatura seleccionada no es una imagen valida.");
+    if (
+      !posterAsset ||
+      posterAsset.mediaType !== "PHOTO" ||
+      !posterAsset.mediaUrl
+    ) {
+      throw unsupportedMedia(
+        "La miniatura seleccionada no es una imagen valida.",
+      );
     }
 
     const references = Object.values(posterAsset._count).reduce(
@@ -434,11 +552,15 @@ export const mediaAssetService = {
 
     await storePrisma.mediaAsset.delete({ where: { id } });
     await Promise.all([
-      asset.mediaUrl ? storageService.deleteFile(asset.mediaUrl) : Promise.resolve(),
+      asset.mediaUrl
+        ? storageService.deleteFile(asset.mediaUrl)
+        : Promise.resolve(),
       asset.posterUrl && asset.posterUrl !== asset.mediaUrl
         ? storageService.deleteFile(asset.posterUrl)
         : Promise.resolve(),
-      asset.sourceKey ? storageService.deleteKey(asset.sourceKey) : Promise.resolve(),
+      asset.sourceKey
+        ? storageService.deleteKey(asset.sourceKey)
+        : Promise.resolve(),
     ]);
     return true;
   },

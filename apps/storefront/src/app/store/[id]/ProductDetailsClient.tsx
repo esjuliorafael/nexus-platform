@@ -30,9 +30,12 @@ import { useCartStore } from "../../../store/cart.store";
 import { useToastStore } from "../../../store/toast.store";
 import {
   CalendarClock,
+  CircleAlert,
   ChevronLeft,
   Clock3,
+  Film,
   Hash,
+  Loader2,
   MessageCircle,
   ShoppingCart,
   Tag,
@@ -74,6 +77,69 @@ const knowledgeItems = [
   },
 ];
 
+const isVideoReady = (media: Media) =>
+  media.mediaType !== "VIDEO" ||
+  !media.assetStatus ||
+  media.assetStatus === "READY";
+
+function ProductVideoStatus({ media, alt }: { media: Media; alt: string }) {
+  const failed = media.assetStatus === "FAILED";
+  const posterUrl = media.posterUrl ? getAssetUrl(media.posterUrl) : null;
+
+  return (
+    <div className="relative h-full w-full overflow-hidden bg-stone-100 text-stone-500">
+      {posterUrl ? (
+        <img src={posterUrl} className="h-full w-full object-cover" alt={alt} />
+      ) : (
+        <div
+          className="flex h-full w-full flex-col items-center justify-center"
+          style={{ gap: "var(--sf-space-sm)" }}
+        >
+          <Film
+            style={{
+              width: "var(--sf-size-stage-icon-compact)",
+              height: "var(--sf-size-stage-icon-compact)",
+            }}
+            strokeWidth={1.5}
+          />
+        </div>
+      )}
+      <div
+        className="absolute inset-x-0 bottom-0 flex justify-center bg-gradient-to-t from-stone-950/70 to-transparent"
+        style={{ padding: "var(--sf-padding-inner)" }}
+      >
+        <span
+          className="sf-text-label inline-flex items-center border border-white/20 bg-stone-950/55 text-white backdrop-blur-md"
+          style={{
+            gap: "var(--sf-space-xs)",
+            minHeight: "var(--sf-h-button-card)",
+            paddingInline: "var(--sf-space-md)",
+            borderRadius: "var(--sf-radius-card-inner)",
+          }}
+        >
+          {failed ? (
+            <CircleAlert
+              style={{
+                width: "var(--sf-size-inner-icon-card)",
+                height: "var(--sf-size-inner-icon-card)",
+              }}
+            />
+          ) : (
+            <Loader2
+              className="animate-spin"
+              style={{
+                width: "var(--sf-size-inner-icon-card)",
+                height: "var(--sf-size-inner-icon-card)",
+              }}
+            />
+          )}
+          {failed ? "Video no disponible" : "Preparando video"}
+        </span>
+      </div>
+    </div>
+  );
+}
+
 export function ProductDetailsClient({
   product,
   reservationHours,
@@ -94,9 +160,8 @@ export function ProductDetailsClient({
     state.items.reduce((acc, item) => acc + item.quantity, 0),
   );
   const openCart = useCartUiStore((state) => state.openCart);
-  const reservationHoursLabel = reservationHours === 1
-    ? "1 hora"
-    : `${reservationHours} horas`;
+  const reservationHoursLabel =
+    reservationHours === 1 ? "1 hora" : `${reservationHours} horas`;
   const productKnowledgeItems = [
     {
       icon: Clock3,
@@ -157,6 +222,8 @@ export function ProductDetailsClient({
             assetId: product.coverAssetId || `product-cover-${product.id}`,
             mediaUrl: product.coverMediaUrl,
             posterUrl: product.coverPosterUrl,
+            assetStatus: product.coverAssetStatus,
+            assetError: product.coverAssetError,
             mediaType: product.coverMediaType || "PHOTO",
             categoryId: null,
             subcategoryId: null,
@@ -177,6 +244,8 @@ export function ProductDetailsClient({
       assetId: item.assetId,
       mediaUrl: item.mediaUrl,
       posterUrl: item.posterUrl,
+      assetStatus: item.assetStatus,
+      assetError: item.assetError,
       mediaType: item.mediaType,
       categoryId: null,
       subcategoryId: null,
@@ -201,7 +270,9 @@ export function ProductDetailsClient({
       price: Number(product.price),
       quantity: 1,
       thumbnail: getAssetUrl(
-        product.coverPosterUrl || product.coverMediaUrl || product.thumbnail,
+        product.coverMediaType === "VIDEO"
+          ? product.coverPosterUrl
+          : product.coverPosterUrl || product.coverMediaUrl || product.thumbnail,
       ),
       type: product.type.toLowerCase() as "bird" | "item",
     });
@@ -285,7 +356,17 @@ export function ProductDetailsClient({
   };
 
   const openProductMediaViewer = (index: number) => {
-    if (!productMediaItems[index]) return;
+    const media = productMediaItems[index];
+    if (!media) return;
+    if (!isVideoReady(media)) {
+      showToast(
+        media.assetStatus === "FAILED"
+          ? "Este video no está disponible por el momento."
+          : "El video todavía se está preparando.",
+        { type: "info", durationMs: 3000 },
+      );
+      return;
+    }
     setViewerIndex(index);
   };
 
@@ -333,7 +414,9 @@ export function ProductDetailsClient({
             <motion.div
               className="flex flex-col"
               style={{ gap: "var(--sf-space-md)" }}
-              initial={prefersReducedMotion ? false : { opacity: 0, scale: 0.985 }}
+              initial={
+                prefersReducedMotion ? false : { opacity: 0, scale: 0.985 }
+              }
               animate={{ opacity: 1, scale: 1 }}
               transition={introTransition(
                 STOREFRONT_DETAIL_MOTION_SEQUENCE_MS.coverDelayMs,
@@ -363,30 +446,44 @@ export function ProductDetailsClient({
               >
                 {activeMedia ? (
                   activeMedia.mediaType === "VIDEO" ? (
-                    <motion.video
-                      key={activeMedia.id}
-                      src={getAssetUrl(activeMedia.mediaUrl)}
-                      poster={
-                        activeMedia.posterUrl
-                          ? getAssetUrl(activeMedia.posterUrl)
-                          : undefined
-                      }
-                      className="h-full w-full object-cover"
-                      autoPlay
-                      muted
-                      loop
-                      playsInline
-                      initial={prefersReducedMotion ? false : { opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      transition={{
-                        duration: prefersReducedMotion
-                          ? 0
-                          : toMotionSeconds(
-                              STOREFRONT_MOTION_MS.duration.standard,
-                            ),
-                        ease: STOREFRONT_EASING.standard,
-                      }}
-                    />
+                    isVideoReady(activeMedia) ? (
+                      <motion.video
+                        key={activeMedia.id}
+                        src={getAssetUrl(activeMedia.mediaUrl)}
+                        poster={
+                          activeMedia.posterUrl
+                            ? getAssetUrl(activeMedia.posterUrl)
+                            : undefined
+                        }
+                        className="h-full w-full object-cover"
+                        autoPlay
+                        muted
+                        loop
+                        playsInline
+                        initial={prefersReducedMotion ? false : { opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{
+                          duration: prefersReducedMotion
+                            ? 0
+                            : toMotionSeconds(
+                                STOREFRONT_MOTION_MS.duration.standard,
+                              ),
+                          ease: STOREFRONT_EASING.standard,
+                        }}
+                      />
+                    ) : (
+                      <motion.div
+                        key={activeMedia.id}
+                        className="h-full w-full"
+                        initial={prefersReducedMotion ? false : { opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                      >
+                        <ProductVideoStatus
+                          media={activeMedia}
+                          alt={product.name}
+                        />
+                      </motion.div>
+                    )
                   ) : (
                     <motion.img
                       key={activeMedia.id}
@@ -451,7 +548,9 @@ export function ProductDetailsClient({
                   <motion.h1
                     ref={productTitleRef}
                     className="sf-text-hero text-stone-850"
-                    initial={prefersReducedMotion ? false : { opacity: 0, y: 16 }}
+                    initial={
+                      prefersReducedMotion ? false : { opacity: 0, y: 16 }
+                    }
                     animate={{ opacity: 1, y: 0 }}
                     transition={introTransition(
                       STOREFRONT_DETAIL_MOTION_SEQUENCE_MS.titleDelayMs,
@@ -461,7 +560,9 @@ export function ProductDetailsClient({
                   </motion.h1>
                   <motion.p
                     className="hidden sf-text-display text-brand-500 md:block"
-                    initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+                    initial={
+                      prefersReducedMotion ? false : { opacity: 0, y: 12 }
+                    }
                     animate={{ opacity: 1, y: 0 }}
                     transition={introTransition(
                       STOREFRONT_DETAIL_MOTION_SEQUENCE_MS.priceDelayMs,
@@ -525,71 +626,76 @@ export function ProductDetailsClient({
           </div>
 
           {additionalGalleryItems.length > 0 && (
-            <StorefrontReveal
-              cadence="editorial"
-              amount={0.3}
-            >
+            <StorefrontReveal cadence="editorial" amount={0.3}>
               <StorefrontMediaRail
                 ariaLabel="Galería adicional del producto"
                 itemCount={additionalGalleryItems.length}
               >
                 {additionalGalleryItems.map((item, index) => {
-                    const productMediaIndex = galleryStartIndex + index;
+                  const productMediaIndex = galleryStartIndex + index;
 
-                    return (
-                      <StorefrontRevealItem
-                        key={item.id}
-                        className="aspect-[7/5] w-[10rem] shrink-0 snap-start sm:w-[12rem]"
+                  return (
+                    <StorefrontRevealItem
+                      key={item.id}
+                      className="aspect-[7/5] w-[10rem] shrink-0 snap-start sm:w-[12rem]"
+                    >
+                      <button
+                        onClick={() =>
+                          openProductMediaViewer(productMediaIndex)
+                        }
+                        className={`relative h-full w-full overflow-hidden border transition-all duration-300 ${
+                          activeMediaIndex === productMediaIndex
+                            ? "border-brand-500 shadow-lg shadow-brand-500/10"
+                            : "border-stone-300 hover:border-stone-400"
+                        }`}
+                        style={{
+                          borderRadius: "var(--sf-radius-media-tile)",
+                          transitionTimingFunction: "var(--sf-ease)",
+                        }}
+                        aria-label="Cambiar imagen del producto"
                       >
-                        <button
-                          onClick={() => openProductMediaViewer(productMediaIndex)}
-                          className={`relative h-full w-full overflow-hidden border transition-all duration-300 ${
-                            activeMediaIndex === productMediaIndex
-                              ? "border-brand-500 shadow-lg shadow-brand-500/10"
-                              : "border-stone-300 hover:border-stone-400"
-                          }`}
-                          style={{
-                            borderRadius: "var(--sf-radius-media-tile)",
-                            transitionTimingFunction: "var(--sf-ease)",
-                          }}
-                          aria-label="Cambiar imagen del producto"
-                        >
-                          {item.mediaType === "VIDEO" ? (
-                            <div className="relative h-full w-full">
-                              {item.posterUrl ? (
-                                <img
-                                  src={getAssetUrl(item.posterUrl)}
-                                  className="h-full w-full object-cover"
-                                  alt="Miniatura del video"
-                                />
-                              ) : (
-                                <video
-                                  src={getAssetUrl(item.mediaUrl)}
-                                  className="h-full w-full object-cover"
-                                  preload="metadata"
-                                  playsInline
-                                />
-                              )}
-                              <StorefrontVideoThumbnailIndicator />
-                            </div>
-                          ) : (
-                            <img
-                              src={getAssetUrl(item.mediaUrl)}
-                              className="h-full w-full object-cover"
-                              alt="Imagen del producto"
-                            />
-                          )}
-                        </button>
-                      </StorefrontRevealItem>
-                    );
+                        {item.mediaType === "VIDEO" ? (
+                          <div className="relative h-full w-full">
+                            {item.posterUrl ? (
+                              <img
+                                src={getAssetUrl(item.posterUrl)}
+                                className="h-full w-full object-cover"
+                                alt="Miniatura del video"
+                              />
+                            ) : isVideoReady(item) ? (
+                              <video
+                                src={getAssetUrl(item.mediaUrl)}
+                                className="h-full w-full object-cover"
+                                preload="metadata"
+                                playsInline
+                              />
+                            ) : (
+                              <div className="flex h-full w-full items-center justify-center bg-stone-100 text-stone-400">
+                                {item.assetStatus === "FAILED" ? (
+                                  <CircleAlert size={24} />
+                                ) : (
+                                  <Loader2 className="animate-spin" size={24} />
+                                )}
+                              </div>
+                            )}
+                            <StorefrontVideoThumbnailIndicator />
+                          </div>
+                        ) : (
+                          <img
+                            src={getAssetUrl(item.mediaUrl)}
+                            className="h-full w-full object-cover"
+                            alt="Imagen del producto"
+                          />
+                        )}
+                      </button>
+                    </StorefrontRevealItem>
+                  );
                 })}
               </StorefrontMediaRail>
             </StorefrontReveal>
           )}
 
-          <div
-            className="grid grid-cols-1 items-start gap-[var(--sf-space-lg)] lg:grid-cols-2 lg:gap-[var(--sf-space-xl)]"
-          >
+          <div className="grid grid-cols-1 items-start gap-[var(--sf-space-lg)] lg:grid-cols-2 lg:gap-[var(--sf-space-xl)]">
             {product.type === "BIRD" && (
               <StorefrontReveal cadence="editorial">
                 <StorefrontCard
@@ -717,9 +823,7 @@ function ProductTopBar({
           : toMotionSeconds(STOREFRONT_MOTION_MS.duration.deliberate),
         delay: prefersReducedMotion
           ? 0
-          : toMotionSeconds(
-              STOREFRONT_DETAIL_MOTION_SEQUENCE_MS.chromeDelayMs,
-            ),
+          : toMotionSeconds(STOREFRONT_DETAIL_MOTION_SEQUENCE_MS.chromeDelayMs),
         ease: STOREFRONT_EASING.reveal,
       }}
       style={{

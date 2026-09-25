@@ -55,6 +55,9 @@ test("builds raffle metrics without counting cancelled or expired records", () =
     review: 1,
     occupied: 4,
     available: 6,
+    recognizedPaid: 2,
+    notRecognizedPaid: 0,
+    notRecognizedRevenue: 0,
     revenue: 200,
     occupancy: 40,
   });
@@ -80,4 +83,39 @@ test("builds raffle metrics without counting cancelled or expired records", () =
     ],
   );
   assert.equal(overview.recentParticipations[0].id, "hold-active");
+});
+
+test("keeps protection tickets occupied while excluding them from recognized revenue", () => {
+  const overview = buildRaffleOperationalOverview({
+    raffleId: 13,
+    ticketQuantity: 5,
+    participations: [
+      {
+        id: "participant-1",
+        status: "PAID",
+        financialStatus: "RECOGNIZED",
+        origin: "PARTICIPANT",
+        ticketNumbers: ["001"],
+        total: 500,
+        createdAt: "2026-07-23T17:00:00.000Z",
+      },
+      {
+        id: "protection-1",
+        status: "PAID",
+        financialStatus: "NOT_RECOGNIZED",
+        origin: "OPERATIONAL_PROTECTION",
+        ticketNumbers: ["002", "003"],
+        total: 1000,
+        createdAt: "2026-07-23T17:10:00.000Z",
+      },
+    ],
+    holds: [],
+  });
+
+  assert.equal(overview.metrics.paid, 3);
+  assert.equal(overview.metrics.recognizedPaid, 1);
+  assert.equal(overview.metrics.notRecognizedPaid, 2);
+  assert.equal(overview.metrics.revenue, 500);
+  assert.equal(overview.metrics.notRecognizedRevenue, 1000);
+  assert.equal(overview.metrics.available, 2);
 });

@@ -155,7 +155,11 @@ const buildParticipants = async (prisma: RafflePrisma, filters: RaffleIntelligen
     current.state = sale.customerState || current.state;
     current.raffleIds.add(sale.raffleId);
     current.ticketsReserved += 1;
-    if (sale.paymentStatus === "PAID") {
+    const recognizedPaid =
+      sale.paymentStatus === "PAID" &&
+      sale.financialStatus !== "NOT_RECOGNIZED" &&
+      sale.origin !== "OPERATIONAL_PROTECTION";
+    if (recognizedPaid) {
       current.ticketsPaid += 1;
       current.estimatedRevenue += ticketPrice;
     } else if (sale.paymentStatus === "PENDING") {
@@ -295,7 +299,11 @@ export const raffleIntelligenceService = {
 
     const topRaffles = raffles
       .map((raffle: any) => {
-        const paidTickets = raffle.ticketSales.filter((sale: any) => sale.paymentStatus === "PAID").length;
+        const paidTickets = raffle.ticketSales.filter((sale: any) => (
+          sale.paymentStatus === "PAID" &&
+          sale.financialStatus !== "NOT_RECOGNIZED" &&
+          sale.origin !== "OPERATIONAL_PROTECTION"
+        )).length;
         const reservedTickets = raffle.ticketSales.length;
         const revenue = paidTickets * toMoney(raffle.ticketPrice);
         return {

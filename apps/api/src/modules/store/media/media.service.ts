@@ -76,7 +76,7 @@ async function assertAssetUsable(assetId: string) {
   const asset = await storePrisma.mediaAsset.findFirst({
     where: {
       id: assetId,
-      status: { in: ["UPLOADING", "READY"] },
+      status: { in: ["UPLOADING", "PROCESSING", "READY", "FAILED"] },
       mediaUrl: { not: null },
     },
   });

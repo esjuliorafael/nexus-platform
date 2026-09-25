@@ -23,12 +23,14 @@ async function assertAssetUsable(assetId: string) {
   const asset = await storePrisma.mediaAsset.findFirst({
     where: {
       id: assetId,
-      status: { in: ["UPLOADING", "READY"] },
+      status: { in: ["UPLOADING", "PROCESSING", "READY", "FAILED"] },
       mediaUrl: { not: null },
     },
   });
   if (!asset) {
-    const error = new Error("El medio del slide no esta disponible.") as Error & {
+    const error = new Error(
+      "El medio del slide no esta disponible.",
+    ) as Error & {
       statusCode?: number;
     };
     error.statusCode = 409;
@@ -36,7 +38,10 @@ async function assertAssetUsable(assetId: string) {
   }
 }
 
-const assertSortOrderAvailable = async (sortOrder: number, currentId?: number) => {
+const assertSortOrderAvailable = async (
+  sortOrder: number,
+  currentId?: number,
+) => {
   const existing = await storePrisma.homeSlide.findFirst({
     where: {
       sortOrder,
@@ -79,7 +84,8 @@ export const homeSlideService = {
 
   async create(data: any) {
     await assertAssetUsable(data.assetId);
-    if (typeof data.sortOrder === "number") await assertSortOrderAvailable(data.sortOrder);
+    if (typeof data.sortOrder === "number")
+      await assertSortOrderAvailable(data.sortOrder);
     const slide = await storePrisma.homeSlide.create({
       data: normalizeDates(data),
       include: { asset: true },
@@ -91,7 +97,8 @@ export const homeSlideService = {
     const current = await storePrisma.homeSlide.findUnique({ where: { id } });
     if (!current) throw new Error("Slide not found");
     if (data.assetId) await assertAssetUsable(data.assetId);
-    if (typeof data.sortOrder === "number") await assertSortOrderAvailable(data.sortOrder, id);
+    if (typeof data.sortOrder === "number")
+      await assertSortOrderAvailable(data.sortOrder, id);
 
     const slide = await storePrisma.homeSlide.update({
       where: { id },
@@ -107,7 +114,9 @@ export const homeSlideService = {
   async reorder(ids: number[]) {
     const uniqueIds = Array.from(new Set(ids));
     if (uniqueIds.length !== ids.length) {
-      const error = new Error("La lista de slides contiene duplicados.") as Error & {
+      const error = new Error(
+        "La lista de slides contiene duplicados.",
+      ) as Error & {
         statusCode?: number;
       };
       error.statusCode = 400;
@@ -118,8 +127,13 @@ export const homeSlideService = {
       select: { id: true, sortOrder: true },
     });
     const existingIds = new Set(existingSlides.map((slide) => slide.id));
-    if (ids.length !== existingSlides.length || ids.some((id) => !existingIds.has(id))) {
-      const error = new Error("La lista de slides no coincide con los registros actuales.") as Error & {
+    if (
+      ids.length !== existingSlides.length ||
+      ids.some((id) => !existingIds.has(id))
+    ) {
+      const error = new Error(
+        "La lista de slides no coincide con los registros actuales.",
+      ) as Error & {
         statusCode?: number;
       };
       error.statusCode = 400;

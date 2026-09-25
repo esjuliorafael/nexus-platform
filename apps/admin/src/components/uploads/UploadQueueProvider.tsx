@@ -12,6 +12,7 @@ type UploadTaskStatus =
   | "uploading"
   | "retrying"
   | "finalizing"
+  | "optimizing"
   | "ready"
   | "failed";
 
@@ -106,23 +107,16 @@ export const UploadQueueProvider: React.FC<UploadQueueProviderProps> = ({
 
       void (async () => {
         try {
-          // Signed URLs are valid for 15 minutes, so transient transport failures can retry.
-          for (
-            let attempt = 1;
-            attempt <= DIRECT_UPLOAD_MAX_ATTEMPTS;
-            attempt += 1
-          ) {
+          // Signed URLs remain valid for 15 minutes, so transient failures can retry safely.
+          for (let attempt = 1; attempt <= DIRECT_UPLOAD_MAX_ATTEMPTS; attempt += 1) {
             try {
               await apiUpload.uploadToSignedUrl(
                 directUpload.uploadUrl,
                 file,
                 (progress) => {
-                  patchTask(asset.assetId, {
-                    attempt,
-                    progress,
-                    status: "uploading",
-                  });
+                  patchTask(asset.assetId, { progress, attempt, status: "uploading" });
                 },
+                asset.mimeType,
               );
               break;
             } catch (error) {
@@ -139,15 +133,51 @@ export const UploadQueueProvider: React.FC<UploadQueueProviderProps> = ({
                 status: "retrying",
               });
               await waitForRetry(
-                DIRECT_UPLOAD_RETRY_DELAYS_MS[attempt - 1] ?? 3000,
+                DIRECT_UPLOAD_RETRY_DELAYS_MS[attempt - 1] ??
+                  DIRECT_UPLOAD_RETRY_DELAYS_MS.at(-1) ??
+                  3000,
               );
             }
           }
 
           patchTask(asset.assetId, { progress: 100, status: "finalizing" });
-          await apiUpload.completeDirectUpload(asset.assetId);
+          const completed = await apiUpload.completeDirectUpload(asset.assetId);
+          if (completed.status === "FAILED") {
+            throw new Error(
+              completed.error || "No se pudo programar la optimizacion.",
+            );
+          }
+          patchTask(asset.assetId, { progress: 100, status: "optimizing" });
+          const optimized = await apiUpload.waitForAsset(asset.assetId);
+          if (optimized.status === "FAILED") {
+            throw new Error(
+              optimized.error || "No se pudo optimizar el video.",
+            );
+          }
+          if (optimized.status !== "READY") {
+            patchTask(asset.assetId, {
+              progress: 100,
+              status: "optimizing",
+              error: "La optimizacion continua en segundo plano.",
+            });
+            showToast(
+              `${taskLabel} continúa optimizándose en segundo plano`,
+              "success",
+            );
+            window.dispatchEvent(
+              new CustomEvent("nexus:media-upload-complete", {
+                detail: { assetId: asset.assetId, status: "PROCESSING" },
+              }),
+            );
+            window.setTimeout(() => {
+              setTasks((current) =>
+                current.filter((task) => task.id !== asset.assetId),
+              );
+            }, 8000);
+            return;
+          }
           patchTask(asset.assetId, { progress: 100, status: "ready" });
-          showToast(`${taskLabel} subido correctamente`, "success");
+          showToast(`${taskLabel} listo para reproducirse`, "success");
           window.dispatchEvent(
             new CustomEvent("nexus:media-upload-complete", {
               detail: { assetId: asset.assetId },
@@ -171,10 +201,7 @@ export const UploadQueueProvider: React.FC<UploadQueueProviderProps> = ({
             status: "failed",
             error: message,
           });
-          showToast(
-            `No se pudo subir ${taskLabel.toLowerCase()}. Revisa tu conexión e inténtalo nuevamente.`,
-            "error",
-          );
+          showToast(`No se pudo subir ${taskLabel.toLowerCase()}. Revisa tu conexión e inténtalo nuevamente.`, "error");
           window.dispatchEvent(
             new CustomEvent("nexus:media-upload-failed", {
               detail: { assetId: asset.assetId },
@@ -238,7 +265,8 @@ const UploadQueueStatus: React.FC<{ tasks: UploadTask[] }> = ({ tasks }) => {
                 ) : task.status === "failed" ? (
                   <XCircle size={18} className="text-red-600" />
                 ) : task.status === "retrying" ||
-                  task.status === "finalizing" ? (
+                  task.status === "finalizing" ||
+                  task.status === "optimizing" ? (
                   <Loader2 size={18} className="animate-spin" />
                 ) : (
                   <UploadCloud size={18} />
@@ -253,8 +281,10 @@ const UploadQueueStatus: React.FC<{ tasks: UploadTask[] }> = ({ tasks }) => {
                     ? task.error || "Error de subida"
                     : task.status === "retrying"
                       ? `Reintentando carga (${task.attempt}/${DIRECT_UPLOAD_MAX_ATTEMPTS})`
-                      : task.status === "finalizing"
-                        ? "Confirmando archivo"
+                    : task.status === "finalizing"
+                      ? "Confirmando archivo"
+                      : task.status === "optimizing"
+                        ? task.error || "Optimizando para reproducción web"
                         : task.status === "ready"
                           ? "Listo"
                           : `${task.progress}%`}

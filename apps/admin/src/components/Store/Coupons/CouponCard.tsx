@@ -75,8 +75,14 @@ export const CouponCard: React.FC<CouponCardProps> = ({
         className="grid grid-cols-1 items-stretch lg:grid-cols-[1fr_auto]"
         style={{ gap: "var(--space-md)" }}
       >
-        <div className="min-w-0 flex flex-col justify-center" style={{ gap: "var(--space-sm)" }}>
-          <div className="flex flex-wrap items-center" style={{ gap: "var(--space-sm)" }}>
+        <div
+          className="min-w-0 flex flex-col justify-center"
+          style={{ gap: "var(--space-sm)" }}
+        >
+          <div
+            className="flex flex-wrap items-center"
+            style={{ gap: "var(--space-sm)" }}
+          >
             <NexusAutonomousBadge variant="brand" icon={BadgePercent}>
               {getDiscountLabel(coupon)}
             </NexusAutonomousBadge>
@@ -109,9 +115,13 @@ export const CouponCard: React.FC<CouponCardProps> = ({
 
           {(coupon.minSubtotal || coupon.maxDiscount) && (
             <p className="text-label uppercase tracking-[0.15em] text-text-muted">
-              {coupon.minSubtotal ? `Mínimo ${formatCurrency(coupon.minSubtotal)}` : ""}
+              {coupon.minSubtotal
+                ? `Mínimo ${formatCurrency(coupon.minSubtotal)}`
+                : ""}
               {coupon.minSubtotal && coupon.maxDiscount ? " · " : ""}
-              {coupon.maxDiscount ? `Máximo ${formatCurrency(coupon.maxDiscount)}` : ""}
+              {coupon.maxDiscount
+                ? `Máximo ${formatCurrency(coupon.maxDiscount)}`
+                : ""}
             </p>
           )}
         </div>
@@ -120,7 +130,10 @@ export const CouponCard: React.FC<CouponCardProps> = ({
           className="flex items-center justify-between border-t border-border-main pt-[var(--space-md)] lg:justify-end lg:border-l lg:border-t-0 lg:pl-[var(--space-md)] lg:pt-0"
           style={{ gap: "var(--space-md)" }}
         >
-          <div className="flex flex-col items-center" style={{ gap: "var(--space-xs)" }}>
+          <div
+            className="flex flex-col items-center"
+            style={{ gap: "var(--space-xs)" }}
+          >
             <NexusSwitch
               checked={coupon.active}
               onChange={onToggleActive}
@@ -132,7 +145,10 @@ export const CouponCard: React.FC<CouponCardProps> = ({
             </span>
           </div>
 
-          <div className="flex shrink-0 items-center" style={{ gap: "var(--space-sm)" }}>
+          <div
+            className="flex shrink-0 items-center"
+            style={{ gap: "var(--space-sm)" }}
+          >
             <NexusAutonomousButton
               density="compact"
               variant="secondary"

@@ -1,6 +1,8 @@
 type RaffleOverviewParticipation = {
   id: string;
   status: string;
+  financialStatus?: string | null;
+  origin?: string | null;
   ticketNumbers: string[];
   total: number;
   createdAt: Date | string;
@@ -94,8 +96,33 @@ export function buildRaffleOperationalOverview(input: {
   ).length;
   const occupied = paid + reserved + review;
   const available = Math.max(0, input.ticketQuantity - occupied);
-  const revenue = input.participations
-    .filter((participation) => participation.status === "PAID")
+  const paidParticipations = input.participations.filter(
+    (participation) => participation.status === "PAID",
+  );
+  const recognizedPaid = paidParticipations.reduce(
+    (count, participation) =>
+      count +
+      (participation.financialStatus !== "NOT_RECOGNIZED"
+        ? participation.ticketNumbers.length
+        : 0),
+    0,
+  );
+  const notRecognizedPaid = paidParticipations.reduce(
+    (count, participation) =>
+      count +
+      (participation.financialStatus === "NOT_RECOGNIZED"
+        ? participation.ticketNumbers.length
+        : 0),
+    0,
+  );
+  const revenue = paidParticipations
+    .filter((participation) => participation.financialStatus !== "NOT_RECOGNIZED")
+    .reduce(
+      (total, participation) => total + Number(participation.total || 0),
+      0,
+    );
+  const notRecognizedRevenue = paidParticipations
+    .filter((participation) => participation.financialStatus === "NOT_RECOGNIZED")
     .reduce(
       (total, participation) => total + Number(participation.total || 0),
       0,
@@ -118,6 +145,9 @@ export function buildRaffleOperationalOverview(input: {
       review,
       occupied,
       available,
+      recognizedPaid,
+      notRecognizedPaid,
+      notRecognizedRevenue: Number(notRecognizedRevenue.toFixed(2)),
       revenue: Number(revenue.toFixed(2)),
       occupancy:
         input.ticketQuantity > 0

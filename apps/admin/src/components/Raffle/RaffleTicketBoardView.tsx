@@ -4,6 +4,7 @@ import {
   Eraser,
   Eye,
   MapPin,
+  ShieldCheck,
   Ticket,
   UserRound,
 } from "lucide-react";
@@ -79,6 +80,9 @@ export const RaffleTicketBoardView: React.FC<RaffleTicketBoardViewProps> = ({
   const [customerName, setCustomerName] = React.useState("");
   const [customerPhone, setCustomerPhone] = React.useState("");
   const [customerState, setCustomerState] = React.useState("");
+  const [origin, setOrigin] = React.useState<
+    "PARTICIPANT" | "OPERATIONAL_PROTECTION"
+  >("PARTICIPANT");
   const [coupon, setCoupon] =
     React.useState<RaffleCouponValidationResponse | null>(null);
   const [ticketAssignments, setTicketAssignments] = React.useState<
@@ -198,6 +202,7 @@ export const RaffleTicketBoardView: React.FC<RaffleTicketBoardViewProps> = ({
     setCustomerName("");
     setCustomerPhone("");
     setCustomerState("");
+    setOrigin("PARTICIPANT");
     setCoupon(null);
   }, []);
 
@@ -240,6 +245,7 @@ export const RaffleTicketBoardView: React.FC<RaffleTicketBoardViewProps> = ({
           customerPhone,
           customerState: customerState || null,
           couponCode: coupon?.code || null,
+          origin,
         });
       setIsCreateModalOpen(false);
       setSelectedTickets(new Set());
@@ -580,12 +586,29 @@ export const RaffleTicketBoardView: React.FC<RaffleTicketBoardViewProps> = ({
                 </option>
               ))}
             </NexusSelect>
+            <NexusSelect
+              label="Origen de la participación"
+              icon={ShieldCheck}
+              value={origin}
+              onChange={(event) =>
+                setOrigin(
+                  event.target.value as
+                    | "PARTICIPANT"
+                    | "OPERATIONAL_PROTECTION",
+                )
+              }
+            >
+              <option value="PARTICIPANT">Participante</option>
+              <option value="OPERATIONAL_PROTECTION">
+                Protección operativa
+              </option>
+            </NexusSelect>
           </div>
 
           <p className="text-secondary leading-relaxed text-text-muted">
-            Se creará un apartado por depósito o transferencia. Nexus aplicará
-            la expiración, el recordatorio y la notificación de WhatsApp
-            configurados para esta rifa.
+            {origin === "OPERATIONAL_PROTECTION"
+              ? "La protección operativa ocupará los boletos y podrá entrar en el resultado, pero no se reconocerá como ingreso ni enviará notificaciones automáticas."
+              : "Se creará un apartado por depósito o transferencia. Nexus aplicará la expiración, el recordatorio y la notificación de WhatsApp configurados para esta rifa."}
           </p>
 
           <NexusModalActions>

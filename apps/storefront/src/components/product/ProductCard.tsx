@@ -1,17 +1,24 @@
 "use client";
 
-import { MouseEvent, useState } from 'react';
-import Link from 'next/link';
-import { motion } from 'framer-motion';
-import { Eye, ShoppingCart, Tag } from 'lucide-react';
-import { Product } from '../../types';
-import { formatPrice, getAssetUrl } from '../../utils/formatters';
-import { useCartStore } from '../../store/cart.store';
-import { useCartUiStore } from '../../store/cart-ui.store';
-import { useToastStore } from '../../store/toast.store';
-import { Badge } from '../ui/Badge';
-import { Button } from '../ui/Button';
-import { StorefrontAutonomousCard } from '../ui/Card';
+import { MouseEvent, useState } from "react";
+import Link from "next/link";
+import { motion } from "framer-motion";
+import {
+  CircleAlert,
+  Eye,
+  Film,
+  Loader2,
+  ShoppingCart,
+  Tag,
+} from "lucide-react";
+import { Product } from "../../types";
+import { formatPrice, getAssetUrl } from "../../utils/formatters";
+import { useCartStore } from "../../store/cart.store";
+import { useCartUiStore } from "../../store/cart-ui.store";
+import { useToastStore } from "../../store/toast.store";
+import { Badge } from "../ui/Badge";
+import { Button } from "../ui/Button";
+import { StorefrontAutonomousCard } from "../ui/Card";
 
 export function ProductCard({ product }: { product: Product }) {
   const [addFeedbackActive, setAddFeedbackActive] = useState(false);
@@ -20,14 +27,19 @@ export function ProductCard({ product }: { product: Product }) {
   const showToast = useToastStore((state) => state.showToast);
 
   const isAvailable =
-    product.saleStatus === 'AVAILABLE' &&
-    (product.type !== 'ITEM' || Number(product.stock) > 0);
+    product.saleStatus === "AVAILABLE" &&
+    (product.type !== "ITEM" || Number(product.stock) > 0);
   const thumbnailUrl = getAssetUrl(
     product.coverPosterUrl || product.coverMediaUrl || product.thumbnail,
   );
-  const posterUrl = getAssetUrl(product.coverPosterUrl || product.thumbnail);
+  const posterUrl = getAssetUrl(product.coverPosterUrl);
   const coverMediaUrl = getAssetUrl(product.coverMediaUrl);
-  const isVideo = product.coverMediaType === 'VIDEO';
+  const isVideo = product.coverMediaType === "VIDEO";
+  const isVideoReady =
+    !isVideo ||
+    !product.coverAssetStatus ||
+    product.coverAssetStatus === "READY";
+  const isVideoFailed = isVideo && product.coverAssetStatus === "FAILED";
 
   const handleAddToCart = (event: MouseEvent<HTMLButtonElement>) => {
     event.preventDefault();
@@ -39,14 +51,14 @@ export function ProductCard({ product }: { product: Product }) {
       price: Number(product.price),
       quantity: 1,
       thumbnail: thumbnailUrl,
-      type: product.type.toLowerCase() as 'bird' | 'item',
+      type: product.type.toLowerCase() as "bird" | "item",
     });
 
-    if (result === 'already-in-cart') {
-      showToast('Este ejemplar ya está en tu carrito.', {
-        type: 'info',
-        title: 'Ya está en el carrito',
-        action: { label: 'Ver carrito', onClick: openCart },
+    if (result === "already-in-cart") {
+      showToast("Este ejemplar ya está en tu carrito.", {
+        type: "info",
+        title: "Ya está en el carrito",
+        action: { label: "Ver carrito", onClick: openCart },
         durationMs: 3000,
       });
       return;
@@ -55,18 +67,21 @@ export function ProductCard({ product }: { product: Product }) {
     setAddFeedbackActive(true);
     window.setTimeout(() => setAddFeedbackActive(false), 650);
 
-    showToast('Producto agregado al carrito.', {
-      type: 'success',
-      action: { label: 'Ver carrito', onClick: openCart },
+    showToast("Producto agregado al carrito.", {
+      type: "success",
+      action: { label: "Ver carrito", onClick: openCart },
       durationMs: 2500,
     });
   };
 
   const statusConfig = {
-    AVAILABLE: { label: 'Disponible', variant: 'overlaySuccess' as const },
-    RESERVED: { label: 'Apartado', variant: 'overlayWarning' as const },
-    SOLD: { label: 'Vendido', variant: 'overlayDanger' as const },
-  }[product.saleStatus] || { label: product.saleStatus, variant: 'muted' as const };
+    AVAILABLE: { label: "Disponible", variant: "overlaySuccess" as const },
+    RESERVED: { label: "Apartado", variant: "overlayWarning" as const },
+    SOLD: { label: "Vendido", variant: "overlayDanger" as const },
+  }[product.saleStatus] || {
+    label: product.saleStatus,
+    variant: "muted" as const,
+  };
 
   return (
     <motion.article
@@ -74,7 +89,7 @@ export function ProductCard({ product }: { product: Product }) {
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       className="group flex flex-col"
-      style={{ gap: 'var(--sf-space-sm)' }}
+      style={{ gap: "var(--sf-space-sm)" }}
     >
       <StorefrontAutonomousCard
         interactive
@@ -82,7 +97,7 @@ export function ProductCard({ product }: { product: Product }) {
         className="relative aspect-square overflow-hidden group-hover:shadow-2xl group-hover:shadow-stone-200/50"
       >
         {thumbnailUrl ? (
-          isVideo ? (
+          isVideo && isVideoReady ? (
             <video
               src={coverMediaUrl}
               poster={posterUrl || undefined}
@@ -97,6 +112,58 @@ export function ProductCard({ product }: { product: Product }) {
                 event.currentTarget.currentTime = 0;
               }}
             />
+          ) : isVideo ? (
+            <div className="relative h-full w-full bg-stone-100 text-stone-400">
+              {posterUrl ? (
+                <img
+                  src={posterUrl}
+                  alt={product.name}
+                  className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-[1.06]"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center">
+                  <Film
+                    style={{
+                      width: "var(--sf-size-stage-icon-compact)",
+                      height: "var(--sf-size-stage-icon-compact)",
+                    }}
+                    strokeWidth={1.5}
+                  />
+                </div>
+              )}
+              <div
+                className="absolute inset-x-0 bottom-0 flex justify-center bg-gradient-to-t from-stone-950/65 to-transparent"
+                style={{ padding: "var(--sf-padding-inner)" }}
+              >
+                <span
+                  className="sf-text-label inline-flex items-center border border-white/20 bg-stone-950/50 text-white backdrop-blur-md"
+                  style={{
+                    gap: "var(--sf-space-xs)",
+                    minHeight: "var(--sf-h-button-card)",
+                    paddingInline: "var(--sf-space-md)",
+                    borderRadius: "var(--sf-radius-card-inner)",
+                  }}
+                >
+                  {isVideoFailed ? (
+                    <CircleAlert
+                      style={{
+                        width: "var(--sf-size-inner-icon-card)",
+                        height: "var(--sf-size-inner-icon-card)",
+                      }}
+                    />
+                  ) : (
+                    <Loader2
+                      className="animate-spin"
+                      style={{
+                        width: "var(--sf-size-inner-icon-card)",
+                        height: "var(--sf-size-inner-icon-card)",
+                      }}
+                    />
+                  )}
+                  {isVideoFailed ? "Video no disponible" : "Preparando video"}
+                </span>
+              </div>
+            </div>
           ) : (
             <img
               src={thumbnailUrl}
@@ -108,8 +175,8 @@ export function ProductCard({ product }: { product: Product }) {
           <div className="flex h-full w-full items-center justify-center bg-stone-50 text-stone-300">
             <Tag
               style={{
-                width: 'var(--sf-size-stage-icon-compact)',
-                height: 'var(--sf-size-stage-icon-compact)',
+                width: "var(--sf-size-stage-icon-compact)",
+                height: "var(--sf-size-stage-icon-compact)",
               }}
               strokeWidth={1.5}
             />
@@ -119,11 +186,15 @@ export function ProductCard({ product }: { product: Product }) {
         <div
           className="absolute z-10"
           style={{
-            top: 'var(--sf-padding-inner)',
-            left: 'var(--sf-padding-inner)',
+            top: "var(--sf-padding-inner)",
+            left: "var(--sf-padding-inner)",
           }}
         >
-          <Badge variant={statusConfig.variant} context="autonomous" className="shadow-xl">
+          <Badge
+            variant={statusConfig.variant}
+            context="autonomous"
+            className="shadow-xl"
+          >
             {statusConfig.label}
           </Badge>
         </div>
@@ -133,11 +204,14 @@ export function ProductCard({ product }: { product: Product }) {
         <div
           className="absolute inset-x-0 bottom-0 z-20 translate-y-4 opacity-0 transition-all duration-300 group-hover:translate-y-0 group-hover:opacity-100"
           style={{
-            padding: 'var(--sf-padding-inner)',
-            transitionTimingFunction: 'var(--sf-ease)',
+            padding: "var(--sf-padding-inner)",
+            transitionTimingFunction: "var(--sf-ease)",
           }}
         >
-          <div className="grid grid-cols-2" style={{ gap: 'var(--sf-space-sm)' }}>
+          <div
+            className="grid grid-cols-2"
+            style={{ gap: "var(--sf-space-sm)" }}
+          >
             <Button
               asChild
               variant="secondary"
@@ -158,14 +232,14 @@ export function ProductCard({ product }: { product: Product }) {
                 onClick={handleAddToCart}
                 className="w-full shadow-xl shadow-brand-500/30"
               >
-                {addFeedbackActive ? 'Listo' : 'Añadir'}
+                {addFeedbackActive ? "Listo" : "Añadir"}
               </Button>
             ) : (
               <div
                 className="sf-text-button-card flex w-full items-center justify-center bg-stone-900/10 text-stone-500 backdrop-blur-md"
                 style={{
-                  height: 'var(--sf-h-button-card)',
-                  borderRadius: 'var(--sf-radius-card-nested)',
+                  height: "var(--sf-h-button-card)",
+                  borderRadius: "var(--sf-radius-card-nested)",
                 }}
               >
                 No Disp.
@@ -175,7 +249,7 @@ export function ProductCard({ product }: { product: Product }) {
         </div>
       </StorefrontAutonomousCard>
 
-      <div className="flex flex-col px-1" style={{ gap: 'var(--sf-space-xs)' }}>
+      <div className="flex flex-col px-1" style={{ gap: "var(--sf-space-xs)" }}>
         <h3 className="sf-text-h2 line-clamp-1 font-black tracking-tight text-stone-850 transition-colors group-hover:text-brand-600">
           {product.name}
         </h3>

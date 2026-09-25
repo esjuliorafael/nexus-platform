@@ -2,6 +2,7 @@ import type { MediaAsset, MediaType } from "@prisma/client-store";
 
 export interface MediaProcessingJobData {
   assetId: string;
+  revision?: string;
 }
 
 export interface MediaUploadResult {

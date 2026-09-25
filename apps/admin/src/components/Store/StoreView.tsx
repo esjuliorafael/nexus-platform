@@ -1,29 +1,61 @@
-import React, { useState, useMemo, useEffect, useRef, useImperativeHandle } from 'react';
-import { ShoppingBag, Plus } from 'lucide-react';
-import { Coupon, Product, StoreHero } from '../../types';
-import { ProductForm } from './ProductForm';
-import { ProductCard } from './ProductCard';
-import { ProductOverviewView } from './ProductOverviewView';
-import { StoreHeroView } from './Hero/StoreHeroView';
-import { StoreHeroForm } from './Hero/StoreHeroForm';
-import { CouponsView } from './Coupons/CouponsView';
-import { CouponForm } from './Coupons/CouponForm';
+import React, {
+  useState,
+  useMemo,
+  useEffect,
+  useRef,
+  useImperativeHandle,
+} from "react";
+import { ShoppingBag, Plus } from "lucide-react";
+import { Coupon, Product, StoreHero } from "../../types";
+import { ProductForm } from "./ProductForm";
+import { ProductCard } from "./ProductCard";
+import { ProductOverviewView } from "./ProductOverviewView";
+import { StoreHeroView } from "./Hero/StoreHeroView";
+import { StoreHeroForm } from "./Hero/StoreHeroForm";
+import { CouponsView } from "./Coupons/CouponsView";
+import { CouponForm } from "./Coupons/CouponForm";
 import {
   DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS,
   type StoreProductAdvancedFilters,
-} from './StoreProductFiltersModal';
-import { apiProducts } from '../../api';
-import { NexusSectionButton } from '../ui/NexusButton';
-import { EmptyState } from '../ui/EmptyState';
-import { NexusSpinner } from '../ui/NexusSpinner';
-import { NexusPaginator } from '../ui/NexusPaginator';
+} from "./StoreProductFiltersModal";
+import { apiProducts, apiUpload } from "../../api";
+import { NexusSectionButton } from "../ui/NexusButton";
+import { EmptyState } from "../ui/EmptyState";
+import { NexusSpinner } from "../ui/NexusSpinner";
+import { NexusPaginator } from "../ui/NexusPaginator";
 
 interface StoreViewProps {
   productSearchQuery?: string;
   advancedFilters?: StoreProductAdvancedFilters;
-  viewMode?: 'list' | 'overview' | 'create' | 'edit' | 'hero_list' | 'hero_create' | 'hero_edit' | 'coupon_list' | 'coupon_create' | 'coupon_edit' | 'orders' | 'order-detail';
-  onSetViewMode?: (mode: 'list' | 'overview' | 'create' | 'edit' | 'hero_list' | 'hero_create' | 'hero_edit' | 'coupon_list' | 'coupon_create' | 'coupon_edit' | 'orders' | 'order-detail') => void;
-  showToast: (message: string, type?: 'success' | 'error') => void;
+  viewMode?:
+    | "list"
+    | "overview"
+    | "create"
+    | "edit"
+    | "hero_list"
+    | "hero_create"
+    | "hero_edit"
+    | "coupon_list"
+    | "coupon_create"
+    | "coupon_edit"
+    | "orders"
+    | "order-detail";
+  onSetViewMode?: (
+    mode:
+      | "list"
+      | "overview"
+      | "create"
+      | "edit"
+      | "hero_list"
+      | "hero_create"
+      | "hero_edit"
+      | "coupon_list"
+      | "coupon_create"
+      | "coupon_edit"
+      | "orders"
+      | "order-detail",
+  ) => void;
+  showToast: (message: string, type?: "success" | "error") => void;
   setConfirmDialog: (dialog: any) => void;
   onValidationChange?: (isValid: boolean) => void;
   onOpenOrder?: (orderId: string) => void;
@@ -33,32 +65,32 @@ const ITEMS_PER_PAGE = 8;
 
 const normalizeSearch = (value: string) =>
   value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
     .trim();
 
 const productTypeLabel = (product: Product) =>
-  product.type === 'BIRD' ? 'ave aves' : 'articulo articulos item items';
+  product.type === "BIRD" ? "ave aves" : "articulo articulos item items";
 
 const productStatusLabel = (product: Product) => {
-  if (product.status === 'reserved') return 'reservado apartada apartado';
-  if (product.status === 'sold') return 'vendido vendida';
-  return 'disponible';
+  if (product.status === "reserved") return "reservado apartada apartado";
+  if (product.status === "sold") return "vendido vendida";
+  return "disponible";
 };
 
 const productPurposeLabel = (product: Product) => {
-  if (product.purpose === 'BREEDING') return 'cria crianza breeding';
-  if (product.purpose === 'COMBAT') return 'combate combat';
-  return '';
+  if (product.purpose === "BREEDING") return "cria crianza breeding";
+  if (product.purpose === "COMBAT") return "combate combat";
+  return "";
 };
 
 const productAgeLabel = (product: Product) => {
-  if (product.age === 'STAG') return 'pollo';
-  if (product.age === 'COCK') return 'gallo';
-  if (product.age === 'PULLET') return 'polla';
-  if (product.age === 'HEN') return 'gallina';
-  return '';
+  if (product.age === "STAG") return "pollo";
+  if (product.age === "COCK") return "gallo";
+  if (product.age === "PULLET") return "polla";
+  if (product.age === "HEN") return "gallina";
+  return "";
 };
 
 export interface StoreViewRef {
@@ -67,23 +99,31 @@ export interface StoreViewRef {
 }
 
 export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
-  ({
-    productSearchQuery = '',
-    advancedFilters = DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS,
-    viewMode = 'list',
-    onSetViewMode,
-    showToast,
-    setConfirmDialog,
-    onValidationChange,
-    onOpenOrder,
-  }, ref) => {
+  (
+    {
+      productSearchQuery = "",
+      advancedFilters = DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS,
+      viewMode = "list",
+      onSetViewMode,
+      showToast,
+      setConfirmDialog,
+      onValidationChange,
+      onOpenOrder,
+    },
+    ref,
+  ) => {
     const [products, setProducts] = useState<Product[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [editingProduct, setEditingProduct] = useState<Product | null>(null);
     const [editingHero, setEditingHero] = useState<StoreHero | null>(null);
     const [editingCoupon, setEditingCoupon] = useState<Coupon | null>(null);
     const [currentPage, setCurrentPage] = useState(1);
-    const [togglingPublishedIds, setTogglingPublishedIds] = useState<Set<string>>(new Set());
+    const [togglingPublishedIds, setTogglingPublishedIds] = useState<
+      Set<string>
+    >(new Set());
+    const [retryingMediaIds, setRetryingMediaIds] = useState<Set<string>>(
+      new Set(),
+    );
     const storeTopRef = useRef<HTMLDivElement>(null);
     const productFormRef = useRef<{ handleSave: () => void }>(null);
     const storeHeroFormRef = useRef<{ handleSave: () => void }>(null);
@@ -106,373 +146,489 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
         try {
           const currentProduct = await apiProducts.getById(editingProduct.id);
           setEditingProduct(currentProduct);
-          onSetViewMode?.('edit');
+          onSetViewMode?.("edit");
         } catch (error) {
-          showToast('No se pudo cargar el inventario actual del producto', 'error');
+          showToast(
+            "No se pudo cargar el inventario actual del producto",
+            "error",
+          );
         }
       },
     }));
 
-  useEffect(() => {
-    if (viewMode === 'create') {
-      setEditingProduct(null);
-    }
-    if (viewMode === 'hero_create') {
-      setEditingHero(null);
-    }
-    if (viewMode === 'coupon_create') {
-      setEditingCoupon(null);
-    }
-  }, [viewMode]);
+    useEffect(() => {
+      if (viewMode === "create") {
+        setEditingProduct(null);
+      }
+      if (viewMode === "hero_create") {
+        setEditingHero(null);
+      }
+      if (viewMode === "coupon_create") {
+        setEditingCoupon(null);
+      }
+    }, [viewMode]);
 
-  const loadProducts = async () => {
-    setIsLoading(true);
-    try {
-      const data = await apiProducts.getAll();
-      setProducts(data);
-    } catch (error) {
-      console.error("Error cargando productos:", error);
-      showToast('Error al cargar el inventario', 'error');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadProducts();
-  }, []);
-
-  useEffect(() => {
-    const handleMediaUploadChange = () => {
-      void loadProducts();
+    const loadProducts = async () => {
+      setIsLoading(true);
+      try {
+        const data = await apiProducts.getAll();
+        setProducts(data);
+      } catch (error) {
+        console.error("Error cargando productos:", error);
+        showToast("Error al cargar el inventario", "error");
+      } finally {
+        setIsLoading(false);
+      }
     };
-    window.addEventListener('nexus:media-upload-complete', handleMediaUploadChange);
-    window.addEventListener('nexus:media-upload-failed', handleMediaUploadChange);
-    return () => {
-      window.removeEventListener('nexus:media-upload-complete', handleMediaUploadChange);
-      window.removeEventListener('nexus:media-upload-failed', handleMediaUploadChange);
+
+    useEffect(() => {
+      loadProducts();
+    }, []);
+
+    useEffect(() => {
+      const handleMediaUploadChange = () => {
+        void loadProducts();
+      };
+      window.addEventListener(
+        "nexus:media-upload-complete",
+        handleMediaUploadChange,
+      );
+      window.addEventListener(
+        "nexus:media-upload-failed",
+        handleMediaUploadChange,
+      );
+      return () => {
+        window.removeEventListener(
+          "nexus:media-upload-complete",
+          handleMediaUploadChange,
+        );
+        window.removeEventListener(
+          "nexus:media-upload-failed",
+          handleMediaUploadChange,
+        );
+      };
+    }, []);
+
+    const filtered = useMemo(() => {
+      const query = normalizeSearch(productSearchQuery);
+
+      return products
+        .filter((product) => {
+          const matchesFilter =
+            advancedFilters.type === "all" ||
+            (advancedFilters.type === "bird" && product.type === "BIRD") ||
+            (advancedFilters.type === "item" && product.type === "ITEM");
+
+          if (!matchesFilter) return false;
+
+          if (
+            advancedFilters.publication === "published" &&
+            product.published === false
+          ) {
+            return false;
+          }
+          if (
+            advancedFilters.publication === "paused" &&
+            product.published !== false
+          ) {
+            return false;
+          }
+
+          const hasBirdAdvancedFilter =
+            advancedFilters.purpose !== "all" || advancedFilters.age !== "all";
+          if (hasBirdAdvancedFilter && product.type !== "BIRD") return false;
+          if (
+            advancedFilters.purpose !== "all" &&
+            product.purpose !== advancedFilters.purpose
+          ) {
+            return false;
+          }
+          if (
+            advancedFilters.age !== "all" &&
+            product.age !== advancedFilters.age
+          ) {
+            return false;
+          }
+
+          if (!query) return true;
+
+          const searchableText = [
+            product.name,
+            product.ringNumber,
+            productTypeLabel(product),
+            productStatusLabel(product),
+            productPurposeLabel(product),
+            productAgeLabel(product),
+            product.published === false ? "pausado" : "publicado",
+            product.featured ? "destacado" : "",
+            product.price?.toString(),
+            product.stock?.toString(),
+          ]
+            .filter(Boolean)
+            .map((value) => normalizeSearch(String(value)))
+            .join(" ");
+
+          return searchableText.includes(query);
+        })
+        .sort(
+          (a, b) =>
+            new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
+        );
+    }, [products, productSearchQuery, advancedFilters]);
+
+    useEffect(() => {
+      setCurrentPage(1);
+    }, [advancedFilters, productSearchQuery]);
+
+    const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
+    const hasActiveProductFilters = Boolean(
+      productSearchQuery ||
+      advancedFilters.type !== "all" ||
+      advancedFilters.publication !== "all" ||
+      advancedFilters.purpose !== "all" ||
+      advancedFilters.age !== "all",
+    );
+    const emptyStateTitle = hasActiveProductFilters
+      ? "Sin resultados"
+      : "Inventario Vacío";
+    const emptyStateDescription = hasActiveProductFilters
+      ? "Ajusta la búsqueda o cambia el filtro para ver más productos."
+      : "Aún no has registrado productos en tu tienda. Comienza añadiendo tu primer artículo.";
+    const paginatedProducts = useMemo(() => {
+      const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
+      return filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
+    }, [filtered, currentPage]);
+
+    const handlePageChange = (pageNumber: number) => {
+      if (pageNumber === currentPage) return;
+      setCurrentPage(pageNumber);
+      storeTopRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     };
-  }, []);
 
-  const filtered = useMemo(() => {
-    const query = normalizeSearch(productSearchQuery);
-
-    return products.filter((product) => {
-      const matchesFilter =
-        advancedFilters.type === 'all' ||
-        (advancedFilters.type === 'bird' && product.type === 'BIRD') ||
-        (advancedFilters.type === 'item' && product.type === 'ITEM');
-
-      if (!matchesFilter) return false;
-
-      if (
-        advancedFilters.publication === 'published' &&
-        product.published === false
-      ) {
-        return false;
+    const handleEdit = async (product: Product) => {
+      try {
+        const currentProduct = await apiProducts.getById(product.id);
+        setEditingProduct(currentProduct);
+        onSetViewMode?.("edit");
+      } catch (error) {
+        showToast(
+          "No se pudo cargar el inventario actual del producto",
+          "error",
+        );
       }
-      if (
-        advancedFilters.publication === 'paused' &&
-        product.published !== false
-      ) {
-        return false;
+    };
+
+    const handleDelete = (id: string) => {
+      setConfirmDialog({
+        isOpen: true,
+        title: "¿Eliminar producto?",
+        message:
+          "Esta acción borrará el producto y sus archivos multimedia permanentemente.",
+        confirmLabel: "Sí, Eliminar",
+        variant: "danger",
+        onConfirm: async () => {
+          try {
+            await apiProducts.delete(id);
+            setProducts((prev) => prev.filter((p) => p.id !== id));
+            showToast("Producto eliminado correctamente");
+          } catch (error) {
+            showToast("No se pudo eliminar el producto", "error");
+          }
+          setConfirmDialog({ isOpen: false });
+        },
+      });
+    };
+
+    const handleOpen = (product: Product) => {
+      setEditingProduct(product);
+      onSetViewMode?.("overview");
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    };
+
+    const handleToggleFeatured = async (product: Product) => {
+      const nextFeatured = !product.featured;
+      const sameTypeFeatured = products
+        .filter(
+          (item) =>
+            item.type === product.type &&
+            item.featured &&
+            item.id !== product.id,
+        )
+        .map((item) => item.featuredOrder || 0);
+      const nextOrder = nextFeatured
+        ? Math.max(0, ...sameTypeFeatured) + 1
+        : null;
+
+      try {
+        await apiProducts.update(product.id, {
+          featured: nextFeatured,
+          featuredOrder: nextOrder,
+        });
+        setProducts((prev) =>
+          prev.map((item) =>
+            item.id === product.id
+              ? { ...item, featured: nextFeatured, featuredOrder: nextOrder }
+              : item,
+          ),
+        );
+        showToast(
+          nextFeatured
+            ? "Producto destacado"
+            : "Producto retirado de destacados",
+        );
+      } catch (error) {
+        console.error("Error actualizando destacado:", error);
+        showToast("No se pudo actualizar el destacado", "error");
       }
+    };
 
-      const hasBirdAdvancedFilter =
-        advancedFilters.purpose !== 'all' || advancedFilters.age !== 'all';
-      if (hasBirdAdvancedFilter && product.type !== 'BIRD') return false;
-      if (advancedFilters.purpose !== 'all' && product.purpose !== advancedFilters.purpose) {
-        return false;
+    const handleTogglePublished = async (product: Product) => {
+      const nextPublished = product.published === false;
+
+      setTogglingPublishedIds((prev) => new Set(prev).add(product.id));
+      setProducts((prev) =>
+        prev.map((item) =>
+          item.id === product.id ? { ...item, published: nextPublished } : item,
+        ),
+      );
+
+      try {
+        await apiProducts.update(product.id, { published: nextPublished });
+        showToast(nextPublished ? "Producto publicado" : "Producto pausado");
+      } catch (error) {
+        console.error("Error actualizando publicación:", error);
+        setProducts((prev) =>
+          prev.map((item) =>
+            item.id === product.id
+              ? { ...item, published: product.published }
+              : item,
+          ),
+        );
+        showToast("No se pudo actualizar la publicación", "error");
+      } finally {
+        setTogglingPublishedIds((prev) => {
+          const next = new Set(prev);
+          next.delete(product.id);
+          return next;
+        });
       }
-      if (advancedFilters.age !== 'all' && product.age !== advancedFilters.age) {
-        return false;
-      }
+    };
 
-      if (!query) return true;
+    const handleRetryMedia = async (product: Product) => {
+      if (!product.coverAssetId) return;
 
-      const searchableText = [
-        product.name,
-        product.ringNumber,
-        productTypeLabel(product),
-        productStatusLabel(product),
-        productPurposeLabel(product),
-        productAgeLabel(product),
-        product.published === false ? 'pausado' : 'publicado',
-        product.featured ? 'destacado' : '',
-        product.price?.toString(),
-        product.stock?.toString(),
-      ]
-        .filter(Boolean)
-        .map((value) => normalizeSearch(String(value)))
-        .join(' ');
-
-      return searchableText.includes(query);
-    }).sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime());
-  }, [products, productSearchQuery, advancedFilters]);
-
-  useEffect(() => {
-    setCurrentPage(1);
-  }, [advancedFilters, productSearchQuery]);
-
-  const totalPages = Math.ceil(filtered.length / ITEMS_PER_PAGE);
-  const hasActiveProductFilters = Boolean(
-    productSearchQuery ||
-      advancedFilters.type !== 'all' ||
-      advancedFilters.publication !== 'all' ||
-      advancedFilters.purpose !== 'all' ||
-      advancedFilters.age !== 'all',
-  );
-  const emptyStateTitle = hasActiveProductFilters ? 'Sin resultados' : 'Inventario Vacío';
-  const emptyStateDescription = hasActiveProductFilters
-    ? 'Ajusta la búsqueda o cambia el filtro para ver más productos.'
-    : 'Aún no has registrado productos en tu tienda. Comienza añadiendo tu primer artículo.';
-  const paginatedProducts = useMemo(() => {
-    const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-    return filtered.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  }, [filtered, currentPage]);
-
-  const handlePageChange = (pageNumber: number) => {
-    if (pageNumber === currentPage) return;
-    setCurrentPage(pageNumber);
-    storeTopRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
-  };
-
-  const handleEdit = async (product: Product) => {
-    try {
-      const currentProduct = await apiProducts.getById(product.id);
-      setEditingProduct(currentProduct);
-      onSetViewMode?.('edit');
-    } catch (error) {
-      showToast('No se pudo cargar el inventario actual del producto', 'error');
-    }
-  };
-
-  const handleDelete = (id: string) => {
-    setConfirmDialog({
-      isOpen: true,
-      title: '¿Eliminar producto?',
-      message: 'Esta acción borrará el producto y sus archivos multimedia permanentemente.',
-      confirmLabel: 'Sí, Eliminar',
-      variant: 'danger',
-      onConfirm: async () => {
-        try {
-          await apiProducts.delete(id);
-          setProducts(prev => prev.filter(p => p.id !== id));
-          showToast('Producto eliminado correctamente');
-        } catch (error) {
-          showToast('No se pudo eliminar el producto', 'error');
+      setRetryingMediaIds((current) => new Set(current).add(product.id));
+      try {
+        const queued = await apiUpload.reprocessVideo(product.coverAssetId);
+        if (queued.status === "FAILED") {
+          throw new Error(
+            queued.error || "No se pudo programar la optimización.",
+          );
         }
-        setConfirmDialog({ isOpen: false });
+
+        setProducts((current) =>
+          current.map((item) =>
+            item.id === product.id
+              ? {
+                  ...item,
+                  coverAssetStatus: "PROCESSING",
+                  coverAssetError: null,
+                }
+              : item,
+          ),
+        );
+        showToast("La optimización del video se reanudó");
+
+        void apiUpload
+          .waitForAsset(product.coverAssetId)
+          .then(async (asset) => {
+            await loadProducts();
+            if (asset.status === "READY") {
+              showToast("El video ya está listo para reproducirse");
+            } else if (asset.status === "FAILED") {
+              showToast(
+                asset.error || "No se pudo optimizar el video",
+                "error",
+              );
+            }
+          })
+          .catch((error) => {
+            console.error("Error esperando la optimización del video:", error);
+            showToast("No se pudo comprobar el estado del video", "error");
+          });
+      } catch (error) {
+        console.error("Error reintentando la optimización:", error);
+        showToast(
+          error instanceof Error
+            ? error.message
+            : "No se pudo reintentar el video",
+          "error",
+        );
+      } finally {
+        setRetryingMediaIds((current) => {
+          const next = new Set(current);
+          next.delete(product.id);
+          return next;
+        });
       }
-    });
-  };
+    };
 
-  const handleOpen = (product: Product) => {
-    setEditingProduct(product);
-    onSetViewMode?.('overview');
-    window.scrollTo({ top: 0, behavior: 'smooth' });
-  };
-
-  const handleToggleFeatured = async (product: Product) => {
-    const nextFeatured = !product.featured;
-    const sameTypeFeatured = products
-      .filter((item) => item.type === product.type && item.featured && item.id !== product.id)
-      .map((item) => item.featuredOrder || 0);
-    const nextOrder = nextFeatured
-      ? Math.max(0, ...sameTypeFeatured) + 1
-      : null;
-
-    try {
-      await apiProducts.update(product.id, {
-        featured: nextFeatured,
-        featuredOrder: nextOrder,
-      });
-      setProducts((prev) =>
-        prev.map((item) =>
-          item.id === product.id
-            ? { ...item, featured: nextFeatured, featuredOrder: nextOrder }
-            : item,
-        ),
+    const handleSaveSuccess = () => {
+      loadProducts();
+      showToast(
+        editingProduct ? "Producto actualizado" : "Producto creado con éxito",
       );
-      showToast(nextFeatured ? 'Producto destacado' : 'Producto retirado de destacados');
-    } catch (error) {
-      console.error("Error actualizando destacado:", error);
-      showToast('No se pudo actualizar el destacado', 'error');
-    }
-  };
+      onSetViewMode?.("list");
+      setEditingProduct(null);
+    };
 
-  const handleTogglePublished = async (product: Product) => {
-    const nextPublished = product.published === false;
-
-    setTogglingPublishedIds((prev) => new Set(prev).add(product.id));
-    setProducts((prev) =>
-      prev.map((item) =>
-        item.id === product.id ? { ...item, published: nextPublished } : item,
-      ),
-    );
-
-    try {
-      await apiProducts.update(product.id, { published: nextPublished });
-      showToast(nextPublished ? 'Producto publicado' : 'Producto pausado');
-    } catch (error) {
-      console.error("Error actualizando publicación:", error);
-      setProducts((prev) =>
-        prev.map((item) =>
-          item.id === product.id ? { ...item, published: product.published } : item,
-        ),
-      );
-      showToast('No se pudo actualizar la publicación', 'error');
-    } finally {
-      setTogglingPublishedIds((prev) => {
-        const next = new Set(prev);
-        next.delete(product.id);
-        return next;
-      });
-    }
-  };
-
-  const handleSaveSuccess = () => {
-    loadProducts(); 
-    showToast(editingProduct ? 'Producto actualizado' : 'Producto creado con éxito');
-    onSetViewMode?.('list');
-    setEditingProduct(null);
-  };
-
-  if (viewMode === 'create' || viewMode === 'edit') {
-    return (
-      <ProductForm 
-        ref={productFormRef}
-        key={editingProduct ? editingProduct.id : 'new'} 
-        initialData={editingProduct || undefined}
-        onCancel={() => {
-          setEditingProduct(null);
-          onSetViewMode?.('list');
-        }}
-        onSave={handleSaveSuccess}
-        onValidationChange={onValidationChange}
-        showToast={showToast}
-      />
-    );
-  }
-
-  if (viewMode === 'overview' && editingProduct) {
-    return (
-      <ProductOverviewView
-        productId={editingProduct.id}
-        showToast={showToast}
-        onOpenOrder={(orderId) => onOpenOrder?.(orderId)}
-      />
-    );
-  }
-
-  if (viewMode === 'hero_create' || viewMode === 'hero_edit') {
-    return (
-      <StoreHeroForm
-        ref={storeHeroFormRef}
-        key={editingHero ? editingHero.id : 'new-store-hero'}
-        initialData={editingHero || undefined}
-        onSave={() => {
-          showToast(editingHero ? 'Hero actualizado' : 'Hero creado');
-          setEditingHero(null);
-          onSetViewMode?.('hero_list');
-        }}
-        showToast={showToast}
-        onValidationChange={onValidationChange}
-      />
-    );
-  }
-
-  if (viewMode === 'hero_list') {
-    return (
-      <StoreHeroView
-        showToast={showToast}
-        setConfirmDialog={setConfirmDialog}
-        onCreate={() => onSetViewMode?.('hero_create')}
-        onEdit={(hero) => {
-          setEditingHero(hero);
-          onSetViewMode?.('hero_edit');
-        }}
-      />
-    );
-  }
-
-  if (viewMode === 'coupon_create' || viewMode === 'coupon_edit') {
-    return (
-      <CouponForm
-        ref={couponFormRef}
-        key={editingCoupon ? editingCoupon.id : 'new-coupon'}
-        initialData={editingCoupon || undefined}
-        onSave={() => {
-          showToast(editingCoupon ? 'Cupón actualizado' : 'Cupón creado');
-          setEditingCoupon(null);
-          onSetViewMode?.('coupon_list');
-        }}
-        showToast={showToast}
-        onValidationChange={onValidationChange}
-      />
-    );
-  }
-
-  if (viewMode === 'coupon_list') {
-    return (
-      <CouponsView
-        showToast={showToast}
-        setConfirmDialog={setConfirmDialog}
-        onCreate={() => onSetViewMode?.('coupon_create')}
-        onEdit={(coupon) => {
-          setEditingCoupon(coupon);
-          onSetViewMode?.('coupon_edit');
-        }}
-      />
-    );
-  }
-
-  return (
-    <div className="w-full" ref={storeTopRef}>
-      {isLoading ? (
-        <NexusSpinner label="Actualizando Inventario..." />
-      ) : filtered.length > 0 ? (
-        <div
-          className="flex flex-col max-w-6xl mx-auto"
-          style={{ gap: 'var(--space-md)' }}
-        >
-          {paginatedProducts.map((product, idx) => (
-            <div 
-              key={product.id}
-              className="animate-card-enter"
-              style={{ animationDelay: `${idx * 60}ms` }}
-            >
-              <ProductCard 
-                product={product} 
-                onOpen={() => handleOpen(product)}
-                onEdit={() => handleEdit(product)}
-                onDelete={() => handleDelete(product.id)}
-                onToggleFeatured={() => handleToggleFeatured(product)}
-                onTogglePublished={() => handleTogglePublished(product)}
-                isTogglingPublished={togglingPublishedIds.has(product.id)}
-              />
-            </div>
-          ))}
-
-          <NexusPaginator 
-            currentPage={currentPage}
-            totalPages={totalPages}
-            onPageChange={handlePageChange}
-          />
-        </div>
-      ) : (
-        <EmptyState 
-          level={1}
-          icon={ShoppingBag}
-          title={emptyStateTitle}
-          description={emptyStateDescription}
-          action={!hasActiveProductFilters && onSetViewMode && (
-            <NexusSectionButton onClick={() => onSetViewMode('create')} icon={Plus}>
-              Nuevo Producto
-            </NexusSectionButton>
-          )}
+    if (viewMode === "create" || viewMode === "edit") {
+      return (
+        <ProductForm
+          ref={productFormRef}
+          key={editingProduct ? editingProduct.id : "new"}
+          initialData={editingProduct || undefined}
+          onCancel={() => {
+            setEditingProduct(null);
+            onSetViewMode?.("list");
+          }}
+          onSave={handleSaveSuccess}
+          onValidationChange={onValidationChange}
+          showToast={showToast}
         />
-      )}
-    </div>
-  );
-});
+      );
+    }
+
+    if (viewMode === "overview" && editingProduct) {
+      return (
+        <ProductOverviewView
+          productId={editingProduct.id}
+          showToast={showToast}
+          onOpenOrder={(orderId) => onOpenOrder?.(orderId)}
+        />
+      );
+    }
+
+    if (viewMode === "hero_create" || viewMode === "hero_edit") {
+      return (
+        <StoreHeroForm
+          ref={storeHeroFormRef}
+          key={editingHero ? editingHero.id : "new-store-hero"}
+          initialData={editingHero || undefined}
+          onSave={() => {
+            showToast(editingHero ? "Hero actualizado" : "Hero creado");
+            setEditingHero(null);
+            onSetViewMode?.("hero_list");
+          }}
+          showToast={showToast}
+          onValidationChange={onValidationChange}
+        />
+      );
+    }
+
+    if (viewMode === "hero_list") {
+      return (
+        <StoreHeroView
+          showToast={showToast}
+          setConfirmDialog={setConfirmDialog}
+          onCreate={() => onSetViewMode?.("hero_create")}
+          onEdit={(hero) => {
+            setEditingHero(hero);
+            onSetViewMode?.("hero_edit");
+          }}
+        />
+      );
+    }
+
+    if (viewMode === "coupon_create" || viewMode === "coupon_edit") {
+      return (
+        <CouponForm
+          ref={couponFormRef}
+          key={editingCoupon ? editingCoupon.id : "new-coupon"}
+          initialData={editingCoupon || undefined}
+          onSave={() => {
+            showToast(editingCoupon ? "Cupón actualizado" : "Cupón creado");
+            setEditingCoupon(null);
+            onSetViewMode?.("coupon_list");
+          }}
+          showToast={showToast}
+          onValidationChange={onValidationChange}
+        />
+      );
+    }
+
+    if (viewMode === "coupon_list") {
+      return (
+        <CouponsView
+          showToast={showToast}
+          setConfirmDialog={setConfirmDialog}
+          onCreate={() => onSetViewMode?.("coupon_create")}
+          onEdit={(coupon) => {
+            setEditingCoupon(coupon);
+            onSetViewMode?.("coupon_edit");
+          }}
+        />
+      );
+    }
+
+    return (
+      <div className="w-full" ref={storeTopRef}>
+        {isLoading ? (
+          <NexusSpinner label="Actualizando Inventario..." />
+        ) : filtered.length > 0 ? (
+          <div
+            className="flex flex-col max-w-6xl mx-auto"
+            style={{ gap: "var(--space-md)" }}
+          >
+            {paginatedProducts.map((product, idx) => (
+              <div
+                key={product.id}
+                className="animate-card-enter"
+                style={{ animationDelay: `${idx * 60}ms` }}
+              >
+                <ProductCard
+                  product={product}
+                  onOpen={() => handleOpen(product)}
+                  onEdit={() => handleEdit(product)}
+                  onDelete={() => handleDelete(product.id)}
+                  onToggleFeatured={() => handleToggleFeatured(product)}
+                  onTogglePublished={() => handleTogglePublished(product)}
+                  onRetryMedia={() => handleRetryMedia(product)}
+                  isTogglingPublished={togglingPublishedIds.has(product.id)}
+                  isRetryingMedia={retryingMediaIds.has(product.id)}
+                />
+              </div>
+            ))}
+
+            <NexusPaginator
+              currentPage={currentPage}
+              totalPages={totalPages}
+              onPageChange={handlePageChange}
+            />
+          </div>
+        ) : (
+          <EmptyState
+            level={1}
+            icon={ShoppingBag}
+            title={emptyStateTitle}
+            description={emptyStateDescription}
+            action={
+              !hasActiveProductFilters &&
+              onSetViewMode && (
+                <NexusSectionButton
+                  onClick={() => onSetViewMode("create")}
+                  icon={Plus}
+                >
+                  Nuevo Producto
+                </NexusSectionButton>
+              )
+            }
+          />
+        )}
+      </div>
+    );
+  },
+);

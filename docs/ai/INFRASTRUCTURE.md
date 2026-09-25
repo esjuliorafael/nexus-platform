@@ -157,30 +157,108 @@ El archivo `.env` en el servidor debe contener al menos:
 - **Reseteo de Esquemas:** Si una base de datos modular entra en conflicto de tipos, usar `npx prisma db push --force-reset` solo en la base de datos afectada.
 - **Sincronización Admin:** La pestaña de Rifas en el Admin es 100% dinámica; depende del valor `raffle_enabled` en la tabla `settings` de la DB de la tienda.
 
-## 6. DNS y Platform Admin (estado real)
+## 6. DNS, Cloudflare Tunnel y Platform Admin (estado real)
 
-Los subdominios no se crean en Nginx Proxy Manager. Primero se crea un registro
-DNS en el proveedor del dominio, normalmente un registro `A` hacia la IP
-pública de Contabo. Después Nginx Proxy Manager recibe ese hostname y decide
-a qué contenedor enviarlo.
-
-Ejemplo de publicación del panel de plataforma:
+Desde el 25/09/2026, los hostnames públicos de producción no dependen de que
+los usuarios lleguen directamente a la IP pública del VPS. El tráfico sigue
+este flujo:
 
 ```text
-admin.link-nex.us A -> IP pública de Contabo
-admin.link-nex.us -> http://platform-admin:80 en Nginx Proxy Manager
+navegador --HTTPS--> Cloudflare Edge
+                    --> Cloudflare Tunnel: nexus-platform
+                    --> red Docker nexus-network
+                    --> nexus-nginx:80
+                    --> contenedor final según el Host header
 ```
 
-El contenedor `platform-admin` debe conectarse a la red Docker real
-`nexus-network`, junto con `nexus-nginx`, `trojes-admin`, `trojes-api` y el
-resto de servicios. En la instalación actual el contenedor de Nginx Proxy
-Manager se llama `nexus-nginx`; el nombre anterior `nexus-nginx-proxy-manager`
-queda como referencia histórica.
+El contenedor `nexus-cloudflared` mantiene el conector del túnel y publica las
+rutas hacia `http://nexus-nginx:80`. Nginx Proxy Manager sigue siendo el router
+interno: recibe el hostname y lo envía al contenedor correspondiente. En la
+instalación actual el contenedor de Nginx Proxy Manager se llama `nexus-nginx`;
+el nombre anterior `nexus-nginx-proxy-manager` queda como referencia histórica.
 
-Nginx Proxy Manager escucha los puertos públicos 80, 81 y 443. Los servicios
-de aplicación no necesitan publicar sus puertos al exterior: NPM los alcanza
-por nombre de contenedor y puerto interno.
+### Hostnames publicados
+
+| Zona | Hostnames detrás del túnel | Tratamiento especial |
+| :--- | :--- | :--- |
+| `granjalamanzana.com` | raíz, `www`, `admin`, `api` | Todos llegan a `nexus-nginx:80`. |
+| `rancholastrojes.com.mx` | raíz, `www`, `admin`, `api` | Todos llegan a `nexus-nginx:80`. |
+| `link-nex.us` | `admin`, `api` | Raíz y `www` conservan sus registros proxied y la regla 301 hacia `admin`. |
+
+Para `link-nex.us`, no se deben eliminar los registros de raíz ni `www` sin
+migrar antes la regla de redirección de Cloudflare. Esos hostnames necesitan
+seguir llegando al edge para que la redirección continúe funcionando.
+
+Nginx Proxy Manager escucha los puertos públicos 80, 81 y 443, aunque el
+tráfico normal de aplicaciones entra por Cloudflare Tunnel. Los servicios de
+aplicación no necesitan publicar sus puertos al exterior: NPM los alcanza por
+nombre de contenedor y puerto interno dentro de `nexus-network`.
 
 El Platform Admin es un servicio de plataforma, no un tenant. No debe incluir
 Tienda, Rifas, Medios u Órdenes. Sus credenciales de R2 para backups deben ser
 independientes de las credenciales de medios de cada tenant.
+
+## 7. Playbook de migración de un tenant a Cloudflare Tunnel
+
+Este procedimiento evita que un cambio de IP del VPS vuelva a afectar
+directamente a los usuarios.
+
+1. Confirmar que la zona está activa en Cloudflare y que el certificado SSL
+   está disponible para los hostnames requeridos.
+2. En el túnel `nexus-platform`, crear una ruta **Published application** por
+   cada hostname público. Usar como servicio exactamente
+   `http://nexus-nginx:80`.
+3. Verificar que Nginx Proxy Manager conserva los Proxy Hosts internos y que
+   los contenedores destino siguen conectados a `nexus-network`.
+4. Mantener las reglas de redirección de raíz/www cuando formen parte del
+   comportamiento comercial del dominio.
+5. Probar las rutas nuevas antes de retirar registros A directos. Una vez
+   confirmadas, eliminar únicamente los A directos de los hostnames migrados;
+   no eliminar raíz/www si sostienen una redirección edge.
+6. Comprobar desde un resolver público:
+
+   ```powershell
+   nslookup admin.dominio.com 1.1.1.1
+   nslookup api.dominio.com 1.1.1.1
+   ```
+
+7. Comprobar respuestas HTTPS:
+
+   ```powershell
+   curl.exe -k -sS -I --max-time 20 https://admin.dominio.com/
+   curl.exe -k -sS -I --max-time 20 https://api.dominio.com/
+   ```
+
+   Un `200` en Admin confirma que la aplicación carga. Un `404` JSON en `/`
+   del API puede ser correcto si el backend no define esa ruta; confirma que
+   el request llegó al API y no que el túnel falló. Las rutas funcionales del
+   producto deben probarse con sus endpoints reales.
+8. Confirmar que el origen no está expuesto directamente:
+
+   ```powershell
+   curl.exe -k -sS -I --connect-timeout 5 --max-time 10 `
+     --resolve admin.dominio.com:443:<ORIGIN_IP> https://admin.dominio.com/
+   ```
+
+   El resultado esperado es timeout o rechazo. No se debe quitar la regla de
+   firewall del origen mientras exista algún hostname que evite Cloudflare.
+9. Validar el conector en el VPS sin mostrar secretos:
+
+   ```bash
+   ssh nexus "docker ps --filter name=nexus-cloudflared --format '{{.Names}} {{.Status}}'"
+   ssh nexus "docker logs --since 5m nexus-cloudflared 2>&1 | tail -n 120"
+   ```
+
+No es necesario reiniciar el VPS ni `nexus-cloudflared` después de crear una
+ruta desde Cloudflare; el conector recibe la configuración automáticamente.
+No se deben copiar tokens del túnel, credenciales ni archivos `.env` al
+repositorio.
+
+### Estado verificado el 25/09/2026
+
+- `nexus-cloudflared` está activo y tiene las rutas de Granja, Trojes y
+  Link-Nex.
+- Admin de Link-Nex responde `200` a través de Cloudflare.
+- API de Link-Nex alcanza el backend y responde `404` en `/`, como se espera.
+- Raíz y `www` de Link-Nex responden `301` hacia `admin.link-nex.us`.
+- El acceso directo a la IP de origen para Admin y API expira por timeout.

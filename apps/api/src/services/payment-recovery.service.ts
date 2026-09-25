@@ -310,6 +310,7 @@ export const paymentRecoveryService = {
       totals: {
         discountTotal: Number(raffleHold.discountTotal),
       },
+      participationMode: raffleHold.participationMode,
       coupon: raffleHold.coupon
         ? {
             code: raffleHold.couponCode || raffleHold.coupon.code,
@@ -318,12 +319,14 @@ export const paymentRecoveryService = {
             discountValue: Number(raffleHold.coupon.discountValue),
             subtotal:
               Number(raffleHold.raffle.ticketPrice) *
-              raffleHold.tickets.length,
+              raffleHold.tickets.length /
+              (raffleHold.participationMode === "SHARED" ? 2 : 1),
             discountTotal: Number(raffleHold.discountTotal),
             total: Math.max(
               0,
               Number(raffleHold.raffle.ticketPrice) *
-                raffleHold.tickets.length -
+                raffleHold.tickets.length /
+                (raffleHold.participationMode === "SHARED" ? 2 : 1) -
                 Number(raffleHold.discountTotal),
             ),
           }

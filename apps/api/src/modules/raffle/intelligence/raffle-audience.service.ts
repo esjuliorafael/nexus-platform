@@ -16,6 +16,8 @@ interface ParticipationSnapshot {
   netRevenue: number;
   createdAt: Date;
   paidAt: Date | null;
+  origin: string | null;
+  financialStatus: string | null;
 }
 
 interface ProfileAccumulator {
@@ -84,13 +86,18 @@ const buildParticipation = (
 ): ParticipationSnapshot => {
   const first = sales[0];
   const paid = sales.every((sale) => sale.paymentStatus === "PAID");
+  const recognized = sales.every(
+      (sale) =>
+      sale.financialStatus !== "NOT_RECOGNIZED" &&
+      sale.origin !== "OPERATIONAL_PROTECTION",
+  );
   const pending = sales.some((sale) => sale.paymentStatus === "PENDING");
   const status = paid ? "PAID" : pending ? "PENDING" : "CANCELLED";
   const gross = sales.length * toMoney(first.raffle?.ticketPrice);
   const discount = Math.max(...sales.map((sale) => toMoney(sale.discountTotal)), 0);
   const paidAmount = Math.max(...sales.map((sale) => toMoney(sale.mpPaidAmount)), 0);
   const refunded = Math.max(...sales.map((sale) => toMoney(sale.mpRefundedAmount)), 0);
-  const netRevenue = status === "PAID"
+  const netRevenue = status === "PAID" && recognized
     ? Math.max(0, (paidAmount || Math.max(0, gross - discount)) - refunded)
     : 0;
 
@@ -103,6 +110,8 @@ const buildParticipation = (
     netRevenue,
     createdAt: new Date(first.createdAt),
     paidAt,
+    origin: first.origin || null,
+    financialStatus: first.financialStatus || null,
   };
 };
 
@@ -196,6 +205,13 @@ const buildProfiles = async (
   const accumulators = new Map<string, ProfileAccumulator>();
 
   for (const [participationId, participationSales] of Array.from(groupedSales.entries())) {
+    if (
+      participationSales.every(
+        (sale) => sale.origin === "OPERATIONAL_PROTECTION",
+      )
+    ) {
+      continue;
+    }
     const first = participationSales[0];
     const phone = normalizeCustomerPhone(first.customerPhone);
     const key = phone || `invalid:${String(first.customerPhone || "").replace(/\D/g, "")}:${first.customerName}`;
@@ -235,7 +251,12 @@ const buildProfiles = async (
   );
 
   const profiles: RaffleAudienceProfile[] = Array.from(accumulators.values()).map((item) => {
-    const paid = item.participations.filter((participation) => participation.status === "PAID");
+    const paid = item.participations.filter(
+      (participation) =>
+        participation.status === "PAID" &&
+        participation.financialStatus !== "NOT_RECOGNIZED" &&
+        participation.origin !== "OPERATIONAL_PROTECTION",
+    );
     const paymentHours = paid
       .filter((participation) => participation.paidAt)
       .map((participation) => (
@@ -278,6 +299,7 @@ const buildProfiles = async (
         ? item.participations.some((participation) => (
           participation.raffleId === targetRaffleId
           && participation.status !== "CANCELLED"
+          && participation.origin !== "OPERATIONAL_PROTECTION"
         ))
         : false,
       consentStatus: preference?.status || "UNKNOWN",
