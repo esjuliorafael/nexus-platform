@@ -43,6 +43,7 @@ type PaidRaffleSale = {
   ticketNumber?: string;
   customerName?: string;
   paymentStatus: string;
+  financialStatus?: string | null;
   paymentMethod: string | null;
   mpPaidAmount: unknown;
   mpRefundedAmount: unknown;
@@ -145,7 +146,7 @@ const getComparisonDirection = (
   return "FLAT" as const;
 };
 
-const getPaidRaffleRevenueByDay = (sales: PaidRaffleSale[]) => {
+export const getPaidRaffleRevenueByDay = (sales: PaidRaffleSale[]) => {
   const participations = new Map<string, PaidRaffleSale[]>();
 
   for (const sale of sales) {
@@ -159,6 +160,9 @@ const getPaidRaffleRevenueByDay = (sales: PaidRaffleSale[]) => {
 
   for (const participation of Array.from(participations.values())) {
     if (!participation.every((sale) => sale.paymentStatus === "PAID")) continue;
+    if (participation.some((sale) => sale.financialStatus === "NOT_RECOGNIZED")) {
+      continue;
+    }
 
     const first = participation[0];
     const subtotal = Number(first.raffle.ticketPrice) * participation.length;
@@ -183,7 +187,7 @@ const getPaidRaffleRevenueByDay = (sales: PaidRaffleSale[]) => {
   return revenueByDay;
 };
 
-const getRaffleCommercialPulse = (sales: PaidRaffleSale[]) => {
+export const getRaffleCommercialPulse = (sales: PaidRaffleSale[]) => {
   const participations = new Map<string, PaidRaffleSale[]>();
 
   for (const sale of sales) {
@@ -211,6 +215,9 @@ const getRaffleCommercialPulse = (sales: PaidRaffleSale[]) => {
     const isPending = participation.some(
       (sale) => sale.paymentStatus === "PENDING",
     );
+    const isFinanciallyRecognized = participation.every(
+      (sale) => sale.financialStatus !== "NOT_RECOGNIZED",
+    );
 
     if (isPaid) {
       const paidAmount =
@@ -225,7 +232,9 @@ const getRaffleCommercialPulse = (sales: PaidRaffleSale[]) => {
         ),
       );
       pulse.confirmed.count += 1;
-      pulse.confirmed.amount += Math.max(0, paidAmount - refundedAmount);
+      if (isFinanciallyRecognized) {
+        pulse.confirmed.amount += Math.max(0, paidAmount - refundedAmount);
+      }
       continue;
     }
 
@@ -340,6 +349,7 @@ export const dashboardService = {
           id: true,
           reservationId: true,
           paymentStatus: true,
+          financialStatus: true,
           paymentMethod: true,
           mpPaidAmount: true,
           mpRefundedAmount: true,
@@ -592,6 +602,7 @@ export const dashboardService = {
               ticketNumber: true,
               customerName: true,
               paymentStatus: true,
+              financialStatus: true,
               paymentMethod: true,
               mpPaidAmount: true,
               mpRefundedAmount: true,
@@ -721,6 +732,9 @@ export const dashboardService = {
         const isPending = sales.some(
           (sale) => sale.paymentStatus === "PENDING",
         );
+        const isFinanciallyRecognized = sales.every(
+          (sale) => sale.financialStatus !== "NOT_RECOGNIZED",
+        );
         const paidAmount =
           first.paymentMethod === "MERCADOPAGO" && first.mpPaidAmount != null
             ? Number(first.mpPaidAmount)
@@ -745,9 +759,11 @@ export const dashboardService = {
               ? ("PENDING" as const)
               : ("CANCELLED" as const),
           paymentMethod: first.paymentMethod,
-          amount: isPaid
+          amount: isPaid && isFinanciallyRecognized
             ? Math.max(0, paidAmount - refundedAmount)
-            : calculatedTotal,
+            : isPaid
+              ? 0
+              : calculatedTotal,
           unitCount: sales.length,
           summaryItems: [first.raffle.title || `Rifa #${first.raffleId}`],
           ticketNumbers: sales
