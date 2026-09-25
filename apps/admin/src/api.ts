@@ -250,6 +250,12 @@ export const apiDashboard = {
     const res = await api.get("/admin/dashboard/stats");
     return res.data;
   },
+  acknowledgeMilestone: async (milestoneId: string) => {
+    const res = await api.post(
+      `/admin/dashboard/milestones/${encodeURIComponent(milestoneId)}/acknowledge`,
+    );
+    return res.data;
+  },
   getCommercialOverview: async (
     period: SalesOverviewPeriod = "7D",
     source: DashboardCommercialSource = "ALL",

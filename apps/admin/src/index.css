@@ -502,6 +502,24 @@ body {
   }
 }
 
+@keyframes nexus-milestone-confetti {
+  0% {
+    opacity: 0;
+    transform: translate3d(0, -0.5rem, 0) rotate(0deg);
+  }
+  18% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0;
+    transform: translate3d(var(--confetti-x), 4.5rem, 0) rotate(360deg);
+  }
+}
+
+.nexus-milestone-confetti {
+  animation: nexus-milestone-confetti 1s var(--ease-emil) both;
+}
+
 .animate-raffle-actions-enter,
 .animate-raffle-summary-enter {
   animation-duration: 0.2s;
@@ -518,6 +536,11 @@ body {
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .nexus-milestone-confetti {
+    animation: none;
+    opacity: 0;
+  }
+
   .animate-raffle-actions-enter,
   .animate-raffle-summary-enter {
     animation: none;

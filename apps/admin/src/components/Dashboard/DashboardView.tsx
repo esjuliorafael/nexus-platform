@@ -25,14 +25,18 @@ import { MessagingCostWidget } from '../Widgets/MessagingCostWidget';
 import {
   OperationalAttentionWidget,
 } from '../Widgets/OperationalAttentionWidget';
+import { apiDashboard } from '../../api';
 import { NexusSectionButton } from '../ui/NexusButton';
 import { NexusSectionBadge } from '../ui/NexusBadge';
 import { NexusSection } from '../ui/NexusSection';
+import { DashboardMilestoneModal } from './DashboardMilestoneModal';
+import { useRevenueMilestones } from './useRevenueMilestones';
 
 interface DashboardViewProps {
   isLoading: boolean;
   stats: DashboardStats | null;
   commercialOverview: DashboardCommercialOverview | null;
+  userRole: string;
   billingServices: AnnualService[];
   billingCharges: ExtraCharge[];
   billingPayments: BillingPayment[];
@@ -71,6 +75,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   isLoading,
   stats,
   commercialOverview,
+  userRole,
   billingServices,
   billingCharges,
   billingPayments,
@@ -82,6 +87,22 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenCommercialHistory,
   isLoadingCommercial,
 }) => {
+  const isAdminUser = userRole === 'admin' || userRole === 'superadmin';
+  const {
+    activeMilestone,
+    isOpen: isMilestoneOpen,
+    nextMilestone,
+    acknowledgeMilestone,
+    handleAfterClose,
+  } = useRevenueMilestones({
+    isAdminUser,
+    isLoading: isLoading || isLoadingCommercial || !stats,
+    milestones: stats?.milestones,
+    onAcknowledge: async (milestoneId) => {
+      await apiDashboard.acknowledgeMilestone(milestoneId);
+    },
+  });
+
   const orderStats = stats?.orders;
   const commercialPeriod = commercialOverview?.period ?? '7D';
   const commercialSource = commercialOverview?.source ?? 'ALL';
@@ -116,7 +137,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         : `Últimos movimientos de tienda y rifas durante ${commercialPeriodLabel}.`;
 
   return (
-    <div className="flex flex-col animate-in fade-in duration-300" style={{ gap: 'var(--space-lg)' }}>
+    <>
+      <DashboardMilestoneModal
+        isOpen={isAdminUser && isMilestoneOpen}
+        milestone={activeMilestone}
+        nextMilestone={nextMilestone}
+        onClose={() => void acknowledgeMilestone()}
+        onAfterClose={handleAfterClose}
+      />
+
+      <div className="flex flex-col animate-in fade-in duration-300" style={{ gap: 'var(--space-lg)' }}>
       {/* NIVEL A: ALERTAS CRÍTICAS */}
       <BillingAlertWidget
         services={billingServices}
@@ -350,6 +380,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </NexusSection>
 
-    </div>
+      </div>
+    </>
   );
 };

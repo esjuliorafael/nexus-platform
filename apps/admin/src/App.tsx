@@ -2816,6 +2816,7 @@ function App() {
                     isLoadingCommercial={isLoadingDashboardCommercial}
                     stats={dashboardStats}
                     commercialOverview={dashboardCommercialOverview}
+                    userRole={userRole}
                     billingServices={billingServices}
                     billingCharges={billingCharges}
                     billingPayments={billingPayments}

@@ -12,6 +12,10 @@ import {
   format,
 } from "date-fns";
 import { getMetaMessagingCostOverview } from "../../../services/whatsapp/whatsapp-meta-messaging-cost.service";
+import {
+  DASHBOARD_MILESTONES,
+  type DashboardMilestoneMetric,
+} from "./revenue-milestones";
 
 const SETTLED_ORDER_STATUSES = ["PAID", "SHIPPED", "DELIVERED"] as const;
 export type SalesOverviewPeriod = "TODAY" | "7D" | "15D" | "MONTH" | "ALL";
@@ -187,6 +191,61 @@ export const getPaidRaffleRevenueByDay = (sales: PaidRaffleSale[]) => {
   return revenueByDay;
 };
 
+const getRecognizedRaffleRevenue = (sales: PaidRaffleSale[]) =>
+  Object.values(getPaidRaffleRevenueByDay(sales)).reduce(
+    (total, amount) => total + amount,
+    0,
+  );
+
+const getRecognizedRaffleMetrics = (sales: PaidRaffleSale[]) => {
+  const participations = new Map<string, PaidRaffleSale[]>();
+
+  for (const sale of sales) {
+    const participationId = sale.reservationId || `sale-${sale.id}`;
+    const participation = participations.get(participationId) || [];
+    participation.push(sale);
+    participations.set(participationId, participation);
+  }
+
+  const recognizedParticipations = Array.from(participations.values()).filter(
+    (participation) =>
+      participation.every((sale) => sale.paymentStatus === "PAID") &&
+      participation.every((sale) => sale.financialStatus !== "NOT_RECOGNIZED"),
+  );
+  const ticketKeys = new Set<string>();
+
+  for (const participation of recognizedParticipations) {
+    for (const sale of participation) {
+      if (!sale.ticketNumber) continue;
+      ticketKeys.add(`${sale.raffleId ?? "unknown"}:${sale.ticketNumber}`);
+    }
+  }
+
+  return {
+    participations: recognizedParticipations.length,
+    tickets: ticketKeys.size,
+  };
+};
+
+const getRecognizedStoreOrderCount = (orders: CommercialOrder[]) =>
+  orders.filter((order) => {
+    if (
+      !SETTLED_ORDER_STATUSES.includes(
+        order.status as (typeof SETTLED_ORDER_STATUSES)[number],
+      )
+    ) {
+      return false;
+    }
+
+    const total = Number(order.total);
+    const refunded = Math.min(
+      total,
+      Math.max(0, Number(order.mpRefundedAmount || 0)),
+    );
+
+    return total <= 0 || total - refunded > 0;
+  }).length;
+
 export const getRaffleCommercialPulse = (sales: PaidRaffleSale[]) => {
   const participations = new Map<string, PaidRaffleSale[]>();
 
@@ -320,13 +379,14 @@ const combineCommercialPulses = (
   });
 
 export const dashboardService = {
-  async getStats() {
+  async getStats(userId?: number) {
     const [
       products,
       orderGroups,
       activeCategories,
       totalMedia,
       allRaffleSales,
+      lifetimeStoreOrders,
       storePaymentReviews,
       rafflePaymentReviews,
       inventoryIncidents,
@@ -347,6 +407,8 @@ export const dashboardService = {
       rafflePrisma.ticketSale.findMany({
         select: {
           id: true,
+          raffleId: true,
+          ticketNumber: true,
           reservationId: true,
           paymentStatus: true,
           financialStatus: true,
@@ -356,6 +418,15 @@ export const dashboardService = {
           discountTotal: true,
           createdAt: true,
           raffle: { select: { ticketPrice: true } },
+        },
+      }),
+      storePrisma.order.findMany({
+        where: { status: { in: [...SETTLED_ORDER_STATUSES] } },
+        select: {
+          status: true,
+          total: true,
+          mpRefundedAmount: true,
+          createdAt: true,
         },
       }),
       storePrisma.storePaymentHold.findMany({
@@ -428,6 +499,70 @@ export const dashboardService = {
       collectionRate: totalGrossAmount > 0 ? (paidStats.amount / totalGrossAmount) * 100 : 0
     };
     const raffleParticipationStats = getRaffleCommercialPulse(allRaffleSales);
+    const recognizedRevenueTotal =
+      getStoreCommercialPulse(lifetimeStoreOrders).confirmed.amount +
+      getRecognizedRaffleRevenue(allRaffleSales);
+    const recognizedRaffleMetrics = getRecognizedRaffleMetrics(allRaffleSales);
+    const milestoneValues: Record<DashboardMilestoneMetric, number> = {
+      REVENUE: recognizedRevenueTotal,
+      STORE_ORDERS: getRecognizedStoreOrderCount(lifetimeStoreOrders),
+      RAFFLE_PARTICIPATIONS: recognizedRaffleMetrics.participations,
+      RAFFLE_TICKETS: recognizedRaffleMetrics.tickets,
+    };
+    let milestones:
+      | Array<{
+          id: string;
+          metric: DashboardMilestoneMetric;
+          threshold: number;
+          currentValue: number;
+          reached: boolean;
+          acknowledged: boolean;
+        }>
+      | undefined;
+
+    if (userId !== undefined) {
+      const acknowledgments =
+        await storePrisma.dashboardMilestoneAcknowledgment.findMany({
+          where: { userId },
+          select: { milestoneId: true },
+        });
+      const acknowledgedIds = new Set(
+        acknowledgments.map(({ milestoneId }) => milestoneId),
+      );
+      const milestoneById = new Map<string, (typeof DASHBOARD_MILESTONES)[number]>(
+        DASHBOARD_MILESTONES.map((milestone) => [milestone.id, milestone]),
+      );
+      const acknowledgedMetrics = new Set(
+        acknowledgments
+          .map(({ milestoneId }) => milestoneById.get(milestoneId)?.metric)
+          .filter((metric): metric is DashboardMilestoneMetric => Boolean(metric)),
+      );
+
+      // Existing tenants start with the next meaningful milestone for each
+      // metric, while new tenants still receive the first milestone at 10.
+      const baselineAcknowledgments = DASHBOARD_MILESTONES.filter(
+        (milestone) =>
+          !acknowledgedMetrics.has(milestone.metric) &&
+          milestone.threshold < milestoneValues[milestone.metric],
+      ).map((milestone) => ({ userId, milestoneId: milestone.id }));
+
+      if (baselineAcknowledgments.length > 0) {
+        await storePrisma.dashboardMilestoneAcknowledgment.createMany({
+          data: baselineAcknowledgments,
+          skipDuplicates: true,
+        });
+        baselineAcknowledgments.forEach(({ milestoneId }) =>
+          acknowledgedIds.add(milestoneId),
+        );
+      }
+
+      milestones = DASHBOARD_MILESTONES.map((milestone) => ({
+        ...milestone,
+        currentValue: milestoneValues[milestone.metric],
+        reached: milestoneValues[milestone.metric] >= milestone.threshold,
+        acknowledged: acknowledgedIds.has(milestone.id),
+      }));
+    }
     const storePaymentReviewAmount = storePaymentReviews.reduce(
       (total, hold) => total + Number(hold.total || 0),
       0,
@@ -523,6 +658,8 @@ export const dashboardService = {
 
     return {
       activeProducts: productStats.available + productStats.reserved,
+      recognizedRevenueTotal,
+      milestones,
       products: productStats,
       activeCategories,
       totalMedia,
@@ -546,6 +683,40 @@ export const dashboardService = {
       commercialPulse7Days,
       commercialPulse7DaysBySource,
     };
+  },
+
+  async acknowledgeMilestone(
+    userId: number,
+    milestoneId: string,
+  ) {
+    const milestone = DASHBOARD_MILESTONES.find(
+      (candidate) => candidate.id === milestoneId,
+    );
+
+    if (!milestone) return null;
+
+    const stats = await dashboardService.getStats(userId);
+    const currentMilestone = stats.milestones?.find(
+      (candidate) => candidate.id === milestone.id,
+    );
+
+    if (!currentMilestone?.reached) {
+      return { milestoneId: milestone.id, reached: false };
+    }
+
+    await storePrisma.dashboardMilestoneAcknowledgment.createMany({
+      data: DASHBOARD_MILESTONES.filter(
+        (candidate) =>
+          candidate.metric === milestone.metric &&
+          candidate.threshold <= milestone.threshold,
+      ).map((candidate) => ({
+        userId,
+        milestoneId: candidate.id,
+      })),
+      skipDuplicates: true,
+    });
+
+    return { milestoneId: milestone.id, reached: true };
   },
 
   async getCommercialOverview(
@@ -611,7 +782,7 @@ export const dashboardService = {
               raffle: { select: { title: true, ticketPrice: true } },
             },
           }),
-    ]);
+      ]);
 
     const isInsidePulse = (createdAt: Date) =>
       (!pulseStart || createdAt >= pulseStart) && createdAt <= pulseEnd;

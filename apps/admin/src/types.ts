@@ -520,6 +520,8 @@ export interface WhatsAppChannel extends WhatsAppDetails {
 
 export interface DashboardStats {
   activeProducts: number;
+  recognizedRevenueTotal: number;
+  milestones?: DashboardMilestoneProgress[];
   products?: {
     total: number;
     available: number;
@@ -570,6 +572,21 @@ export interface DashboardStats {
       conversionRate: number;
     };
   };
+}
+
+export type DashboardMilestoneMetric =
+  | "REVENUE"
+  | "STORE_ORDERS"
+  | "RAFFLE_PARTICIPATIONS"
+  | "RAFFLE_TICKETS";
+
+export interface DashboardMilestoneProgress {
+  id: string;
+  metric: DashboardMilestoneMetric;
+  threshold: number;
+  currentValue: number;
+  reached: boolean;
+  acknowledged: boolean;
 }
 
 export type SalesOverviewPeriod = "TODAY" | "7D" | "15D" | "MONTH" | "ALL";

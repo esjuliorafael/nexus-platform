@@ -38,8 +38,21 @@ model User {
   productEvents        ProductEvent[]
   contactProfile       ContactProfile?
   mediaVaultItems      MediaVaultItem[]
+  dashboardMilestoneAcknowledgments DashboardMilestoneAcknowledgment[]
 
   @@map("users")
+}
+
+model DashboardMilestoneAcknowledgment {
+  id             String   @id @default(uuid()) @db.Uuid
+  userId         Int      @map("user_id")
+  milestoneId    String   @map("milestone_id")
+  acknowledgedAt DateTime @default(now()) @map("acknowledged_at")
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, milestoneId])
+  @@index([userId])
+  @@map("dashboard_milestone_acknowledgments")
 }
 
 model ContactProfile {
