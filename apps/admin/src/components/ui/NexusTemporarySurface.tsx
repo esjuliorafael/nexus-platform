@@ -256,6 +256,7 @@ export const NexusSurfaceItem: React.FC<NexusSurfaceItemProps> = ({
 
 interface NexusSurfaceHeaderItemProps extends HTMLMotionProps<"div"> {
   part: NexusSurfaceHeaderPart;
+  spatialMotion?: boolean;
 }
 
 const headerDelay = {
@@ -270,6 +271,7 @@ const headerExitDelay = {
 
 export const NexusSurfaceHeaderItem: React.FC<NexusSurfaceHeaderItemProps> = ({
   part,
+  spatialMotion = true,
   children,
   ...props
 }) => {
@@ -283,8 +285,8 @@ export const NexusSurfaceHeaderItem: React.FC<NexusSurfaceHeaderItemProps> = ({
         reduceMotion
           ? { opacity: 0 }
           : {
-              opacity: 0,
-              x: part === "identity" ? -8 : 0,
+            opacity: 0,
+              x: spatialMotion && part === "identity" ? -8 : 0,
               scale: part === "close" ? 0.96 : 1,
             }
       }
@@ -306,7 +308,8 @@ export const NexusSurfaceHeaderItem: React.FC<NexusSurfaceHeaderItemProps> = ({
             }
           : {
               opacity: 0,
-              x: reduceMotion || part === "close" ? 0 : -6,
+              x:
+                reduceMotion || !spatialMotion || part === "close" ? 0 : -6,
               scale: reduceMotion || part === "identity" ? 1 : 0.96,
               transition: {
                 delay: reduceMotion

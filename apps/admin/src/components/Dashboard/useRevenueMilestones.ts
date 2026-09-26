@@ -6,6 +6,7 @@ interface UseRevenueMilestonesOptions {
   isLoading: boolean;
   milestones?: DashboardMilestoneProgress[];
   onAcknowledge: (milestoneId: string) => Promise<void>;
+  resetKey?: string;
 }
 
 export const useRevenueMilestones = ({
@@ -13,6 +14,7 @@ export const useRevenueMilestones = ({
   isLoading,
   milestones,
   onAcknowledge,
+  resetKey,
 }: UseRevenueMilestonesOptions) => {
   const [activeMilestone, setActiveMilestone] =
     React.useState<DashboardMilestoneProgress | null>(null);
@@ -21,6 +23,17 @@ export const useRevenueMilestones = ({
     string[]
   >([]);
   const hasShownMilestoneThisSession = React.useRef(false);
+  const previousResetKey = React.useRef(resetKey);
+
+  React.useEffect(() => {
+    if (previousResetKey.current === resetKey) return;
+
+    previousResetKey.current = resetKey;
+    hasShownMilestoneThisSession.current = false;
+    setActiveMilestone(null);
+    setIsOpen(false);
+    setLocalAcknowledgedIds([]);
+  }, [resetKey]);
 
   const nextMilestone = React.useMemo(
     () =>

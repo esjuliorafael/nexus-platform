@@ -13,6 +13,11 @@ import type {
   DashboardMilestoneMetric,
   DashboardMilestoneProgress,
 } from "../../types";
+import {
+  ADMIN_MOTION_MS,
+  ADMIN_TEMPORARY_SURFACE_SEQUENCE_MS,
+} from "../../lib/motion";
+import { useMilestoneSound } from "../../hooks/useMilestoneSound";
 
 const money = (value: number) =>
   new Intl.NumberFormat("es-MX", {
@@ -30,35 +35,59 @@ const CONFETTI = [
   {
     left: "8%",
     delay: "40ms",
-    color: "var(--brand-500)",
+    color: "var(--milestone-confetti-brand)",
     x: "-18px",
     rotate: "-18deg",
   },
-  { left: "17%", delay: "130ms", color: "#0f766e", x: "12px", rotate: "24deg" },
+  {
+    left: "17%",
+    delay: "130ms",
+    color: "var(--milestone-confetti-teal)",
+    x: "12px",
+    rotate: "24deg",
+  },
   {
     left: "29%",
     delay: "80ms",
-    color: "#d97706",
+    color: "var(--milestone-confetti-gold)",
     x: "-10px",
     rotate: "-34deg",
   },
-  { left: "41%", delay: "210ms", color: "#e11d48", x: "16px", rotate: "18deg" },
+  {
+    left: "41%",
+    delay: "210ms",
+    color: "var(--milestone-confetti-rose)",
+    x: "16px",
+    rotate: "18deg",
+  },
   {
     left: "53%",
     delay: "100ms",
-    color: "var(--brand-600)",
+    color: "var(--milestone-confetti-brand)",
     x: "-14px",
     rotate: "-28deg",
   },
-  { left: "65%", delay: "180ms", color: "#0f766e", x: "10px", rotate: "36deg" },
+  {
+    left: "65%",
+    delay: "180ms",
+    color: "var(--milestone-confetti-teal)",
+    x: "10px",
+    rotate: "36deg",
+  },
   {
     left: "77%",
     delay: "60ms",
-    color: "#d97706",
+    color: "var(--milestone-confetti-gold)",
     x: "-12px",
     rotate: "-12deg",
   },
-  { left: "89%", delay: "240ms", color: "#e11d48", x: "14px", rotate: "30deg" },
+  {
+    left: "89%",
+    delay: "240ms",
+    color: "var(--milestone-confetti-rose)",
+    x: "14px",
+    rotate: "30deg",
+  },
 ] as const;
 
 const PRESENTATION: Record<
@@ -75,17 +104,17 @@ const PRESENTATION: Record<
 > = {
   REVENUE: {
     eyebrow: "Hito de ingresos desbloqueado",
-    label: "INGRESOS RECONOCIDOS",
+    label: "Ingresos reconocidos",
     icon: BadgeDollarSign,
     iconTone: "warning",
-    title: (threshold) => `¡Meta de ${money(threshold)} alcanzada!`,
+    title: (threshold) => `¡Alcanzaste la meta de ${money(threshold)}!`,
     copy: (threshold) =>
-      `Tu operación ya alcanzó los ${money(threshold)} en ingresos reconocidos.`,
+      `Tu operación ya suma ${money(threshold)} en ingresos reconocidos.`,
     format: money,
   },
   STORE_ORDERS: {
     eyebrow: "Hito de tienda desbloqueado",
-    label: "ÓRDENES COMPLETADAS",
+    label: "Órdenes completadas",
     icon: ShoppingBag,
     iconTone: "brand",
     title: (threshold) => `¡${count(threshold)} órdenes completadas!`,
@@ -95,7 +124,7 @@ const PRESENTATION: Record<
   },
   RAFFLE_PARTICIPATIONS: {
     eyebrow: "Hito de rifas desbloqueado",
-    label: "PARTICIPACIONES CONFIRMADAS",
+    label: "Participaciones confirmadas",
     icon: UsersRound,
     iconTone: "brand",
     title: (threshold) =>
@@ -106,7 +135,7 @@ const PRESENTATION: Record<
   },
   RAFFLE_TICKETS: {
     eyebrow: "Hito de rifas desbloqueado",
-    label: "BOLETOS VENDIDOS",
+    label: "Boletos vendidos",
     icon: Ticket,
     iconTone: "brand",
     title: (threshold) => `¡${count(threshold)} boletos vendidos!`,
@@ -119,7 +148,6 @@ const PRESENTATION: Record<
 interface DashboardMilestoneModalProps {
   isOpen: boolean;
   milestone: DashboardMilestoneProgress | null;
-  nextMilestone: DashboardMilestoneProgress | null;
   onClose: () => void;
   onAfterClose?: () => void;
 }
@@ -127,24 +155,39 @@ interface DashboardMilestoneModalProps {
 export const DashboardMilestoneModal: React.FC<DashboardMilestoneModalProps> = ({
   isOpen,
   milestone,
-  nextMilestone,
   onClose,
   onAfterClose,
 }) => {
   const [displayedValue, setDisplayedValue] = React.useState(0);
+  const [displayedProgress, setDisplayedProgress] = React.useState(0);
+  const [showProgressStatus, setShowProgressStatus] = React.useState(false);
+  const playMilestoneSound = useMilestoneSound();
+  const wasOpenRef = React.useRef(false);
   const metric = milestone?.metric ?? "REVENUE";
   const presentation = PRESENTATION[metric];
   const threshold = milestone?.threshold ?? 1;
   const currentValue = milestone?.currentValue ?? 0;
-  const nextPresentation = nextMilestone
-    ? PRESENTATION[nextMilestone.metric]
-    : null;
+  const progress =
+    threshold > 0
+      ? Math.min(100, (Math.max(0, currentValue) / threshold) * 100)
+      : 0;
+
+  const handleAfterClose = React.useCallback(() => {
+    setDisplayedValue(0);
+    setDisplayedProgress(0);
+    setShowProgressStatus(false);
+    onAfterClose?.();
+  }, [onAfterClose]);
 
   React.useEffect(() => {
-    if (!isOpen) {
-      setDisplayedValue(0);
-      return;
+    if (isOpen && !wasOpenRef.current) {
+      playMilestoneSound();
     }
+    wasOpenRef.current = isOpen;
+  }, [isOpen, playMilestoneSound]);
+
+  React.useEffect(() => {
+    if (!isOpen) return;
 
     const target = Math.max(0, currentValue);
     const prefersReducedMotion = window.matchMedia?.(
@@ -153,46 +196,71 @@ export const DashboardMilestoneModal: React.FC<DashboardMilestoneModalProps> = (
 
     if (prefersReducedMotion) {
       setDisplayedValue(target);
+      setDisplayedProgress(progress);
+      setShowProgressStatus(true);
       return;
     }
 
-    const startedAt = performance.now();
-    const duration = 900;
-    let frameId = 0;
+    setDisplayedValue(0);
+    setDisplayedProgress(0);
+    setShowProgressStatus(false);
 
-    const tick = (now: number) => {
-      const progress = Math.min(1, (now - startedAt) / duration);
-      const easedProgress = 1 - (1 - progress) ** 3;
-      setDisplayedValue(target * easedProgress);
-      if (progress < 1) frameId = requestAnimationFrame(tick);
+    const feedbackDelay =
+      ADMIN_TEMPORARY_SURFACE_SEQUENCE_MS.contentDelayMs +
+      ADMIN_MOTION_MS.duration.standard;
+    const duration = ADMIN_MOTION_MS.duration.deliberate;
+    let valueFrameId = 0;
+    let progressFrameId = 0;
+    let statusTimeoutId = 0;
+
+    const startFeedback = () => {
+      const startedAt = performance.now();
+
+      const tick = (now: number) => {
+        const progress = Math.min(1, (now - startedAt) / duration);
+        const easedProgress = 1 - (1 - progress) ** 3;
+        setDisplayedValue(target * easedProgress);
+        if (progress < 1) valueFrameId = requestAnimationFrame(tick);
+      };
+
+      valueFrameId = requestAnimationFrame(tick);
+      progressFrameId = requestAnimationFrame(() => {
+        setDisplayedProgress(progress);
+      });
+      statusTimeoutId = window.setTimeout(() => {
+        setShowProgressStatus(true);
+      }, duration);
     };
 
-    frameId = requestAnimationFrame(tick);
-    return () => cancelAnimationFrame(frameId);
-  }, [currentValue, isOpen]);
+    const feedbackTimeoutId = window.setTimeout(startFeedback, feedbackDelay);
 
-  const progress = Math.min(
-    100,
-    (Math.max(0, currentValue) / threshold) * 100,
-  );
+    return () => {
+      window.clearTimeout(feedbackTimeoutId);
+      cancelAnimationFrame(valueFrameId);
+      cancelAnimationFrame(progressFrameId);
+      window.clearTimeout(statusTimeoutId);
+    };
+  }, [currentValue, isOpen, progress]);
 
   return (
     <NexusModal
       isOpen={isOpen}
       onClose={onClose}
-      onAfterClose={onAfterClose}
+      onAfterClose={handleAfterClose}
+      context="milestone"
+      titleLevel="h2"
       title={presentation.title(threshold)}
       eyebrow={presentation.eyebrow}
       icon={presentation.icon}
       iconTone={presentation.iconTone}
       size="standard"
       footer={
-        <NexusModalActions className="flex-col sm:flex-row sm:justify-end">
+        <NexusModalActions className="flex-col sm:flex-row sm:justify-center">
           <NexusSectionButton
             type="button"
             variant="brand"
             icon={ArrowRight}
-            className="w-full sm:w-auto"
+            className="w-full"
             onClick={onClose}
           >
             Continuar creciendo
@@ -201,8 +269,12 @@ export const DashboardMilestoneModal: React.FC<DashboardMilestoneModalProps> = (
       }
     >
       <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
+        <p className="text-center text-milestone-body text-text-main">
+          {presentation.copy(threshold)}
+        </p>
+
         <div
-          className="relative overflow-hidden border border-amber-200 bg-amber-50"
+          className="nexus-milestone-surface relative overflow-hidden border"
           style={{
             padding: "var(--padding-inner)",
             borderRadius: "var(--radius-inner-visual)",
@@ -215,7 +287,7 @@ export const DashboardMilestoneModal: React.FC<DashboardMilestoneModalProps> = (
             {CONFETTI.map((piece, index) => (
               <span
                 key={index}
-                className="nexus-milestone-confetti absolute top-0 h-2 w-1.5 rounded-full"
+                className="nexus-milestone-confetti absolute top-0 rounded-full"
                 style={
                   {
                     left: piece.left,
@@ -233,40 +305,32 @@ export const DashboardMilestoneModal: React.FC<DashboardMilestoneModalProps> = (
             className="relative flex flex-col"
             style={{ gap: "var(--space-md)" }}
           >
-            <p className="text-body font-semibold text-text-main">
-              {presentation.copy(threshold)}
-            </p>
-
             <div
-              className="border border-amber-200 bg-bg-card"
-              style={{
-                padding: "var(--padding-card-inner)",
-                borderRadius: "var(--radius-card-inner)",
-              }}
+              className="flex justify-center"
             >
               <div
-                className="flex items-end justify-between"
-                style={{ gap: "var(--space-md)" }}
+                className="flex min-w-0 flex-col items-center text-center"
+                style={{ gap: "var(--space-xs)" }}
               >
-                <div
-                  className="flex min-w-0 flex-col"
-                  style={{ gap: "var(--space-xs)" }}
-                >
-                  <span className="text-label uppercase tracking-[0.08em] text-text-muted">
-                    {presentation.label}
-                  </span>
-                  <strong className="text-display tabular-nums text-text-main">
-                    {presentation.format(displayedValue)}
-                  </strong>
-                </div>
-                <span className="shrink-0 text-secondary font-semibold text-emerald-700">
-                  Meta cumplida
+                <strong className="text-milestone-value text-text-main">
+                  {presentation.format(displayedValue)}
+                </strong>
+                <span className="text-milestone-meta text-text-muted">
+                  {presentation.label}
                 </span>
               </div>
+            </div>
 
+            <div
+              className="flex flex-col"
+              style={{ gap: "var(--space-sm)" }}
+            >
               <div
-                className="mt-[var(--space-md)] h-2 overflow-hidden bg-amber-100"
-                style={{ borderRadius: "var(--radius-card-nested-compact)" }}
+                className="nexus-milestone-progress-track overflow-hidden"
+                style={{
+                  height: "var(--h-progress-milestone)",
+                  borderRadius: "var(--radius-card-nested-compact)",
+                }}
                 role="progressbar"
                 aria-label={`Progreso de ${presentation.label.toLowerCase()}`}
                 aria-valuemin={0}
@@ -274,39 +338,31 @@ export const DashboardMilestoneModal: React.FC<DashboardMilestoneModalProps> = (
                 aria-valuenow={Math.round(Math.min(currentValue, threshold))}
               >
                 <div
-                  className="h-full bg-amber-500 transition-[width] duration-700"
-                  style={{ width: `${progress}%` }}
+                  className="nexus-milestone-progress-fill h-full"
+                  style={{ transform: `scaleX(${displayedProgress / 100})` }}
                 />
               </div>
-            </div>
-
-            {nextMilestone && nextPresentation && (
               <div
-                className="flex items-center justify-between border border-border-main bg-bg-card"
-                style={{
-                  gap: "var(--space-md)",
-                  padding: "var(--space-sm) var(--space-md)",
-                  borderRadius: "var(--radius-card-inner)",
-                }}
+                className={`nexus-milestone-progress-status flex items-center justify-between ${
+                  showProgressStatus
+                    ? "translate-y-0 opacity-100"
+                    : "translate-y-1 opacity-0"
+                }`}
+                style={{ gap: "var(--space-md)" }}
               >
-                <div className="min-w-0">
-                  <strong className="block text-secondary font-semibold text-text-main">
-                    Siguiente hito
-                  </strong>
-                  <span className="block text-label text-text-muted">
-                    Continúa construyendo tu historial
-                  </span>
-                </div>
-                <strong className="shrink-0 text-h2 tabular-nums text-text-main">
-                  {nextPresentation.format(nextMilestone.threshold)}
-                </strong>
+                <span className="text-milestone-meta text-text-muted">
+                  {Math.round(progress)}% alcanzado
+                </span>
+                <span className="nexus-milestone-status text-milestone-meta">
+                  Meta cumplida
+                </span>
               </div>
-            )}
+            </div>
           </div>
         </div>
 
-        <p className="text-secondary text-text-muted">
-          Gracias por seguir haciendo crecer tu operación con Nexus Platform.
+        <p className="text-center text-secondary text-text-muted">
+          Gracias por hacer crecer tu operación con Nexus Platform. Este logro merece celebrarse.
         </p>
       </div>
     </NexusModal>

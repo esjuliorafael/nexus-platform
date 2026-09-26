@@ -25,6 +25,7 @@ import { Header } from "./components/Header";
 import { QuickActions } from "./components/QuickActions";
 import { PageHeader } from "./components/Layout/PageHeader";
 import { DashboardView } from "./components/Dashboard/DashboardView";
+import { DashboardMilestonesView } from "./components/Dashboard/DashboardMilestonesView";
 import { SalesOverviewView } from "./components/Dashboard/SalesOverviewView";
 import {
   DEFAULT_SALES_OVERVIEW_FILTERS,
@@ -207,6 +208,8 @@ type ActiveTabType =
   | "Sistema"
   | "Mi Perfil"
   | "Rifas";
+
+type DashboardViewMode = "overview" | "milestones";
 
 type MediaModeType =
   | "list"
@@ -527,6 +530,8 @@ function App() {
   const mediaVaultRef = React.useRef<MediaVaultViewRef>(null);
 
   const [activeTab, setActiveTab] = useState<ActiveTabType>(getStoredActiveTab);
+  const [dashboardViewMode, setDashboardViewMode] =
+    useState<DashboardViewMode>("overview");
   const [galleryAdvancedFilters, setGalleryAdvancedFilters] =
     useState<GalleryAdvancedFilters>(DEFAULT_GALLERY_ADVANCED_FILTERS);
   const [isGalleryFiltersOpen, setIsGalleryFiltersOpen] = useState(false);
@@ -807,6 +812,10 @@ function App() {
     },
     [],
   );
+
+  useEffect(() => {
+    if (activeTab !== "Inicio") setDashboardViewMode("overview");
+  }, [activeTab]);
 
   useEffect(() => {
     if (!token || activeTab !== "Inicio") return;
@@ -1607,6 +1616,19 @@ function App() {
   };
 
   const getActionAddon = () => {
+    if (isDashboardMode && dashboardViewMode === "milestones") {
+      return (
+        <NexusSectionButton
+          type="button"
+          variant="secondary"
+          icon={ArrowLeft}
+          onClick={() => setDashboardViewMode("overview")}
+        >
+          Volver a Inicio
+        </NexusSectionButton>
+      );
+    }
+
     if (
       isSystemMode &&
       systemViewMode === "channels" &&
@@ -2266,6 +2288,7 @@ function App() {
             >
               <PageHeader
                 activeTab={activeTab}
+                dashboardViewMode={dashboardViewMode}
                 userName={userName}
                 currentDate={currentDate}
                 mediaViewMode={mediaViewMode}
@@ -2292,7 +2315,7 @@ function App() {
               />
             </div>
 
-            {isDashboardMode && (
+            {isDashboardMode && dashboardViewMode === "overview" && (
               <div style={{ marginBottom: "var(--space-lg)" }}>
                 <NexusViewToolbar
                   filterSummaries={[
@@ -2475,34 +2498,36 @@ function App() {
               className="flex flex-col lg:flex-row"
               style={{ gap: "var(--space-lg)" }}
             >
-              <div className="z-40 w-full flex-shrink-0 lg:w-fit">
-                <QuickActions
-                  context={activeTab}
-                  onAction={handleQuickAction}
-                  isDetail={
-                    storeViewMode === "order-detail" ||
-                    (isStoreMode && storeViewMode === "overview") ||
-                    (isRafflesMode &&
-                      raffleViewMode === "participation-detail") ||
-                    (isRafflesMode && raffleViewMode === "detail") ||
-                    (isRafflesMode && raffleViewMode === "tickets") ||
-                    (isRafflesMode && raffleViewMode === "materials") ||
-                    (isSystemMode &&
-                      systemViewMode === "channels" &&
-                      channelsViewMode === "principal")
-                  }
-                  detailActions={
-                    isRafflesMode && raffleViewMode === "materials"
-                      ? [
-                          { icon: <ImageIcon size={20} />, label: "Ficha de la Rifa" },
-                          { icon: <Ticket size={20} />, label: "Boletera Visual" },
-                        ]
-                      : undefined
-                  }
-                  raffleEnabled={showRaffleNavigation}
-                  userRole={userRole}
-                />
-              </div>
+              {dashboardViewMode === "overview" && (
+                <div className="z-40 w-full flex-shrink-0 lg:w-fit">
+                  <QuickActions
+                    context={activeTab}
+                    onAction={handleQuickAction}
+                    isDetail={
+                      storeViewMode === "order-detail" ||
+                      (isStoreMode && storeViewMode === "overview") ||
+                      (isRafflesMode &&
+                        raffleViewMode === "participation-detail") ||
+                      (isRafflesMode && raffleViewMode === "detail") ||
+                      (isRafflesMode && raffleViewMode === "tickets") ||
+                      (isRafflesMode && raffleViewMode === "materials") ||
+                      (isSystemMode &&
+                        systemViewMode === "channels" &&
+                        channelsViewMode === "principal")
+                    }
+                    detailActions={
+                      isRafflesMode && raffleViewMode === "materials"
+                        ? [
+                            { icon: <ImageIcon size={20} />, label: "Ficha de la Rifa" },
+                            { icon: <Ticket size={20} />, label: "Boletera Visual" },
+                          ]
+                        : undefined
+                    }
+                    raffleEnabled={showRaffleNavigation}
+                    userRole={userRole}
+                  />
+                </div>
+              )}
 
               <div className="min-w-0 w-full flex-1">
                 {isProfileMode ? (
@@ -2810,6 +2835,11 @@ function App() {
                       </NexusAutonomousCard>
                     )}
                   </div>
+                ) : isDashboardMode && dashboardViewMode === "milestones" ? (
+                  <DashboardMilestonesView
+                    isLoading={isLoadingDashboard}
+                    stats={dashboardStats}
+                  />
                 ) : (
                   <DashboardView
                     isLoading={isLoadingDashboard}
@@ -2827,6 +2857,10 @@ function App() {
                     onOpenRaffleParticipations={() => {
                       setActiveTab("Rifas");
                       setRaffleViewMode("participations");
+                      window.scrollTo({ top: 0, behavior: "smooth" });
+                    }}
+                    onOpenMilestones={() => {
+                      setDashboardViewMode("milestones");
                       window.scrollTo({ top: 0, behavior: "smooth" });
                     }}
                     onOpenCommercialHistory={({ source, paymentMethod }) => {

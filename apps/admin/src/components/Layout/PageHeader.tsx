@@ -3,6 +3,7 @@ import { Calendar } from "lucide-react";
 
 interface PageHeaderProps {
   activeTab: string;
+  dashboardViewMode?: "overview" | "milestones";
   userName: string;
   currentDate?: string;
   mediaViewMode: string;
@@ -36,6 +37,7 @@ interface PageHeaderProps {
 
 export const PageHeader: React.FC<PageHeaderProps> = ({
   activeTab,
+  dashboardViewMode = "overview",
   userName,
   currentDate,
   mediaViewMode,
@@ -61,6 +63,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   actionAddon,
 }) => {
   const isMediaMode = activeTab === "Medios";
+  const isDashboardMode = activeTab === "Inicio";
   const isStoreMode = activeTab === "Tienda";
   const isOperationsTab = activeTab === "Operaciones";
   const isSystemMode = activeTab === "Sistema";
@@ -81,6 +84,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       return (
         <>
           Editar <span className="text-text-muted">Plantilla</span>
+        </>
+      );
+    if (isDashboardMode && dashboardViewMode === "milestones")
+      return (
+        <>
+          Hitos de <span className="text-text-muted">crecimiento</span>
         </>
       );
     if (isCreatingMedia)
@@ -462,6 +471,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   };
 
   const getDescription = () => {
+    if (isDashboardMode && dashboardViewMode === "milestones")
+      return "Consulta las metas alcanzadas y el progreso hacia las siguientes.";
     if (isSystemMode && systemViewMode === "announcements") {
       if (announcementViewMode === "create" || announcementViewMode === "edit")
         return "Configura el contenido, destino, vigencia y frecuencia del mensaje.";

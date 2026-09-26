@@ -4,9 +4,11 @@ import {
   CircleX,
   Clock,
   CreditCard,
+  Eye,
   ListFilter,
   History,
   ReceiptText,
+  RotateCcw,
   ShoppingBag,
   Ticket,
 } from 'lucide-react';
@@ -29,7 +31,15 @@ import { apiDashboard } from '../../api';
 import { NexusSectionButton } from '../ui/NexusButton';
 import { NexusSectionBadge } from '../ui/NexusBadge';
 import { NexusSection } from '../ui/NexusSection';
+import { NexusSelect } from '../ui/NexusInputs';
 import { DashboardMilestoneModal } from './DashboardMilestoneModal';
+import { DashboardMilestoneProgressWidget } from './DashboardMilestoneProgressWidget';
+import {
+  DASHBOARD_MILESTONE_PREVIEW_GROUPS,
+  DASHBOARD_MILESTONE_PREVIEW_OPTIONS,
+  DASHBOARD_MILESTONE_PREVIEW_PARAM,
+  getDashboardMilestonePreview,
+} from './dashboardMilestonePreview';
 import { useRevenueMilestones } from './useRevenueMilestones';
 
 interface DashboardViewProps {
@@ -43,6 +53,7 @@ interface DashboardViewProps {
   onNavigateToSystem: (mode: any) => void;
   onTabChange: (tab: any) => void;
   onOpenRaffleParticipations: () => void;
+  onOpenMilestones: () => void;
   onOpenOrder: (orderId: string) => void;
   onOpenParticipation: (participationId: string) => void;
   onOpenCommercialHistory: (context: {
@@ -82,23 +93,71 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onNavigateToSystem,
   onTabChange,
   onOpenRaffleParticipations,
+  onOpenMilestones,
   onOpenOrder,
   onOpenParticipation,
   onOpenCommercialHistory,
   isLoadingCommercial,
 }) => {
   const isAdminUser = userRole === 'admin' || userRole === 'superadmin';
+  const isDevelopment = import.meta.env.DEV;
+  const initialPreviewId = React.useMemo(() => {
+    if (!isDevelopment) return null;
+    const requestedPreviewId = new URLSearchParams(window.location.search).get(
+      DASHBOARD_MILESTONE_PREVIEW_PARAM,
+    );
+    return getDashboardMilestonePreview(requestedPreviewId)
+      ? requestedPreviewId
+      : null;
+  }, [isDevelopment]);
+  const [selectedPreviewId, setSelectedPreviewId] = React.useState(
+    initialPreviewId || DASHBOARD_MILESTONE_PREVIEW_OPTIONS[0].id,
+  );
+  const [activePreviewId, setActivePreviewId] = React.useState<string | null>(
+    initialPreviewId,
+  );
+  const [previewRun, setPreviewRun] = React.useState(0);
+  const milestonePreview = isDevelopment
+    ? getDashboardMilestonePreview(activePreviewId)
+    : null;
+  const milestoneResetKey = `${activePreviewId || 'live'}:${previewRun}`;
+
+  const setPreviewUrl = React.useCallback((milestoneId: string | null) => {
+    const url = new URL(window.location.href);
+    if (milestoneId) {
+      url.searchParams.set(DASHBOARD_MILESTONE_PREVIEW_PARAM, milestoneId);
+    } else {
+      url.searchParams.delete(DASHBOARD_MILESTONE_PREVIEW_PARAM);
+    }
+    window.history.replaceState({}, '', url);
+  }, []);
+
+  const showMilestonePreview = React.useCallback(() => {
+    setActivePreviewId(selectedPreviewId);
+    setPreviewRun((current) => current + 1);
+    setPreviewUrl(selectedPreviewId);
+  }, [selectedPreviewId, setPreviewUrl]);
+
+  const clearMilestonePreview = React.useCallback(() => {
+    setActivePreviewId(null);
+    setPreviewRun((current) => current + 1);
+    setPreviewUrl(null);
+  }, [setPreviewUrl]);
+
   const {
     activeMilestone,
     isOpen: isMilestoneOpen,
-    nextMilestone,
     acknowledgeMilestone,
     handleAfterClose,
   } = useRevenueMilestones({
     isAdminUser,
-    isLoading: isLoading || isLoadingCommercial || !stats,
-    milestones: stats?.milestones,
+    isLoading: milestonePreview
+      ? false
+      : isLoading || isLoadingCommercial || !stats,
+    milestones: milestonePreview?.milestones || stats?.milestones,
+    resetKey: milestoneResetKey,
     onAcknowledge: async (milestoneId) => {
+      if (milestonePreview) return;
       await apiDashboard.acknowledgeMilestone(milestoneId);
     },
   });
@@ -141,12 +200,61 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
       <DashboardMilestoneModal
         isOpen={isAdminUser && isMilestoneOpen}
         milestone={activeMilestone}
-        nextMilestone={nextMilestone}
         onClose={() => void acknowledgeMilestone()}
         onAfterClose={handleAfterClose}
       />
 
       <div className="flex flex-col animate-in fade-in duration-300" style={{ gap: 'var(--space-lg)' }}>
+      {isDevelopment && isAdminUser && (
+        <NexusSection
+          title="Previsualización local"
+          subtitle="Prueba cualquier hito sin modificar datos reales."
+          icon={Eye}
+          iconVariant="blue"
+          animate={false}
+          action={
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <NexusSectionButton
+                type="button"
+                variant="secondary"
+                icon={RotateCcw}
+                onClick={clearMilestonePreview}
+                disabled={!activePreviewId}
+              >
+                Restablecer
+              </NexusSectionButton>
+              <NexusSectionButton
+                type="button"
+                variant="brand"
+                icon={Eye}
+                onClick={showMilestonePreview}
+              >
+                Mostrar hito
+              </NexusSectionButton>
+            </div>
+          }
+        >
+          <div className="max-w-xl">
+            <NexusSelect
+              label="Hito operativo"
+              value={selectedPreviewId}
+              onChange={(event) => setSelectedPreviewId(event.target.value)}
+            >
+              {DASHBOARD_MILESTONE_PREVIEW_GROUPS.map(({ metric, label }) => (
+                <optgroup key={metric} label={label}>
+                  {DASHBOARD_MILESTONE_PREVIEW_OPTIONS.filter(
+                    (option) => option.metric === metric,
+                  ).map((option) => (
+                    <option key={option.id} value={option.id}>
+                      {option.label}
+                    </option>
+                  ))}
+                </optgroup>
+              ))}
+            </NexusSelect>
+          </div>
+        </NexusSection>
+      )}
       {/* NIVEL A: ALERTAS CRÍTICAS */}
       <BillingAlertWidget
         services={billingServices}
@@ -192,6 +300,16 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
           />
         </div>
       </section>
+
+      {isAdminUser && (
+        <section className="min-w-0">
+          <DashboardMilestoneProgressWidget
+            milestones={stats?.milestones}
+            isLoading={isLoading}
+            onOpen={onOpenMilestones}
+          />
+        </section>
+      )}
 
       <section className="min-w-0">
         <MessagingCostWidget

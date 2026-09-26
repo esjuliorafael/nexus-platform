@@ -15,6 +15,8 @@ interface NexusModalProps {
   eyebrow?: React.ReactNode;
   icon?: LucideIcon;
   iconTone?: "brand" | "danger" | "warning";
+  context?: "default" | "milestone";
+  titleLevel?: "h2" | "h3";
   onClose: () => void;
   children: React.ReactNode;
   footer?: React.ReactNode;
@@ -39,6 +41,8 @@ export const NexusModal: React.FC<NexusModalProps> = ({
   eyebrow,
   icon: Icon,
   iconTone = "brand",
+  context = "default",
+  titleLevel = "h3",
   onClose,
   children,
   footer,
@@ -47,6 +51,9 @@ export const NexusModal: React.FC<NexusModalProps> = ({
   onAfterClose,
 }) => {
   const titleId = React.useId();
+  const isMilestoneContext = context === "milestone";
+  const isMilestoneWarning = isMilestoneContext && iconTone === "warning";
+  const TitleTag = titleLevel === "h2" ? "h2" : "h3";
   const iconToneClasses = {
     brand: "border-brand-100 bg-brand-50 text-brand-600",
     danger: "border-rose-100 bg-rose-50 text-rose-500",
@@ -68,7 +75,11 @@ export const NexusModal: React.FC<NexusModalProps> = ({
     >
       <div className="box-border flex min-h-0 w-full min-w-0 max-w-full flex-1 flex-col overflow-hidden">
         <div
-          className="flex shrink-0 items-start justify-between"
+          className={`flex shrink-0 ${
+            isMilestoneContext
+              ? "items-center justify-center"
+              : "items-start justify-between"
+          }`}
           style={{
             gap: "var(--space-md)",
             padding: "var(--padding-inner)",
@@ -77,47 +88,81 @@ export const NexusModal: React.FC<NexusModalProps> = ({
         >
           <NexusSurfaceHeaderItem
             part="identity"
-            className="flex min-w-0 items-start"
+            spatialMotion={!isMilestoneContext}
+            className={`flex min-w-0 ${
+              isMilestoneContext
+                ? "flex-col items-center text-center"
+                : "items-start"
+            }`}
             style={{ gap: "var(--space-md)" }}
           >
             {Icon && (
               <div
-                className={`flex shrink-0 items-center justify-center border ${iconToneClasses[iconTone]}`}
+                className={`flex shrink-0 items-center justify-center border ${
+                  isMilestoneWarning
+                    ? "nexus-milestone-icon"
+                    : iconToneClasses[iconTone]
+                }`}
                 style={{
-                  width: "var(--size-icon-autonomous)",
-                  height: "var(--size-icon-autonomous)",
+                  width: isMilestoneContext
+                    ? "var(--size-icon-milestone)"
+                    : "var(--size-icon-autonomous)",
+                  height: isMilestoneContext
+                    ? "var(--size-icon-milestone)"
+                    : "var(--size-icon-autonomous)",
                   borderRadius: "var(--radius-card-inner)",
                 }}
               >
-                <Icon size={22} />
+                <Icon
+                  size={
+                    isMilestoneContext
+                      ? "var(--size-inner-icon-milestone)"
+                      : 22
+                  }
+                />
               </div>
             )}
             <div
-              className="flex min-w-0 flex-col"
+              className={`flex min-w-0 flex-col ${
+                isMilestoneContext ? "items-center text-center" : ""
+              }`}
               style={{ gap: "var(--space-xs)" }}
             >
               {eyebrow && (
-                <span className="text-label uppercase tracking-[0.15em] text-brand-500">
+                <span
+                  className={
+                    isMilestoneContext
+                      ? "text-milestone-eyebrow text-brand-500"
+                      : "text-label uppercase tracking-[0.15em] text-brand-500"
+                  }
+                >
                   {eyebrow}
                 </span>
               )}
-              <h3 id={titleId} className="break-words text-h1 text-text-main">
+              <TitleTag
+                id={titleId}
+                className={`break-words ${
+                  isMilestoneContext ? "text-display" : "text-h1"
+                } text-text-main`}
+              >
                 {title}
-              </h3>
+              </TitleTag>
             </div>
           </NexusSurfaceHeaderItem>
 
-          <NexusSurfaceHeaderItem part="close" className="shrink-0">
-            <NexusAutonomousButton
-              onClick={onClose}
-              type="button"
-              variant="secondary"
-              density="compact"
-              isIconOnly
-              icon={X}
-              aria-label="Cerrar"
-            />
-          </NexusSurfaceHeaderItem>
+          {!isMilestoneContext && (
+            <NexusSurfaceHeaderItem part="close" className="shrink-0">
+              <NexusAutonomousButton
+                onClick={onClose}
+                type="button"
+                variant="secondary"
+                density="compact"
+                isIconOnly
+                icon={X}
+                aria-label="Cerrar"
+              />
+            </NexusSurfaceHeaderItem>
+          )}
         </div>
 
         <div
@@ -125,7 +170,9 @@ export const NexusModal: React.FC<NexusModalProps> = ({
           style={{
             paddingInline: "var(--padding-inner)",
             paddingBottom: footer
-              ? "var(--padding-inner)"
+              ? isMilestoneContext
+                ? "var(--space-sm)"
+                : "var(--padding-inner)"
               : "calc(var(--padding-inner) + env(safe-area-inset-bottom))",
           }}
         >
@@ -137,9 +184,13 @@ export const NexusModal: React.FC<NexusModalProps> = ({
         {footer && (
           <NexusSurfaceItem
             phase="footer"
-            className="shrink-0 border-t border-border-main bg-bg-card"
+            className={`shrink-0 bg-bg-card ${
+              isMilestoneContext ? "" : "border-t border-border-main"
+            }`}
             style={{
-              padding: "var(--padding-inner)",
+              padding: isMilestoneContext
+                ? "var(--space-md) var(--padding-inner) 0"
+                : "var(--padding-inner)",
               paddingBottom:
                 "calc(var(--padding-inner) + env(safe-area-inset-bottom))",
             }}

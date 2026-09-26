@@ -114,11 +114,16 @@
   --size-icon-autonomous: var(
     --h-button-section
   ); /* Inherits from section level weight */
+  --size-icon-milestone: clamp(4.5rem, 18vw, 5.5rem);
+  --h-progress-milestone: 0.5rem;
 
   /* Internal Icon Sizes - For Buttons and technical UI elements */
   --size-inner-icon-section: 1.25rem; /* 20px */
   --size-inner-icon-section-compact: var(--size-inner-icon-card);
   --size-inner-icon-autonomous: 1.25rem; /* 20px */
+  --size-inner-icon-milestone: clamp(2rem, 7vw, 2.5rem);
+  --size-milestone-confetti-piece-width: 0.375rem;
+  --size-milestone-confetti-piece-height: 0.5rem;
   --size-inner-icon-card: 1rem; /* 16px */
   --size-icon-container-card-nested: calc(
     var(--size-inner-icon-card) * 2
@@ -189,6 +194,7 @@
   /* Typography Scale - Modular Scale (Major Third 1.25x) - Base 16px */
   /* Fluid Clamps - Refined for Desktop Balance */
   --text-hero: clamp(1.875rem, 5vw, 2.5rem); /* 30px -> 40px */
+  --text-milestone-value: var(--text-hero);
   --text-display: clamp(1.5rem, 4vw, 2rem); /* 24px -> 32px */
   --text-h1: clamp(1.2rem, 2.5vw, 1.5rem); /* 19px -> 24px */
   --text-h2: clamp(1.05rem, 2vw, 1.25rem); /* 16.8px -> 20px */
@@ -243,6 +249,34 @@
   font-weight: 900;
   letter-spacing: -0.05em;
   line-height: clamp(0.85, 1vw, 0.95);
+}
+
+@utility text-milestone-eyebrow {
+  font-size: var(--text-label);
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  line-height: 1.4;
+  text-transform: uppercase;
+}
+
+@utility text-milestone-value {
+  font-size: var(--text-milestone-value);
+  font-variant-numeric: tabular-nums;
+  font-weight: 900;
+  letter-spacing: -0.04em;
+  line-height: 1;
+}
+
+@utility text-milestone-body {
+  font-size: var(--text-body);
+  font-weight: 600;
+  line-height: 1.6;
+}
+
+@utility text-milestone-meta {
+  font-size: var(--text-secondary);
+  font-weight: 600;
+  line-height: 1.5;
 }
 
 @utility text-display {
@@ -344,6 +378,15 @@
   --text-main: #0f172a;
   --text-muted: #78716c; /* stone-500 */
   --border-main: #e7e5e4; /* stone-200 */
+  --milestone-surface: #fffbeb;
+  --milestone-surface-subtle: #fef3c7;
+  --milestone-border: #fcd34d;
+  --milestone-accent: #d97706;
+  --milestone-status: #047857;
+  --milestone-confetti-brand: var(--brand-500);
+  --milestone-confetti-teal: #0f766e;
+  --milestone-confetti-gold: #d97706;
+  --milestone-confetti-rose: #e11d48;
 
   --brand-50: #fbf7f6;
   --brand-100: #f5edeb;
@@ -366,6 +409,15 @@
   --text-main: #ecedee; /* Blanco suave */
   --text-muted: #88888e; /* Gris neutro */
   --border-main: #1f1f22; /* Borde oscuro y sutil, NUNCA blanco */
+  --milestone-surface: #2b2112;
+  --milestone-surface-subtle: #3a2d16;
+  --milestone-border: #8a5a18;
+  --milestone-accent: #f59e0b;
+  --milestone-status: #6ee7b7;
+  --milestone-confetti-brand: var(--brand-600);
+  --milestone-confetti-teal: #2dd4bf;
+  --milestone-confetti-gold: #fbbf24;
+  --milestone-confetti-rose: #fb7185;
 
   /* Desaturated brand for dark mode to avoid "vibration" */
   --brand-50: #1a1614;
@@ -410,6 +462,43 @@
 }
 .dark .border-transparent {
   border-color: transparent !important;
+}
+
+.nexus-milestone-surface {
+  background-color: var(--milestone-surface);
+  border-color: var(--milestone-border);
+}
+
+.nexus-milestone-icon {
+  background-color: var(--milestone-surface);
+  border-color: var(--milestone-border);
+  color: var(--milestone-accent);
+}
+
+.nexus-milestone-progress-track {
+  background-color: var(--milestone-surface-subtle);
+}
+
+.nexus-milestone-progress-fill {
+  background-color: var(--milestone-accent);
+  transform-origin: left center;
+  transition: transform var(--admin-motion-duration-deliberate)
+    var(--admin-ease-standard);
+}
+
+.nexus-milestone-progress-status {
+  transition:
+    opacity var(--admin-motion-duration-standard) var(--admin-ease-standard),
+    transform var(--admin-motion-duration-standard) var(--admin-ease-standard);
+}
+
+.nexus-milestone-status {
+  color: var(--milestone-status);
+}
+
+.dark .nexus-milestone-surface,
+.dark .nexus-milestone-icon {
+  border-color: var(--milestone-border) !important;
 }
 
 body {
@@ -517,6 +606,8 @@ body {
 }
 
 .nexus-milestone-confetti {
+  width: var(--size-milestone-confetti-piece-width);
+  height: var(--size-milestone-confetti-piece-height);
   animation: nexus-milestone-confetti 1s var(--ease-emil) both;
 }
 
@@ -539,6 +630,11 @@ body {
   .nexus-milestone-confetti {
     animation: none;
     opacity: 0;
+  }
+
+  .nexus-milestone-progress-fill,
+  .nexus-milestone-progress-status {
+    transition: none;
   }
 
   .animate-raffle-actions-enter,
