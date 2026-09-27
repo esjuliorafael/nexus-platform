@@ -6,6 +6,20 @@ export function calculateRaffleReservationExpiration(
   releaseHours: number,
   now = new Date(),
 ) {
+  const configuredDeadline = calculateRaffleReservationDeadline(
+    createdAt,
+    drawDate,
+    releaseHours,
+  );
+
+  return configuredDeadline > now ? configuredDeadline : now;
+}
+
+export function calculateRaffleReservationDeadline(
+  createdAt: Date,
+  drawDate: Date | null | undefined,
+  releaseHours: number,
+) {
   const configuredDeadline = new Date(
     createdAt.getTime() + Math.max(0, releaseHours) * 3_600_000,
   );
@@ -14,7 +28,7 @@ export function calculateRaffleReservationExpiration(
     return drawDate;
   }
 
-  return configuredDeadline > now ? configuredDeadline : now;
+  return configuredDeadline;
 }
 
 export function formatRaffleTimeLimit(expiresAt: Date, now = new Date()) {

@@ -1380,6 +1380,14 @@ export const apiRaffleParticipations = {
     );
     return response.data;
   },
+  revertPaymentConfirmation: async (
+    id: string,
+  ): Promise<RaffleParticipation> => {
+    const response = await api.post(
+      `/ticket-sales/admin/participations/${encodeURIComponent(id)}/revert-payment-confirmation`,
+    );
+    return response.data;
+  },
   updateParticipant: async (
     id: string,
     data: {

@@ -230,6 +230,53 @@ export async function ticketSaleRoutes(server: FastifyInstance) {
     }
   });
 
+  server.post("/admin/participations/:participationId/revert-payment-confirmation", { preHandler: [server.authenticate] }, async (request, reply) => {
+    try {
+      const actor = await requireAdminActor(server, request, reply);
+      if (!actor) return;
+      const { participationId } = request.params as { participationId: string };
+      const participation = await ticketSaleService.revertPaymentConfirmation(
+        rafflePrisma,
+        storePrisma,
+        participationId,
+        actor,
+      );
+      if (!participation) {
+        return reply.status(409).send({
+          message: "La participación ya no está pagada o no puede revertirse.",
+        });
+      }
+      return attachWhatsappLogs(participation);
+    } catch (error: any) {
+      if (error?.message === "PARTICIPATION_NOT_FULLY_PAID") {
+        return reply.status(409).send({
+          message: "La participación no está completamente pagada; no se puede revertir como un solo apartado.",
+        });
+      }
+      if (error?.message === "MERCADOPAGO_PAYMENT_CONFIRMATION_CANNOT_BE_REVERTED") {
+        return reply.status(409).send({
+          message: "La confirmación de Mercado Pago no puede revertirse desde Admin; debe gestionarse como devolución.",
+        });
+      }
+      if (error?.message === "PARTICIPATION_RESERVATION_DEADLINE_PASSED") {
+        return reply.status(409).send({
+          message: "El plazo original del apartado ya venció; no se puede restaurar automáticamente.",
+        });
+      }
+      if (error?.message === "RAFFLE_RESULT_ALREADY_PUBLISHED") {
+        return reply.status(409).send({
+          message: "Los resultados ya fueron publicados; no es posible revertir esta confirmación.",
+        });
+      }
+      if (error?.message === "PARTICIPATION_REVERT_CONFLICT") {
+        return reply.status(409).send({
+          message: "La participación cambió mientras se revertía. Actualiza la pantalla e inténtalo nuevamente.",
+        });
+      }
+      throw error;
+    }
+  });
+
   server.post("/admin/participations/:participationId/restore", { preHandler: [server.authenticate] }, async (request, reply) => {
     try {
       const actor = await requireAdminActor(server, request, reply);

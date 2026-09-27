@@ -29,6 +29,7 @@ import { buildRaffleOperationalOverview } from "./raffle-overview";
 import { whatsappMarketingConsentService } from "../../../services/whatsapp-marketing-consent.service";
 import {
   calculateRaffleReservationExpiration,
+  calculateRaffleReservationDeadline,
   formatRaffleTimeLimit,
 } from "./raffle-reservation-expiration";
 import { createRaffleParticipationAccess } from "./raffle-participation-access.service";
@@ -472,6 +473,182 @@ export const ticketSaleService = {
         kind: "reservation-cancelled",
         ticketSaleIds: sales.map((sale) => sale.id),
         recipientPhone: sales[0].customerPhone,
+      });
+    }
+
+    return this.getParticipationAdmin(prisma, participationKey);
+  },
+
+  async revertPaymentConfirmation(
+    prisma: PrismaClient,
+    storePrisma: StorePrismaClient,
+    participationKey: string,
+    actor: AuditActor,
+  ) {
+    const settings = await storePrisma.setting.findMany({
+      where: {
+        key: {
+          in: [
+            "raffle_release_active",
+            "raffle_release_hours",
+            "raffle_reminder_active",
+            "raffle_reminder_hours_before",
+          ],
+        },
+      },
+      select: { key: true, value: true },
+    });
+    const settingsMap = new Map(
+      settings.map((setting) => [setting.key, setting.value || ""]),
+    );
+    const isReleaseActive = settingsMap.get("raffle_release_active") === "1";
+    const releaseHours = Number(settingsMap.get("raffle_release_hours") || 24);
+    const isReminderActive = settingsMap.get("raffle_reminder_active") === "1";
+    const reminderHoursBefore = Number(
+      settingsMap.get("raffle_reminder_hours_before") || 4,
+    );
+
+    const legacyMatch = /^sale-(\d+)$/.exec(participationKey);
+    const participationWhere = legacyMatch
+      ? { id: Number(legacyMatch[1]) }
+      : { reservationId: participationKey };
+    const sales = await prisma.ticketSale.findMany({
+      where: participationWhere,
+      orderBy: { ticketNumber: "asc" },
+    });
+
+    if (sales.length === 0) return null;
+    if (sales.some((sale) => sale.paymentStatus !== TicketStatus.PAID)) {
+      throw new Error("PARTICIPATION_NOT_FULLY_PAID");
+    }
+    if (sales.some((sale) => sale.paymentMethod === "MERCADOPAGO" || sale.mpPaymentId)) {
+      throw new Error("MERCADOPAGO_PAYMENT_CONFIRMATION_CANNOT_BE_REVERTED");
+    }
+
+    const raffle = await prisma.raffle.findUnique({
+      where: { id: sales[0].raffleId },
+      select: { resultPublishedAt: true, drawDate: true },
+    });
+    if (raffle?.resultPublishedAt) {
+      throw new Error("RAFFLE_RESULT_ALREADY_PUBLISHED");
+    }
+
+    const expectedReleaseAt = isReleaseActive
+      ? calculateRaffleReservationDeadline(
+          sales[0].createdAt,
+          raffle?.drawDate,
+          releaseHours,
+        )
+      : null;
+    if (expectedReleaseAt && expectedReleaseAt <= new Date()) {
+      throw new Error("PARTICIPATION_RESERVATION_DEADLINE_PASSED");
+    }
+
+    const saleIds = sales.map((sale) => sale.id);
+    const ticketNumbers = sales.map((sale) => sale.ticketNumber);
+    const isParticipantOrigin = sales.some(
+      (sale) => sale.origin !== TicketSaleOrigin.OPERATIONAL_PROTECTION,
+    );
+
+    await prisma.$transaction(async (tx) => {
+      await tx.$executeRaw(
+        Prisma.sql`SELECT pg_advisory_xact_lock(7421, ${sales[0].raffleId}::integer)`,
+      );
+
+      const currentSales = await tx.ticketSale.findMany({
+        where: { id: { in: saleIds } },
+        orderBy: { ticketNumber: "asc" },
+      });
+      if (
+        currentSales.length !== saleIds.length ||
+        currentSales.some(
+          (sale) =>
+            sale.paymentStatus !== TicketStatus.PAID ||
+            sale.paymentMethod === "MERCADOPAGO" ||
+            sale.mpPaymentId,
+        )
+      ) {
+        throw new Error("PARTICIPATION_REVERT_CONFLICT");
+      }
+
+      const currentRaffle = await tx.raffle.findUnique({
+        where: { id: sales[0].raffleId },
+        select: { resultPublishedAt: true },
+      });
+      if (currentRaffle?.resultPublishedAt) {
+        throw new Error("RAFFLE_RESULT_ALREADY_PUBLISHED");
+      }
+
+      const reverted = await tx.ticketSale.updateMany({
+        where: { id: { in: saleIds }, paymentStatus: TicketStatus.PAID },
+        data: { paymentStatus: TicketStatus.PENDING },
+      });
+      if (reverted.count !== saleIds.length) {
+        throw new Error("PARTICIPATION_REVERT_CONFLICT");
+      }
+
+      await tx.raffleParticipationEvent.create({
+        data: {
+          participationId: participationKey,
+          raffleId: sales[0].raffleId,
+          eventType: "PAYMENT_CONFIRMATION_REVERTED",
+          message:
+            "Confirmación de pago revertida desde Admin. La participación volvió a Apartada.",
+          ...auditActorData(actor),
+          previousState: { paymentStatus: TicketStatus.PAID },
+          nextState: { paymentStatus: TicketStatus.PENDING },
+          metadata: {
+            ticketNumbers,
+            originalCreatedAt: sales[0].createdAt.toISOString(),
+            expectedReleaseAt: expectedReleaseAt?.toISOString() || null,
+            releaseHours: expectedReleaseAt ? releaseHours : null,
+          },
+        },
+      });
+    });
+
+    void publishTicketAvailabilityChanged(sales[0].raffleId).catch((error) => {
+      console.error(
+        "[Raffle availability] Could not publish reverted payment confirmation:",
+        error,
+      );
+    });
+
+    if (expectedReleaseAt) {
+      await ticketReleaseQueue.add(
+        "release",
+        {
+          ticketSaleIds: saleIds,
+          expectedReleaseAt: expectedReleaseAt.toISOString(),
+        },
+        { delay: Math.max(0, expectedReleaseAt.getTime() - Date.now()) },
+      );
+
+      const reminderDelay = Math.max(
+        0,
+        expectedReleaseAt.getTime() - Date.now() - reminderHoursBefore * 3_600_000,
+      );
+      if (isReminderActive && reminderDelay > 0) {
+        await reservationReminderQueue.add(
+          "raffle-reminder",
+          {
+            kind: "raffle",
+            ticketSaleIds: saleIds,
+            expectedReleaseAt: expectedReleaseAt.toISOString(),
+          },
+          { delay: reminderDelay },
+        );
+      }
+    }
+
+    if (isParticipantOrigin) {
+      await whatsappQueue.add("reservation-reverted-payment", {
+        kind: "reservation",
+        ticketSaleIds: saleIds,
+        recipientPhone: sales[0].customerPhone,
+        timeLimit: expectedReleaseAt
+          ? formatRaffleTimeLimit(expectedReleaseAt)
+          : "sin límite automático",
       });
     }
 

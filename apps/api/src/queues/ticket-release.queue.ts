@@ -40,7 +40,7 @@ export const ticketReleaseWorker = new Worker(
       const newerRestoration = await rafflePrisma.raffleParticipationEvent.findFirst({
         where: {
           participationId,
-          eventType: "RESTORED",
+          eventType: { in: ["RESTORED", "PAYMENT_CONFIRMATION_REVERTED"] },
           createdAt: { gt: new Date(job.timestamp) },
         },
         select: { id: true },

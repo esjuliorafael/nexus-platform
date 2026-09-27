@@ -1592,6 +1592,23 @@ function App() {
     }
   };
 
+  const handleRevertRafflePaymentConfirmation = async () => {
+    if (!selectedRaffleParticipation) return;
+    try {
+      const updated = await apiRaffleParticipations.revertPaymentConfirmation(
+        selectedRaffleParticipation.id,
+      );
+      setSelectedRaffleParticipation(updated);
+      showToast("Confirmación de pago revertida");
+    } catch (error: any) {
+      showToast(
+        error?.response?.data?.message ||
+          "No se pudo revertir la confirmación de pago",
+        "error",
+      );
+    }
+  };
+
   const handleRestoreRaffleParticipation = async (confirmPayment = false) => {
     if (!selectedRaffleParticipation) return;
     try {
@@ -1886,6 +1903,39 @@ function App() {
             Confirmar Pago
           </NexusSectionButton>
         </PageHeaderActionPair>
+      );
+    }
+
+    if (
+      isRafflesMode &&
+      canManageOperations &&
+      raffleViewMode === "participation-detail" &&
+      selectedRaffleParticipation?.recordType !== "PAYMENT_HOLD" &&
+      selectedRaffleParticipation?.paymentMethod !== "MERCADOPAGO" &&
+      selectedRaffleParticipation?.status === "PAID"
+    ) {
+      return (
+        <NexusSectionButton
+          variant="secondary"
+          icon={RotateCcw}
+          className="w-full whitespace-nowrap sm:w-auto"
+          onClick={() =>
+            setConfirmDialog({
+              isOpen: true,
+              title: "¿Revertir Confirmación?",
+              message:
+                "La participación volverá a Apartada. Se conservará el plazo original y se enviará nuevamente el mensaje de apartado con el tiempo restante; no se crearán 24 horas nuevas.",
+              confirmLabel: "Revertir Confirmación",
+              variant: "warning",
+              onConfirm: async () => {
+                await handleRevertRafflePaymentConfirmation();
+                closeConfirm();
+              },
+            })
+          }
+        >
+          Revertir Confirmación
+        </NexusSectionButton>
       );
     }
 

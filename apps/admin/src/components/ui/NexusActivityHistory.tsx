@@ -30,6 +30,7 @@ const EVENT_PRESENTATION: Record<string, EventPresentation> = {
   ORDER_CREATED: { label: "Apartado creado", icon: ShoppingBag, variant: "brand" },
   PARTICIPATION_CREATED: { label: "Participación creada", icon: ShoppingBag, variant: "brand" },
   PAYMENT_CONFIRMED: { label: "Pago confirmado", icon: CheckCircle2, variant: "success" },
+  PAYMENT_CONFIRMATION_REVERTED: { label: "Confirmación de pago revertida", icon: RotateCcw, variant: "warning" },
   CANCELLED: { label: "Cancelación", icon: CircleX, variant: "danger" },
   AUTO_CANCELLED: { label: "Cancelación automática", icon: Clock3, variant: "danger" },
   RESTORED: { label: "Apartado restaurado", icon: RotateCcw, variant: "brand" },
