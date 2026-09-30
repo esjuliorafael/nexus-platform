@@ -2,11 +2,25 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { ArrowLeft, CheckCircle2, CircleAlert, CreditCard, Ticket, Trophy } from "lucide-react";
-import { raffleApi, type RaffleParticipationAccessResponse } from "../../../api/raffles";
+import {
+  ArrowLeft,
+  CheckCircle2,
+  CircleAlert,
+  CircleSlash2,
+  CreditCard,
+  Ticket,
+  Trophy,
+} from "lucide-react";
+import {
+  raffleApi,
+  type RaffleParticipationAccessResponse,
+} from "../../../api/raffles";
 import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
-import { StorefrontAutonomousCard, StorefrontCard } from "../../../components/ui/Card";
+import {
+  StorefrontAutonomousCard,
+  StorefrontCard,
+} from "../../../components/ui/Card";
 import { StorefrontIcon } from "../../../components/ui/Icon";
 import { BankInfoCard } from "../../../components/checkout/BankInfoCard";
 import { formatPrice } from "../../../utils/formatters";
@@ -18,7 +32,9 @@ export function ParticipationAccessClient({
   token: string;
   initialData: RaffleParticipationAccessResponse | null;
 }) {
-  const [data, setData] = useState<RaffleParticipationAccessResponse | null>(initialData);
+  const [data, setData] = useState<RaffleParticipationAccessResponse | null>(
+    initialData,
+  );
   const [failed, setFailed] = useState(false);
 
   useEffect(() => {
@@ -33,7 +49,9 @@ export function ParticipationAccessClient({
         } catch (error: any) {
           const status = error?.response?.status;
           if (status === 429 || attempt === 2) break;
-          await new Promise((resolve) => setTimeout(resolve, 350 * (attempt + 1)));
+          await new Promise((resolve) =>
+            setTimeout(resolve, 350 * (attempt + 1)),
+          );
         }
       }
       if (!cancelled) setFailed(true);
@@ -45,23 +63,43 @@ export function ParticipationAccessClient({
   }, [initialData, token]);
 
   if (!data && !failed) {
-    return <div className="mx-auto min-h-[58vh] max-w-5xl px-[var(--sf-inset-page)]" aria-busy="true" />;
+    return (
+      <div
+        className="mx-auto min-h-[58vh] max-w-5xl px-[var(--sf-inset-page)]"
+        aria-busy="true"
+      />
+    );
   }
 
   if (failed || !data) {
     return (
       <div className="mx-auto flex min-h-[58vh] max-w-xl items-center px-[var(--sf-inset-page)]">
-        <StorefrontAutonomousCard className="w-full text-center" density="default">
-          <StorefrontIcon icon={CircleAlert} variant="warning" className="mx-auto" />
-          <h1 className="sf-text-h2 mt-[var(--sf-space-md)] text-stone-900">Consulta no disponible</h1>
-          <p className="sf-text-secondary mt-[var(--sf-space-xs)] text-stone-500">Este enlace es privado, pudo vencer o ya no está disponible.</p>
-          <Button asChild context="section" className="mt-[var(--sf-space-lg)]"><Link href="/raffles">Ver rifas</Link></Button>
+        <StorefrontAutonomousCard
+          className="w-full text-center"
+          density="default"
+        >
+          <StorefrontIcon
+            icon={CircleAlert}
+            variant="warning"
+            className="mx-auto"
+          />
+          <h1 className="sf-text-h2 mt-[var(--sf-space-md)] text-stone-900">
+            Consulta no disponible
+          </h1>
+          <p className="sf-text-secondary mt-[var(--sf-space-xs)] text-stone-500">
+            Este enlace es privado, pudo vencer o ya no está disponible.
+          </p>
+          <Button asChild context="section" className="mt-[var(--sf-space-lg)]">
+            <Link href="/raffles">Ver rifas</Link>
+          </Button>
         </StorefrontAutonomousCard>
       </div>
     );
   }
 
-  const paid = data.participations.every((item) => item.paymentStatus === "PAID");
+  const paid = data.participations.every(
+    (item) => item.paymentStatus === "PAID",
+  );
   const cancelled = data.participations.every(
     (item) => item.paymentStatus === "CANCELLED",
   );
@@ -88,47 +126,199 @@ export function ParticipationAccessClient({
           icon: CreditCard,
           variant: "warning" as const,
         };
+  const winnerPlaceLabel = (position: number) => {
+    if (position === 1) return "Primer lugar";
+    if (position === 2) return "Segundo lugar";
+    if (position === 3) return "Tercer lugar";
+    return `${position}.º lugar`;
+  };
+  const resultPublished = Boolean(data.raffle.resultPublishedAt);
+  const winningTicketNumbers = new Set(
+    data.winnerPrizes
+      .map((prize) => prize.winningTicketNumber)
+      .filter((ticketNumber): ticketNumber is string => Boolean(ticketNumber)),
+  );
+  const hasActiveParticipation = data.participations.some(
+    (participation) => participation.paymentStatus !== "CANCELLED",
+  );
+  const showNonWinningNotice =
+    resultPublished &&
+    hasActiveParticipation &&
+    data.winnerPrizes.length === 0;
   return (
     <div className="mx-auto w-full max-w-5xl px-[var(--sf-inset-page)] pb-[var(--sf-space-2xl)] pt-[var(--sf-space-xl)] md:pt-[var(--sf-space-2xl)]">
       <div className="flex flex-col" style={{ gap: "var(--sf-space-lg)" }}>
         <header className="flex flex-col" style={{ gap: "var(--sf-space-xs)" }}>
-          <Button asChild context="section" variant="outline" icon={ArrowLeft} className="self-start">
+          <Button
+            asChild
+            context="section"
+            variant="outline"
+            icon={ArrowLeft}
+            className="self-start"
+          >
             <Link href={`/raffles/${data.raffle.id}`}>Volver a la rifa</Link>
           </Button>
-          <div className="flex items-center" style={{ gap: "var(--sf-space-sm)" }}>
+          <div
+            className="flex items-center"
+            style={{ gap: "var(--sf-space-sm)" }}
+          >
             <StorefrontIcon icon={Ticket} variant="brand" />
             <p className="sf-text-eyebrow text-brand-600">Consulta privada</p>
           </div>
           <h1 className="sf-text-h1 text-stone-900">Mi participación</h1>
-          <p className="sf-text-secondary text-stone-500">{data.raffle.title}</p>
+          <p className="sf-text-secondary text-stone-500">
+            {data.raffle.title}
+          </p>
           {data.participantName && (
             <p className="sf-text-secondary text-stone-500">
-              Participante: <span className="font-semibold text-stone-700">{data.participantName}</span>
+              Participante:{" "}
+              <span className="font-semibold text-stone-700">
+                {data.participantName}
+              </span>
             </p>
           )}
         </header>
 
         <StorefrontAutonomousCard density="default">
-          <div className="flex flex-col md:flex-row md:items-start md:justify-between" style={{ gap: "var(--sf-space-md)" }}>
-            <div className="flex min-w-0 items-center" style={{ gap: "var(--sf-space-sm)" }}>
-              <StorefrontIcon icon={overallStatus.icon} variant={overallStatus.variant} />
+          <div
+            className="flex flex-col md:flex-row md:items-start md:justify-between"
+            style={{ gap: "var(--sf-space-md)" }}
+          >
+            <div
+              className="flex min-w-0 items-center"
+              style={{ gap: "var(--sf-space-sm)" }}
+            >
+              <StorefrontIcon
+                icon={overallStatus.icon}
+                variant={overallStatus.variant}
+              />
               <div>
-                <p className="sf-text-h3 text-stone-900">{overallStatus.title}</p>
-                <p className="sf-text-secondary text-stone-500">{overallStatus.description}</p>
+                <p className="sf-text-h3 text-stone-900">
+                  {overallStatus.title}
+                </p>
+                <p className="sf-text-secondary text-stone-500">
+                  {overallStatus.description}
+                </p>
               </div>
             </div>
             <Badge variant={overallStatus.variant}>{overallStatus.badge}</Badge>
           </div>
         </StorefrontAutonomousCard>
 
+        {data.winnerPrizes.length > 0 && (
+          <StorefrontAutonomousCard density="default">
+            <div
+              className="flex items-start"
+              style={{ gap: "var(--sf-space-sm)" }}
+            >
+              <StorefrontIcon icon={Trophy} variant="success" />
+              <div className="min-w-0">
+                <div
+                  className="flex flex-wrap items-center"
+                  style={{ gap: "var(--sf-space-xs)" }}
+                >
+                  <p className="sf-text-h3 text-stone-900">Premio ganado</p>
+                  <Badge variant="success">Ganador</Badge>
+                </div>
+                <p className="sf-text-secondary mt-[var(--sf-space-2xs)] text-stone-500">
+                  Estos son los resultados vinculados a tu participación.
+                </p>
+              </div>
+            </div>
+            <div
+              className="mt-[var(--sf-space-md)] flex flex-col"
+              style={{ gap: "var(--sf-space-md)" }}
+            >
+              {data.winnerPrizes.map((prize, index) => (
+                <div
+                  key={`${prize.position}-${prize.winningNumber}`}
+                  className={
+                    index > 0
+                      ? "border-t border-stone-200 pt-[var(--sf-space-md)]"
+                      : ""
+                  }
+                >
+                  <p className="sf-text-eyebrow text-brand-600">
+                    {winnerPlaceLabel(prize.position)}
+                  </p>
+                  <p className="sf-text-h3 mt-[var(--sf-space-2xs)] text-stone-900">
+                    {prize.title}
+                  </p>
+                  {prize.description && (
+                    <p className="sf-text-secondary mt-[var(--sf-space-2xs)] text-stone-500">
+                      {prize.description}
+                    </p>
+                  )}
+                  <dl className="mt-[var(--sf-space-sm)] grid grid-cols-1 gap-[var(--sf-space-sm)] sm:grid-cols-2">
+                    <div>
+                      <dt className="sf-text-eyebrow text-stone-500">
+                        Número ganador
+                      </dt>
+                      <dd className="sf-text-body mt-[var(--sf-space-2xs)] font-semibold text-stone-900">
+                        {prize.winningNumber}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="sf-text-eyebrow text-stone-500">
+                        Boleto ganador
+                      </dt>
+                      <dd className="sf-text-body mt-[var(--sf-space-2xs)] font-semibold text-stone-900">
+                        {prize.winningTicketNumber || "No disponible"}
+                      </dd>
+                    </div>
+                  </dl>
+                </div>
+              ))}
+            </div>
+          </StorefrontAutonomousCard>
+        )}
+
+        {showNonWinningNotice && (
+          <StorefrontAutonomousCard density="default">
+            <div
+              className="flex items-start"
+              style={{ gap: "var(--sf-space-sm)" }}
+            >
+              <StorefrontIcon icon={CircleSlash2} variant="muted" />
+              <div className="min-w-0">
+                <div
+                  className="flex flex-wrap items-center"
+                  style={{ gap: "var(--sf-space-xs)" }}
+                >
+                  <p className="sf-text-h3 text-stone-900">
+                    Participación no ganadora
+                  </p>
+                  <Badge variant="muted">Resultado publicado</Badge>
+                </div>
+                <p className="sf-text-secondary mt-[var(--sf-space-2xs)] text-stone-500">
+                  Esta vez tus boletos no resultaron ganadores. Gracias por
+                  participar.
+                </p>
+              </div>
+            </div>
+          </StorefrontAutonomousCard>
+        )}
+
         {data.participations.map((participation) => (
-          <StorefrontCard key={participation.reference} level={2} density="default">
-            <div className="flex items-center justify-between" style={{ gap: "var(--sf-space-md)" }}>
+          <StorefrontCard
+            key={participation.reference}
+            level={2}
+            density="default"
+          >
+            <div
+              className="flex items-center justify-between"
+              style={{ gap: "var(--sf-space-md)" }}
+            >
               <div>
                 <p className="sf-text-eyebrow text-stone-500">Referencia</p>
-                <p className="sf-text-body font-semibold text-stone-900">{participation.reference.slice(0, 8).toUpperCase()}</p>
+                <p className="sf-text-body font-semibold text-stone-900">
+                  {participation.reference.slice(0, 8).toUpperCase()}
+                </p>
               </div>
-              <div className="flex items-end" style={{ gap: "var(--sf-space-md)" }}>
+              <div
+                className="flex items-end"
+                style={{ gap: "var(--sf-space-md)" }}
+              >
                 {participation.participationMode === "SHARED" && (
                   <Badge variant="info">50% compartido</Badge>
                 )}
@@ -145,7 +335,9 @@ export function ParticipationAccessClient({
                 </Badge>
                 <div className="text-right">
                   <p className="sf-text-eyebrow text-stone-500">Total</p>
-                  <p className="sf-text-h3 text-stone-900">${formatPrice(participation.total)}</p>
+                  <p className="sf-text-h3 text-stone-900">
+                    ${formatPrice(participation.total)}
+                  </p>
                 </div>
               </div>
             </div>
@@ -153,19 +345,62 @@ export function ParticipationAccessClient({
               <p className="sf-text-h3 text-stone-900">Boletos seleccionados</p>
               <div className="mt-[var(--sf-space-sm)] grid grid-cols-1 gap-[var(--sf-space-sm)] sm:grid-cols-2">
                 {participation.tickets.map((ticket) => (
-                  <StorefrontCard key={ticket.number} level={3} density="compact">
-                    <div className="flex items-center justify-between" style={{ gap: "var(--sf-space-sm)" }}>
-                      <div className="flex items-center" style={{ gap: "var(--sf-space-xs)" }}>
+                  <StorefrontCard
+                    key={ticket.number}
+                    level={3}
+                    density="compact"
+                  >
+                    <div
+                      className="flex items-start justify-between"
+                      style={{ gap: "var(--sf-space-sm)" }}
+                    >
+                      <div
+                        className="flex items-center"
+                        style={{ gap: "var(--sf-space-xs)" }}
+                      >
                         <StorefrontIcon icon={Ticket} variant="muted" />
-                        <span className="sf-text-h3 text-stone-900">{ticket.number}</span>
+                        <span className="sf-text-h3 text-stone-900">
+                          {ticket.number}
+                        </span>
                       </div>
-                      {ticket.opportunities.length > 0 && <Badge variant="muted">{ticket.opportunities.length + 1} números</Badge>}
-                      {ticket.shareIndex && ticket.shareCount && <Badge variant="info">Parte {ticket.shareIndex} de {ticket.shareCount}</Badge>}
+                      <div
+                        className="flex flex-wrap items-center justify-end"
+                        style={{ gap: "var(--sf-space-2xs)" }}
+                      >
+                        {ticket.opportunities.length > 0 && (
+                          <Badge variant="muted">
+                            {ticket.opportunities.length + 1} números
+                          </Badge>
+                        )}
+                        {ticket.shareIndex && ticket.shareCount && (
+                          <Badge variant="info">
+                            Parte {ticket.shareIndex} de {ticket.shareCount}
+                          </Badge>
+                        )}
+                        {resultPublished &&
+                          participation.paymentStatus !== "CANCELLED" && (
+                            <Badge
+                              variant={
+                                winningTicketNumbers.has(ticket.number)
+                                  ? "success"
+                                  : "muted"
+                              }
+                            >
+                              {winningTicketNumbers.has(ticket.number)
+                                ? "Ganador"
+                                : "No ganador"}
+                            </Badge>
+                          )}
+                      </div>
                     </div>
                     {ticket.opportunities.length > 0 && (
                       <div className="mt-[var(--sf-space-sm)]">
-                        <p className="sf-text-label text-stone-500">Oportunidades adicionales</p>
-                        <p className="sf-text-secondary mt-[var(--sf-space-2xs)] text-stone-700">{ticket.opportunities.join(", ")}</p>
+                        <p className="sf-text-label text-stone-500">
+                          Oportunidades adicionales
+                        </p>
+                        <p className="sf-text-secondary mt-[var(--sf-space-2xs)] text-stone-700">
+                          {ticket.opportunities.join(", ")}
+                        </p>
                       </div>
                     )}
                   </StorefrontCard>
@@ -175,30 +410,46 @@ export function ParticipationAccessClient({
           </StorefrontCard>
         ))}
 
-        {data.bankInfo && data.participations.some((participation) => participation.paymentStatus === "PENDING") && (
-          <BankInfoCard
-            bankInfo={{
-              source: data.bankInfo.source,
-              label: data.bankInfo.label,
-              bank: data.bankInfo.bank,
-              beneficiary: data.bankInfo.beneficiary,
-              accountNumber: data.bankInfo.accountNumber,
-              clabe: data.bankInfo.clabe,
-              card: data.bankInfo.card,
-            }}
-            onCopy={(value) => {
-              void navigator.clipboard?.writeText(value);
-            }}
-          />
-        )}
+        {data.bankInfo &&
+          data.participations.some(
+            (participation) => participation.paymentStatus === "PENDING",
+          ) && (
+            <BankInfoCard
+              bankInfo={{
+                source: data.bankInfo.source,
+                label: data.bankInfo.label,
+                bank: data.bankInfo.bank,
+                beneficiary: data.bankInfo.beneficiary,
+                accountNumber: data.bankInfo.accountNumber,
+                clabe: data.bankInfo.clabe,
+                card: data.bankInfo.card,
+              }}
+              onCopy={(value) => {
+                void navigator.clipboard?.writeText(value);
+              }}
+            />
+          )}
 
         <StorefrontCard level={2} density="default">
-          <div className="flex items-start" style={{ gap: "var(--sf-space-sm)" }}>
+          <div
+            className="flex items-start"
+            style={{ gap: "var(--sf-space-sm)" }}
+          >
             <StorefrontIcon icon={Trophy} variant="brand" />
             <div>
               <p className="sf-text-h3 text-stone-900">Premios de la rifa</p>
-              <div className="mt-[var(--sf-space-xs)] flex flex-col" style={{ gap: "var(--sf-space-2xs)" }}>
-                {data.raffle.prizes.map((prize) => <p key={prize.position} className="sf-text-secondary text-stone-600">{prize.position}. {prize.title}</p>)}
+              <div
+                className="mt-[var(--sf-space-xs)] flex flex-col"
+                style={{ gap: "var(--sf-space-2xs)" }}
+              >
+                {data.raffle.prizes.map((prize) => (
+                  <p
+                    key={prize.position}
+                    className="sf-text-secondary text-stone-600"
+                  >
+                    {prize.position}. {prize.title}
+                  </p>
+                ))}
               </div>
             </div>
           </div>

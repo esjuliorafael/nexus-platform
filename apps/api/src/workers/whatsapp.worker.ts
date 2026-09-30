@@ -20,6 +20,7 @@ import { refreshRaffleParticipantCouponCampaign } from "../modules/raffle/raffle
 import { paymentRecoveryService } from "../services/payment-recovery.service";
 import { isKapsoTenantDeliveryEnabled } from "../services/whatsapp/whatsapp-delivery-policy";
 import { createRaffleParticipationAccess } from "../modules/raffle/ticket-sales/raffle-participation-access.service";
+import { createParticipationLookupAccess } from "../modules/raffle/ticket-sales/raffle-participation-lookup.service";
 import { getParticipationUnitPrice } from "../modules/raffle/ticket-sales/shared-participation";
 import { createStoreOrderAccess } from "../modules/store/orders/store-order-access.service";
 import { omitOptionalRaffleParticipationInfo } from "../services/whatsapp/whatsapp-cloud-template.service";
@@ -227,7 +228,10 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         principalSourceContent: principalTemplate,
         recipientPhone: data.recipientPhone,
         renderedText: renderTemplate(renderedTemplate, values),
-        principalRenderedText: renderTemplate(renderedPrincipalTemplate, values),
+        principalRenderedText: renderTemplate(
+          renderedPrincipalTemplate,
+          values,
+        ),
         values,
         templateName: isStore
           ? "store_payment_recovery"
@@ -295,22 +299,6 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         recipient.campaign.audience === "WINNERS"
           ? "raffle_result_winner"
           : "raffle_result_participants";
-      if (templateType === "RESULT_WINNER") {
-        values.opportunity_count = String(
-          recipient.campaign.raffle.opportunities || 1,
-        );
-        values.additional_opportunity_count = String(
-          Math.max(0, Number(recipient.campaign.raffle.opportunities || 1) - 1),
-        );
-      }
-      const renderedText = renderTemplate(
-        recipient.campaign.templateContent,
-        values,
-      );
-      const principalRenderedText = renderTemplate(
-        recipient.campaign.principalTemplateContent,
-        values,
-      );
       const winnerSales =
         templateType === "RESULT_WINNER"
           ? await rafflePrisma.ticketSale.findMany({
@@ -321,7 +309,37 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
               orderBy: { ticketNumber: "asc" },
             })
           : [];
-
+      if (templateType === "RESULT_WINNER") {
+        values.opportunity_count = String(
+          recipient.campaign.raffle.opportunities || 1,
+        );
+        values.additional_opportunity_count = String(
+          Math.max(0, Number(recipient.campaign.raffle.opportunities || 1) - 1),
+        );
+        if (winnerSales[0]?.customerPhone) {
+          try {
+            const access = await createParticipationLookupAccess({
+              rafflePrisma,
+              raffleId: recipient.campaign.raffleId,
+              phone: winnerSales[0].customerPhone,
+            });
+            if (access) values.participation_url = access.url;
+          } catch (error) {
+            console.error(
+              "[Raffle result] Could not create winner participation link:",
+              error,
+            );
+          }
+        }
+      }
+      const renderedText = renderTemplate(
+        recipient.campaign.templateContent,
+        values,
+      );
+      const principalRenderedText = renderTemplate(
+        recipient.campaign.principalTemplateContent,
+        values,
+      );
       try {
         const sent = await sendBusinessWhatsappNotification({
           preferredChannel: forcePrincipal ? null : raffleChannel,
@@ -545,28 +563,30 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
     }
 
     if (data.kind === "raffle-participant-coupon") {
-      const claimed = await rafflePrisma.raffleParticipantCouponRecipient.updateMany({
-        where: {
-          id: data.campaignRecipientId,
-          campaign: { status: { not: "CLOSED" } },
-          status: {
-            in: data.fallbackOfMessageId
-              ? ["PENDING", "FAILED", "PROCESSING"]
-              : ["PENDING", "FAILED"],
+      const claimed =
+        await rafflePrisma.raffleParticipantCouponRecipient.updateMany({
+          where: {
+            id: data.campaignRecipientId,
+            campaign: { status: { not: "CLOSED" } },
+            status: {
+              in: data.fallbackOfMessageId
+                ? ["PENDING", "FAILED", "PROCESSING"]
+                : ["PENDING", "FAILED"],
+            },
           },
-        },
-        data: {
-          status: "PROCESSING",
-          attempts: { increment: 1 },
-          lastError: null,
-        },
-      });
+          data: {
+            status: "PROCESSING",
+            attempts: { increment: 1 },
+            lastError: null,
+          },
+        });
       if (claimed.count === 0) return;
 
-      const recipient = await rafflePrisma.raffleParticipantCouponRecipient.findUnique({
-        where: { id: data.campaignRecipientId },
-        include: { campaign: { include: { raffle: true } } },
-      });
+      const recipient =
+        await rafflePrisma.raffleParticipantCouponRecipient.findUnique({
+          where: { id: data.campaignRecipientId },
+          include: { campaign: { include: { raffle: true } } },
+        });
       if (!recipient) return;
       if (recipient.campaign.status === "CLOSED") return;
 
@@ -614,7 +634,9 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         const waitsForProviderResolution =
           messageLog?.provider === "KAPSO" &&
           ["accepted", "pending"].includes(
-            String(messageLog.providerStatus || messageLog.status).toLowerCase(),
+            String(
+              messageLog.providerStatus || messageLog.status,
+            ).toLowerCase(),
           );
         await rafflePrisma.raffleParticipantCouponRecipient.update({
           where: { id: recipient.id },
@@ -1315,10 +1337,12 @@ function renderTemplate(
   return Object.entries(values).reduce(
     (message, [key, value]) =>
       message.replace(new RegExp(`\\{\\{${key}\\}\\}`, "g"), value),
-    template.replace(
-      /\n*Consulta el detalle de tu participaci[^\n]*:\s*\n\s*\{\{participation_url\}\}\s*/i,
-      "",
-    ).replace(/(?:^|\n)[^\n]*\{\{order_url\}\}[^\n]*(?=\n|$)/gi, ""),
+    template
+      .replace(
+        /\n*Consulta el detalle de tu participaci[^\n]*:\s*\n\s*\{\{participation_url\}\}\s*/i,
+        "",
+      )
+      .replace(/(?:^|\n)[^\n]*\{\{order_url\}\}[^\n]*(?=\n|$)/gi, ""),
   );
 }
 
@@ -1393,7 +1417,8 @@ function buildRafflePaymentRecoveryValues(hold: any, recoveryUrl: string) {
     getParticipationUnitPrice(
       hold.raffle.ticketPrice.toString(),
       hold.participationMode === "SHARED" ? "SHARED" : "FULL",
-    ) * hold.tickets.length -
+    ) *
+      hold.tickets.length -
     Number(hold.discountTotal);
   return {
     customer_name: hold.customerName || "",
@@ -1513,10 +1538,12 @@ function buildReservationNotification(
     includeParticipationInfo &&
     sales.some((sale) => sale.participationMode === "SHARED");
   const subtotal = sales.reduce(
-    (sum, s) => sum + getParticipationUnitPrice(
-      s.raffle.ticketPrice.toString(),
-      s.participationMode === "SHARED" ? "SHARED" : "FULL",
-    ),
+    (sum, s) =>
+      sum +
+      getParticipationUnitPrice(
+        s.raffle.ticketPrice.toString(),
+        s.participationMode === "SHARED" ? "SHARED" : "FULL",
+      ),
     0,
   );
   const discountTotal = parseFloat(firstSale.discountTotal?.toString() || "0");

@@ -1,5 +1,8 @@
 import { createHash, randomBytes } from "node:crypto";
-import { TicketStatus, type PrismaClient as RafflePrismaClient } from "@prisma/client-raffle";
+import {
+  TicketStatus,
+  type PrismaClient as RafflePrismaClient,
+} from "@prisma/client-raffle";
 import { storePrisma } from "@nexus/db/store";
 import { normalizeCustomerPhone } from "../../../utils/customer-phone";
 
@@ -23,7 +26,9 @@ export async function createRaffleParticipationAccess(params: {
 }) {
   const normalizedPhone = normalizeCustomerPhone(params.phone);
   if (!normalizedPhone) {
-    throw new Error("El n\u00famero de WhatsApp no tiene un formato internacional v\u00e1lido.");
+    throw new Error(
+      "El n\u00famero de WhatsApp no tiene un formato internacional v\u00e1lido.",
+    );
   }
 
   const token = randomBytes(32).toString("base64url");
@@ -62,6 +67,51 @@ const participantDisplayName = (value: string | null | undefined) => {
   return `${parts.slice(0, -1).join(" ")} ${last.charAt(0)}.`;
 };
 
+type RaffleWinnerPrizeInput = {
+  position: number;
+  title: string;
+  description: string;
+  winningNumber: string | null;
+  winningTicketNumber: string | null;
+  winningParticipationId: string | null;
+  resultResolutionStatus: string | null;
+  resultPublishedAt: Date | null;
+};
+
+type RaffleWinnerSaleInput = {
+  reservationId: string | null;
+  ticketNumber: string;
+};
+
+export function getRaffleWinnerPrizes(
+  prizes: RaffleWinnerPrizeInput[],
+  sales: RaffleWinnerSaleInput[],
+) {
+  const participationIds = new Set(
+    sales.map((sale) => sale.reservationId).filter(Boolean),
+  );
+  const ticketNumbers = new Set(sales.map((sale) => sale.ticketNumber));
+
+  return prizes
+    .filter(
+      (prize) =>
+        prize.resultPublishedAt &&
+        prize.resultResolutionStatus === "ELIGIBLE_WINNER" &&
+        prize.winningNumber &&
+        prize.winningParticipationId &&
+        (participationIds.has(prize.winningParticipationId) ||
+          (prize.winningTicketNumber &&
+            ticketNumbers.has(prize.winningTicketNumber))),
+    )
+    .map((prize) => ({
+      position: prize.position,
+      title: prize.title,
+      description: prize.description,
+      winningNumber: prize.winningNumber!,
+      winningTicketNumber: prize.winningTicketNumber,
+    }));
+}
+
 async function getRaffleBankInfo() {
   const [raffleChannel, settings] = await Promise.all([
     storePrisma.paymentChannel.findFirst({
@@ -90,9 +140,15 @@ async function getRaffleBankInfo() {
     }),
   ]);
 
-  const main = Object.fromEntries(settings.map((item) => [item.key, item.value]));
-  const specializedReady = Boolean(raffleChannel?.bank?.trim() && raffleChannel?.beneficiary?.trim());
-  const mainReady = Boolean(main.bank_main_name?.trim() && main.bank_main_beneficiary?.trim());
+  const main = Object.fromEntries(
+    settings.map((item) => [item.key, item.value]),
+  );
+  const specializedReady = Boolean(
+    raffleChannel?.bank?.trim() && raffleChannel?.beneficiary?.trim(),
+  );
+  const mainReady = Boolean(
+    main.bank_main_name?.trim() && main.bank_main_beneficiary?.trim(),
+  );
   if (!specializedReady && !mainReady) return null;
 
   return specializedReady
@@ -123,7 +179,11 @@ export async function getRaffleParticipationAccess(
   const access = await rafflePrisma.raffleParticipationAccessToken.findUnique({
     where: { tokenHash: hash(token) },
   });
-  if (!access || access.revokedAt || (access.expiresAt && access.expiresAt < new Date())) {
+  if (
+    !access ||
+    access.revokedAt ||
+    (access.expiresAt && access.expiresAt < new Date())
+  ) {
     return null;
   }
 
@@ -157,8 +217,11 @@ export async function getRaffleParticipationAccess(
     return normalized ? hash(normalized) === access.phoneHash : false;
   });
   if (!ownedSales.length) return null;
+  const winnerPrizes = getRaffleWinnerPrizes(raffle.prizes, ownedSales);
   const bankInfo = ownedSales.some(
-    (sale) => sale.paymentStatus === TicketStatus.PENDING && sale.paymentMethod === "TRANSFER",
+    (sale) =>
+      sale.paymentStatus === TicketStatus.PENDING &&
+      sale.paymentMethod === "TRANSFER",
   )
     ? await getRaffleBankInfo()
     : null;
@@ -185,6 +248,7 @@ export async function getRaffleParticipationAccess(
       title: raffle.title,
       image: raffle.imagePoster || raffle.image,
       drawDate: raffle.drawDate,
+      resultPublishedAt: raffle.resultPublishedAt,
       opportunities: raffle.opportunities,
       ticketPrice: Number(raffle.ticketPrice),
       prizes: raffle.prizes.map((prize) => ({
@@ -193,9 +257,13 @@ export async function getRaffleParticipationAccess(
         description: prize.description,
       })),
     },
+    winnerPrizes,
     participations: Array.from(groups.entries()).map(([reference, items]) => {
       const subtotal = items.reduce(
-        (total, item) => total + Number(raffle.ticketPrice) / (item.participationMode === "SHARED" ? 2 : 1),
+        (total, item) =>
+          total +
+          Number(raffle.ticketPrice) /
+            (item.participationMode === "SHARED" ? 2 : 1),
         0,
       );
       const discount = Number(items[0]?.discountTotal || 0);
