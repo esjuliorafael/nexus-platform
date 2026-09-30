@@ -41,9 +41,8 @@ const TEMPLATE_CONFIG = {
   },
 } as const;
 
-// Result communications are operational, but still fan out to a full raffle audience.
-// Stagger them to avoid treating a newly connected WhatsApp line as a bulk sender.
-const RESULT_CAMPAIGN_RECIPIENT_DELAY_MS = 90_000;
+// Result communications should reach participants promptly without creating a burst.
+const RESULT_CAMPAIGN_RECIPIENT_DELAY_MS = 5_000;
 
 async function reconcileKapsoResultLogs(
   storePrisma: StorePrismaClient,
