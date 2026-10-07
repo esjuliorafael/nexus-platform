@@ -8,15 +8,18 @@ import {
   Copy,
   CreditCard,
   Link2,
+  Minus,
   Package,
   Plus,
   RefreshCw,
   RotateCw,
   Search,
   ShieldCheck,
+  ShoppingCart,
   Trash2,
 } from "lucide-react";
 import {
+  ASSET_BASE_URL,
   apiProducts,
   apiStorePaymentAssistance,
   type AssistedCheckoutLink,
@@ -31,6 +34,7 @@ import { NexusAutonomousButton, NexusSectionButton, NexusButton } from "../../ui
 import { NexusInput, NexusSelect } from "../../ui/NexusInputs";
 import { NexusSpinner } from "../../ui/NexusSpinner";
 import { NexusModal, NexusModalActions } from "../../ui/NexusModal";
+import { NexusSegmentedControl } from "../../ui/NexusSegmentedControl";
 
 interface PaymentLinksViewProps {
   showToast: (message: string, type?: "success" | "error") => void;
@@ -102,6 +106,102 @@ const productLabel = (product: Product) =>
     ? `${product.name} · Anillo ${product.ringNumber}`
     : product.name;
 
+const normalizeProductSearch = (value: string) =>
+  value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .trim();
+
+const getProductMaxQuantity = (product: Product) =>
+  product.type === "BIRD" ? 1 : Math.max(0, product.stock || 0);
+
+const getProductImageUrl = (product: Product) => {
+  const value = product.coverPosterUrl || product.coverMediaUrl || product.imageUrl || product.thumbnail;
+  if (!value) return null;
+  if (value.startsWith("http") || value.startsWith("blob:") || value.startsWith("data:")) return value;
+  return `${ASSET_BASE_URL}${value.replace(/^\/+/, "")}`;
+};
+
+const ProductThumbnail: React.FC<{ product: Product }> = ({ product }) => {
+  const [hasError, setHasError] = useState(false);
+  const imageUrl = getProductImageUrl(product);
+
+  return (
+    <div
+      className="flex shrink-0 items-center justify-center overflow-hidden border border-border-main bg-bg-muted"
+      style={{
+        width: "var(--h-button-section)",
+        height: "var(--h-button-section)",
+        borderRadius: "var(--radius-card-inner)",
+      }}
+    >
+      {imageUrl && !hasError ? (
+        <img
+          src={imageUrl}
+          alt=""
+          className="h-full w-full object-cover"
+          onError={() => setHasError(true)}
+        />
+      ) : (
+        <Package size={20} className="text-text-muted" aria-hidden="true" />
+      )}
+    </div>
+  );
+};
+
+interface QuantityStepperProps {
+  quantity: number;
+  maxQuantity: number;
+  onDecrease: () => void;
+  onIncrease: () => void;
+  onRemove: () => void;
+  label: string;
+}
+
+const QuantityStepper: React.FC<QuantityStepperProps> = ({
+  quantity,
+  maxQuantity,
+  onDecrease,
+  onIncrease,
+  onRemove,
+  label,
+}) => (
+  <div className="flex shrink-0 items-center" style={{ gap: "var(--space-xs)" }}>
+    <NexusAutonomousButton
+      type="button"
+      variant="secondary"
+      density="compact"
+      isIconOnly
+      icon={Minus}
+      aria-label={`Disminuir cantidad de ${label}`}
+      onClick={onDecrease}
+    />
+    <span className="min-w-[2rem] text-center text-button-card font-semibold tabular-nums text-text-main">
+      {quantity}
+    </span>
+    <NexusAutonomousButton
+      type="button"
+      variant="secondary"
+      density="compact"
+      isIconOnly
+      icon={Plus}
+      aria-label={`Aumentar cantidad de ${label}`}
+      disabled={quantity >= maxQuantity}
+      onClick={onIncrease}
+    />
+    <NexusAutonomousButton
+      type="button"
+      variant="ghost"
+      density="compact"
+      isIconOnly
+      icon={Trash2}
+      aria-label={`Quitar ${label} del carrito`}
+      onClick={onRemove}
+    />
+  </div>
+);
+
 export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
   showToast,
   setConfirmDialog,
@@ -115,9 +215,9 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
   const [busyLinkId, setBusyLinkId] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<"ALL" | AssistedCheckoutLinkStatus>("ALL");
   const [search, setSearch] = useState("");
-  const [draftItems, setDraftItems] = useState<Array<{ productId: string; quantity: string }>>([
-    { productId: "", quantity: "1" },
-  ]);
+  const [generatorSource, setGeneratorSource] = useState<"products" | "cart">("products");
+  const [productSearchQuery, setProductSearchQuery] = useState("");
+  const [draftItems, setDraftItems] = useState<Array<{ productId: string; quantity: string }>>([]);
   const [lastGenerated, setLastGenerated] = useState<AssistedCheckoutLinkGeneration | null>(null);
 
   const availableProducts = useMemo(
@@ -130,23 +230,26 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
   const loadData = async () => {
     setIsLoading(true);
     try {
-      const [linkResponse, productResponse] = await Promise.all([
+      const [linkResult, productResult] = await Promise.allSettled([
         apiStorePaymentAssistance.getAll({
           status: statusFilter === "ALL" ? undefined : statusFilter,
           search: search.trim() || undefined,
         }),
         apiProducts.getAll(),
       ]);
-      setLinks(linkResponse.items);
-      const nextProducts = productResponse as Product[];
-      setProducts(nextProducts);
-      setDraftItems((current) => current.map((item, index) => {
-        if (item.productId || index !== 0) return item;
-        const firstAvailable = nextProducts.find(
-          (product) => product.active && product.published && product.status === "available" && (product.type === "BIRD" || product.stock > 0),
-        );
-        return firstAvailable ? { ...item, productId: firstAvailable.id } : item;
-      }));
+
+      if (linkResult.status === "fulfilled") {
+        setLinks(linkResult.value.items);
+      } else {
+        console.error("Error cargando el control de enlaces de pago asistido:", linkResult.reason);
+      }
+
+      if (productResult.status === "fulfilled") {
+        setProducts(productResult.value);
+      } else {
+        console.error("Error cargando productos para enlaces de pago asistido:", productResult.reason);
+        showToast(getErrorMessage(productResult.reason, "No se pudieron cargar los productos disponibles."), "error");
+      }
     } catch (error) {
       console.error("Error cargando enlaces de pago asistido:", error);
       showToast(getErrorMessage(error, "No se pudieron cargar los enlaces de pago."), "error");
@@ -159,7 +262,33 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
     void loadData();
   }, [statusFilter, search]);
 
+  useEffect(() => {
+    if (!isGeneratorOpen) return;
+    setGeneratorSource("products");
+    setProductSearchQuery("");
+    setDraftItems([]);
+  }, [isGeneratorOpen]);
+
   const getDraftProduct = (productId: string) => availableProducts.find((product) => product.id === productId);
+
+  const filteredAvailableProducts = useMemo(() => {
+    const query = normalizeProductSearch(productSearchQuery);
+    if (!query) return availableProducts;
+
+    return availableProducts.filter((product) => {
+      const searchableText = [
+        productLabel(product),
+        product.name,
+        product.ringNumber,
+        product.type === "BIRD" ? "ave pollo gallo" : "articulo producto",
+      ]
+        .filter(Boolean)
+        .map((value) => normalizeProductSearch(String(value)))
+        .join(" ");
+
+      return searchableText.includes(query);
+    });
+  }, [availableProducts, productSearchQuery]);
 
   const isDraftValid = draftItems.length > 0 && draftItems.every((item) => {
     const product = getDraftProduct(item.productId);
@@ -201,12 +330,36 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
     }
   };
 
-  const addDraftItem = () => {
-    const unusedProduct = availableProducts.find(
-      (product) => !draftItems.some((item) => item.productId === product.id),
-    );
-    if (!unusedProduct) return;
-    setDraftItems((current) => [...current, { productId: unusedProduct.id, quantity: unusedProduct.type === "BIRD" ? "1" : "1" }]);
+  const addDraftItem = (product: Product) => {
+    const existingItem = draftItems.find((item) => item.productId === product.id);
+    const maxQuantity = getProductMaxQuantity(product);
+
+    if (existingItem) {
+      const currentQuantity = Number.parseInt(existingItem.quantity, 10) || 0;
+      if (currentQuantity >= maxQuantity) return;
+      setDraftItems((current) => current.map((item) =>
+        item.productId === product.id
+          ? { ...item, quantity: String(currentQuantity + 1) }
+          : item,
+      ));
+      return;
+    }
+
+    if (draftItems.length >= 20) return;
+    setDraftItems((current) => [...current, { productId: product.id, quantity: "1" }]);
+  };
+
+  const updateDraftQuantity = (productId: string, delta: number) => {
+    const product = getDraftProduct(productId);
+    if (!product) return;
+    const maxQuantity = getProductMaxQuantity(product);
+
+    setDraftItems((current) => current.flatMap((item) => {
+      if (item.productId !== productId) return [item];
+      const currentQuantity = Number.parseInt(item.quantity, 10) || 0;
+      const nextQuantity = Math.min(maxQuantity, currentQuantity + delta);
+      return nextQuantity > 0 ? [{ ...item, quantity: String(nextQuantity) }] : [];
+    }));
   };
 
   const handleRevoke = (link: AssistedCheckoutLink) => {
@@ -315,90 +468,180 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
         <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
           <div>
             <p className="text-body text-text-main">
-              Selecciona los productos y las cantidades que quieres incluir en un solo enlace.
+              Elige la fuente de productos y arma el enlace de pago con las cantidades que necesitas.
             </p>
             <p className="mt-[var(--space-xs)] text-secondary text-text-muted">
               El cliente completará sus datos de entrega y pagará directamente en Mercado Pago.
             </p>
           </div>
 
-          {draftItems.map((item, index) => {
-            const product = getDraftProduct(item.productId);
-            return (
-              <div
-                key={`${index}-${item.productId}`}
-                className="grid grid-cols-1 items-end sm:grid-cols-[minmax(0,1fr)_9rem_auto]"
-                style={{ gap: "var(--space-md)" }}
-              >
-                <NexusSelect
-                  label={index === 0 ? "Producto disponible" : `Producto ${index + 1}`}
-                  value={item.productId}
-                  onChange={(event) => {
-                    const productId = event.target.value;
-                    const nextProduct = getDraftProduct(productId);
-                    setDraftItems((current) => current.map((currentItem, currentIndex) =>
-                      currentIndex === index
-                        ? { ...currentItem, productId, quantity: nextProduct?.type === "BIRD" ? "1" : currentItem.quantity }
-                        : currentItem,
-                    ));
-                  }}
-                >
-                  <option value="">Selecciona un producto</option>
-                  {availableProducts.map((availableProduct) => (
-                    <option
-                      key={availableProduct.id}
-                      value={availableProduct.id}
-                      disabled={draftItems.some((draftItem, draftIndex) => draftIndex !== index && draftItem.productId === availableProduct.id)}
-                    >
-                      {productLabel(availableProduct)} · ${availableProduct.price.toLocaleString("es-MX")}
-                    </option>
-                  ))}
-                </NexusSelect>
-                <NexusInput
-                  label="Cantidad"
-                  type="number"
-                  min={1}
-                  max={product?.type === "BIRD" ? 1 : product?.stock || 99}
-                  value={item.quantity}
-                  disabled={product?.type === "BIRD"}
-                  onChange={(event) => setDraftItems((current) => current.map((currentItem, currentIndex) => currentIndex === index ? { ...currentItem, quantity: event.target.value } : currentItem))}
-                />
-                <NexusAutonomousButton
-                  type="button"
-                  variant="secondary"
-                  density="compact"
-                  isIconOnly
-                  icon={Trash2}
-                  disabled={draftItems.length === 1}
-                  aria-label={`Quitar producto ${index + 1}`}
-                  onClick={() => setDraftItems((current) => current.filter((_, currentIndex) => currentIndex !== index))}
-                />
-              </div>
-            );
-          })}
+          <NexusSegmentedControl
+            context="section"
+            value={generatorSource}
+            ariaLabel="Fuente de productos del enlace"
+            onChange={setGeneratorSource}
+            className="grid h-[var(--h-input)] w-full grid-cols-2"
+            options={[
+              {
+                value: "products",
+                label: "Productos",
+                activeClassName: "bg-bg-card text-brand-600 border border-border-main shadow-sm",
+              },
+              {
+                value: "cart",
+                label: "Carrito",
+                activeClassName: "bg-bg-card text-brand-600 border border-border-main shadow-sm",
+              },
+            ]}
+          />
 
-          <div className="flex flex-col items-start justify-between border-t border-border-main pt-[var(--space-md)] sm:flex-row sm:items-center" style={{ gap: "var(--space-md)" }}>
-            <NexusButton
-              type="button"
-              context="card"
-              variant="secondary"
-              icon={Plus}
-              disabled={draftItems.length >= Math.min(20, availableProducts.length)}
-              onClick={addDraftItem}
-            >
-              Añadir producto
-            </NexusButton>
-            <div className="text-left sm:text-right">
+          {generatorSource === "products" ? (
+            <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+              <NexusInput
+                label="Buscar productos"
+                icon={Search}
+                value={productSearchQuery}
+                onChange={(event) => setProductSearchQuery(event.target.value)}
+                placeholder="Ej. Kelso KA o Anillo 096"
+              />
+
+              <div
+                className="divide-y divide-border-main overflow-hidden border border-border-main"
+                style={{ borderRadius: "var(--radius-inner-visual)" }}
+              >
+                {availableProducts.length === 0 ? (
+                  <div className="flex items-center" style={{ gap: "var(--space-sm)", padding: "var(--space-md)" }}>
+                    <Package size={18} className="shrink-0 text-text-muted" />
+                    <p className="text-secondary text-text-muted">
+                      No hay productos disponibles para generar un enlace.
+                    </p>
+                  </div>
+                ) : filteredAvailableProducts.length === 0 ? (
+                  <p className="p-[var(--space-md)] text-secondary text-text-muted">
+                    No encontramos productos con esa búsqueda.
+                  </p>
+                ) : (
+                  filteredAvailableProducts.map((product) => {
+                    const draftItem = draftItems.find((item) => item.productId === product.id);
+                    const quantity = Number.parseInt(draftItem?.quantity || "0", 10) || 0;
+
+                    return (
+                      <div
+                        key={product.id}
+                        className="flex flex-col items-start justify-between sm:flex-row sm:items-center"
+                        style={{ gap: "var(--space-md)", padding: "var(--space-md)" }}
+                      >
+                        <div className="flex min-w-0 items-center" style={{ gap: "var(--space-md)" }}>
+                          <ProductThumbnail product={product} />
+                          <div className="min-w-0">
+                            <p className="truncate text-button-card font-semibold text-text-main">
+                              {productLabel(product)}
+                            </p>
+                            <p className="mt-[var(--space-xs)] text-caption text-text-muted">
+                              ${product.price.toLocaleString("es-MX")} · {product.type === "BIRD" ? "Ejemplar único" : `${product.stock} disponibles`}
+                            </p>
+                          </div>
+                        </div>
+
+                        {draftItem ? (
+                          <QuantityStepper
+                            quantity={quantity}
+                            maxQuantity={getProductMaxQuantity(product)}
+                            label={productLabel(product)}
+                            onDecrease={() => updateDraftQuantity(product.id, -1)}
+                            onIncrease={() => updateDraftQuantity(product.id, 1)}
+                            onRemove={() => setDraftItems((current) => current.filter((item) => item.productId !== product.id))}
+                          />
+                        ) : (
+                          <NexusAutonomousButton
+                            type="button"
+                            variant="secondary"
+                            density="compact"
+                            icon={Plus}
+                            disabled={draftItems.length >= 20}
+                            onClick={() => addDraftItem(product)}
+                          >
+                            Agregar
+                          </NexusAutonomousButton>
+                        )}
+                      </div>
+                    );
+                  })
+                )}
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+              <div className="flex items-center justify-between" style={{ gap: "var(--space-md)" }}>
+                <div className="flex items-center" style={{ gap: "var(--space-sm)" }}>
+                  <ShoppingCart size={18} className="text-brand-600" />
+                  <p className="text-button-card font-semibold text-text-main">Productos del carrito</p>
+                </div>
+                <span className="text-caption text-text-muted">
+                  {draftItems.reduce((total, item) => total + (Number.parseInt(item.quantity, 10) || 0), 0)} unidades
+                </span>
+              </div>
+
+              {draftItems.length === 0 ? (
+                <div
+                  className="flex flex-col items-center border border-dashed border-border-main text-center"
+                  style={{ gap: "var(--space-sm)", padding: "var(--space-lg)", borderRadius: "var(--radius-inner-visual)" }}
+                >
+                  <ShoppingCart size={22} className="text-text-muted" />
+                  <p className="text-secondary text-text-muted">
+                    El carrito está vacío. Agrega productos desde la pestaña Productos.
+                  </p>
+                </div>
+              ) : (
+                <div
+                  className="divide-y divide-border-main border border-border-main"
+                  style={{ borderRadius: "var(--radius-inner-visual)" }}
+                >
+                  {draftItems.map((item) => {
+                    const product = getDraftProduct(item.productId);
+                    if (!product) return null;
+                    const quantity = Number.parseInt(item.quantity, 10) || 0;
+
+                    return (
+                      <div
+                        key={item.productId}
+                        className="flex flex-col items-start justify-between sm:flex-row sm:items-center"
+                        style={{ gap: "var(--space-md)", padding: "var(--space-md)" }}
+                      >
+                        <div className="flex min-w-0 items-center" style={{ gap: "var(--space-md)" }}>
+                          <ProductThumbnail product={product} />
+                          <div className="min-w-0">
+                            <p className="truncate text-button-card font-semibold text-text-main">{productLabel(product)}</p>
+                            <p className="mt-[var(--space-xs)] text-caption text-text-muted">
+                              ${product.price.toLocaleString("es-MX")} por unidad
+                            </p>
+                          </div>
+                        </div>
+                        <QuantityStepper
+                          quantity={quantity}
+                          maxQuantity={getProductMaxQuantity(product)}
+                          label={productLabel(product)}
+                          onDecrease={() => updateDraftQuantity(product.id, -1)}
+                          onIncrease={() => updateDraftQuantity(product.id, 1)}
+                          onRemove={() => setDraftItems((current) => current.filter((currentItem) => currentItem.productId !== product.id))}
+                        />
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="flex items-end justify-between border-t border-border-main pt-[var(--space-md)]" style={{ gap: "var(--space-md)" }}>
+            <p className="text-secondary text-text-muted">
+              {draftItems.length === 0 ? "Sin productos seleccionados" : `${draftItems.length} producto${draftItems.length === 1 ? "" : "s"} seleccionado${draftItems.length === 1 ? "" : "s"}`}
+            </p>
+            <div className="text-right">
               <p className="text-caption uppercase tracking-[0.12em] text-text-muted">Subtotal del enlace</p>
               <p className="text-h2 text-text-main">${draftTotal.toLocaleString("es-MX")}</p>
             </div>
           </div>
-
-          {availableProducts.length === 0 && (
-            <p className="text-secondary text-text-muted">
-              No hay productos disponibles para generar un enlace. Un producto reservado no se puede ofrecer por este medio.
-            </p>
-          )}
 
         </div>
       </NexusModal>
