@@ -535,7 +535,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       if (storeViewMode === "hero_list")
         return "Administra los héroes editoriales por tipo de producto.";
       if (storeViewMode === "payment_links")
-        return "Genera, supervisa y revoca accesos directos a Mercado Pago sin perder la trazabilidad del inventario.";
+        return "Supervisa los accesos directos a Mercado Pago y controla la trazabilidad de cada intento.";
       return "Controla tu inventario de aves y artículos desde un solo lugar.";
     }
     if (isRafflesMode) {

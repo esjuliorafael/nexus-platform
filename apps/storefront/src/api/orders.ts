@@ -79,6 +79,15 @@ export interface StorePaymentHoldResponse {
 }
 
 export interface AssistedCheckoutResponse {
+  items: Array<{
+    productId: number;
+    name: string;
+    price: number;
+    quantity: number;
+    type: "bird" | "item";
+    thumbnail: string | null;
+  }>;
+  // Legacy fields remain optional so previously issued single-product links stay compatible.
   productId: number;
   name: string;
   price: number;

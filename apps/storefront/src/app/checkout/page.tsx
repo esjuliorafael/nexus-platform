@@ -255,14 +255,24 @@ export default function CheckoutPage() {
       const token = params.get("assisted") || "";
       orderApi.resolveAssistedCheckout(token)
         .then((assisted) => {
-          replaceCart([{
-            productId: assisted.productId,
-            name: assisted.name,
-            price: assisted.price,
-            quantity: assisted.quantity,
-            thumbnail: assisted.thumbnail,
-            type: assisted.type,
-          }]);
+          const assistedItems = assisted.items?.length
+            ? assisted.items
+            : [{
+                productId: assisted.productId,
+                name: assisted.name,
+                price: assisted.price,
+                quantity: assisted.quantity,
+                thumbnail: assisted.thumbnail,
+                type: assisted.type,
+              }];
+          replaceCart(assistedItems.map((item) => ({
+            productId: item.productId,
+            name: item.name,
+            price: item.price,
+            quantity: item.quantity,
+            thumbnail: item.thumbnail,
+            type: item.type,
+          })));
           saveAssistedCheckoutToken(token);
           setAssistedCheckoutToken(token);
           setPaymentMethod("MERCADOPAGO");

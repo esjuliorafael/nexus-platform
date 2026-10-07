@@ -23,10 +23,19 @@ const convertPaymentHoldSchema = z.object({
 });
 
 const assistedCheckoutTokenSchema = z.string().min(32).max(180);
-const createAssistedCheckoutLinkSchema = z.object({
-  productId: z.number().int().positive(),
-  quantity: z.number().int().positive().max(99).default(1),
-});
+const assistedCheckoutItemsSchema = z.array(
+  z.object({
+    productId: z.number().int().positive(),
+    quantity: z.number().int().positive().max(99),
+  }),
+).min(1).max(20);
+const createAssistedCheckoutLinkSchema = z.union([
+  z.object({ items: assistedCheckoutItemsSchema }),
+  z.object({
+    productId: z.number().int().positive(),
+    quantity: z.number().int().positive().max(99).default(1),
+  }).transform((body) => ({ items: [{ productId: body.productId, quantity: body.quantity }] })),
+]);
 const assistedCheckoutLinkStatusSchema = z.enum([
   "ACTIVE",
   "IN_PAYMENT",
@@ -125,7 +134,7 @@ export async function orderRoutes(server: FastifyInstance) {
       const actor = await requireAdminActor(server, request, reply);
       if (!actor) return;
       const body = createAssistedCheckoutLinkSchema.parse(request.body);
-      return await assistedCheckoutService.createLink(body.productId, body.quantity, actor.userId);
+      return await assistedCheckoutService.createLink(body.items, actor.userId);
     } catch (error: any) {
       if (error?.issues) return reply.status(400).send({ message: "Validation error", errors: error.issues });
       return reply.status(error?.statusCode || 400).send({ message: error?.message || "No se pudo generar el enlace.", code: error?.code });

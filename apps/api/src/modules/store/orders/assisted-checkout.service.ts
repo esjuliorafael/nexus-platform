@@ -12,6 +12,8 @@ const hashToken = (token: string) =>
 
 const createRawToken = () => crypto.randomBytes(32).toString("base64url");
 
+type AssistedCheckoutItemInput = { productId: number; quantity: number };
+
 export type AssistedCheckoutLinkStatus =
   | "ACTIVE"
   | "IN_PAYMENT"
@@ -31,6 +33,28 @@ const serializeProduct = (product: any, quantity: number, expiresAt: Date) => ({
   thumbnail: product.coverAsset?.posterUrl || product.coverAsset?.mediaUrl || null,
   expiresAt: expiresAt.toISOString(),
 });
+
+const serializeManagedProduct = (product: any) => ({
+  id: product.id,
+  name: product.name,
+  ringNumber: product.ringNumber || null,
+  type: product.type === ProductType.BIRD ? "BIRD" : "ITEM",
+  price: Number(product.price),
+  saleStatus: String(product.saleStatus).toLowerCase(),
+  stock: product.stock,
+  thumbnail: product.coverAsset?.posterUrl || product.coverAsset?.mediaUrl || null,
+});
+
+const getLinkItems = (link: any): Array<{ product: any; quantity: number; productId: number }> => {
+  if (Array.isArray(link.items) && link.items.length > 0) {
+    return link.items.map((item: any) => ({
+      product: item.product,
+      productId: item.productId,
+      quantity: item.quantity,
+    }));
+  }
+  return [{ product: link.product, productId: link.productId, quantity: link.quantity }];
+};
 
 const ensureProductAvailable = (product: any, quantity: number) => {
   if (!product || !product.active || !product.published || product.saleStatus !== "AVAILABLE") {
@@ -62,22 +86,17 @@ const getLinkStatus = (link: any, now = Date.now()): AssistedCheckoutLinkStatus 
 const serializeManagedLink = (link: any) => ({
   id: link.id,
   status: getLinkStatus(link),
-  quantity: link.quantity,
+  quantity: getLinkItems(link)[0]?.quantity || link.quantity,
   expiresAt: link.expiresAt.toISOString(),
   createdAt: link.createdAt.toISOString(),
   openedAt: link.openedAt?.toISOString() || null,
   usedAt: link.usedAt?.toISOString() || null,
   revokedAt: link.revokedAt?.toISOString() || null,
-  product: {
-    id: link.product.id,
-    name: link.product.name,
-    ringNumber: link.product.ringNumber || null,
-    type: link.product.type === ProductType.BIRD ? "BIRD" : "ITEM",
-    price: Number(link.product.price),
-    saleStatus: String(link.product.saleStatus).toLowerCase(),
-    stock: link.product.stock,
-    thumbnail: link.product.coverAsset?.posterUrl || link.product.coverAsset?.mediaUrl || null,
-  },
+  items: getLinkItems(link).map((item) => ({
+    ...serializeManagedProduct(item.product),
+    quantity: item.quantity,
+  })),
+  product: serializeManagedProduct(getLinkItems(link)[0].product),
   createdBy: link.createdBy
     ? { id: link.createdBy.id, name: link.createdBy.name, username: link.createdBy.username }
     : null,
@@ -99,6 +118,7 @@ const serializeManagedLink = (link: any) => ({
 
 const managedLinkInclude = {
   product: { include: { coverAsset: true } },
+  items: { include: { product: { include: { coverAsset: true } } } },
   createdBy: { select: { id: true, name: true, username: true } },
   revokedBy: { select: { id: true, name: true, username: true } },
   claimedHold: {
@@ -115,26 +135,47 @@ const managedLinkInclude = {
 };
 
 export const assistedCheckoutService = {
-  async createLink(productId: number, quantity: number, createdByUserId?: number | null) {
-    if (!Number.isInteger(productId) || productId < 1 || !Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
-      throw assistedError("El producto o la cantidad no son válidos.", 400, "INVALID_ASSISTED_PRODUCT");
+  async createLink(items: AssistedCheckoutItemInput[], createdByUserId?: number | null) {
+    if (!Array.isArray(items) || items.length < 1 || items.length > 20) {
+      throw assistedError("El enlace debe contener entre 1 y 20 productos.", 400, "INVALID_ASSISTED_ITEMS");
     }
 
-    const product = await storePrisma.product.findUnique({
-      where: { id: productId },
+    const normalizedItems = items.map((item) => ({
+      productId: Number(item.productId),
+      quantity: Number(item.quantity),
+    }));
+    if (
+      normalizedItems.some(
+        (item) =>
+          !Number.isInteger(item.productId) ||
+          item.productId < 1 ||
+          !Number.isInteger(item.quantity) ||
+          item.quantity < 1 ||
+          item.quantity > 99,
+      ) || new Set(normalizedItems.map((item) => item.productId)).size !== normalizedItems.length
+    ) {
+      throw assistedError("Los productos o las cantidades no son válidos.", 400, "INVALID_ASSISTED_ITEMS");
+    }
+
+    const products = await storePrisma.product.findMany({
+      where: { id: { in: normalizedItems.map((item) => item.productId) } },
       include: { coverAsset: true },
     });
-    ensureProductAvailable(product, quantity);
+    const productsById = new Map(products.map((product) => [product.id, product]));
+    normalizedItems.forEach((item) => ensureProductAvailable(productsById.get(item.productId), item.quantity));
 
     const rawToken = createRawToken();
     const expiresAt = new Date(Date.now() + LINK_TTL_MS);
     const link = await storePrisma.storeAssistedCheckoutLink.create({
       data: {
         tokenHash: hashToken(rawToken),
-        productId,
-        quantity,
+        productId: normalizedItems[0].productId,
+        quantity: normalizedItems[0].quantity,
         expiresAt,
         createdByUserId: createdByUserId || null,
+        items: {
+          create: normalizedItems,
+        },
       },
     });
 
@@ -142,26 +183,29 @@ export const assistedCheckoutService = {
       id: link.id,
       url: `${storefrontUrl()}/checkout?assisted=${encodeURIComponent(rawToken)}`,
       expiresAt: expiresAt.toISOString(),
-      product: serializeProduct(product, quantity, expiresAt),
+      items: normalizedItems.map((item) => serializeProduct(productsById.get(item.productId), item.quantity, expiresAt)),
+      product: serializeProduct(productsById.get(normalizedItems[0].productId), normalizedItems[0].quantity, expiresAt),
     };
   },
 
   async resolveLink(rawToken: string) {
     const link = await storePrisma.storeAssistedCheckoutLink.findUnique({
       where: { tokenHash: hashToken(rawToken) },
-      include: { product: { include: { coverAsset: true } } },
+      include: { product: { include: { coverAsset: true } }, items: { include: { product: { include: { coverAsset: true } } } } },
     });
     if (!link || link.usedAt || link.revokedAt || link.expiresAt.getTime() <= Date.now()) {
       throw assistedError("Este enlace de compra ya no está disponible.", 410, "ASSISTED_LINK_UNAVAILABLE");
     }
-    ensureProductAvailable(link.product, link.quantity);
+    const linkItems = getLinkItems(link);
+    linkItems.forEach((item) => ensureProductAvailable(item.product, item.quantity));
     if (!link.openedAt) {
       await storePrisma.storeAssistedCheckoutLink.update({
         where: { id: link.id },
         data: { openedAt: new Date() },
       });
     }
-    return { ...serializeProduct(link.product, link.quantity, link.expiresAt), linkId: link.id };
+    const serializedItems = linkItems.map((item) => serializeProduct(item.product, item.quantity, link.expiresAt));
+    return { ...serializedItems[0], items: serializedItems, linkId: link.id };
   },
 
   async listLinks(status?: AssistedCheckoutLinkStatus, search?: string) {
@@ -169,12 +213,28 @@ export const assistedCheckoutService = {
     const links = await storePrisma.storeAssistedCheckoutLink.findMany({
       where: normalizedSearch
         ? {
-            product: {
-              OR: [
-                { name: { contains: normalizedSearch, mode: "insensitive" } },
-                { ringNumber: { contains: normalizedSearch, mode: "insensitive" } },
-              ],
-            },
+            OR: [
+              {
+                product: {
+                  OR: [
+                    { name: { contains: normalizedSearch, mode: "insensitive" } },
+                    { ringNumber: { contains: normalizedSearch, mode: "insensitive" } },
+                  ],
+                },
+              },
+              {
+                items: {
+                  some: {
+                    product: {
+                      OR: [
+                        { name: { contains: normalizedSearch, mode: "insensitive" } },
+                        { ringNumber: { contains: normalizedSearch, mode: "insensitive" } },
+                      ],
+                    },
+                  },
+                },
+              },
+            ],
           }
         : undefined,
       include: managedLinkInclude,
@@ -192,7 +252,7 @@ export const assistedCheckoutService = {
   async revokeLink(id: string, revokedByUserId: number) {
     const link = await storePrisma.storeAssistedCheckoutLink.findUnique({
       where: { id },
-      include: { claimedHold: { select: { status: true, promotedOrderId: true } } },
+      include: { items: true, claimedHold: { select: { status: true, promotedOrderId: true } } },
     });
     if (!link) throw assistedError("El enlace no existe.", 404, "ASSISTED_LINK_NOT_FOUND");
 
@@ -215,7 +275,7 @@ export const assistedCheckoutService = {
   async regenerateLink(id: string, createdByUserId: number) {
     const link = await storePrisma.storeAssistedCheckoutLink.findUnique({
       where: { id },
-      include: { claimedHold: { select: { status: true, promotedOrderId: true } } },
+      include: { items: true, claimedHold: { select: { status: true, promotedOrderId: true } } },
     });
     if (!link) throw assistedError("El enlace no existe.", 404, "ASSISTED_LINK_NOT_FOUND");
 
@@ -227,7 +287,13 @@ export const assistedCheckoutService = {
       throw assistedError("La retención de inventario sigue activa; no se puede generar otro enlace para este producto.", 409, "ASSISTED_LINK_IN_PAYMENT");
     }
 
-    const next = await this.createLink(link.productId, link.quantity, createdByUserId);
+    const next = await this.createLink(
+      (link.items?.length ? link.items : [{ productId: link.productId, quantity: link.quantity }]).map((item: any) => ({
+        productId: item.productId,
+        quantity: item.quantity,
+      })),
+      createdByUserId,
+    );
     await storePrisma.storeAssistedCheckoutLink.update({
       where: { id },
       data: { revokedAt: new Date(), revokedByUserId: createdByUserId },
@@ -252,11 +318,20 @@ export const assistedCheckoutService = {
   ) {
     const link = await tx.storeAssistedCheckoutLink.findUnique({
       where: { tokenHash: hashToken(rawToken) },
+      include: { items: true },
     });
     if (!link || link.usedAt || link.revokedAt || link.expiresAt.getTime() <= Date.now()) {
       throw assistedError("Este enlace de compra ya no está disponible.", 410, "ASSISTED_LINK_UNAVAILABLE");
     }
-    if (items.length !== 1 || items[0].productId !== link.productId || items[0].quantity !== link.quantity) {
+    const expectedItems = link.items?.length
+      ? link.items.map((item: any) => ({ productId: item.productId, quantity: item.quantity }))
+      : [{ productId: link.productId, quantity: link.quantity }];
+    const actual = [...items].sort((a, b) => a.productId - b.productId);
+    const expected = [...expectedItems].sort((a, b) => a.productId - b.productId);
+    if (
+      actual.length !== expected.length ||
+      actual.some((item, index) => item.productId !== expected[index].productId || item.quantity !== expected[index].quantity)
+    ) {
       throw assistedError("El carrito ya no coincide con el enlace de compra.", 409, "ASSISTED_LINK_CART_MISMATCH");
     }
 

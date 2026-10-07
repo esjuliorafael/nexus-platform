@@ -20,6 +20,7 @@ import {
   Pencil,
   Image as ImageIcon,
   Ticket,
+  Link2,
 } from "lucide-react";
 import { Header } from "./components/Header";
 import { QuickActions } from "./components/QuickActions";
@@ -591,6 +592,7 @@ function App() {
         ? "list"
         : saved;
   });
+  const [isPaymentLinkGeneratorOpen, setIsPaymentLinkGeneratorOpen] = useState(false);
   const canManageOperations = userRole === "admin" || userRole === "superadmin";
   const [raffleViewMode, setRaffleViewMode] = useState<RaffleModeType>(() => {
     const legacyMode = localStorage.getItem("admin_raffle_view_mode");
@@ -1719,6 +1721,19 @@ function App() {
       );
     }
 
+    if (isStoreMode && storeViewMode === "payment_links") {
+      return (
+        <NexusSectionButton
+          type="button"
+          variant="brand"
+          icon={Link2}
+          onClick={() => setIsPaymentLinkGeneratorOpen(true)}
+        >
+          Generar Enlace
+        </NexusSectionButton>
+      );
+    }
+
     if (isFormMode) {
       return (
         <PageHeaderActionPair>
@@ -2700,6 +2715,8 @@ function App() {
                     <PaymentLinksView
                       showToast={showToast}
                       setConfirmDialog={setConfirmDialog}
+                      isGeneratorOpen={isPaymentLinkGeneratorOpen}
+                      onCloseGenerator={() => setIsPaymentLinkGeneratorOpen(false)}
                     />
                   ) : (
                     <StoreView

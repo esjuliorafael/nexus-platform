@@ -439,6 +439,17 @@ export interface AssistedCheckoutLink {
     promotedOrderId: number | null;
     mpPaymentStatus: string | null;
   } | null;
+  items: Array<{
+    id: number;
+    name: string;
+    ringNumber: string | null;
+    type: "BIRD" | "ITEM";
+    price: number;
+    saleStatus: string;
+    stock: number;
+    thumbnail: string | null;
+    quantity: number;
+  }>;
 }
 
 export interface AssistedCheckoutLinkGeneration {
@@ -447,6 +458,7 @@ export interface AssistedCheckoutLinkGeneration {
   url: string;
   expiresAt: string;
   product: { name: string; quantity: number };
+  items: Array<{ name: string; quantity: number; price: number }>;
 }
 
 const mapAssistedCheckoutLink = (item: any): AssistedCheckoutLink => ({
@@ -459,18 +471,33 @@ const mapAssistedCheckoutLink = (item: any): AssistedCheckoutLink => ({
     price: Number(item.product?.price || 0),
     stock: Number(item.product?.stock || 0),
   },
+  items: (Array.isArray(item.items) ? item.items : [
+    {
+      ...item.product,
+      quantity: item.quantity,
+    },
+  ]).map((product: any) => ({
+    ...product,
+    id: Number(product.id),
+    price: Number(product.price || 0),
+    stock: Number(product.stock || 0),
+    quantity: Number(product.quantity || 1),
+  })),
 });
 
 export const apiStorePaymentAssistance = {
-  createLink: async (productId: string, quantity = 1) => {
+  createLink: async (items: Array<{ productId: string | number; quantity: number }>) => {
     const res = await api.post("/store/orders/admin/assisted-checkout-links", {
-      productId: Number(productId),
-      quantity,
+      items: items.map((item) => ({
+        productId: Number(item.productId),
+        quantity: item.quantity,
+      })),
     });
     return res.data as {
       url: string;
       expiresAt: string;
       product: { name: string; quantity: number };
+      items: Array<{ name: string; quantity: number; price: number }>;
     };
   },
   getAll: async (params?: {
@@ -494,6 +521,7 @@ export const apiStorePaymentAssistance = {
     return {
       ...res.data,
       product: res.data.product,
+      items: res.data.items || [res.data.product],
       expiresAt: res.data.expiresAt,
       url: res.data.url,
     } as AssistedCheckoutLinkGeneration;
