@@ -407,8 +407,13 @@ export const productService = {
     return serializeProduct(product);
   },
 
-  async update(id: number, data: any, actor: AuditActor) {
-    const { gallery, coverPosterAssetId, ...productData } = data;
+  async update(
+    id: number,
+    data: any,
+    actor: AuditActor,
+    options: { allowSaleStatus?: boolean } = {},
+  ) {
+    const { gallery, coverPosterAssetId, saleStatus, ...productData } = data;
     const current = await storePrisma.product.findUnique({
       where: { id },
       include: { gallery: true },
@@ -416,6 +421,9 @@ export const productService = {
     if (!current) throw new Error("Product not found");
     const nextType = productData.type ?? current.type;
     const nextStock = productData.stock ?? current.stock;
+    if (options.allowSaleStatus && saleStatus) {
+      productData.saleStatus = saleStatus;
+    }
     if (nextType === ProductType.ITEM && nextStock <= 0) {
       productData.saleStatus = SaleStatus.SOLD;
     }

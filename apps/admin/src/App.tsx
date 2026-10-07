@@ -61,6 +61,7 @@ import {
   type MediaVaultFilter,
 } from "./components/Media/Vault/MediaVaultFiltersModal";
 import { StoreView, StoreViewRef } from "./components/Store/StoreView";
+import { PaymentLinksView } from "./components/Store/PaymentLinks/PaymentLinksView";
 import {
   DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS,
   StoreProductAdvancedFilters,
@@ -234,7 +235,8 @@ type StoreModeType =
   | "coupon_edit"
   | "orders"
   | "orders-overview"
-  | "order-detail";
+  | "order-detail"
+  | "payment_links";
 
 type RaffleModeType =
   | "list"
@@ -286,6 +288,7 @@ const STORE_MODES: StoreModeType[] = [
   "coupon_edit",
   "orders",
   "order-detail",
+  "payment_links",
 ];
 
 const RAFFLE_MODES: RaffleModeType[] = [
@@ -1264,6 +1267,9 @@ function App() {
         break;
       case "Ver Órdenes":
         navigateToOrders();
+        break;
+      case "Enlaces de pago":
+        navigateToStore("payment_links");
         break;
       case "Gestión de Órdenes":
         navigateToOrders();
@@ -2689,6 +2695,11 @@ function App() {
                       canManageOperations={canManageOperations}
                       onBack={handleBackFromOrderDetail}
                       showToast={showToast}
+                    />
+                  ) : storeViewMode === "payment_links" ? (
+                    <PaymentLinksView
+                      showToast={showToast}
+                      setConfirmDialog={setConfirmDialog}
                     />
                   ) : (
                     <StoreView

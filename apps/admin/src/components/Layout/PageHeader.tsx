@@ -89,7 +89,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     if (isDashboardMode && dashboardViewMode === "milestones")
       return (
         <>
-          Hitos de <span className="text-text-muted">crecimiento</span>
+          Hitos de <span className="text-text-muted">Crecimiento</span>
         </>
       );
     if (isCreatingMedia)
@@ -253,6 +253,12 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         return (
           <>
             Gestión de <span className="text-text-muted">Órdenes</span>
+          </>
+        );
+      if (storeViewMode === "payment_links")
+        return (
+          <>
+            Enlaces de <span className="text-text-muted">Pago</span>
           </>
         );
       if (storeViewMode === "order-detail")
@@ -528,6 +534,8 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         return "Administra promociones y códigos de descuento para el checkout.";
       if (storeViewMode === "hero_list")
         return "Administra los héroes editoriales por tipo de producto.";
+      if (storeViewMode === "payment_links")
+        return "Genera, supervisa y revoca accesos directos a Mercado Pago sin perder la trazabilidad del inventario.";
       return "Controla tu inventario de aves y artículos desde un solo lugar.";
     }
     if (isRafflesMode) {

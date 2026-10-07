@@ -1,5 +1,5 @@
 import crypto from "crypto";
-import { ProductType, Prisma } from "@prisma/client-store";
+import { PaymentHoldStatus, ProductType, Prisma } from "@prisma/client-store";
 import { storePrisma } from "@nexus/db/store";
 
 const LINK_TTL_MS = 2 * 60 * 60 * 1000;
@@ -11,6 +11,13 @@ const hashToken = (token: string) =>
   crypto.createHash("sha256").update(token).digest("hex");
 
 const createRawToken = () => crypto.randomBytes(32).toString("base64url");
+
+export type AssistedCheckoutLinkStatus =
+  | "ACTIVE"
+  | "IN_PAYMENT"
+  | "PAID"
+  | "EXPIRED"
+  | "REVOKED";
 
 const storefrontUrl = () =>
   (process.env.STOREFRONT_HTTPS_URL || process.env.STOREFRONT_URL || "http://localhost:3000").replace(/\/$/, "");
@@ -37,8 +44,78 @@ const ensureProductAvailable = (product: any, quantity: number) => {
   }
 };
 
+const getLinkStatus = (link: any, now = Date.now()): AssistedCheckoutLinkStatus => {
+  if (link.revokedAt) return "REVOKED";
+  if (link.claimedHold?.promotedOrderId || link.claimedHold?.status === PaymentHoldStatus.CONSUMED) {
+    return "PAID";
+  }
+  if (
+    link.claimedHold &&
+    [PaymentHoldStatus.ACTIVE, PaymentHoldStatus.PROCESSING].includes(link.claimedHold.status)
+  ) {
+    return "IN_PAYMENT";
+  }
+  if (link.expiresAt.getTime() <= now || link.usedAt) return "EXPIRED";
+  return "ACTIVE";
+};
+
+const serializeManagedLink = (link: any) => ({
+  id: link.id,
+  status: getLinkStatus(link),
+  quantity: link.quantity,
+  expiresAt: link.expiresAt.toISOString(),
+  createdAt: link.createdAt.toISOString(),
+  openedAt: link.openedAt?.toISOString() || null,
+  usedAt: link.usedAt?.toISOString() || null,
+  revokedAt: link.revokedAt?.toISOString() || null,
+  product: {
+    id: link.product.id,
+    name: link.product.name,
+    ringNumber: link.product.ringNumber || null,
+    type: link.product.type === ProductType.BIRD ? "BIRD" : "ITEM",
+    price: Number(link.product.price),
+    saleStatus: String(link.product.saleStatus).toLowerCase(),
+    stock: link.product.stock,
+    thumbnail: link.product.coverAsset?.posterUrl || link.product.coverAsset?.mediaUrl || null,
+  },
+  createdBy: link.createdBy
+    ? { id: link.createdBy.id, name: link.createdBy.name, username: link.createdBy.username }
+    : null,
+  revokedBy: link.revokedBy
+    ? { id: link.revokedBy.id, name: link.revokedBy.name, username: link.revokedBy.username }
+    : null,
+  paymentHold: link.claimedHold
+    ? {
+        id: link.claimedHold.id,
+        status: String(link.claimedHold.status).toLowerCase(),
+        customerName: link.claimedHold.customerName,
+        customerPhone: link.claimedHold.customerPhone,
+        expiresAt: link.claimedHold.expiresAt.toISOString(),
+        promotedOrderId: link.claimedHold.promotedOrderId,
+        mpPaymentStatus: link.claimedHold.mpPaymentStatus,
+      }
+    : null,
+});
+
+const managedLinkInclude = {
+  product: { include: { coverAsset: true } },
+  createdBy: { select: { id: true, name: true, username: true } },
+  revokedBy: { select: { id: true, name: true, username: true } },
+  claimedHold: {
+    select: {
+      id: true,
+      status: true,
+      customerName: true,
+      customerPhone: true,
+      expiresAt: true,
+      promotedOrderId: true,
+      mpPaymentStatus: true,
+    },
+  },
+};
+
 export const assistedCheckoutService = {
-  async createLink(productId: number, quantity: number) {
+  async createLink(productId: number, quantity: number, createdByUserId?: number | null) {
     if (!Number.isInteger(productId) || productId < 1 || !Number.isInteger(quantity) || quantity < 1 || quantity > 99) {
       throw assistedError("El producto o la cantidad no son válidos.", 400, "INVALID_ASSISTED_PRODUCT");
     }
@@ -57,6 +134,7 @@ export const assistedCheckoutService = {
         productId,
         quantity,
         expiresAt,
+        createdByUserId: createdByUserId || null,
       },
     });
 
@@ -73,22 +151,109 @@ export const assistedCheckoutService = {
       where: { tokenHash: hashToken(rawToken) },
       include: { product: { include: { coverAsset: true } } },
     });
-    if (!link || link.usedAt || link.expiresAt.getTime() <= Date.now()) {
+    if (!link || link.usedAt || link.revokedAt || link.expiresAt.getTime() <= Date.now()) {
       throw assistedError("Este enlace de compra ya no está disponible.", 410, "ASSISTED_LINK_UNAVAILABLE");
     }
     ensureProductAvailable(link.product, link.quantity);
+    if (!link.openedAt) {
+      await storePrisma.storeAssistedCheckoutLink.update({
+        where: { id: link.id },
+        data: { openedAt: new Date() },
+      });
+    }
     return { ...serializeProduct(link.product, link.quantity, link.expiresAt), linkId: link.id };
+  },
+
+  async listLinks(status?: AssistedCheckoutLinkStatus, search?: string) {
+    const normalizedSearch = search?.trim();
+    const links = await storePrisma.storeAssistedCheckoutLink.findMany({
+      where: normalizedSearch
+        ? {
+            product: {
+              OR: [
+                { name: { contains: normalizedSearch, mode: "insensitive" } },
+                { ringNumber: { contains: normalizedSearch, mode: "insensitive" } },
+              ],
+            },
+          }
+        : undefined,
+      include: managedLinkInclude,
+      orderBy: { createdAt: "desc" },
+    });
+
+    const serialized = links.map(serializeManagedLink);
+    const items = status ? serialized.filter((link) => link.status === status) : serialized;
+    return {
+      items,
+      total: items.length,
+    };
+  },
+
+  async revokeLink(id: string, revokedByUserId: number) {
+    const link = await storePrisma.storeAssistedCheckoutLink.findUnique({
+      where: { id },
+      include: { claimedHold: { select: { status: true, promotedOrderId: true } } },
+    });
+    if (!link) throw assistedError("El enlace no existe.", 404, "ASSISTED_LINK_NOT_FOUND");
+
+    const status = getLinkStatus(link);
+    if (status === "PAID") {
+      throw assistedError("La compra ya fue confirmada; no se puede revocar este enlace.", 409, "ASSISTED_LINK_PAID");
+    }
+    if (status === "IN_PAYMENT") {
+      throw assistedError("La retención de inventario sigue activa; cancela o deja vencer el intento antes de revocar el enlace.", 409, "ASSISTED_LINK_IN_PAYMENT");
+    }
+    if (!link.revokedAt) {
+      await storePrisma.storeAssistedCheckoutLink.update({
+        where: { id },
+        data: { revokedAt: new Date(), revokedByUserId },
+      });
+    }
+    return this.getById(id);
+  },
+
+  async regenerateLink(id: string, createdByUserId: number) {
+    const link = await storePrisma.storeAssistedCheckoutLink.findUnique({
+      where: { id },
+      include: { claimedHold: { select: { status: true, promotedOrderId: true } } },
+    });
+    if (!link) throw assistedError("El enlace no existe.", 404, "ASSISTED_LINK_NOT_FOUND");
+
+    const status = getLinkStatus(link);
+    if (status === "PAID") {
+      throw assistedError("La compra ya fue confirmada; no se puede regenerar este enlace.", 409, "ASSISTED_LINK_PAID");
+    }
+    if (status === "IN_PAYMENT") {
+      throw assistedError("La retención de inventario sigue activa; no se puede generar otro enlace para este producto.", 409, "ASSISTED_LINK_IN_PAYMENT");
+    }
+
+    const next = await this.createLink(link.productId, link.quantity, createdByUserId);
+    await storePrisma.storeAssistedCheckoutLink.update({
+      where: { id },
+      data: { revokedAt: new Date(), revokedByUserId: createdByUserId },
+    });
+    return { previousId: id, ...next };
+  },
+
+  async getById(id: string) {
+    const link = await storePrisma.storeAssistedCheckoutLink.findUnique({
+      where: { id },
+      include: managedLinkInclude,
+    });
+    if (!link) throw assistedError("El enlace no existe.", 404, "ASSISTED_LINK_NOT_FOUND");
+    return serializeManagedLink(link);
   },
 
   async claimForHold(
     tx: Prisma.TransactionClient,
     rawToken: string,
+    holdId: string,
     items: Array<{ productId: number; quantity: number }>,
   ) {
     const link = await tx.storeAssistedCheckoutLink.findUnique({
       where: { tokenHash: hashToken(rawToken) },
     });
-    if (!link || link.usedAt || link.expiresAt.getTime() <= Date.now()) {
+    if (!link || link.usedAt || link.revokedAt || link.expiresAt.getTime() <= Date.now()) {
       throw assistedError("Este enlace de compra ya no está disponible.", 410, "ASSISTED_LINK_UNAVAILABLE");
     }
     if (items.length !== 1 || items[0].productId !== link.productId || items[0].quantity !== link.quantity) {
@@ -96,8 +261,8 @@ export const assistedCheckoutService = {
     }
 
     const claimed = await tx.storeAssistedCheckoutLink.updateMany({
-      where: { id: link.id, usedAt: null },
-      data: { usedAt: new Date() },
+      where: { id: link.id, usedAt: null, revokedAt: null },
+      data: { usedAt: new Date(), claimedHoldId: holdId },
     });
     if (claimed.count !== 1) {
       throw assistedError("Este enlace de compra ya fue utilizado.", 409, "ASSISTED_LINK_USED");

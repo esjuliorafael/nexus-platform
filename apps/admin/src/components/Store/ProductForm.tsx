@@ -6,6 +6,7 @@ import { extractFramesFromVideo } from '../../utils/video';
 import { NexusInput, NexusSelect, NexusTextarea } from '../ui/NexusInputs';
 import { NexusAutonomousButton } from '../ui/NexusButton';
 import { NexusSection } from '../ui/NexusSection';
+import { NexusBadge } from '../ui/NexusBadge';
 import { InteractionStage } from '../ui/InteractionStage';
 import { UploadPreviewOverlay } from '../ui/UploadPreviewOverlay';
 import { useUploadQueue } from '../uploads/UploadQueueProvider';
@@ -36,7 +37,6 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
     const [productType, setProductType] = useState<'BIRD' | 'ITEM'>((initialData?.type?.toUpperCase() as 'BIRD' | 'ITEM') || 'BIRD');
     const [name, setName] = useState(initialData?.name || '');
     const [price, setPrice] = useState(initialData?.price.toString() || '');
-    const [status, setStatus] = useState(initialData?.status || 'available');
     const [description, setDescription] = useState(initialData?.description || '');
     
     const [ringNumber, setRingNumber] = useState(initialData?.ringNumber || '');
@@ -240,7 +240,6 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
         name,
         price: parseFloat(price),
         description,
-        saleStatus: status.toUpperCase(),
         coverAssetId: finalCoverAssetId,
         ...(coverPosterAssetId ? { coverPosterAssetId } : {}),
         gallery: finalGallery
@@ -531,13 +530,25 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
               <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
                   <NexusInput label="Nombre del Producto *" value={name} onChange={(e) => setName(e.target.value)} />
                   
-                  <div className="grid grid-cols-2" style={{ gap: 'var(--space-md)' }}>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 items-end" style={{ gap: 'var(--space-md)' }}>
                     <NexusInput label="Precio *" type="number" icon={DollarSign} value={price} onChange={(e) => setPrice(e.target.value)} />
-                    <NexusSelect label="Estado Venta" value={status} onChange={(e) => setStatus(e.target.value as any)}>
-                      <option value="available">Disponible</option>
-                      <option value="reserved">Reservado</option>
-                      <option value="sold">Vendido</option>
-                    </NexusSelect>
+                    <div
+                      className="flex min-h-[var(--h-input)] flex-col justify-center border border-border-main bg-bg-muted/50"
+                      style={{ padding: 'var(--space-sm) var(--space-md)', borderRadius: 'var(--radius-inner-visual)', gap: 'var(--space-xs)' }}
+                    >
+                      <span className="text-label uppercase tracking-[0.15em] text-text-muted">Estado operativo</span>
+                      {initialData ? (
+                        <NexusBadge
+                          variant={initialData.status === 'reserved' ? 'warning' : initialData.status === 'sold' ? 'muted' : 'success'}
+                          className="w-fit"
+                        >
+                          {initialData.status === 'reserved' ? 'Reservado' : initialData.status === 'sold' ? 'Vendido' : 'Disponible'}
+                        </NexusBadge>
+                      ) : (
+                        <span className="text-caption text-text-muted">Se determina por inventario</span>
+                      )}
+                      <span className="text-caption text-text-muted">Lo actualizan las reservas y las órdenes.</span>
+                    </div>
                   </div>
 
                   <div className="grid grid-cols-2" style={{ gap: 'var(--space-md)' }}>

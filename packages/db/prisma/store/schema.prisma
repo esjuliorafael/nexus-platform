@@ -21,24 +21,26 @@ model Setting {
 }
 
 model User {
-  id                   Int              @id @default(autoincrement())
-  username             String           @unique
-  passwordHash         String           @map("password_hash")
-  name                 String
-  email                String?
-  phone                String?
-  role                 Role             @default(STAFF)
-  active               Boolean          @default(true)
-  createdAt            DateTime         @default(now()) @map("created_at")
-  notificationEmail    String?          @map("notification_email")
-  receiveNotifications Boolean          @default(true) @map("receive_notifications")
-  mustChangePassword   Boolean          @default(true) @map("must_change_password")
-  orderReads           OrderRead[]
-  orderEvents          OrderEvent[]
-  productEvents        ProductEvent[]
-  contactProfile       ContactProfile?
-  mediaVaultItems      MediaVaultItem[]
+  id                                Int                                @id @default(autoincrement())
+  username                          String                             @unique
+  passwordHash                      String                             @map("password_hash")
+  name                              String
+  email                             String?
+  phone                             String?
+  role                              Role                               @default(STAFF)
+  active                            Boolean                            @default(true)
+  createdAt                         DateTime                           @default(now()) @map("created_at")
+  notificationEmail                 String?                            @map("notification_email")
+  receiveNotifications              Boolean                            @default(true) @map("receive_notifications")
+  mustChangePassword                Boolean                            @default(true) @map("must_change_password")
+  orderReads                        OrderRead[]
+  orderEvents                       OrderEvent[]
+  productEvents                     ProductEvent[]
+  contactProfile                    ContactProfile?
+  mediaVaultItems                   MediaVaultItem[]
   dashboardMilestoneAcknowledgments DashboardMilestoneAcknowledgment[]
+  assistedCheckoutLinksCreated      StoreAssistedCheckoutLink[]        @relation("AssistedCheckoutLinksCreated")
+  assistedCheckoutLinksRevoked      StoreAssistedCheckoutLink[]        @relation("AssistedCheckoutLinksRevoked")
 
   @@map("users")
 }
@@ -144,17 +146,27 @@ model Product {
 }
 
 model StoreAssistedCheckoutLink {
-  id         String    @id @default(uuid()) @db.Uuid
-  tokenHash  String    @unique @map("token_hash")
-  productId  Int       @map("product_id")
-  quantity   Int       @default(1)
-  expiresAt  DateTime  @map("expires_at")
-  usedAt     DateTime? @map("used_at")
-  createdAt  DateTime  @default(now()) @map("created_at")
-  updatedAt  DateTime  @updatedAt @map("updated_at")
-  product    Product   @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id              String            @id @default(uuid()) @db.Uuid
+  tokenHash       String            @unique @map("token_hash")
+  productId       Int               @map("product_id")
+  quantity        Int               @default(1)
+  expiresAt       DateTime          @map("expires_at")
+  usedAt          DateTime?         @map("used_at")
+  openedAt        DateTime?         @map("opened_at")
+  revokedAt       DateTime?         @map("revoked_at")
+  createdByUserId Int?              @map("created_by_user_id")
+  revokedByUserId Int?              @map("revoked_by_user_id")
+  claimedHoldId   String?           @unique @map("claimed_hold_id") @db.Uuid
+  createdAt       DateTime          @default(now()) @map("created_at")
+  updatedAt       DateTime          @updatedAt @map("updated_at")
+  product         Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  createdBy       User?             @relation("AssistedCheckoutLinksCreated", fields: [createdByUserId], references: [id], onDelete: SetNull)
+  revokedBy       User?             @relation("AssistedCheckoutLinksRevoked", fields: [revokedByUserId], references: [id], onDelete: SetNull)
+  claimedHold     StorePaymentHold? @relation(fields: [claimedHoldId], references: [id], onDelete: SetNull)
 
-  @@index([expiresAt, usedAt])
+  @@index([expiresAt, usedAt, revokedAt])
+  @@index([productId, expiresAt, revokedAt])
+  @@index([createdByUserId, createdAt])
   @@map("store_assisted_checkout_links")
 }
 
@@ -283,42 +295,43 @@ model StoreOrderAccessToken {
 }
 
 model StorePaymentHold {
-  id                    String                 @id @default(uuid()) @db.Uuid
-  customerName          String                 @map("customer_name")
-  customerPhone         String                 @map("customer_phone")
-  customerEmail         String?                @map("customer_email")
-  receiverName          String?                @map("receiver_name")
-  deliveryType          DeliveryType           @default(SHIPPING) @map("delivery_type")
-  deliveryMethod        String?                @map("delivery_method")
-  shippingAddress       String?                @map("shipping_address")
-  shippingStreet        String?                @map("shipping_street")
-  shippingNeighborhood  String?                @map("shipping_neighborhood")
-  shippingPostalCode    String?                @map("shipping_postal_code")
-  shippingCity          String?                @map("shipping_city")
-  shippingState         String?                @map("shipping_state")
+  id                    String                     @id @default(uuid()) @db.Uuid
+  customerName          String                     @map("customer_name")
+  customerPhone         String                     @map("customer_phone")
+  customerEmail         String?                    @map("customer_email")
+  receiverName          String?                    @map("receiver_name")
+  deliveryType          DeliveryType               @default(SHIPPING) @map("delivery_type")
+  deliveryMethod        String?                    @map("delivery_method")
+  shippingAddress       String?                    @map("shipping_address")
+  shippingStreet        String?                    @map("shipping_street")
+  shippingNeighborhood  String?                    @map("shipping_neighborhood")
+  shippingPostalCode    String?                    @map("shipping_postal_code")
+  shippingCity          String?                    @map("shipping_city")
+  shippingState         String?                    @map("shipping_state")
   subtotal              Decimal
-  discountTotal         Decimal                @default(0.00) @map("discount_total")
-  shippingCost          Decimal                @map("shipping_cost")
+  discountTotal         Decimal                    @default(0.00) @map("discount_total")
+  shippingCost          Decimal                    @map("shipping_cost")
   total                 Decimal
-  couponId              Int?                   @map("coupon_id")
-  couponCode            String?                @map("coupon_code")
-  status                PaymentHoldStatus      @default(ACTIVE)
-  expiresAt             DateTime               @map("expires_at")
-  promotedOrderId       Int?                   @unique @map("promoted_order_id")
-  mpPaymentId           String?                @map("mp_payment_id")
-  mpSellerUserId        String?                @map("mp_seller_user_id")
-  mpPaymentStatus       String?                @map("mp_payment_status")
-  mpPaymentStatusDetail String?                @map("mp_payment_status_detail")
-  recoveryTokenHash     String?                @unique @map("recovery_token_hash")
-  recoveryScheduledAt   DateTime?              @map("recovery_scheduled_at")
-  recoverySentAt        DateTime?              @map("recovery_sent_at")
-  recoveryOpenedAt      DateTime?              @map("recovery_opened_at")
-  createdAt             DateTime               @default(now()) @map("created_at")
-  updatedAt             DateTime               @updatedAt @map("updated_at")
-  coupon                Coupon?                @relation(fields: [couponId], references: [id], onDelete: SetNull)
-  promotedOrder         Order?                 @relation(fields: [promotedOrderId], references: [id], onDelete: SetNull)
+  couponId              Int?                       @map("coupon_id")
+  couponCode            String?                    @map("coupon_code")
+  status                PaymentHoldStatus          @default(ACTIVE)
+  expiresAt             DateTime                   @map("expires_at")
+  promotedOrderId       Int?                       @unique @map("promoted_order_id")
+  mpPaymentId           String?                    @map("mp_payment_id")
+  mpSellerUserId        String?                    @map("mp_seller_user_id")
+  mpPaymentStatus       String?                    @map("mp_payment_status")
+  mpPaymentStatusDetail String?                    @map("mp_payment_status_detail")
+  recoveryTokenHash     String?                    @unique @map("recovery_token_hash")
+  recoveryScheduledAt   DateTime?                  @map("recovery_scheduled_at")
+  recoverySentAt        DateTime?                  @map("recovery_sent_at")
+  recoveryOpenedAt      DateTime?                  @map("recovery_opened_at")
+  createdAt             DateTime                   @default(now()) @map("created_at")
+  updatedAt             DateTime                   @updatedAt @map("updated_at")
+  coupon                Coupon?                    @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  promotedOrder         Order?                     @relation(fields: [promotedOrderId], references: [id], onDelete: SetNull)
   items                 StorePaymentHoldItem[]
   paymentAttempts       OrderPaymentAttempt[]
+  assistedCheckoutLink  StoreAssistedCheckoutLink?
 
   @@index([status, expiresAt])
   @@index([mpPaymentId])

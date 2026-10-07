@@ -402,6 +402,65 @@ export const apiProducts = {
   },
 };
 
+export type AssistedCheckoutLinkStatus =
+  | "ACTIVE"
+  | "IN_PAYMENT"
+  | "PAID"
+  | "EXPIRED"
+  | "REVOKED";
+
+export interface AssistedCheckoutLink {
+  id: string;
+  status: AssistedCheckoutLinkStatus;
+  quantity: number;
+  expiresAt: string;
+  createdAt: string;
+  openedAt: string | null;
+  usedAt: string | null;
+  revokedAt: string | null;
+  product: {
+    id: number;
+    name: string;
+    ringNumber: string | null;
+    type: "BIRD" | "ITEM";
+    price: number;
+    saleStatus: string;
+    stock: number;
+    thumbnail: string | null;
+  };
+  createdBy: { id: number; name: string; username: string } | null;
+  revokedBy: { id: number; name: string; username: string } | null;
+  paymentHold: {
+    id: string;
+    status: string;
+    customerName: string;
+    customerPhone: string;
+    expiresAt: string;
+    promotedOrderId: number | null;
+    mpPaymentStatus: string | null;
+  } | null;
+}
+
+export interface AssistedCheckoutLinkGeneration {
+  id?: string;
+  previousId?: string;
+  url: string;
+  expiresAt: string;
+  product: { name: string; quantity: number };
+}
+
+const mapAssistedCheckoutLink = (item: any): AssistedCheckoutLink => ({
+  ...item,
+  id: String(item.id),
+  quantity: Number(item.quantity || 1),
+  product: {
+    ...item.product,
+    id: Number(item.product?.id),
+    price: Number(item.product?.price || 0),
+    stock: Number(item.product?.stock || 0),
+  },
+});
+
 export const apiStorePaymentAssistance = {
   createLink: async (productId: string, quantity = 1) => {
     const res = await api.post("/store/orders/admin/assisted-checkout-links", {
@@ -413,6 +472,31 @@ export const apiStorePaymentAssistance = {
       expiresAt: string;
       product: { name: string; quantity: number };
     };
+  },
+  getAll: async (params?: {
+    status?: AssistedCheckoutLinkStatus;
+    search?: string;
+  }): Promise<{ items: AssistedCheckoutLink[]; total: number }> => {
+    const res = await api.get("/store/orders/admin/assisted-checkout-links", {
+      params,
+    });
+    return {
+      total: Number(res.data.total || 0),
+      items: (res.data.items || []).map(mapAssistedCheckoutLink),
+    };
+  },
+  revoke: async (id: string): Promise<AssistedCheckoutLink> => {
+    const res = await api.post(`/store/orders/admin/assisted-checkout-links/${id}/revoke`);
+    return mapAssistedCheckoutLink(res.data);
+  },
+  regenerate: async (id: string) => {
+    const res = await api.post(`/store/orders/admin/assisted-checkout-links/${id}/regenerate`);
+    return {
+      ...res.data,
+      product: res.data.product,
+      expiresAt: res.data.expiresAt,
+      url: res.data.url,
+    } as AssistedCheckoutLinkGeneration;
   },
 };
 

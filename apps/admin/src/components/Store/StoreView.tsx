@@ -39,7 +39,8 @@ interface StoreViewProps {
     | "coupon_create"
     | "coupon_edit"
     | "orders"
-    | "order-detail";
+    | "order-detail"
+    | "payment_links";
   onSetViewMode?: (
     mode:
       | "list"
@@ -53,7 +54,8 @@ interface StoreViewProps {
       | "coupon_create"
       | "coupon_edit"
       | "orders"
-      | "order-detail",
+      | "order-detail"
+      | "payment_links",
   ) => void;
   showToast: (message: string, type?: "success" | "error") => void;
   setConfirmDialog: (dialog: any) => void;

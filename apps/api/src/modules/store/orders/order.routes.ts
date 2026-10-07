@@ -13,7 +13,10 @@ import { z } from "zod";
 import { customerPhoneSchema } from "../../../utils/customer-phone";
 import { customerAuditActor, requireAdminActor } from "../../../utils/admin-authorization";
 import { getStoreOrderAccess } from "./store-order-access.service";
-import { assistedCheckoutService } from "./assisted-checkout.service";
+import {
+  assistedCheckoutService,
+  type AssistedCheckoutLinkStatus,
+} from "./assisted-checkout.service";
 
 const convertPaymentHoldSchema = z.object({
   customerPhone: customerPhoneSchema,
@@ -24,6 +27,18 @@ const createAssistedCheckoutLinkSchema = z.object({
   productId: z.number().int().positive(),
   quantity: z.number().int().positive().max(99).default(1),
 });
+const assistedCheckoutLinkStatusSchema = z.enum([
+  "ACTIVE",
+  "IN_PAYMENT",
+  "PAID",
+  "EXPIRED",
+  "REVOKED",
+]);
+const assistedCheckoutLinkQuerySchema = z.object({
+  status: assistedCheckoutLinkStatusSchema.optional(),
+  search: z.string().trim().max(100).optional(),
+});
+const assistedCheckoutLinkParamsSchema = z.object({ id: z.string().uuid() });
 
 export async function orderRoutes(server: FastifyInstance) {
   // Private Storefront read. The token is opaque and is bound to the order phone hash.
@@ -110,10 +125,49 @@ export async function orderRoutes(server: FastifyInstance) {
       const actor = await requireAdminActor(server, request, reply);
       if (!actor) return;
       const body = createAssistedCheckoutLinkSchema.parse(request.body);
-      return await assistedCheckoutService.createLink(body.productId, body.quantity);
+      return await assistedCheckoutService.createLink(body.productId, body.quantity, actor.userId);
     } catch (error: any) {
       if (error?.issues) return reply.status(400).send({ message: "Validation error", errors: error.issues });
       return reply.status(error?.statusCode || 400).send({ message: error?.message || "No se pudo generar el enlace.", code: error?.code });
+    }
+  });
+
+  server.get("/admin/assisted-checkout-links", { preHandler: [server.authenticate] }, async (request, reply) => {
+    try {
+      const actor = await requireAdminActor(server, request, reply);
+      if (!actor) return;
+      const query = assistedCheckoutLinkQuerySchema.parse(request.query);
+      return await assistedCheckoutService.listLinks(
+        query.status as AssistedCheckoutLinkStatus | undefined,
+        query.search,
+      );
+    } catch (error: any) {
+      if (error?.issues) return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      return reply.status(error?.statusCode || 400).send({ message: error?.message || "No se pudieron consultar los enlaces.", code: error?.code });
+    }
+  });
+
+  server.post("/admin/assisted-checkout-links/:id/revoke", { preHandler: [server.authenticate] }, async (request, reply) => {
+    try {
+      const actor = await requireAdminActor(server, request, reply);
+      if (!actor) return;
+      const { id } = assistedCheckoutLinkParamsSchema.parse(request.params);
+      return await assistedCheckoutService.revokeLink(id, actor.userId!);
+    } catch (error: any) {
+      if (error?.issues) return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      return reply.status(error?.statusCode || 400).send({ message: error?.message || "No se pudo revocar el enlace.", code: error?.code });
+    }
+  });
+
+  server.post("/admin/assisted-checkout-links/:id/regenerate", { preHandler: [server.authenticate] }, async (request, reply) => {
+    try {
+      const actor = await requireAdminActor(server, request, reply);
+      if (!actor) return;
+      const { id } = assistedCheckoutLinkParamsSchema.parse(request.params);
+      return await assistedCheckoutService.regenerateLink(id, actor.userId!);
+    } catch (error: any) {
+      if (error?.issues) return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      return reply.status(error?.statusCode || 400).send({ message: error?.message || "No se pudo regenerar el enlace.", code: error?.code });
     }
   });
 

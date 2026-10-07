@@ -118,7 +118,7 @@ export async function productAdminRoutes(server: FastifyInstance) {
       if (!actor) return;
       const { id } = request.params as { id: string };
       const validated = updateProductStatusSchema.parse(request.body);
-      return await productService.update(parseInt(id), validated, actor);
+      return await productService.update(parseInt(id), validated, actor, { allowSaleStatus: true });
     } catch (err: any) {
       server.log.error(err);
       if (err?.issues) {

@@ -28,6 +28,7 @@ import {
   BadgePercent,
   Megaphone,
   ChartNoAxesCombined,
+  Link2,
 } from "lucide-react";
 import { QuickActionGroup } from "../types";
 
@@ -71,6 +72,9 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
         { icon: <PackagePlus size={20} />, label: "Nuevo Producto" },
         { icon: <MonitorPlay size={20} />, label: "Héroes Tienda" },
         { icon: <BadgePercent size={20} />, label: "Cupones" },
+        ...(userRole?.toLowerCase() === "superadmin" || userRole?.toLowerCase() === "admin"
+          ? [{ icon: <Link2 size={20} />, label: "Enlaces de pago" }]
+          : []),
         {
           icon: isDetail ? (
             <ArrowLeft size={20} />

@@ -210,6 +210,7 @@ export const storePaymentHoldService = {
         await assistedCheckoutService.claimForHold(
           tx,
           data.assistedCheckoutToken,
+          hold.id,
           items.map((item: any) => ({ productId: item.productId, quantity: item.quantity })),
         );
       }
