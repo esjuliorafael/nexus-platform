@@ -110,6 +110,7 @@ interface CheckoutSummarySnapshot {
 }
 
 const PENDING_MP_PAYMENT_KEY = "nexus_pending_mp_payment";
+const ASSISTED_CHECKOUT_TOKEN_KEY = "nexus_assisted_checkout_token";
 
 function readPendingPaymentAttempt() {
   if (typeof window === "undefined") return null;
@@ -136,6 +137,21 @@ function clearPendingPaymentAttempt() {
 
 function isPendingPaymentAttemptExpired(attempt: PendingPaymentAttempt) {
   return new Date(attempt.expiresAt).getTime() <= Date.now();
+}
+
+function readAssistedCheckoutToken() {
+  if (typeof window === "undefined") return null;
+  return window.sessionStorage.getItem(ASSISTED_CHECKOUT_TOKEN_KEY);
+}
+
+function saveAssistedCheckoutToken(token: string) {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.setItem(ASSISTED_CHECKOUT_TOKEN_KEY, token);
+}
+
+function clearAssistedCheckoutToken() {
+  if (typeof window === "undefined") return;
+  window.sessionStorage.removeItem(ASSISTED_CHECKOUT_TOKEN_KEY);
 }
 
 export default function CheckoutPage() {
@@ -168,6 +184,17 @@ export default function CheckoutPage() {
   const [checkoutStep, setCheckoutStep] = useState<CheckoutStep>(0);
   const [showMobileSummary, setShowMobileSummary] = useState(false);
   const [pendingPaymentAttempt, setPendingPaymentAttempt] = useState<PendingPaymentAttempt | null>(null);
+  const [assistedCheckoutToken, setAssistedCheckoutToken] = useState<string | null>(() => readAssistedCheckoutToken());
+  const [assistedLoading, setAssistedLoading] = useState(() => {
+    if (typeof window === "undefined") return false;
+    return new URLSearchParams(window.location.search).has("assisted");
+  });
+  const [hasPaymentReturn, setHasPaymentReturn] = useState(() => {
+    if (typeof window === "undefined") return false;
+    const params = new URLSearchParams(window.location.search);
+    return Boolean(params.get("status") && (params.get("external_reference") || params.get("ref")));
+  });
+  const [forceCheckoutPro, setForceCheckoutPro] = useState(false);
   const checkoutFormRef = useRef<HTMLFormElement>(null);
   const confirmationFeedbackPlayedRef = useRef(false);
   const errorFeedbackPlayedRef = useRef(false);
@@ -220,7 +247,72 @@ export default function CheckoutPage() {
 
     const params = new URLSearchParams(window.location.search);
     const status = params.get("status");
-    const orderId = params.get("external_reference")?.replace("order_", "");
+    const externalReference = params.get("external_reference") || params.get("ref");
+    const orderId = externalReference?.replace("order_", "");
+    const holdId = /^store_hold_([0-9a-f-]{36})$/i.exec(externalReference || "")?.[1] || null;
+
+    if (params.get("assisted")) {
+      const token = params.get("assisted") || "";
+      orderApi.resolveAssistedCheckout(token)
+        .then((assisted) => {
+          replaceCart([{
+            productId: assisted.productId,
+            name: assisted.name,
+            price: assisted.price,
+            quantity: assisted.quantity,
+            thumbnail: assisted.thumbnail,
+            type: assisted.type,
+          }]);
+          saveAssistedCheckoutToken(token);
+          setAssistedCheckoutToken(token);
+          setPaymentMethod("MERCADOPAGO");
+          setForceCheckoutPro(true);
+          setCheckoutStep(0);
+          setAssistedLoading(false);
+          window.history.replaceState({}, "", "/checkout");
+          showToast("Producto listo. Completa los datos para continuar con Mercado Pago.", "info");
+        })
+        .catch((error) => {
+          setAssistedLoading(false);
+          window.history.replaceState({}, "", "/checkout");
+          showToast(error?.response?.data?.message || "Este enlace de compra ya no está disponible.", "info");
+        });
+      return;
+    }
+
+    if (holdId) {
+      const storedAttempt = readPendingPaymentAttempt();
+      if (storedAttempt && storedAttempt.paymentHoldId === holdId && !isPendingPaymentAttemptExpired(storedAttempt)) {
+        setPendingPaymentAttempt(storedAttempt);
+        setPaymentMethod("MERCADOPAGO");
+        setForceCheckoutPro(true);
+        setCheckoutStep(3);
+        if (status === "rejected" || status === "failure") setPaymentStatus("failure");
+        if (status === "pending" || status === "in_process") setPaymentStatus("pending");
+        if (status === "approved" || status === "success") {
+          paymentApi.getCardPaymentStatus({
+            storePaymentHoldId: holdId,
+            customerPhone: storedAttempt.customerPhone,
+          }).then((result) => {
+            if (result.status === "approved") {
+              clearPendingPaymentAttempt();
+              setPendingPaymentAttempt(null);
+              setPaymentStatus("success");
+              setOrderComplete({ id: result.referenceId, status: "PAID" });
+              setCompletionState("approved");
+            } else if (result.status === "rejected") {
+              setPaymentStatus("failure");
+            } else {
+              setPaymentStatus("pending");
+              setCompletionState("pending");
+            }
+          }).catch(() => setPaymentStatus("pending"));
+        }
+      }
+      window.history.replaceState({}, "", "/checkout");
+      setHasPaymentReturn(false);
+      return;
+    }
 
     if (status === "approved" || status === "success") {
       clearPendingPaymentAttempt();
@@ -248,7 +340,8 @@ export default function CheckoutPage() {
         clearPendingPaymentAttempt();
       }
     }
-  }, [clearCart]);
+    setHasPaymentReturn(false);
+  }, [clearCart, replaceCart, showToast]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -459,7 +552,8 @@ export default function CheckoutPage() {
   }, [hasBirds, hasItems, selectedZone, settings]);
 
   const isMPEnabled = Boolean(paymentOptions?.mercadoPago.available);
-  const isEmbeddedMP = isMPEnabled && mpCheckoutConfig?.mode === "embedded" && Boolean(mpCheckoutConfig.publicKey);
+  const isAssistedCheckout = Boolean(assistedCheckoutToken);
+  const isEmbeddedMP = isMPEnabled && !isAssistedCheckout && !forceCheckoutPro && mpCheckoutConfig?.mode === "embedded" && Boolean(mpCheckoutConfig.publicKey);
   const discountTotal = getDiscountTotal();
   const orderTotal = Math.max(0, getTotalPrice() + shippingCalculation.total - discountTotal);
   const buildSummarySnapshot = useCallback((): CheckoutSummarySnapshot => ({
@@ -597,6 +691,7 @@ export default function CheckoutPage() {
       deliveryType: "SHIPPING",
       paymentMethod,
       items: items.map((item) => ({ productId: item.productId, quantity: item.quantity })),
+      ...(assistedCheckoutToken ? { assistedCheckoutToken } : {}),
     };
   };
   const createCheckoutOrder = () => {
@@ -640,7 +735,28 @@ export default function CheckoutPage() {
     setLoading(true);
     try {
       if (paymentMethod === "MERCADOPAGO") {
-        showToast("Completa los datos de tu tarjeta en el formulario de Mercado Pago.", "info");
+        if (isEmbeddedMP) {
+          showToast("Completa los datos de tu tarjeta en el formulario de Mercado Pago.", "info");
+          return;
+        }
+        let attempt = pendingPaymentAttempt;
+        if (!attempt || isPendingPaymentAttemptExpired(attempt)) {
+          const createdHold = await createStorePaymentHold();
+          attempt = {
+            paymentHoldId: createdHold.paymentHoldId,
+            customerName: normalizeCustomerName(formData.customerName),
+            customerPhone: formData.customerPhone.trim(),
+            total: orderTotal,
+            expiresAt: createdHold.expiresAt,
+          };
+          savePendingPaymentAttempt(attempt);
+          setPendingPaymentAttempt(attempt);
+          clearAssistedCheckoutToken();
+          setAssistedCheckoutToken(null);
+        }
+        const preference = await paymentApi.getStoreHoldPreference(attempt.paymentHoldId);
+        if (!preference.init_point) throw new Error("Mercado Pago no devolvió un enlace de pago.");
+        window.location.assign(preference.init_point);
         return;
       }
       const createdOrder = await createCheckoutOrder();
@@ -872,7 +988,15 @@ export default function CheckoutPage() {
     );
   }
 
-  if (pendingPaymentAttempt && mpCheckoutConfig?.mode !== "embedded") {
+  if (assistedLoading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <Spinner className="h-12 w-12" />
+      </div>
+    );
+  }
+
+  if (pendingPaymentAttempt && !isEmbeddedMP && !hasPaymentReturn && !paymentStatus && !completionState) {
     return (
       <PendingPaymentAttemptView
         attempt={pendingPaymentAttempt}
@@ -1256,18 +1380,20 @@ export default function CheckoutPage() {
                       Elige cómo deseas completar tu pedido. Te mostraremos el siguiente paso según el método seleccionado.
                     </p>
                     <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "var(--sf-space-md)" }}>
-                      <PaymentMethodCard
-                        icon={Wallet}
-                        title="Depósito / Transferencia"
-                        subtitle="Pago manual verificado"
-                        active={paymentMethod === "TRANSFER"}
-                        onClick={() => setPaymentMethod("TRANSFER")}
-                      />
+                      {!isAssistedCheckout && (
+                        <PaymentMethodCard
+                          icon={Wallet}
+                          title="Depósito / Transferencia"
+                          subtitle="Pago manual verificado"
+                          active={paymentMethod === "TRANSFER"}
+                          onClick={() => setPaymentMethod("TRANSFER")}
+                        />
+                      )}
                       {isMPEnabled && (
                         <PaymentMethodCard
                           icon={CreditCard}
                           title="Tarjeta de crédito o débito"
-                          subtitle="Pago seguro con Mercado Pago"
+                          subtitle={isAssistedCheckout ? "Continúa en Mercado Pago" : "Pago seguro con Mercado Pago"}
                           active={paymentMethod === "MERCADOPAGO"}
                           onClick={() => setPaymentMethod("MERCADOPAGO")}
                         />
@@ -1298,8 +1424,27 @@ export default function CheckoutPage() {
                             customerPhone: attempt.customerPhone,
                           });
                         }}
-                        onFailure={playErrorFeedback}
+                        onFailure={() => {
+                          setPaymentStatus("failure");
+                          playErrorFeedback();
+                        }}
                       />
+                    )}
+                    {paymentMethod === "MERCADOPAGO" && isEmbeddedMP && paymentStatus === "failure" && (
+                      <div className="flex flex-col items-center gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-4 text-center">
+                        <p className="text-sm text-stone-700">
+                          Puedes continuar en el checkout seguro de Mercado Pago si el formulario integrado no logra completar el pago.
+                        </p>
+                        <Button
+                          type="button"
+                          context="section"
+                          onClick={() => {
+                            setForceCheckoutPro(true);
+                          }}
+                        >
+                          Continuar en Mercado Pago
+                        </Button>
+                      </div>
                     )}
                   </StorefrontCheckoutSection>
                 </div>
@@ -1311,7 +1456,7 @@ export default function CheckoutPage() {
                   className={`w-full h-20 text-xl font-black uppercase tracking-[0.2em] shadow-2xl shadow-brand-500/20 ${checkoutStep === 3 ? "hidden lg:inline-flex" : "hidden"}`}
                   disabled={loading}
                 >
-                  {loading ? <Spinner className="text-white" /> : "Confirmar y pagar"}
+                  {loading ? <Spinner className="text-white" /> : isAssistedCheckout || forceCheckoutPro ? "Continuar en Mercado Pago" : "Confirmar y pagar"}
                 </Button>
               )}
             </form>

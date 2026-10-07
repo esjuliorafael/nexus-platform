@@ -13,9 +13,16 @@ import { z } from "zod";
 import { customerPhoneSchema } from "../../../utils/customer-phone";
 import { customerAuditActor, requireAdminActor } from "../../../utils/admin-authorization";
 import { getStoreOrderAccess } from "./store-order-access.service";
+import { assistedCheckoutService } from "./assisted-checkout.service";
 
 const convertPaymentHoldSchema = z.object({
   customerPhone: customerPhoneSchema,
+});
+
+const assistedCheckoutTokenSchema = z.string().min(32).max(180);
+const createAssistedCheckoutLinkSchema = z.object({
+  productId: z.number().int().positive(),
+  quantity: z.number().int().positive().max(99).default(1),
 });
 
 export async function orderRoutes(server: FastifyInstance) {
@@ -39,11 +46,25 @@ export async function orderRoutes(server: FastifyInstance) {
     }
   });
 
+  server.get("/assisted-checkout/:token", { config: { rateLimit: { max: 20, timeWindow: "10 minutes" } } }, async (request, reply) => {
+    try {
+      const token = assistedCheckoutTokenSchema.parse((request.params as { token?: string }).token);
+      reply.header("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+      return await assistedCheckoutService.resolveLink(token);
+    } catch (error: any) {
+      if (error?.issues) return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      return reply.status(error?.statusCode || 400).send({ message: error?.message || "El enlace no está disponible.", code: error?.code });
+    }
+  });
+
   // POST /store/orders (Public)
   server.post("/", async (request, reply) => {
     console.log('[Order] Incoming request body:', JSON.stringify(request.body, null, 2));
     try {
       const validated = createOrderSchema.parse(request.body);
+      if (validated.assistedCheckoutToken) {
+        return reply.status(400).send({ message: "Un enlace asistido debe continuar por Mercado Pago." });
+      }
       const order = await orderService.create(validated);
       return order;
     } catch (err: any) {
@@ -81,6 +102,18 @@ export async function orderRoutes(server: FastifyInstance) {
         message: error?.message || "No se pudo cambiar el método de pago.",
         code: error?.code,
       });
+    }
+  });
+
+  server.post("/admin/assisted-checkout-links", { preHandler: [server.authenticate] }, async (request, reply) => {
+    try {
+      const actor = await requireAdminActor(server, request, reply);
+      if (!actor) return;
+      const body = createAssistedCheckoutLinkSchema.parse(request.body);
+      return await assistedCheckoutService.createLink(body.productId, body.quantity);
+    } catch (error: any) {
+      if (error?.issues) return reply.status(400).send({ message: "Validation error", errors: error.issues });
+      return reply.status(error?.statusCode || 400).send({ message: error?.message || "No se pudo generar el enlace.", code: error?.code });
     }
   });
 

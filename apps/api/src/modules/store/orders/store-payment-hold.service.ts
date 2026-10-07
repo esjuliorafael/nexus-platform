@@ -23,6 +23,7 @@ import {
   resolvePaymentHoldMinutes,
 } from "../payments/payment-hold-policy";
 import { synchronizeItemAvailability } from "../products/product-inventory";
+import { assistedCheckoutService } from "./assisted-checkout.service";
 
 const holdError = (message: string, statusCode = 400, code?: string) =>
   Object.assign(new Error(message), { statusCode, code });
@@ -204,6 +205,13 @@ export const storePaymentHoldService = {
       }
       if (couponResult) {
         await tx.coupon.update({ where: { id: couponResult.coupon.id }, data: { usedCount: { increment: 1 } } });
+      }
+      if (data.assistedCheckoutToken) {
+        await assistedCheckoutService.claimForHold(
+          tx,
+          data.assistedCheckoutToken,
+          items.map((item: any) => ({ productId: item.productId, quantity: item.quantity })),
+        );
       }
       return created;
     });

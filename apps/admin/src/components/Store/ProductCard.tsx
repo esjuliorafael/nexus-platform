@@ -12,6 +12,7 @@ import {
   XCircle,
   Star,
   RefreshCw,
+  Link2,
   type LucideIcon,
 } from "lucide-react";
 import { Product } from "../../types";
@@ -29,6 +30,7 @@ interface ProductCardProps {
   onToggleFeatured?: () => void;
   onTogglePublished?: () => void;
   onRetryMedia?: () => void;
+  onGeneratePaymentLink?: () => void;
   isTogglingPublished?: boolean;
   isRetryingMedia?: boolean;
   style?: React.CSSProperties;
@@ -42,6 +44,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
   onToggleFeatured,
   onTogglePublished,
   onRetryMedia,
+  onGeneratePaymentLink,
   isTogglingPublished,
   isRetryingMedia,
   style,
@@ -365,6 +368,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                 }
               />
             )}
+            {onGeneratePaymentLink && (
+              <NexusAutonomousButton
+                density="compact"
+                variant="secondary"
+                isIconOnly
+                onClick={(event) => {
+                  event.stopPropagation();
+                  onGeneratePaymentLink();
+                }}
+                icon={Link2}
+                aria-label="Generar enlace de pago asistido"
+              />
+            )}
           </div>
         </div>
       </div>
@@ -591,6 +607,19 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                       ? "hover:bg-amber-500 hover:border-amber-500"
                       : "hover:bg-amber-50 hover:text-amber-600 hover:border-amber-100"
                   }
+                />
+              )}
+              {onGeneratePaymentLink && (
+                <NexusAutonomousButton
+                  density="compact"
+                  variant="secondary"
+                  isIconOnly
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    onGeneratePaymentLink();
+                  }}
+                  icon={Link2}
+                  aria-label="Generar enlace de pago asistido"
                 />
               )}
               <NexusAutonomousButton

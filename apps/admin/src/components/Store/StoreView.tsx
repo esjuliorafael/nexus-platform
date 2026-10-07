@@ -18,7 +18,7 @@ import {
   DEFAULT_STORE_PRODUCT_ADVANCED_FILTERS,
   type StoreProductAdvancedFilters,
 } from "./StoreProductFiltersModal";
-import { apiProducts, apiUpload } from "../../api";
+import { apiProducts, apiStorePaymentAssistance, apiUpload } from "../../api";
 import { NexusSectionButton } from "../ui/NexusButton";
 import { EmptyState } from "../ui/EmptyState";
 import { NexusSpinner } from "../ui/NexusSpinner";
@@ -476,6 +476,17 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
       }
     };
 
+    const handleGeneratePaymentLink = async (product: Product) => {
+      try {
+        const result = await apiStorePaymentAssistance.createLink(product.id, 1);
+        await navigator.clipboard.writeText(result.url);
+        showToast("Enlace de pago asistido copiado");
+      } catch (error) {
+        console.error("Error generando enlace de pago asistido:", error);
+        showToast("No se pudo generar el enlace de pago", "error");
+      }
+    };
+
     const handleSaveSuccess = () => {
       loadProducts();
       showToast(
@@ -597,6 +608,7 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
                   onToggleFeatured={() => handleToggleFeatured(product)}
                   onTogglePublished={() => handleTogglePublished(product)}
                   onRetryMedia={() => handleRetryMedia(product)}
+                  onGeneratePaymentLink={() => handleGeneratePaymentLink(product)}
                   isTogglingPublished={togglingPublishedIds.has(product.id)}
                   isRetryingMedia={retryingMediaIds.has(product.id)}
                 />

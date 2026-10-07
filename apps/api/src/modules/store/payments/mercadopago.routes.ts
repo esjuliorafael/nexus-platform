@@ -147,6 +147,7 @@ export async function mpRoutes(server: FastifyInstance) {
     
     // Construir URL de retorno con los mismos params que envi\u00f3 MP
     const params = new URLSearchParams(request.query as any);
+    if (ref && !params.get("external_reference")) params.set("external_reference", ref);
     const raffleMatch = /^raffle_(\d+)_/.exec(ref || "");
     const destination = raffleMatch ? `/raffles/${raffleMatch[1]}` : "/checkout";
     return reply.redirect(`${storefrontUrl}${destination}?${params.toString()}`);
@@ -170,11 +171,18 @@ export async function mpRoutes(server: FastifyInstance) {
       orderId: z.number().optional(),
       isRaffle: z.boolean().optional(),
       raffleReservationId: z.string().uuid().optional(),
+      storePaymentHoldId: z.string().uuid().optional(),
     }).superRefine((value, context) => {
+      if (value.storePaymentHoldId && value.isRaffle) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "storePaymentHoldId cannot be combined with a raffle preference" });
+      }
+      if (value.storePaymentHoldId && value.orderId) {
+        context.addIssue({ code: z.ZodIssueCode.custom, message: "storePaymentHoldId cannot be combined with orderId" });
+      }
       if (value.isRaffle && !value.raffleReservationId) {
         context.addIssue({ code: z.ZodIssueCode.custom, message: "raffleReservationId is required" });
       }
-      if (!value.isRaffle && !value.orderId) {
+      if (!value.isRaffle && !value.orderId && !value.storePaymentHoldId) {
         context.addIssue({ code: z.ZodIssueCode.custom, message: "orderId is required" });
       }
     });
@@ -182,8 +190,10 @@ export async function mpRoutes(server: FastifyInstance) {
 
     try {
       parsed = schema.parse(request.body);
-      const { orderId, isRaffle, raffleReservationId } = parsed;
-      const preference = await mpService.createPreference(orderId ?? null, isRaffle, raffleReservationId);
+      const { orderId, isRaffle, raffleReservationId, storePaymentHoldId } = parsed;
+      const preference = storePaymentHoldId
+        ? await mpService.createStoreHoldPreference(storePaymentHoldId)
+        : await mpService.createPreference(orderId ?? null, isRaffle, raffleReservationId);
       console.log('[MP] Preference created successfully:', preference.id);
       return preference;
     } catch (error: any) {

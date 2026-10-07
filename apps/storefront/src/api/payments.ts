@@ -139,6 +139,12 @@ export const paymentApi = {
     });
     return res.data;
   },
+  getStoreHoldPreference: async (storePaymentHoldId: string) => {
+    const res = await client.post<PaymentPreferenceResponse>('/mp/preference', {
+      storePaymentHoldId,
+    });
+    return res.data;
+  },
   getOptions: async (purpose: PublicPaymentOptions['requestedPurpose'] = 'MAIN') => {
     const res = await client.get<PublicPaymentOptions>('/store/payment-options', {
       params: { purpose },

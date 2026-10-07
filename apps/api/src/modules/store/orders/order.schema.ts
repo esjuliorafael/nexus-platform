@@ -21,6 +21,7 @@ export const createOrderSchema = z.object({
   couponCode: z.string().trim().optional().or(z.literal("")),
   deliveryType: deliveryTypeEnum,
   paymentMethod: paymentMethodEnum.optional().default("TRANSFER"),
+  assistedCheckoutToken: z.string().min(32).max(180).optional(),
   items: z.array(
     z.object({
       productId: z.number().int().positive(),

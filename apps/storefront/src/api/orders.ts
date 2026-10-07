@@ -78,6 +78,17 @@ export interface StorePaymentHoldResponse {
   total: number;
 }
 
+export interface AssistedCheckoutResponse {
+  productId: number;
+  name: string;
+  price: number;
+  quantity: number;
+  type: "bird" | "item";
+  thumbnail: string | null;
+  expiresAt: string;
+  linkId: string;
+}
+
 export const orderApi = {
   create: (data: any) => client.post<StoreOrderResponse>('/store/orders', data).then(res => res.data),
   getAccess: (token: string) =>
@@ -87,6 +98,8 @@ export const orderApi = {
       })
       .then((res) => res.data),
   createPaymentHold: (data: any) => client.post<StorePaymentHoldResponse>('/store/orders/payment-holds', data).then(res => res.data),
+  resolveAssistedCheckout: (token: string) =>
+    client.get<AssistedCheckoutResponse>(`/store/orders/assisted-checkout/${encodeURIComponent(token)}`).then(res => res.data),
   convertPaymentHoldToTransfer: (holdId: string, customerPhone: string) =>
     client.post<StoreOrderResponse>(`/store/orders/payment-holds/${holdId}/transfer`, { customerPhone }).then(res => res.data),
   cancelPaymentAttempt: (orderId: number, customerPhone: string) =>

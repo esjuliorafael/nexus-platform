@@ -193,6 +193,100 @@ export const mpService = {
     return `https://auth.mercadopago.com.mx/authorization?client_id=${clientId}&response_type=code&platform_id=mp&state=${state}&redirect_uri=${encodeURIComponent(getRedirectUri())}`;
   },
 
+  async createStoreHoldPreference(storePaymentHoldId: string) {
+    const hold = await storePrisma.storePaymentHold.findUnique({
+      where: { id: storePaymentHoldId },
+      include: { items: true },
+    });
+    if (!hold || !["ACTIVE", "PROCESSING"].includes(hold.status) || hold.expiresAt.getTime() <= Date.now()) {
+      throw Object.assign(new Error("La retención de inventario ya no está disponible."), { statusCode: 409 });
+    }
+    if (hold.promotedOrderId) {
+      throw Object.assign(new Error("Esta compra ya fue procesada."), { statusCode: 409 });
+    }
+
+    const products = await storePrisma.product.findMany({
+      where: { id: { in: hold.items.map((item) => item.productId) } },
+    });
+    const birds = products.filter((product) => product.type === "BIRD");
+    const hasItems = products.some((product) => product.type === "ITEM");
+    let sellerToken = "";
+    let sellerUserId: string | null = null;
+
+    if (birds.length && !hasItems) {
+      const purpose = birds[0].purpose as OrderItemPurpose;
+      if (purpose && birds.every((bird) => bird.purpose === purpose)) {
+        const channel = await storePrisma.paymentChannel.findFirst({ where: { purpose } });
+        sellerToken = await this.getPaymentChannelToken(channel) || "";
+        sellerUserId = channel?.mpUserId || null;
+      }
+    }
+    if (!sellerToken) {
+      sellerToken = await this.getMainSellerToken() || "";
+      sellerUserId = await this.getSetting("mp_seller_user_id") || null;
+    }
+    if (!sellerToken) {
+      throw Object.assign(new Error("La cuenta de Mercado Pago no está disponible."), { statusCode: 409 });
+    }
+
+    const totalAmount = Number(hold.total);
+    if (!Number.isFinite(totalAmount) || totalAmount <= 0) {
+      throw Object.assign(new Error("El total no es válido para Mercado Pago."), { statusCode: 409 });
+    }
+
+    const feePercentage = await this.getApplicationFeePercentage();
+    const marketplaceFee = Number(((totalAmount * feePercentage) / 100).toFixed(2));
+    const storefrontUrl = process.env.STOREFRONT_HTTPS_URL || process.env.STOREFRONT_URL || "http://localhost:3000";
+    const apiUrl = process.env.API_URL || "http://localhost:3001";
+    const tenantPublicApiUrl = (process.env.MP_TENANT_PUBLIC_API_URL || apiUrl).replace(/\/$/, "");
+    const notificationUrl = getGatewayUrl()
+      ? `${getGatewayUrl()}/api/v1/mp/webhook`
+      : `${apiUrl}/api/v1/mp/webhook`;
+    const externalReference = `store_hold_${hold.id}`;
+    const payer: Record<string, unknown> = {
+      name: hold.customerName,
+      phone: { area_code: "52", number: hold.customerPhone },
+    };
+    if (hold.customerEmail) payer.email = hold.customerEmail;
+
+    const client = new MercadoPagoConfig({ accessToken: sellerToken });
+    const preference = new Preference(client);
+    const body: any = {
+      items: [{
+        id: `store_hold_${hold.id}`,
+        title: hold.items.length === 1 ? hold.items[0].productName : "Compra en tienda",
+        description: hold.items.map((item) => `${item.quantity} x ${item.productName}`).join(" · "),
+        quantity: 1,
+        unit_price: Number(totalAmount.toFixed(2)),
+        currency_id: "MXN",
+      }],
+      external_reference: externalReference,
+      notification_url: notificationUrl,
+      back_urls: {
+        success: `${tenantPublicApiUrl}/api/v1/mp/redirect?target=success&ref=${externalReference}`,
+        failure: `${tenantPublicApiUrl}/api/v1/mp/redirect?target=failure&ref=${externalReference}`,
+        pending: `${tenantPublicApiUrl}/api/v1/mp/redirect?target=pending&ref=${externalReference}`,
+      },
+      payer,
+      binary_mode: true,
+      auto_return: "approved",
+      expires: true,
+      expiration_date_to: hold.expiresAt.toISOString(),
+      statement_descriptor: await this.getSetting("mp_statement_descriptor") || "NEXUS*SHOP",
+      payment_methods: {
+        excluded_payment_types: [{ id: "ticket" }],
+      },
+      metadata: {
+        tenant_id: getTenantId(),
+        checkout_source: "store_assisted_checkout",
+        seller_user_id: sellerUserId,
+      },
+    };
+    if (marketplaceFee > 0) body.marketplace_fee = marketplaceFee;
+
+    return preference.create({ body });
+  },
+
   async handleCallback(code: string, state: string) {
     const clientId = await this.getSetting("mp_app_client_id");
     const clientSecret = await this.getSetting("mp_app_client_secret");

@@ -402,6 +402,20 @@ export const apiProducts = {
   },
 };
 
+export const apiStorePaymentAssistance = {
+  createLink: async (productId: string, quantity = 1) => {
+    const res = await api.post("/store/orders/admin/assisted-checkout-links", {
+      productId: Number(productId),
+      quantity,
+    });
+    return res.data as {
+      url: string;
+      expiresAt: string;
+      product: { name: string; quantity: number };
+    };
+  },
+};
+
 export const apiGallery = {
   getAll: async (): Promise<Media[]> => {
     const res = await api.get("/admin/media");
