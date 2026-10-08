@@ -85,7 +85,7 @@ export default function HomePage() {
     <div className="w-full max-w-full overflow-x-clip">
       <HeroSlider />
 
-      <div className="space-y-[var(--sf-space-xl)] pb-[var(--sf-mobile-chrome-content-padding-bottom)] pt-[var(--sf-space-xl)]">
+      <div className="space-y-[var(--sf-space-xl)] pb-[var(--sf-mobile-chrome-content-padding-bottom)] pt-[var(--sf-inset-mobile-chrome-block)] md:pt-[var(--sf-space-xl)]">
         <section className="mx-auto max-w-[1440px] px-[var(--sf-inset-page)]">
           <HomeStoreDiscovery products={products} loading={loading} />
         </section>

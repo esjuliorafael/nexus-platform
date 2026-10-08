@@ -15,6 +15,7 @@ import { EmptyState } from "../ui/EmptyState";
 import { Button } from "../ui/Button";
 
 const purposeOptions = [
+  { value: "ALL", label: "Todos" },
   { value: "BREEDING", label: "Cría" },
   { value: "COMBAT", label: "Combate" },
 ];
@@ -32,8 +33,35 @@ export function HomeStoreDiscovery({
   const [purpose, setPurpose] = useState("ALL");
   const [hero, setHero] = useState<StoreHero | null>(null);
   const [isHeroLoading, setIsHeroLoading] = useState(true);
+  const [isMobileToolbarPinned, setIsMobileToolbarPinned] = useState(false);
+  const toolbarAnchorRef = useRef<HTMLSpanElement>(null);
   const purposeRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
+
+  useEffect(() => {
+    const anchor = toolbarAnchorRef.current;
+    if (!anchor) return;
+
+    const rawInset = getComputedStyle(document.documentElement)
+      .getPropertyValue("--sf-inset-mobile-chrome-block")
+      .trim();
+    const inset = Number.parseFloat(rawInset) || 24;
+
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (!entry) return;
+
+        setIsMobileToolbarPinned(
+          !entry.isIntersecting && entry.boundingClientRect.top <= inset,
+        );
+      },
+      { rootMargin: `-${inset}px 0px 0px 0px` },
+    );
+
+    observer.observe(anchor);
+
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     let isMounted = true;
@@ -93,16 +121,25 @@ export function HomeStoreDiscovery({
           Explora los ejemplares
         </h2>
 
-        <StorefrontCatalogToolbar
-          searchTerm={searchTerm}
-          searchLabel="Buscar ejemplares"
-          searchPlaceholder="Buscar producto..."
-          filterLabel="Filtrar por propósito"
-          onSearchChange={setSearchTerm}
-          hasActiveFilters={hasDiscoveryQuery}
-          onOpenFilters={scrollToPurpose}
-          mobilePosition="inline"
-        />
+        <div
+          className={isMobileToolbarPinned ? "relative min-h-[var(--sf-h-mobile-nav)] md:min-h-0" : "relative"}
+        >
+          <span
+            ref={toolbarAnchorRef}
+            aria-hidden="true"
+            className="pointer-events-none absolute left-0 top-0 h-px w-px"
+          />
+          <StorefrontCatalogToolbar
+            searchTerm={searchTerm}
+            searchLabel="Buscar ejemplares"
+            searchPlaceholder="Buscar producto..."
+            filterLabel="Filtrar por propósito"
+            onSearchChange={setSearchTerm}
+            hasActiveFilters={hasDiscoveryQuery}
+            onOpenFilters={scrollToPurpose}
+            mobilePosition={isMobileToolbarPinned ? "fixed" : "inline"}
+          />
+        </div>
 
         {isHeroLoading ? <StoreHeroSkeleton /> : hero && <StoreHeroBanner hero={hero} />}
 

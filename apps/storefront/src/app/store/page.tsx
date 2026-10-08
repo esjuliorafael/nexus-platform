@@ -33,6 +33,7 @@ const typeOptions = [
 ];
 
 const purposeOptions = [
+  { value: 'ALL', label: 'Todos' },
   { value: 'BREEDING', label: 'Cría' },
   { value: 'COMBAT', label: 'Combate' },
 ];
