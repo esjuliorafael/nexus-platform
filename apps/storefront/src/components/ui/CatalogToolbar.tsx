@@ -19,6 +19,7 @@ interface StorefrontCatalogToolbarProps {
   hasActiveFilters: boolean;
   onSearchChange: (value: string) => void;
   onOpenFilters: () => void;
+  mobilePosition?: "fixed" | "inline";
 }
 
 export function StorefrontCatalogToolbar({
@@ -29,6 +30,7 @@ export function StorefrontCatalogToolbar({
   hasActiveFilters,
   onSearchChange,
   onOpenFilters,
+  mobilePosition = "fixed",
 }: StorefrontCatalogToolbarProps) {
   const prefersReducedMotion = useReducedMotion();
   const entrance = {
@@ -51,6 +53,7 @@ export function StorefrontCatalogToolbar({
         hasActiveFilters={hasActiveFilters}
         onSearchChange={onSearchChange}
         onOpenFilters={onOpenFilters}
+        mobilePosition={mobilePosition}
       />
 
       <motion.div
@@ -96,6 +99,7 @@ function StorefrontMobileCatalogToolbar({
   hasActiveFilters,
   onSearchChange,
   onOpenFilters,
+  mobilePosition = "fixed",
 }: StorefrontCatalogToolbarProps) {
   const prefersReducedMotion = useReducedMotion();
   const mobileActionStyle = {
@@ -107,11 +111,15 @@ function StorefrontMobileCatalogToolbar({
 
   return (
     <motion.div
-      className="fixed z-40 grid grid-cols-[minmax(0,1fr)_auto] items-center md:hidden"
+      className={`${mobilePosition === "fixed" ? "fixed z-40" : "relative"} grid grid-cols-[minmax(0,1fr)_auto] items-center md:hidden`}
       style={{
-        top: "var(--sf-inset-mobile-chrome-block)",
-        left: "var(--sf-inset-mobile-chrome)",
-        right: "var(--sf-inset-mobile-chrome)",
+        ...(mobilePosition === "fixed"
+          ? {
+              top: "var(--sf-inset-mobile-chrome-block)",
+              left: "var(--sf-inset-mobile-chrome)",
+              right: "var(--sf-inset-mobile-chrome)",
+            }
+          : {}),
         gap: "var(--sf-space-md)",
       }}
       initial={prefersReducedMotion ? false : { opacity: 0, y: -8 }}

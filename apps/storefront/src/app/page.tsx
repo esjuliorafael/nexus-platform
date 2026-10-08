@@ -7,6 +7,7 @@ import { ArticleShelf } from "../components/layout/ArticleShelf";
 import { BentoArrivals } from "../components/layout/BentoArrivals";
 import { BirdShowcase } from "../components/layout/BirdShowcase";
 import { GalleryFeatured } from "../components/layout/GalleryFeatured";
+import { HomeStoreDiscovery } from "../components/layout/HomeStoreDiscovery";
 import { HeroSlider } from "../components/layout/HeroSlider";
 import { RaffleSection } from "../components/layout/RaffleSection";
 import { EmptyState } from "../components/ui/EmptyState";
@@ -85,6 +86,10 @@ export default function HomePage() {
       <HeroSlider />
 
       <div className="space-y-[var(--sf-space-xl)] pb-[var(--sf-mobile-chrome-content-padding-bottom)] pt-[var(--sf-space-xl)]">
+        <section className="mx-auto max-w-[1440px] px-[var(--sf-inset-page)]">
+          <HomeStoreDiscovery products={products} loading={loading} />
+        </section>
+
         <section className="mx-auto max-w-[1440px] px-[var(--sf-inset-page)]">
           <SectionReveal>
             <div className="mb-[var(--sf-space-lg)] flex flex-col justify-between gap-[var(--sf-space-md)] border-b border-stone-200 pb-[var(--sf-space-md)] md:flex-row md:items-end">
