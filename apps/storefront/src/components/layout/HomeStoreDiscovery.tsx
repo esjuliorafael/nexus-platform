@@ -20,6 +20,12 @@ const purposeOptions = [
   { value: "COMBAT", label: "Combate" },
 ];
 
+const normalizeSearchValue = (value: string | null | undefined) =>
+  (value ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase();
+
 interface HomeStoreDiscoveryProps {
   products: Product[];
   loading: boolean;
@@ -35,7 +41,6 @@ export function HomeStoreDiscovery({
   const [isHeroLoading, setIsHeroLoading] = useState(true);
   const [isMobileToolbarPinned, setIsMobileToolbarPinned] = useState(false);
   const toolbarAnchorRef = useRef<HTMLSpanElement>(null);
-  const purposeRef = useRef<HTMLDivElement>(null);
   const prefersReducedMotion = useReducedMotion();
 
   useEffect(() => {
@@ -96,23 +101,20 @@ export function HomeStoreDiscovery({
   );
 
   const filteredBirds = useMemo(() => {
-    const normalizedSearch = searchTerm.trim().toLowerCase();
+    const normalizedSearch = normalizeSearchValue(searchTerm.trim());
 
     return availableBirds.filter((product) => {
       const matchesPurpose = purpose === "ALL" || product.purpose === purpose;
       const matchesSearch =
         normalizedSearch.length === 0 ||
-        product.name.toLowerCase().includes(normalizedSearch);
+        [product.name, product.ringNumber, product.description].some((value) =>
+          normalizeSearchValue(value).includes(normalizedSearch),
+        );
       return matchesPurpose && matchesSearch;
     });
   }, [availableBirds, purpose, searchTerm]);
 
-  const hasDiscoveryQuery = searchTerm.trim().length > 0 || purpose !== "ALL";
   const visibleBirds = filteredBirds.slice(0, 6);
-
-  const scrollToPurpose = () => {
-    purposeRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
-  };
 
   return (
     <section aria-labelledby="home-store-discovery-title">
@@ -133,17 +135,16 @@ export function HomeStoreDiscovery({
             searchTerm={searchTerm}
             searchLabel="Buscar ejemplares"
             searchPlaceholder="Buscar producto..."
-            filterLabel="Filtrar por propósito"
             onSearchChange={setSearchTerm}
-            hasActiveFilters={hasDiscoveryQuery}
-            onOpenFilters={scrollToPurpose}
+            hasActiveFilters={false}
+            showFilters={false}
             mobilePosition={isMobileToolbarPinned ? "fixed" : "inline"}
           />
         </div>
 
         {isHeroLoading ? <StoreHeroSkeleton /> : hero && <StoreHeroBanner hero={hero} />}
 
-        <div ref={purposeRef}>
+        <div>
           <StorefrontPillFilter
             title="Propósito"
             value={purpose}
@@ -152,54 +153,52 @@ export function HomeStoreDiscovery({
           />
         </div>
 
-        {hasDiscoveryQuery && (
-          <motion.div
-            initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
-            className="flex flex-col"
-            style={{ gap: "var(--sf-space-md)" }}
-          >
-            {loading ? (
-              <div className="flex h-48 items-center justify-center">
-                <Spinner className="h-10 w-10" />
+        <motion.div
+          initial={prefersReducedMotion ? false : { opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
+          className="flex flex-col"
+          style={{ gap: "var(--sf-space-md)" }}
+        >
+          {loading ? (
+            <div className="flex h-48 items-center justify-center">
+              <Spinner className="h-10 w-10" />
+            </div>
+          ) : filteredBirds.length === 0 ? (
+            <EmptyState
+              icon={Search}
+              title="Sin resultados"
+              description="No encontramos ejemplares que coincidan con la búsqueda."
+              actionText="Limpiar búsqueda"
+              onActionClick={() => {
+                setSearchTerm("");
+                setPurpose("ALL");
+              }}
+            />
+          ) : (
+            <>
+              <div className="flex items-center justify-between" style={{ gap: "var(--sf-space-md)" }}>
+                <h3 className="sf-text-h2 font-black text-stone-950">
+                  Ejemplares disponibles
+                </h3>
+                <span className="sf-text-button-card font-black text-stone-500 tabular-nums">
+                  {filteredBirds.length} {filteredBirds.length === 1 ? "resultado" : "resultados"}
+                </span>
               </div>
-            ) : filteredBirds.length === 0 ? (
-              <EmptyState
-                icon={Search}
-                title="Sin resultados"
-                description="No encontramos ejemplares que coincidan con la búsqueda."
-                actionText="Limpiar búsqueda"
-                onActionClick={() => {
-                  setSearchTerm("");
-                  setPurpose("ALL");
-                }}
-              />
-            ) : (
-              <>
-                <div className="flex items-center justify-between" style={{ gap: "var(--sf-space-md)" }}>
-                  <h3 className="sf-text-h2 font-black text-stone-950">
-                    Ejemplares disponibles
-                  </h3>
-                  <span className="sf-text-button-card font-black text-stone-500 tabular-nums">
-                    {filteredBirds.length} {filteredBirds.length === 1 ? "resultado" : "resultados"}
-                  </span>
+              <ProductGrid products={visibleBirds} />
+              {filteredBirds.length > visibleBirds.length && (
+                <div className="flex justify-center">
+                  <Button asChild variant="outline" context="section">
+                    <Link href={`/store?type=BIRD${purpose !== "ALL" ? `&purpose=${purpose}` : ""}`}>
+                      Ver todos los ejemplares
+                      <ArrowRight size={16} aria-hidden="true" />
+                    </Link>
+                  </Button>
                 </div>
-                <ProductGrid products={visibleBirds} />
-                {filteredBirds.length > visibleBirds.length && (
-                  <div className="flex justify-center">
-                    <Button asChild variant="outline" context="section">
-                      <Link href={`/store?type=BIRD${purpose !== "ALL" ? `&purpose=${purpose}` : ""}`}>
-                        Ver todos los ejemplares
-                        <ArrowRight size={16} aria-hidden="true" />
-                      </Link>
-                    </Button>
-                  </div>
-                )}
-              </>
-            )}
-          </motion.div>
-        )}
+              )}
+            </>
+          )}
+        </motion.div>
       </div>
     </section>
   );

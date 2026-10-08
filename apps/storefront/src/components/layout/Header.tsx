@@ -74,7 +74,7 @@ export function Header({ showRaffles = false, onOpenCart }: HeaderProps) {
     <>
       {pathname === "/" && (
         <header
-          className="pointer-events-none fixed left-0 right-0 top-0 z-50 md:hidden"
+          className="pointer-events-none absolute left-0 right-0 top-0 z-50 md:hidden"
           style={{
             paddingTop:
               "calc(var(--sf-inset-mobile-chrome-block) + env(safe-area-inset-top, 0px))",

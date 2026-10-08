@@ -15,10 +15,11 @@ interface StorefrontCatalogToolbarProps {
   searchTerm: string;
   searchLabel: string;
   searchPlaceholder: string;
-  filterLabel: string;
+  filterLabel?: string;
   hasActiveFilters: boolean;
   onSearchChange: (value: string) => void;
-  onOpenFilters: () => void;
+  onOpenFilters?: () => void;
+  showFilters?: boolean;
   mobilePosition?: "fixed" | "inline";
 }
 
@@ -30,6 +31,7 @@ export function StorefrontCatalogToolbar({
   hasActiveFilters,
   onSearchChange,
   onOpenFilters,
+  showFilters = true,
   mobilePosition = "fixed",
 }: StorefrontCatalogToolbarProps) {
   const prefersReducedMotion = useReducedMotion();
@@ -53,6 +55,7 @@ export function StorefrontCatalogToolbar({
         hasActiveFilters={hasActiveFilters}
         onSearchChange={onSearchChange}
         onOpenFilters={onOpenFilters}
+        showFilters={showFilters}
         mobilePosition={mobilePosition}
       />
 
@@ -75,17 +78,19 @@ export function StorefrontCatalogToolbar({
           />
         </div>
 
-        <Button
-          type="button"
-          variant={hasActiveFilters ? "brand" : "outline"}
-          context="section"
-          size="icon"
-          icon={SlidersHorizontal}
-          isIconOnly
-          onClick={onOpenFilters}
-          aria-label={filterLabel}
-          className="shrink-0"
-        />
+        {showFilters && (
+          <Button
+            type="button"
+            variant={hasActiveFilters ? "brand" : "outline"}
+            context="section"
+            size="icon"
+            icon={SlidersHorizontal}
+            isIconOnly
+            onClick={onOpenFilters}
+            aria-label={filterLabel}
+            className="shrink-0"
+          />
+        )}
       </motion.div>
     </>
   );
@@ -99,6 +104,7 @@ function StorefrontMobileCatalogToolbar({
   hasActiveFilters,
   onSearchChange,
   onOpenFilters,
+  showFilters = true,
   mobilePosition = "fixed",
 }: StorefrontCatalogToolbarProps) {
   const prefersReducedMotion = useReducedMotion();
@@ -111,7 +117,7 @@ function StorefrontMobileCatalogToolbar({
 
   return (
     <motion.div
-      className={`${mobilePosition === "fixed" ? "fixed z-40" : "relative"} grid grid-cols-[minmax(0,1fr)_auto] items-center md:hidden`}
+      className={`${mobilePosition === "fixed" ? "fixed z-40" : "relative"} grid ${showFilters ? "grid-cols-[minmax(0,1fr)_auto]" : "grid-cols-1"} items-center md:hidden`}
       style={{
         ...(mobilePosition === "fixed"
           ? {
@@ -171,37 +177,39 @@ function StorefrontMobileCatalogToolbar({
         />
       </label>
 
-      <div
-        className="relative flex shrink-0 items-center justify-center border border-stone-200/90 bg-white shadow-[0_18px_48px_rgba(87,68,55,0.14)]"
-        style={{
-          height: "var(--sf-h-mobile-nav)",
-          borderRadius: "var(--sf-radius-outer)",
-          padding: "var(--sf-space-sm)",
-        }}
-      >
-        <Button
-          size="icon"
-          variant={hasActiveFilters ? "brand" : "ghost"}
-          icon={SlidersHorizontal}
-          isIconOnly
-          onClick={onOpenFilters}
-          aria-label={filterLabel}
-          style={mobileActionStyle}
-        />
-
-        {hasActiveFilters && (
-          <span
-            aria-hidden="true"
-            className="absolute rounded-full bg-brand-500 ring-2 ring-white"
-            style={{
-              top: "var(--sf-space-sm)",
-              right: "var(--sf-space-sm)",
-              width: "var(--sf-size-inner-icon-badge)",
-              height: "var(--sf-size-inner-icon-badge)",
-            }}
+      {showFilters && (
+        <div
+          className="relative flex shrink-0 items-center justify-center border border-stone-200/90 bg-white shadow-[0_18px_48px_rgba(87,68,55,0.14)]"
+          style={{
+            height: "var(--sf-h-mobile-nav)",
+            borderRadius: "var(--sf-radius-outer)",
+            padding: "var(--sf-space-sm)",
+          }}
+        >
+          <Button
+            size="icon"
+            variant={hasActiveFilters ? "brand" : "ghost"}
+            icon={SlidersHorizontal}
+            isIconOnly
+            onClick={onOpenFilters}
+            aria-label={filterLabel}
+            style={mobileActionStyle}
           />
-        )}
-      </div>
+
+          {hasActiveFilters && (
+            <span
+              aria-hidden="true"
+              className="absolute rounded-full bg-brand-500 ring-2 ring-white"
+              style={{
+                top: "var(--sf-space-sm)",
+                right: "var(--sf-space-sm)",
+                width: "var(--sf-size-inner-icon-badge)",
+                height: "var(--sf-size-inner-icon-badge)",
+              }}
+            />
+          )}
+        </div>
+      )}
     </motion.div>
   );
 }
