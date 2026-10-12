@@ -9,6 +9,7 @@ export interface RaffleCheckoutDraft {
 
 const key = 'nexus_raffle_checkout_draft';
 const paymentAttemptKey = (raffleId: number) => `nexus_raffle_mp_payment_${raffleId}`;
+const draftTtlMs = 7 * 24 * 60 * 60 * 1000;
 
 export interface PendingRafflePaymentAttempt {
   paymentHoldId: string;
@@ -20,15 +21,34 @@ export interface PendingRafflePaymentAttempt {
 
 export function saveRaffleCheckoutDraft(draft: RaffleCheckoutDraft) {
   if (typeof window === 'undefined') return;
-  sessionStorage.setItem(key, JSON.stringify(draft));
+  try {
+    window.localStorage.setItem(key, JSON.stringify({ ...draft, savedAt: Date.now() }));
+  } catch {
+    window.sessionStorage.setItem(key, JSON.stringify({ ...draft, savedAt: Date.now() }));
+  }
 }
 
 export function getRaffleCheckoutDraft(raffleId: number): RaffleCheckoutDraft | null {
   if (typeof window === 'undefined') return null;
   try {
-    const raw = sessionStorage.getItem(key);
+    let raw = window.localStorage.getItem(key);
+    if (!raw) {
+      raw = window.sessionStorage.getItem(key);
+      if (raw) {
+        try {
+          window.localStorage.setItem(key, raw);
+          window.sessionStorage.removeItem(key);
+        } catch {
+          // Keep the legacy value available if persistent storage is unavailable.
+        }
+      }
+    }
     if (!raw) return null;
-    const draft = JSON.parse(raw) as RaffleCheckoutDraft;
+    const draft = JSON.parse(raw) as RaffleCheckoutDraft & { savedAt?: number };
+    if (draft.savedAt && draft.savedAt + draftTtlMs <= Date.now()) {
+      clearRaffleCheckoutDraft();
+      return null;
+    }
     return draft.raffleId === raffleId && draft.tickets.length > 0 ? draft : null;
   } catch {
     return null;
@@ -37,7 +57,8 @@ export function getRaffleCheckoutDraft(raffleId: number): RaffleCheckoutDraft | 
 
 export function clearRaffleCheckoutDraft() {
   if (typeof window === 'undefined') return;
-  sessionStorage.removeItem(key);
+  window.localStorage.removeItem(key);
+  window.sessionStorage.removeItem(key);
 }
 
 export function savePendingRafflePaymentAttempt(raffleId: number, attempt: PendingRafflePaymentAttempt) {

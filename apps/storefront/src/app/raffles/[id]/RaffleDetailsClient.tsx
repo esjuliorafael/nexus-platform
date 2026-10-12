@@ -70,6 +70,7 @@ import {
   getRaffleCheckoutDraft,
   saveRaffleCheckoutDraft,
 } from "../../../lib/raffle-checkout-draft";
+import { clearRaffleCheckoutFormDraft } from "../../../lib/raffle-checkout-form-draft";
 import { getRaffleEarlyAccessToken } from "../../../lib/raffle-early-access";
 import {
   getRaffleParticipationUnitPrice,
@@ -343,6 +344,7 @@ export function RaffleDetailsClient({
   useEffect(() => {
     if (isFinalized) {
       clearRaffleCheckoutDraft();
+      clearRaffleCheckoutFormDraft(raffle.id);
       setSelectedTickets([]);
       setCoupon(null);
       return;

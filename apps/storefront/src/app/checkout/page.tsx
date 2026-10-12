@@ -51,6 +51,12 @@ import { StorefrontCheckoutSection } from "../../components/ui/CheckoutSection";
 import { StorefrontNote } from "../../components/ui/Note";
 import { CouponRedemption } from "../../components/cart/CouponRedemption";
 import { formatPrice, getAssetUrl } from "../../utils/formatters";
+import {
+  clearStoreCheckoutFormDraft,
+  getStoreCheckoutFormDraft,
+  StoreCheckoutFormData,
+  saveStoreCheckoutFormDraft,
+} from "../../lib/store-checkout-form-draft";
 import { useCheckoutTransitionReady } from "../../hooks/useCheckoutTransitionReady";
 import { PaymentMethodCard } from "../../components/checkout/PaymentMethodCard";
 import { BankInfoCard } from "../../components/checkout/BankInfoCard";
@@ -166,6 +172,7 @@ export default function CheckoutPage() {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("TRANSFER");
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(null);
   const [mounted, setMounted] = useState(false);
+  const [checkoutDraftHydrated, setCheckoutDraftHydrated] = useState(false);
   useCheckoutTransitionReady("/checkout", mounted);
   const checkoutMotionReady = useStorefrontCheckoutMotionReady("/checkout");
   const [zones, setZones] = useState<ShippingZone[]>([]);
@@ -224,7 +231,7 @@ export default function CheckoutPage() {
     await Promise.all([prepareConfirmationSound(), prepareErrorSound()]);
   }, [prepareConfirmationSound, prepareErrorSound]);
 
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<StoreCheckoutFormData>({
     customerName: "",
     customerEmail: "",
     customerPhone: "",
@@ -354,6 +361,45 @@ export default function CheckoutPage() {
   }, [clearCart, replaceCart, showToast]);
 
   useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const recoveryToken = new URLSearchParams(window.location.hash.slice(1)).get("recovery");
+    const hasPaymentReturn = Boolean(
+      params.get("status") && (params.get("external_reference") || params.get("ref")),
+    );
+    const activePaymentAttempt = readPendingPaymentAttempt();
+    const savedDraft = params.has("assisted") || recoveryToken || hasPaymentReturn || (
+      activePaymentAttempt && !isPendingPaymentAttemptExpired(activePaymentAttempt)
+    )
+      ? null
+      : getStoreCheckoutFormDraft();
+
+    if (savedDraft) {
+      setFormData(savedDraft.formData);
+      setSomeoneElseReceives(savedDraft.someoneElseReceives);
+      setPaymentMethod(savedDraft.paymentMethod);
+      setCheckoutStep(savedDraft.checkoutStep);
+    }
+
+    setCheckoutDraftHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    if (!checkoutDraftHydrated || completionState) return;
+    saveStoreCheckoutFormDraft({
+      formData,
+      someoneElseReceives,
+      paymentMethod,
+      checkoutStep,
+    });
+  }, [checkoutDraftHydrated, checkoutStep, completionState, formData, paymentMethod, someoneElseReceives]);
+
+  useEffect(() => {
+    if (completionState === "reserved" || completionState === "approved") {
+      clearStoreCheckoutFormDraft();
+    }
+  }, [completionState]);
+
+  useEffect(() => {
     if (typeof window === "undefined") return;
     const params = new URLSearchParams(window.location.hash.slice(1));
     const recoveryToken = params.get("recovery");
@@ -416,19 +462,89 @@ export default function CheckoutPage() {
   }, [replaceCart, showToast]);
 
   useEffect(() => {
-    if (!formData.shippingState || selectedZone || zones.length === 0) return;
+    if (!formData.shippingState || zones.length === 0) return;
     const recoveredZone = zones.find(
       (zone) => zone.name === formData.shippingState,
     );
-    if (recoveredZone) setSelectedZone(recoveredZone);
-  }, [formData.shippingState, selectedZone, zones]);
+    if (recoveredZone) {
+      if (selectedZone?.id !== recoveredZone.id) setSelectedZone(recoveredZone);
+      return;
+    }
+
+    setSelectedZone(null);
+    setFormData((current) => ({ ...current, shippingState: "" }));
+    setCheckoutStep((current) => Math.min(current, 2) as CheckoutStep);
+    showToast("La zona de entrega guardada ya no está disponible. Selecciónala nuevamente.", "info");
+  }, [formData.shippingState, selectedZone, showToast, zones]);
+
+  useEffect(() => {
+    if (paymentMethod === "MERCADOPAGO" && paymentOptions && !paymentOptions.mercadoPago.available) {
+      setPaymentMethod("TRANSFER");
+    }
+  }, [paymentMethod, paymentOptions]);
 
   useEffect(() => {
     if (!mounted || items.length === 0) return;
+    let active = true;
+    const storedPaymentAttempt = readPendingPaymentAttempt();
+    const hasActivePaymentHold = Boolean(
+      (pendingPaymentAttempt && !isPendingPaymentAttemptExpired(pendingPaymentAttempt))
+      || (storedPaymentAttempt && !isPendingPaymentAttemptExpired(storedPaymentAttempt)),
+    );
+
     Promise.all(items.map((item) => productApi.getById(item.productId)))
-      .then(setCartProducts)
+      .then((products) => {
+        if (!active) return;
+
+        const unavailableIds = hasActivePaymentHold
+          ? []
+          : items
+            .filter((item, index) => {
+              const product = products[index];
+              return product.saleStatus !== "AVAILABLE"
+                || !product.active
+                || product.published === false
+                || (product.type === "ITEM" && Number(product.stock) < item.quantity);
+            })
+            .map((item) => item.productId);
+        const unavailableSet = new Set(unavailableIds);
+        const reconciledItems = items
+          .filter((item) => !unavailableSet.has(item.productId))
+          .map((item, index) => {
+            const product = products[items.findIndex((cartItem) => cartItem.productId === item.productId)];
+            return {
+              ...item,
+              name: product.name,
+              price: Number(product.price),
+              thumbnail: product.thumbnail,
+              type: product.type === "BIRD" ? ("bird" as const) : ("item" as const),
+            };
+          });
+        const cartChanged = reconciledItems.length !== items.length || reconciledItems.some((item, index) => {
+          const previous = items[index];
+          return item.name !== previous.name
+            || item.price !== previous.price
+            || item.thumbnail !== previous.thumbnail
+            || item.type !== previous.type;
+        });
+
+        setCartProducts(products.filter((_, index) => !unavailableSet.has(items[index].productId)));
+        if (cartChanged) replaceCart(reconciledItems, null);
+        if (unavailableIds.length > 0) {
+          showToast(
+            unavailableIds.length === 1
+              ? "Un producto de tu carrito ya no está disponible y fue retirado."
+              : "Algunos productos de tu carrito ya no están disponibles y fueron retirados.",
+            { type: "info", title: "Carrito actualizado" },
+          );
+        }
+      })
       .catch((err) => console.error("Error loading cart products:", err));
-  }, [items, mounted]);
+
+    return () => {
+      active = false;
+    };
+  }, [items, mounted, pendingPaymentAttempt, replaceCart, showToast]);
 
   const hasBirds = items.some((item) => item.type?.toLowerCase() === "bird");
   const hasItems = items.some((item) => item.type?.toLowerCase() === "item");
@@ -577,6 +693,7 @@ export default function CheckoutPage() {
   }), [discountTotal, getTotalPrice, items, orderTotal, selectedZone, shippingCalculation.details, shippingCalculation.total]);
 
   const finishCheckout = useCallback((state: Exclude<CompletionState, null>, order: StoreOrderResponse) => {
+    clearStoreCheckoutFormDraft();
     setCompletionSnapshot(buildSummarySnapshot());
     setOrderComplete({
       ...order,
@@ -1045,6 +1162,16 @@ export default function CheckoutPage() {
     ? getStoreCheckoutCompletionPresentation(completionState)
     : null;
   const summarySnapshot = completionSnapshot ?? buildSummarySnapshot();
+  const summaryActionLabel = checkoutStep === 3
+    ? isAssistedCheckout || forceCheckoutPro ? "Continuar en Mercado Pago" : "Finalizar pedido"
+    : "Continuar";
+  const summaryActionDisabled = loading || (
+    checkoutStep === 0 &&
+    (!settingsReady || (needsDeliveryChoice && !formData.deliveryMethod))
+  );
+  const showSummaryAction = !completionState && !(
+    checkoutStep === 3 && paymentMethod === "MERCADOPAGO" && isEmbeddedMP
+  );
 
   return (
     <div
@@ -1486,6 +1613,11 @@ export default function CheckoutPage() {
               selectedZone={summarySnapshot.selectedZone}
               total={summarySnapshot.total}
               onRemoveItem={completionState ? undefined : (item) => setItemToDelete(item)}
+              actionLabel={showSummaryAction ? summaryActionLabel : undefined}
+              onAction={showSummaryAction ? handleCheckoutPrimaryAction : undefined}
+              actionDisabled={summaryActionDisabled}
+              actionLoading={loading}
+              actionTestId="store-checkout-summary-submit"
               completionStatus={completionPresentation
                 ? {
                     label: completionPresentation.summaryStatus,
@@ -1528,7 +1660,7 @@ export default function CheckoutPage() {
       <BottomSheet
         isOpen={showMobileSummary}
         onClose={() => setShowMobileSummary(false)}
-        title="Resumen"
+        title="Mi selección"
       >
         <OrderSummary
           variant="sheet"
@@ -1749,6 +1881,11 @@ function OrderSummary({
   selectedZone,
   total,
   onRemoveItem,
+  actionLabel,
+  onAction,
+  actionDisabled = false,
+  actionLoading = false,
+  actionTestId,
   completionStatus,
 }: {
   variant?: "sidebar" | "sheet";
@@ -1760,6 +1897,11 @@ function OrderSummary({
   selectedZone: ShippingZone | null;
   total: number;
   onRemoveItem?: (item: any) => void;
+  actionLabel?: string;
+  onAction?: () => void;
+  actionDisabled?: boolean;
+  actionLoading?: boolean;
+  actionTestId?: string;
   completionStatus?: {
     label: string;
     tone: "success" | "pending";
@@ -1767,6 +1909,8 @@ function OrderSummary({
 }) {
   const shippingIsFree = shippingDetails.length > 0 && shippingTotal === 0;
   const SummarySurface = variant === "sidebar" ? StorefrontAutonomousCard : StorefrontSectionCard;
+  const reduceMotion = useReducedMotion();
+  const itemCount = items.reduce((count, item) => count + item.quantity, 0);
 
   return (
     <SummarySurface
@@ -1778,12 +1922,13 @@ function OrderSummary({
       }`}
     >
       <div className="relative z-10 flex flex-col" style={{ gap: "var(--sf-space-lg)" }}>
-        <div className="flex items-center" style={{ gap: "var(--sf-space-md)" }}>
-          <StorefrontIcon icon={ShoppingBag} context="section" variant="brand" className="bg-white/10 border-white/10 text-brand-400 shadow-none" />
-          <div>
-            <p className="sf-text-label text-brand-400 uppercase tracking-[0.2em] font-black text-[10px]">Tu selección</p>
-            <h3 className="sf-text-h1 uppercase tracking-tight leading-none">Resumen</h3>
-          </div>
+        <div className="flex flex-col" style={{ gap: "var(--sf-space-xs)" }}>
+          <h2 className="sf-text-h1">Mi selección</h2>
+          <p className="sf-text-secondary text-stone-400">
+            {itemCount > 0
+              ? `${itemCount} producto${itemCount === 1 ? "" : "s"} seleccionado${itemCount === 1 ? "" : "s"}.`
+              : "Agrega productos para continuar."}
+          </p>
         </div>
 
         {completionStatus && (
@@ -1823,7 +1968,7 @@ function OrderSummary({
                 </div>
               </div>
               <div className="flex items-center gap-4">
-                <span className="sf-text-h2 tabular-nums text-brand-400 font-black text-lg">${formatPrice(item.price * item.quantity)}</span>
+                <span className="sf-text-h2 tabular-nums text-brand-500 font-black text-lg">${formatPrice(item.price * item.quantity)}</span>
                 {onRemoveItem && (
                   <button
                     onClick={() => onRemoveItem(item)}
@@ -1863,11 +2008,11 @@ function OrderSummary({
           <SummaryRow label="Envío total" value={shippingDetails.length > 0 ? (shippingTotal > 0 ? `$${formatPrice(shippingTotal)}` : "Gratis") : "Pendiente de estado"} />
 
           <div className="flex flex-col pt-[var(--sf-space-md)] mt-2">
-            <div className="flex items-baseline justify-between border-t border-white/5 pt-4">
-              <span className="sf-text-h1 text-stone-400 uppercase tracking-tighter">Total final</span>
-              <span className="sf-text-display tabular-nums text-brand-400 font-black tracking-tighter leading-none">
+            <div className="flex items-center justify-between border-t border-white/5 pt-[var(--sf-space-md)]" style={{ gap: "var(--sf-space-md)" }}>
+              <span className="sf-text-label text-stone-400">Total</span>
+              <strong className="sf-text-display tabular-nums text-brand-500 font-black tracking-tighter leading-none">
                 ${formatPrice(total)}
-              </span>
+              </strong>
             </div>
           </div>
         </div>
@@ -1881,6 +2026,37 @@ function OrderSummary({
               : "Enviaremos los artículos a la dirección indicada."
             : "Al confirmar, aceptas nuestras políticas de venta y tiempos de entrega."}
         </StorefrontNote>
+
+        <AnimatePresence mode="wait" initial={false}>
+          {completionStatus ? null : actionLabel && onAction ? (
+            <motion.div
+              key="store-summary-action"
+              initial={reduceMotion ? { opacity: 0 } : { opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={reduceMotion ? { opacity: 0 } : { opacity: 0, y: -6 }}
+              transition={{
+                duration: toMotionSeconds(
+                  reduceMotion
+                    ? STOREFRONT_MOTION_MS.duration.instant
+                    : STOREFRONT_MOTION_MS.duration.standard,
+                ),
+                ease: STOREFRONT_EASING.reveal,
+              }}
+            >
+              <Button
+                type="button"
+                context="autonomous"
+                className="w-full"
+                onClick={onAction}
+                data-testid={actionTestId}
+                disabled={actionDisabled || actionLoading}
+                isLoading={actionLoading}
+              >
+                {actionLabel}
+              </Button>
+            </motion.div>
+          ) : null}
+        </AnimatePresence>
       </div>
     </SummarySurface>
   );
@@ -1888,7 +2064,7 @@ function OrderSummary({
 
 function SummaryRow({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between sf-text-label text-stone-500 uppercase tracking-widest font-black text-[9px]">
+    <div className="flex items-center justify-between sf-text-label text-stone-400">
       <span>{label}</span>
       <span className="tabular-nums text-stone-300">{value}</span>
     </div>

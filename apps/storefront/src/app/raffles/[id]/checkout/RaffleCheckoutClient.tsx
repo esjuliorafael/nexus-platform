@@ -22,6 +22,11 @@ import {
   saveRaffleCheckoutDraft,
   savePendingRafflePaymentAttempt,
 } from '../../../../lib/raffle-checkout-draft';
+import {
+  clearRaffleCheckoutFormDraft,
+  getRaffleCheckoutFormDraft,
+  saveRaffleCheckoutFormDraft,
+} from '../../../../lib/raffle-checkout-form-draft';
 import { formatPrice } from '../../../../utils/formatters';
 import { Button } from '../../../../components/ui/Button';
 import { StorefrontAutonomousCard } from '../../../../components/ui/Card';
@@ -41,7 +46,10 @@ import { BankInfoCard } from '../../../../components/checkout/BankInfoCard';
 import { MercadoPagoCardPayment } from '../../../../components/checkout/MercadoPagoCardPayment';
 import { MarketingConsentField } from '../../../../components/checkout/MarketingConsentField';
 import { getRaffleEarlyAccessToken } from '../../../../lib/raffle-early-access';
-import { getRaffleParticipationUnitPrice } from '../../../../lib/raffle-participation';
+import {
+  getRaffleParticipationUnitPrice,
+  getRaffleTicketDisplayStatus,
+} from '../../../../lib/raffle-participation';
 import {
   StorefrontCheckoutMotion,
   useStorefrontCheckoutMotionReady,
@@ -205,6 +213,16 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
             title: 'Recuperacion finalizada',
           },
         );
+      } else {
+        const savedFormDraft = getRaffleCheckoutFormDraft(raffleId);
+        if (savedFormDraft) {
+          setCustomerName(savedFormDraft.customerName);
+          setCustomerPhone(savedFormDraft.customerPhone);
+          setCustomerState(savedFormDraft.customerState);
+          setMarketingConsent(savedFormDraft.marketingConsent);
+          setPaymentMethod(savedFormDraft.paymentMethod);
+          setCheckoutStep(savedFormDraft.checkoutStep);
+        }
       }
       setIsInitialized(true);
     });
@@ -213,6 +231,77 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
       active = false;
     };
   }, [raffleId, showToast]);
+
+  useEffect(() => {
+    if (!isInitialized || completionState) return;
+    saveRaffleCheckoutFormDraft({
+      raffleId,
+      customerName,
+      customerPhone,
+      customerState,
+      marketingConsent,
+      paymentMethod,
+      checkoutStep,
+    });
+  }, [checkoutStep, completionState, customerName, customerPhone, customerState, isInitialized, marketingConsent, paymentMethod, raffleId]);
+
+  const draftTicketsKey = draft?.tickets.join(',') ?? '';
+  const draftParticipationMode = draft?.participationMode ?? 'FULL';
+
+  useEffect(() => {
+    if (!isInitialized || !draft || embeddedPaymentHoldId || !draftTicketsKey) return;
+
+    let active = true;
+    raffleApi.getTicketAvailability(raffleId)
+      .then((availability) => {
+        if (!active) return;
+
+        const unavailable = new Set(
+          availability
+            .filter((ticket) => getRaffleTicketDisplayStatus(ticket, draftParticipationMode) !== 'AVAILABLE')
+            .map((ticket) => ticket.ticketNumber),
+        );
+        const displaced = draft.tickets.filter((ticket) => unavailable.has(ticket));
+        if (displaced.length === 0) return;
+
+        const nextTickets = draft.tickets.filter((ticket) => !unavailable.has(ticket));
+        const nextDraft = nextTickets.length > 0
+          ? { ...draft, tickets: nextTickets, coupon: null }
+          : null;
+
+        if (nextDraft) {
+          saveRaffleCheckoutDraft(nextDraft);
+        } else {
+          clearRaffleCheckoutDraft();
+        }
+        setDraft(nextDraft);
+        showToast(
+          displaced.length === 1
+            ? `El boleto ${displaced[0]} ya no está disponible y fue retirado.`
+            : 'Algunos boletos de tu selección ya no están disponibles y fueron retirados.',
+          { type: 'info', title: 'Disponibilidad actualizada' },
+        );
+      })
+      .catch(() => {
+        // The checkout can still submit and the API performs the final availability check.
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [draft, draftParticipationMode, draftTicketsKey, embeddedPaymentHoldId, isInitialized, raffleId, showToast]);
+
+  useEffect(() => {
+    if (paymentMethod === 'MERCADOPAGO' && paymentOptions && !paymentOptions.mercadoPago.available) {
+      setPaymentMethod('TRANSFER');
+    }
+  }, [paymentMethod, paymentOptions]);
+
+  useEffect(() => {
+    if (completionState === 'reserved' || completionState === 'approved') {
+      clearRaffleCheckoutFormDraft(raffleId);
+    }
+  }, [completionState, raffleId]);
 
   useEffect(() => {
     if (mpCheckoutConfig?.mode !== 'embedded' || !embeddedPaymentHoldId) return;
@@ -297,6 +386,7 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
       if (paymentMethod === 'MERCADOPAGO') throw new Error('El pago con tarjeta requiere el formulario integrado de Mercado Pago.');
       const reservation = await createRaffleReservation();
       clearRaffleCheckoutDraft();
+      clearRaffleCheckoutFormDraft(raffleId);
       clearPendingRafflePaymentAttempt(raffleId);
       setEmbeddedPaymentHoldId(null);
       setCompletionDetails({
@@ -417,6 +507,7 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
       reservationId: String(result.referenceId),
     });
     clearRaffleCheckoutDraft();
+    clearRaffleCheckoutFormDraft(raffleId);
     clearPendingRafflePaymentAttempt(raffleId);
     setEmbeddedPaymentHoldId(null);
     playConfirmationFeedback();
