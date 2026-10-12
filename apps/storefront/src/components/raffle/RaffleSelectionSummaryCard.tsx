@@ -55,7 +55,7 @@ export function RaffleSelectionSummaryCard({
   return (
     <StorefrontAutonomousCard
       density="compact"
-      className="flex flex-col bg-stone-900 text-white shadow-2xl shadow-stone-900/25 lg:sticky lg:top-[var(--sf-space-lg)]"
+      className="flex flex-col bg-stone-900 text-white shadow-2xl shadow-stone-900/25"
       style={{ gap: 'var(--sf-space-lg)' }}
     >
       <div className="flex flex-col" style={{ gap: 'var(--sf-space-xs)' }}>

@@ -1646,28 +1646,30 @@ export default function CheckoutPage() {
           </div>
 
           <StorefrontCheckoutMotion phase="summary" ready={checkoutMotionReady} className="hidden lg:block">
-          <aside>
-            <OrderSummary
-              items={summarySnapshot.items}
-              subtotal={summarySnapshot.subtotal}
-              discountTotal={summarySnapshot.discountTotal}
-              shippingTotal={summarySnapshot.shippingTotal}
-              shippingDetails={summarySnapshot.shippingDetails}
-              selectedZone={summarySnapshot.selectedZone}
-              total={summarySnapshot.total}
-              onRemoveItem={completionState ? undefined : (item) => setItemToDelete(item)}
-              actionLabel={showSummaryAction ? summaryActionLabel : undefined}
-              onAction={showSummaryAction ? handleDesktopSummaryAction : undefined}
-              actionDisabled={summaryActionDisabled}
-              actionLoading={loading}
-              actionTestId="store-checkout-summary-submit"
-              completionStatus={completionPresentation
-                ? {
-                    label: completionPresentation.summaryStatus,
-                    tone: completionState === "pending" ? "pending" : "success",
-                  }
-                : undefined}
-            />
+          <aside className="sticky top-[var(--sf-space-lg)] max-h-[var(--sf-checkout-summary-max-height)]">
+            <div className="max-h-[var(--sf-checkout-summary-max-height)] overflow-y-auto custom-scrollbar-dark">
+              <OrderSummary
+                items={summarySnapshot.items}
+                subtotal={summarySnapshot.subtotal}
+                discountTotal={summarySnapshot.discountTotal}
+                shippingTotal={summarySnapshot.shippingTotal}
+                shippingDetails={summarySnapshot.shippingDetails}
+                selectedZone={summarySnapshot.selectedZone}
+                total={summarySnapshot.total}
+                onRemoveItem={completionState ? undefined : (item) => setItemToDelete(item)}
+                actionLabel={showSummaryAction ? summaryActionLabel : undefined}
+                onAction={showSummaryAction ? handleDesktopSummaryAction : undefined}
+                actionDisabled={summaryActionDisabled}
+                actionLoading={loading}
+                actionTestId="store-checkout-summary-submit"
+                completionStatus={completionPresentation
+                  ? {
+                      label: completionPresentation.summaryStatus,
+                      tone: completionState === "pending" ? "pending" : "success",
+                    }
+                  : undefined}
+              />
+            </div>
           </aside>
           </StorefrontCheckoutMotion>
         </div>
@@ -1974,7 +1976,7 @@ function OrderSummary({
       density="compact"
       className={`overflow-hidden border-stone-800/40 bg-stone-900 text-white ${
         variant === "sidebar"
-          ? "sticky top-[var(--sf-space-lg)] shadow-2xl shadow-stone-900/40"
+          ? "shadow-2xl shadow-stone-900/40"
           : "shadow-none"
       }`}
     >

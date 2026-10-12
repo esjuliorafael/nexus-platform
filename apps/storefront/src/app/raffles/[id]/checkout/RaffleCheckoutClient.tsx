@@ -755,38 +755,40 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
         </div>
 
         <StorefrontCheckoutMotion phase="summary" ready={checkoutMotionReady} className="hidden md:block">
-        <aside>
-          <RaffleSelectionSummaryCard
-            selectedTickets={draft.tickets}
-            ticketOpportunities={raffle.extraOpportunities ?? []}
-            total={total}
-            participationMode={draft.participationMode ?? 'FULL'}
-            coupon={draft.coupon}
-            discount={discount}
-            completionStatus={completionPresentation
-              ? {
-                  label: completionPresentation.summaryStatus,
-                  tone: completionState === 'pending' ? 'pending' : 'success',
-                }
-              : undefined}
-            actionLabel={completionState ? undefined : finalActionLabel}
-            onAction={completionState ? undefined : usesEmbeddedCardAction
-              ? async () => {
-                  await prepareCheckoutFeedback();
-                  if (!isCardPaymentReady) {
-                    showToast('El formulario de pago aún se está preparando.', 'info');
-                    return;
+        <aside className="sticky top-[var(--sf-space-lg)] max-h-[var(--sf-checkout-summary-max-height)]">
+          <div className="max-h-[var(--sf-checkout-summary-max-height)] overflow-y-auto custom-scrollbar-dark">
+            <RaffleSelectionSummaryCard
+              selectedTickets={draft.tickets}
+              ticketOpportunities={raffle.extraOpportunities ?? []}
+              total={total}
+              participationMode={draft.participationMode ?? 'FULL'}
+              coupon={draft.coupon}
+              discount={discount}
+              completionStatus={completionPresentation
+                ? {
+                    label: completionPresentation.summaryStatus,
+                    tone: completionState === 'pending' ? 'pending' : 'success',
                   }
-                  setCardSubmitRequest((current) => current + 1);
-                }
-              : async () => {
-                  await prepareCheckoutFeedback();
-                  void reserve();
-                }}
-            actionDisabled={!canContinue || (usesEmbeddedCardAction && !isCardPaymentReady)}
-            actionLoading={isSubmitting}
-            actionTestId="raffle-checkout-submit"
-          />
+                : undefined}
+              actionLabel={completionState ? undefined : finalActionLabel}
+              onAction={completionState ? undefined : usesEmbeddedCardAction
+                ? async () => {
+                    await prepareCheckoutFeedback();
+                    if (!isCardPaymentReady) {
+                      showToast('El formulario de pago aún se está preparando.', 'info');
+                      return;
+                    }
+                    setCardSubmitRequest((current) => current + 1);
+                  }
+                : async () => {
+                    await prepareCheckoutFeedback();
+                    void reserve();
+                  }}
+              actionDisabled={!canContinue || (usesEmbeddedCardAction && !isCardPaymentReady)}
+              actionLoading={isSubmitting}
+              actionTestId="raffle-checkout-submit"
+            />
+          </div>
         </aside>
         </StorefrontCheckoutMotion>
       </div>

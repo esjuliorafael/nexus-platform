@@ -59,6 +59,7 @@
   --sf-space-xl: calc(var(--sf-space-lg) * 2);
   --sf-space-2xl: calc(var(--sf-space-lg) * 3);
   --sf-space-3xl: calc(var(--sf-space-lg) * 4);
+  --sf-checkout-summary-max-height: calc(100dvh - var(--sf-space-xl));
 
   /* Modal Widths */
   --sf-width-modal-compact: 28rem;
