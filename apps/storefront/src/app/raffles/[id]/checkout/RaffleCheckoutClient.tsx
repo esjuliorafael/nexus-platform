@@ -754,9 +754,8 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
           </AnimatePresence>
         </div>
 
-        <StorefrontCheckoutMotion phase="summary" ready={checkoutMotionReady} className="hidden md:block">
-        <aside className="sticky top-[var(--sf-space-lg)] max-h-[var(--sf-checkout-summary-max-height)]">
-          <div className="max-h-[var(--sf-checkout-summary-max-height)] overflow-y-auto custom-scrollbar-dark">
+        <aside className="sticky top-[var(--sf-space-lg)] hidden self-start md:block">
+          <StorefrontCheckoutMotion phase="summary" ready={checkoutMotionReady}>
             <RaffleSelectionSummaryCard
               selectedTickets={draft.tickets}
               ticketOpportunities={raffle.extraOpportunities ?? []}
@@ -788,9 +787,8 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
               actionLoading={isSubmitting}
               actionTestId="raffle-checkout-submit"
             />
-          </div>
+          </StorefrontCheckoutMotion>
         </aside>
-        </StorefrontCheckoutMotion>
       </div>
 
       <BottomSheet

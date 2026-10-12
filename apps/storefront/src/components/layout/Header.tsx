@@ -1,9 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ShoppingBag } from "lucide-react";
+import { motion } from "framer-motion";
+import {
+  Headphones,
+  Home,
+  Image as ImageIcon,
+  ShoppingBag,
+  Ticket,
+  type LucideIcon,
+} from "lucide-react";
 import { useSettings } from "../../hooks/useSettings";
 import { useFavicon } from "../../hooks/useFavicon";
 import { useCartStore } from "../../store/cart.store";
@@ -15,6 +23,12 @@ interface HeaderProps {
   onOpenCart?: () => void;
 }
 
+interface DesktopNavItem {
+  to: string;
+  label: string;
+  icon: LucideIcon;
+}
+
 export function Header({ showRaffles = false, onOpenCart }: HeaderProps) {
   const pathname = usePathname();
   const { getBranding } = useSettings();
@@ -24,51 +38,21 @@ export function Header({ showRaffles = false, onOpenCart }: HeaderProps) {
     state.items.reduce((acc, item) => acc + item.quantity, 0),
   );
   const [mounted, setMounted] = useState(false);
-  const activeNavRef = useRef<HTMLAnchorElement>(null);
-  const navOverlayRef = useRef<HTMLDivElement>(null);
-  const navBaseRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setMounted(true);
   }, []);
 
   const brandName = branding.brand_name || "Nexus Store";
-  const navLinks = [
-    { to: "/", label: "Inicio" },
-    { to: "/store", label: "Tienda" },
-    { to: "/gallery", label: "Galeria" },
-    { to: "/contact", label: "Contacto" },
-    ...(showRaffles ? [{ to: "/raffles", label: "Rifas" }] : []),
+  const navLinks: DesktopNavItem[] = [
+    { to: "/", label: "Inicio", icon: Home },
+    { to: "/store", label: "Tienda", icon: ShoppingBag },
+    { to: "/gallery", label: "Galería", icon: ImageIcon },
+    ...(showRaffles
+      ? [{ to: "/raffles", label: "Rifas", icon: Ticket }]
+      : []),
+    { to: "/contact", label: "Contacto", icon: Headphones },
   ];
-
-  useEffect(() => {
-    const updateClipPath = () => {
-      const base = navBaseRef.current;
-      const overlay = navOverlayRef.current;
-      const active = activeNavRef.current;
-
-      if (!base || !overlay || !active) return;
-
-      const baseRect = base.getBoundingClientRect();
-      const activeRect = active.getBoundingClientRect();
-      const leftOffset = activeRect.left - baseRect.left;
-      const rightOffset = baseRect.right - activeRect.right;
-
-      const leftPercent = Math.max(0, (leftOffset / baseRect.width) * 100);
-      const rightPercent = Math.max(0, (rightOffset / baseRect.width) * 100);
-
-      overlay.style.clipPath = `inset(0 ${rightPercent.toFixed(4)}% 0 ${leftPercent.toFixed(4)}% round 999px)`;
-    };
-
-    updateClipPath();
-    const raf = window.requestAnimationFrame(updateClipPath);
-    window.addEventListener("resize", updateClipPath);
-
-    return () => {
-      window.cancelAnimationFrame(raf);
-      window.removeEventListener("resize", updateClipPath);
-    };
-  }, [pathname, showRaffles]);
 
   return (
     <>
@@ -117,71 +101,64 @@ export function Header({ showRaffles = false, onOpenCart }: HeaderProps) {
         </div>
       </header>
 
-      <div className="fixed bottom-6 left-1/2 z-50 hidden w-[calc(100%-3rem)] max-w-2xl -translate-x-1/2 md:block">
+      <div
+        className="fixed left-1/2 z-50 hidden max-w-[calc(100vw-var(--sf-space-xl))] -translate-x-1/2 md:block"
+        style={{ bottom: "var(--sf-inset-mobile-chrome-block)" }}
+      >
         <nav
-          className="relative overflow-hidden border border-white/[0.15] bg-stone-950/[0.72] shadow-[0_22px_80px_rgba(12,10,9,0.34)] backdrop-blur-2xl"
-          aria-label="Navegacion principal"
+          className="flex w-fit min-w-0 items-center justify-center border border-stone-200/90 bg-white shadow-[0_18px_48px_rgba(87,68,55,0.14)]"
+          aria-label="Navegación principal"
           style={{
-            borderRadius: "var(--sf-radius-card-inner)",
+            height: "var(--sf-h-mobile-nav)",
+            borderRadius: "var(--sf-radius-outer)",
+            gap: "var(--sf-gap-mobile-nav-actions)",
             padding: "var(--sf-space-sm)",
           }}
         >
-          <div
-            ref={navBaseRef}
-            className="relative flex items-center justify-center"
-          >
-            <ul className="relative z-10 flex w-full items-center justify-center">
-              {navLinks.map((link) => {
-                const isActive =
-                  link.to === "/"
-                    ? pathname === "/"
-                    : pathname.startsWith(link.to);
+          {navLinks.map((link) => {
+            const isActive =
+              link.to === "/"
+                ? pathname === "/"
+                : pathname === link.to || pathname.startsWith(`${link.to}/`);
+            const Icon = link.icon;
 
-                return (
-                  <li key={link.to} className="relative flex-1">
-                    <Link
-                      ref={isActive ? activeNavRef : null}
-                      href={link.to}
-                      className={`sf-text-button-card flex h-[var(--sf-h-button-card)] items-center justify-center px-[var(--sf-padding-button-card-inline)] transition-colors duration-300 active:scale-95 ${
-                        isActive
-                          ? "text-transparent"
-                          : "text-white/[0.58] hover:text-white"
-                      }`}
-                      style={{
-                        borderRadius: "var(--sf-radius-card-nested)",
-                        transitionTimingFunction: "var(--sf-ease)",
-                      }}
-                    >
-                      {link.label}
-                    </Link>
-                  </li>
-                );
-              })}
-            </ul>
-
-            <div
-              ref={navOverlayRef}
-              aria-hidden
-              className="pointer-events-none absolute inset-0 z-20 transition-[clip-path] duration-500"
-              style={{ transitionTimingFunction: "var(--sf-ease)" }}
-            >
-              <ul
-                className="flex h-full w-full items-center justify-center bg-stone-50 shadow-inner shadow-white/50"
-                style={{ borderRadius: "var(--sf-radius-card-nested)" }}
+            return (
+              <Link
+                key={link.to}
+                href={link.to}
+                aria-label={link.label}
+                title={link.label}
+                className={`group relative flex min-w-0 items-center justify-center overflow-hidden transition-all duration-300 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-brand-500/25 ${
+                  isActive
+                    ? "shrink-0 border border-brand-100 bg-brand-50 text-brand-800 shadow-sm"
+                    : "shrink-0 border-0 bg-transparent text-stone-500 hover:bg-stone-100 hover:text-stone-950"
+                }`}
+                style={{
+                  height: "var(--sf-size-mobile-nav-item)",
+                  gap: "var(--sf-space-sm)",
+                  paddingInline: "var(--sf-padding-mobile-nav-active-inline)",
+                  borderRadius: "var(--sf-radius-mobile-nav-item)",
+                  transitionTimingFunction: "var(--sf-ease)",
+                }}
               >
-                {navLinks.map((link) => (
-                  <li key={link.to} className="flex-1">
-                    <div
-                      className="sf-text-button-card flex h-[var(--sf-h-button-card)] items-center justify-center whitespace-nowrap px-[var(--sf-padding-button-card-inline)] text-brand-600"
-                      style={{ borderRadius: "var(--sf-radius-card-nested)" }}
-                    >
-                      {link.label}
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          </div>
+                <motion.span
+                  whileTap={{ scale: 0.92 }}
+                  className="flex shrink-0 items-center justify-center"
+                >
+                  <Icon
+                    style={{
+                      width: "var(--sf-size-mobile-nav-icon)",
+                      height: "var(--sf-size-mobile-nav-icon)",
+                    }}
+                    strokeWidth={isActive ? 2.35 : 2.3}
+                  />
+                </motion.span>
+                <span className="sf-text-caption min-w-0 whitespace-nowrap text-current">
+                  {link.label}
+                </span>
+              </Link>
+            );
+          })}
         </nav>
       </div>
     </>
