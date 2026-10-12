@@ -171,6 +171,8 @@ export default function CheckoutPage() {
   const [completionSnapshot, setCompletionSnapshot] = useState<CheckoutSummarySnapshot | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("TRANSFER");
   const [paymentStatus, setPaymentStatus] = useState<PaymentStatus>(null);
+  const [cardSubmitRequest, setCardSubmitRequest] = useState(0);
+  const [isCardPaymentReady, setIsCardPaymentReady] = useState(false);
   const [mounted, setMounted] = useState(false);
   const [checkoutDraftHydrated, setCheckoutDraftHydrated] = useState(false);
   useCheckoutTransitionReady("/checkout", mounted);
@@ -680,6 +682,7 @@ export default function CheckoutPage() {
   const isMPEnabled = Boolean(paymentOptions?.mercadoPago.available);
   const isAssistedCheckout = Boolean(assistedCheckoutToken);
   const isEmbeddedMP = isMPEnabled && !isAssistedCheckout && !forceCheckoutPro && mpCheckoutConfig?.mode === "embedded" && Boolean(mpCheckoutConfig.publicKey);
+  const usesEmbeddedCardAction = paymentMethod === "MERCADOPAGO" && isEmbeddedMP;
   const discountTotal = getDiscountTotal();
   const orderTotal = Math.max(0, getTotalPrice() + shippingCalculation.total - discountTotal);
   const buildSummarySnapshot = useCallback((): CheckoutSummarySnapshot => ({
@@ -839,6 +842,10 @@ export default function CheckoutPage() {
     }
     if (needsDeliveryChoice && !formData.deliveryMethod) {
       showToast("Selecciona cómo enviamos tu orden.", "info");
+      return;
+    }
+    if (!formData.customerName.trim() || !isCustomerPhoneComplete(formData.customerPhone)) {
+      showToast("Completa tus datos de contacto para continuar.", "info");
       return;
     }
     if (!selectedZone) {
@@ -1005,6 +1012,26 @@ export default function CheckoutPage() {
     return true;
   };
 
+  const deliveryStepComplete = settingsReady && (!needsDeliveryChoice || Boolean(formData.deliveryMethod));
+  const customerStepComplete = Boolean(formData.customerName.trim())
+    && isCustomerPhoneComplete(formData.customerPhone)
+    && (!someoneElseReceives || Boolean(formData.receiverName.trim()));
+  const locationStepComplete = Boolean(selectedZone)
+    && Boolean(formData.shippingCity.trim())
+    && (!requiresFullAddress || Boolean(
+      formData.shippingStreet.trim()
+      && formData.shippingNeighborhood.trim()
+      && formData.shippingPostalCode.trim(),
+    ));
+  const paymentConfigurationReady = paymentMethod !== "MERCADOPAGO"
+    || (Boolean(paymentOptions) && isMPEnabled && Boolean(mpCheckoutConfig));
+  const paymentStepComplete = paymentConfigurationReady
+    && (!usesEmbeddedCardAction || isCardPaymentReady);
+  const checkoutFormComplete = deliveryStepComplete
+    && customerStepComplete
+    && locationStepComplete
+    && paymentStepComplete;
+
   const handleNextStep = () => {
     if (!canContinueFromStep(checkoutStep)) return;
     setCheckoutStep((current) => Math.min(current + 1, 3) as CheckoutStep);
@@ -1049,6 +1076,23 @@ export default function CheckoutPage() {
   const handleCheckoutPrimaryAction = () => {
     if (checkoutStep < 3) {
       handleNextStep();
+      return;
+    }
+
+    if (usesEmbeddedCardAction) {
+      if (!checkoutFormComplete) return;
+      setCardSubmitRequest((current) => current + 1);
+      return;
+    }
+
+    checkoutFormRef.current?.requestSubmit();
+  };
+
+  const handleDesktopSummaryAction = () => {
+    if (!checkoutFormComplete) return;
+
+    if (usesEmbeddedCardAction) {
+      setCardSubmitRequest((current) => current + 1);
       return;
     }
 
@@ -1162,16 +1206,13 @@ export default function CheckoutPage() {
     ? getStoreCheckoutCompletionPresentation(completionState)
     : null;
   const summarySnapshot = completionSnapshot ?? buildSummarySnapshot();
-  const summaryActionLabel = checkoutStep === 3
-    ? isAssistedCheckout || forceCheckoutPro ? "Continuar en Mercado Pago" : "Finalizar pedido"
-    : "Continuar";
-  const summaryActionDisabled = loading || (
-    checkoutStep === 0 &&
-    (!settingsReady || (needsDeliveryChoice && !formData.deliveryMethod))
-  );
-  const showSummaryAction = !completionState && !(
-    checkoutStep === 3 && paymentMethod === "MERCADOPAGO" && isEmbeddedMP
-  );
+  const summaryActionLabel = usesEmbeddedCardAction
+    ? "Pagar pedido"
+    : isAssistedCheckout || forceCheckoutPro
+      ? "Continuar en Mercado Pago"
+      : "Finalizar pedido";
+  const summaryActionDisabled = loading || !checkoutFormComplete;
+  const showSummaryAction = !completionState;
 
   return (
     <div
@@ -1550,6 +1591,8 @@ export default function CheckoutPage() {
                         publicKey={mpCheckoutConfig.publicKey}
                         amount={orderTotal}
                         submitLabel="Pagar pedido"
+                        externalSubmitRequest={cardSubmitRequest}
+                        onReadyChange={setIsCardPaymentReady}
                         onSubmit={handleEmbeddedCardPayment}
                         onApproved={handleEmbeddedPaymentApproved}
                         onPending={handleEmbeddedPaymentPending}
@@ -1614,7 +1657,7 @@ export default function CheckoutPage() {
               total={summarySnapshot.total}
               onRemoveItem={completionState ? undefined : (item) => setItemToDelete(item)}
               actionLabel={showSummaryAction ? summaryActionLabel : undefined}
-              onAction={showSummaryAction ? handleCheckoutPrimaryAction : undefined}
+              onAction={showSummaryAction ? handleDesktopSummaryAction : undefined}
               actionDisabled={summaryActionDisabled}
               actionLoading={loading}
               actionTestId="store-checkout-summary-submit"
@@ -1681,20 +1724,34 @@ export default function CheckoutPage() {
         />
       </BottomSheet>
 
-      {(completionState || !(checkoutStep === 3 && paymentMethod === "MERCADOPAGO" && isEmbeddedMP)) && (
       <StorefrontPurchaseBar
         total={summarySnapshot.total}
         totalLabel={completionPresentation ? "Estado" : "Total"}
         totalValue={completionPresentation?.mobileStatus}
         loading={loading}
-        disabled={!completionState && checkoutStep === 0 && (!settingsReady || (needsDeliveryChoice && !formData.deliveryMethod))}
-        buttonLabel={completionState ? "Volver a la tienda" : checkoutStep === 0 && !settingsReady ? "Cargando" : checkoutStep === 0 && needsDeliveryChoice && !formData.deliveryMethod ? "Selecciona método" : checkoutStep === 3 ? "Finalizar pedido" : "Continuar"}
+        disabled={completionState
+          ? false
+          : loading || (checkoutStep === 0
+            ? !deliveryStepComplete
+            : checkoutStep === 1
+              ? !customerStepComplete
+              : checkoutStep === 2
+                ? !locationStepComplete
+                : !checkoutFormComplete)}
+        buttonLabel={completionState
+          ? "Volver a la tienda"
+          : checkoutStep === 0 && !settingsReady
+            ? "Cargando"
+            : checkoutStep === 0 && needsDeliveryChoice && !formData.deliveryMethod
+              ? "Selecciona método"
+              : checkoutStep === 3
+                ? summaryActionLabel
+                : "Continuar"}
         buttonIcon={completionState ? ArrowLeft : checkoutStep === 3 ? ShoppingBag : ArrowRight}
         onAction={completionState ? () => router.push("/store") : handleCheckoutPrimaryAction}
         entrance="checkout"
         entranceReady={checkoutMotionReady}
       />
-      )}
     </div>
   );
 }

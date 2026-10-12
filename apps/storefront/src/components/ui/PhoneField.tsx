@@ -101,6 +101,7 @@ export function StorefrontPhoneField({
             value={parsed.nationalNumber}
             onChange={handleNumberChange}
             disabled={disabled}
+            required={required}
             pattern="[0-9]*"
             placeholder={config.placeholder}
             aria-invalid={Boolean(error)}
