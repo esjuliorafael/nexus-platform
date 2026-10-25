@@ -129,7 +129,7 @@ export const IdentityView = forwardRef<IdentityViewRef, IdentityViewProps>(
               <div className="absolute inset-0 border-4 border-brand-100 rounded-[2rem]" />
               <div className="absolute inset-0 border-4 border-brand-500 border-t-transparent rounded-[2rem] animate-spin" style={{ animationDuration: '1s', animationTimingFunction: 'var(--ease-emil)' }} />
            </div>
-           <p className="text-label text-text-muted">Consultando Identidad...</p>
+           <p className="text-label text-text-muted">Consultando identidad...</p>
         </div>
       );
     }
@@ -152,8 +152,8 @@ export const IdentityView = forwardRef<IdentityViewRef, IdentityViewProps>(
         />
 
         <NexusSection
-          title="Branding Global"
-          subtitle="Logo Principal del Sistema"
+          title="Branding global"
+          subtitle="Logo principal del sistema"
           icon={ImageIcon}
           delay="200ms"
           action={(status === 'preview' || status === 'empty' || (status === 'editing' && !!tempFile)) ? (
@@ -197,11 +197,11 @@ export const IdentityView = forwardRef<IdentityViewRef, IdentityViewProps>(
             {status === 'empty' && (
               <EmptyState 
                 icon={ImageIcon} 
-                title="Sin Identidad Visual" 
+                title="Sin identidad visual"
                 description="Haz clic debajo para cargar el logotipo oficial de tu rancho y personalizar tu panel." 
                 action={
                   <NexusSectionButton onClick={handleTriggerFile} icon={PlusCircle}>
-                    Subir Logo
+                    Subir logo
                   </NexusSectionButton>
                 }
               />
@@ -226,7 +226,7 @@ export const IdentityView = forwardRef<IdentityViewRef, IdentityViewProps>(
                     <div className="w-10 h-10 rounded-full bg-emerald-50 text-emerald-500 flex items-center justify-center border border-emerald-100/50">
                       <ShieldCheck size={20} />
                     </div>
-                    <p className="text-secondary font-medium">Formato Válido</p>
+                    <p className="text-secondary font-medium">Formato válido</p>
                     <p className="text-label text-text-muted">PNG / SVG optimizado</p>
                   </div>
                   <div className="flex flex-col items-center gap-2 text-center">
@@ -270,7 +270,7 @@ export const IdentityView = forwardRef<IdentityViewRef, IdentityViewProps>(
                     onDrop={handleDrop}
                     action={
                       <NexusSectionButton onClick={() => fileInputRef.current?.click()}>
-                        Seleccionar Archivo
+                        Seleccionar archivo
                       </NexusSectionButton>
                     }
                   />

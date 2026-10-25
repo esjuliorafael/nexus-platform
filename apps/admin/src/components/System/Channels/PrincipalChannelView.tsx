@@ -193,7 +193,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
     try {
       setConfig(await apiSystem.getConfig());
     } catch (error) {
-      showToast("Error al cargar Canal Principal", "error");
+      showToast("Error al cargar canal principal", "error");
     } finally {
       setIsLoading(false);
     }
@@ -412,7 +412,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
     try {
       await apiSystem.updateConfig(data);
       setConfig((prev) => ({ ...prev, ...data }));
-      showToast("Canal Principal actualizado");
+      showToast("Canal principal actualizado");
       if (closeModal) {
         setModal(null);
         setEditingTemplate(null);
@@ -503,7 +503,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
     try {
       await apiWhatsApp.disconnectKapso({ target: "PRINCIPAL" });
       setConfirmDisconnectKapso(false);
-      showToast("Cloud API desvinculada del Canal Principal");
+      showToast("Cloud API desvinculada del canal principal");
       await loadConfig();
     } catch (error: any) {
       showToast(
@@ -678,7 +678,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
         statuses.principal = {
           ...findMatch(principalResponse.data),
           ownerKey: principalResponse.data?.ownerKey || "principal",
-          label: "Canal Principal",
+          label: "Canal principal",
         };
         for (const item of specializedResponses) {
           const ownerKey = item.response.data?.ownerKey || `channel:${item.channel.id}`;
@@ -747,7 +747,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
           try {
             if (templateProvider === "CLOUD") {
               await activateCloudTemplate("principal");
-              showToast("Versión activada en Canal Principal");
+              showToast("Versión activada en canal principal");
             } else {
               await updateConfig({ [activeVersionKey]: editingTemplate.version }, false);
             }
@@ -781,7 +781,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
           title: "Guardar plantilla",
           message:
             "Los cambios se guardarán en Nexus. La sincronización con Cloud API es una acción separada y no reemplazará la plantilla aprobada automáticamente.",
-          confirmLabel: "Guardar Plantilla",
+          confirmLabel: "Guardar plantilla",
           variant: "brand",
           onConfirm: async () => {
             await updateConfig(
@@ -830,7 +830,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
           <div className="absolute inset-0 border-4 border-brand-500 border-t-transparent rounded-[2rem] animate-spin" />
         </div>
         <p className="text-label text-text-muted">
-          Cargando Canal Principal...
+          Cargando canal principal...
         </p>
       </div>
     );
@@ -1016,7 +1016,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
           >
             <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
               <NexusTextarea
-                label="Mensaje del Canal Principal"
+                label="Mensaje del canal principal"
                 rows={12}
                 value={editorContent}
                 readOnly={editingTemplate.isTemporaryFallback}
@@ -1144,11 +1144,11 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                   <NexusCheckboxRow
                     checked={selectedPrincipalChannel}
                     onChange={() => setSelectedPrincipalChannel((selected) => !selected)}
-                    label="Canal Principal"
+                    label="Canal principal"
                   />
                   {specializedCloudChannels.length === 0 ? (
                     <p className="text-label text-text-muted" style={{ marginTop: "var(--space-md)" }}>
-                      No hay Canales Especializados vinculados a Cloud API.
+                      No hay canales especializados vinculados a Cloud API.
                     </p>
                   ) : (
                     specializedCloudChannels.map((channel) => (
@@ -1201,7 +1201,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-300">
       <NexusSection
-        title="Canal Principal"
+        title="Canal principal"
         subtitle="Fuente central de plantillas y respaldo operativo para todos los canales"
         icon={WalletCards}
         iconVariant="brand"
@@ -1210,7 +1210,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
           <NexusSectionCard
             icon={Banknote}
             iconVariant={bankReady ? "emerald" : "muted"}
-            title="Informacion Bancaria"
+            title="Informacion bancaria"
             subtitle={
               bankReady
                 ? `${config.bank_main_name} / ${config.bank_main_beneficiary}`
@@ -1230,7 +1230,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
           <NexusSectionCard
             icon={CreditCard}
             iconVariant={mpReady ? "blue" : "muted"}
-            title="Mercado Pago Principal"
+            title="Mercado Pago principal"
             subtitle={
               mpReady
                 ? `${mpCheckoutEnabled ? "Disponible en checkout" : "Vinculado, oculto en checkout"} · ${config.mp_statement_descriptor || "NEXUS*SHOP"}`
@@ -1280,7 +1280,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
           <NexusSectionCard
             icon={MessageCircle}
             iconVariant={waReady ? "emerald" : "muted"}
-            title="Mensajeria Principal"
+            title="Mensajeria principal"
             subtitle={
               config.whatsapp_main_phone
                 ? `${config.whatsapp_main_phone} / ${
@@ -1351,8 +1351,8 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       </NexusSection>
 
       <NexusSection
-        title="Plantillas Principales"
-        subtitle="Contenido canónico utilizado en tienda, rifas y Canales Especializados"
+        title="Plantillas principales"
+        subtitle="Contenido canónico utilizado en tienda, rifas y canales especializados"
         icon={FileText}
         iconVariant={templateCounts > 0 ? "brand" : "muted"}
         action={
@@ -1495,8 +1495,8 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       {modal === "bank" && (
         <NexusModal
           isOpen
-          title="Información Bancaria Principal"
-          eyebrow="Configurar Canal"
+          title="Información bancaria principal"
+          eyebrow="Configurar canal"
           icon={Banknote}
           onClose={() => setModal(null)}
           size="standard"
@@ -1557,7 +1557,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
               isLoading={isSaving}
               icon={Save}
             >
-              Guardar Banco Principal
+              Guardar banco principal
             </NexusAutonomousButton>
           </div>
         </NexusModal>
@@ -1566,8 +1566,8 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       {modal === "mercadopago" && (
         <NexusModal
           isOpen
-          title="Mercado Pago Principal"
-          eyebrow="Configurar Canal"
+          title="Mercado Pago principal"
+          eyebrow="Configurar canal"
           icon={CreditCard}
           onClose={() => setModal(null)}
           size="standard"
@@ -1578,7 +1578,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
             style={{ gap: "var(--space-lg)" }}
           >
             <NexusInput
-              label="Identidad en Extracto"
+              label="Identidad en extracto"
               value={config.mp_statement_descriptor || ""}
               onChange={(e) =>
                 setConfig({
@@ -1635,7 +1635,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                 isLoading={isSaving}
                 icon={Save}
               >
-                Guardar Extracto
+                Guardar extracto
               </NexusAutonomousButton>
               <NexusAutonomousButton
                 className="w-full min-w-0"
@@ -1670,8 +1670,8 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       {modal === "whatsapp" && (
         <NexusModal
           isOpen
-          title="Mensajería Principal"
-          eyebrow="Configurar Canal"
+          title="Mensajería principal"
+          eyebrow="Configurar canal"
           icon={MessageCircle}
           onClose={() => setModal(null)}
           size="standard"
@@ -1902,7 +1902,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                 variant="danger"
                 className="w-full"
               >
-                Desvincular Dispositivo
+                Desvincular dispositivo
               </NexusAutonomousButton>
             )}
           </div>
@@ -1925,7 +1925,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       <NexusConfirmModal
         isOpen={confirmDisconnectWhatsApp}
         title="¿Desvincular WhatsApp?"
-        message="Se cerrará la sesión activa de Evolution API para el Canal Principal."
+        message="Se cerrará la sesión activa de Evolution API para el canal principal."
         confirmLabel="Desvincular"
         onConfirm={disconnectWhatsApp}
         onCancel={() => setConfirmDisconnectWhatsApp(false)}
@@ -1937,7 +1937,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       <NexusConfirmModal
         isOpen={confirmDisconnectKapso}
         title="¿Desvincular Cloud API?"
-        message="Kapso retirará este número del proyecto. El Canal Principal conservará su configuración de Evolution API."
+        message="Kapso retirará este número del proyecto. El canal principal conservará su configuración de Evolution API."
         confirmLabel="Desvincular"
         onConfirm={disconnectKapso}
         onCancel={() => setConfirmDisconnectKapso(false)}

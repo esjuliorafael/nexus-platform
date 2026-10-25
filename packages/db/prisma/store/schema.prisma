@@ -28,6 +28,7 @@ model User {
   email                             String?
   phone                             String?
   role                              Role                               @default(STAFF)
+  permissions                       String[]                           @default([])
   active                            Boolean                            @default(true)
   createdAt                         DateTime                           @default(now()) @map("created_at")
   notificationEmail                 String?                            @map("notification_email")

@@ -39,7 +39,7 @@ import { downloadRaffleResultImage } from "../../utils/raffle-result-image";
 
 interface RaffleResultSectionProps {
   raffle: Raffle;
-  canManageOperations: boolean;
+  canManageResults: boolean;
   showToast: (message: string, type?: "success" | "error") => void;
   onRaffleChange: (raffle: Raffle) => void;
   content?: "all" | "resolution" | "history";
@@ -61,7 +61,7 @@ const RESOLUTION_PRESENTATION: Record<
   ResolutionPresentation
 > = {
   ELIGIBLE_WINNER: {
-    label: "Ganador Elegible",
+    label: "Ganador elegible",
     title: "Participación pagada",
     description:
       "El número pertenece a una participación con pago confirmado.",
@@ -70,7 +70,7 @@ const RESOLUTION_PRESENTATION: Record<
     notice: "success",
   },
   UNPAID_RESERVED: {
-    label: "Boleto Sin Pago",
+    label: "Boleto sin pago",
     title: "Participación no elegible",
     description:
       "El boleto está apartado, pero su pago no fue confirmado antes de la rifa.",
@@ -79,7 +79,7 @@ const RESOLUTION_PRESENTATION: Record<
     notice: "warning",
   },
   PAYMENT_REVIEW: {
-    label: "Pago en Revisión",
+    label: "Pago en revisión",
     title: "Resolución pendiente",
     description:
       "Mercado Pago todavía puede confirmar o rechazar esta operación. No publiques hasta conocer el desenlace.",
@@ -88,7 +88,7 @@ const RESOLUTION_PRESENTATION: Record<
     notice: "warning",
   },
   UNASSIGNED_NUMBER: {
-    label: "Número No Vendido",
+    label: "Número no vendido",
     title: "Sin participación asociada",
     description:
       "El número pertenece al universo, pero su boleto principal no fue pagado ni apartado.",
@@ -97,7 +97,7 @@ const RESOLUTION_PRESENTATION: Record<
     notice: "neutral",
   },
   OUTSIDE_UNIVERSE: {
-    label: "Fuera del Universo",
+    label: "Fuera del universo",
     title: "Sin boleto asociado",
     description:
       "Los últimos dígitos no pertenecen al universo cerrado de esta rifa.",
@@ -133,7 +133,7 @@ const formatDateTime = (value: string) =>
 
 export const RaffleResultSection: React.FC<RaffleResultSectionProps> = ({
   raffle,
-  canManageOperations,
+  canManageResults,
   showToast,
   onRaffleChange,
   content = "all",
@@ -345,7 +345,7 @@ export const RaffleResultSection: React.FC<RaffleResultSectionProps> = ({
   return (
     <>
       {showResolution && <NexusSection
-        title="Resolución de la Rifa"
+        title="Resolución de la rifa"
         subtitle={
           published
             ? "Resultados oficiales publicados en el Storefront"
@@ -354,7 +354,7 @@ export const RaffleResultSection: React.FC<RaffleResultSectionProps> = ({
         icon={Trophy}
         iconVariant="brand"
         action={
-          canManageOperations && !published && !isLoading ? (
+          canManageResults && !published && !isLoading ? (
             <NexusSectionButton
               type="button"
               variant="brand"
@@ -370,7 +370,7 @@ export const RaffleResultSection: React.FC<RaffleResultSectionProps> = ({
                 void handlePreview();
               }}
             >
-              Validar Resultados
+              Validar resultados
             </NexusSectionButton>
           ) : undefined
         }
@@ -400,7 +400,7 @@ export const RaffleResultSection: React.FC<RaffleResultSectionProps> = ({
                   key={prize.id}
                   prize={prize}
                   capturedValue={referenceNumbers[prize.id] || ""}
-                  disabled={!canManageOperations}
+                  disabled={!canManageResults}
                   onResolve={() => openPrizeResolution(prize.id!)}
                 />
               ) : null,
@@ -421,7 +421,7 @@ export const RaffleResultSection: React.FC<RaffleResultSectionProps> = ({
       </NexusSection>}
 
       {showHistory && <NexusSection
-        title="Actividad de la Rifa"
+        title="Actividad de la rifa"
         subtitle="Registro operativo y auditable de las acciones realizadas sobre esta rifa"
         icon={History}
       >
@@ -435,7 +435,7 @@ export const RaffleResultSection: React.FC<RaffleResultSectionProps> = ({
         isOpen={isModalOpen}
         onClose={requestModalClose}
         onAfterClose={finishModalClose}
-        eyebrow="Resolución de la Rifa"
+        eyebrow="Resolución de la rifa"
         title={
           activePrize
             ? getPlaceLabel(activePrize.position || 1)
@@ -506,7 +506,7 @@ export const RaffleResultSection: React.FC<RaffleResultSectionProps> = ({
                   );
                   })}
               </div>
-              <NexusInlineNotice title="Publicación Atómica" variant="neutral">
+              <NexusInlineNotice title="Publicación atómica" variant="neutral">
                 Nexus validará todos los lugares y los publicará juntos. Ningún resultado quedará incompleto.
               </NexusInlineNotice>
             </>
@@ -610,8 +610,8 @@ export const RaffleResultSection: React.FC<RaffleResultSectionProps> = ({
         isOpen={confirmation === "save"}
         title="¿Guardar resultado?"
         message="El número oficial quedará guardado como borrador para este lugar. Aún no se publicará el resultado de la rifa."
-        confirmLabel="Sí, Guardar"
-        cancelLabel="Seguir Editando"
+        confirmLabel="Sí, guardar"
+        cancelLabel="Seguir editando"
         tone="brand"
         icon={CheckCircle2}
         onCancel={() => setConfirmation(null)}
@@ -622,8 +622,8 @@ export const RaffleResultSection: React.FC<RaffleResultSectionProps> = ({
         isOpen={confirmation === "discard"}
         title="¿Descartar cambios?"
         message="El número capturado no se ha guardado. Si descartas los cambios, se conservará el último borrador guardado."
-        confirmLabel="Sí, Descartar"
-        cancelLabel="Seguir Editando"
+        confirmLabel="Sí, descartar"
+        cancelLabel="Seguir editando"
         tone="warning"
         onCancel={() => setConfirmation(null)}
         onConfirm={() => {
@@ -636,8 +636,8 @@ export const RaffleResultSection: React.FC<RaffleResultSectionProps> = ({
         isOpen={confirmation === "publish"}
         title="¿Publicar resultados?"
         message="Esta acción finalizará la rifa y publicará todos los lugares en el Storefront. Verifica cuidadosamente los resultados oficiales antes de continuar."
-        confirmLabel="Sí, Publicar"
-        cancelLabel="Revisar Resultados"
+        confirmLabel="Sí, publicar"
+        cancelLabel="Revisar resultados"
         tone="warning"
         icon={Trophy}
         onCancel={() => setConfirmation(null)}
@@ -755,7 +755,7 @@ function ResultPreview({
   return (
     <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
       {repeatedTicket && (
-        <NexusInlineNotice title="Boleto Repetido Entre Lugares" variant="warning">
+        <NexusInlineNotice title="Boleto repetido entre lugares" variant="warning">
           {`El boleto ${prize.winningTicketNumber} obtiene más de un lugar. Nexus respetará los resultados oficiales capturados.`}
         </NexusInlineNotice>
       )}
@@ -780,7 +780,7 @@ function ResultPreview({
             .finally(() => setIsDownloading(false));
         }}
       >
-        Descargar Resultado
+        Descargar resultado
       </NexusSectionButton>
     </div>
   );
@@ -838,9 +838,9 @@ function PrizeResolution({ prize }: { prize: RafflePrizeResultPreview }) {
         className="grid grid-cols-1 border-y border-border-main py-[var(--space-md)] sm:grid-cols-3"
         style={{ gap: "var(--space-md)" }}
       >
-        <ResultField icon={Hash} label="Resultado Oficial" value={prize.referenceNumber} />
-        <ResultField icon={Trophy} label="Número Ganador" value={prize.winningNumber} />
-        <ResultField icon={Ticket} label="Boleto Principal" value={prize.winningTicketNumber || "Sin boleto"} />
+        <ResultField icon={Hash} label="Resultado oficial" value={prize.referenceNumber} />
+        <ResultField icon={Trophy} label="Número ganador" value={prize.winningNumber} />
+        <ResultField icon={Ticket} label="Boleto principal" value={prize.winningTicketNumber || "Sin boleto"} />
       </div>
       <div
         className={`flex flex-col ${statusTone}`}

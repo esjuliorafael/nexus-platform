@@ -79,7 +79,7 @@ export const StoreProductFiltersModal: React.FC<StoreProductFiltersModalProps> =
   return (
     <NexusDrawer
       isOpen={isOpen}
-      title="Filtrar Productos"
+      title="Filtrar productos"
       eyebrow="Tienda"
       icon={Filter}
       onClose={onClose}
@@ -108,13 +108,13 @@ export const StoreProductFiltersModal: React.FC<StoreProductFiltersModalProps> =
     >
       <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
         <NexusFilterGroup
-          title="Tipo de Producto"
+          title="Tipo de producto"
           value={draft.type}
           options={TYPE_OPTIONS}
           onChange={(type) => setDraft((current) => ({ ...current, type }))}
         />
         <NexusFilterGroup
-          title="Estado de Publicación"
+          title="Estado de publicación"
           value={draft.publication}
           options={PUBLICATION_OPTIONS}
           onChange={(publication) => setDraft((current) => ({ ...current, publication }))}

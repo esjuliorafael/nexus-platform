@@ -107,7 +107,7 @@ export const StorefrontAnnouncementForm = forwardRef<StorefrontAnnouncementFormR
 
     return (
       <div className="grid grid-cols-1 xl:grid-cols-2" style={{ gap: "var(--space-lg)" }}>
-        <NexusSection title="Contenido del Aviso" subtitle="Define el mensaje que verá el visitante" icon={Megaphone} iconVariant="brand">
+        <NexusSection title="Contenido del aviso" subtitle="Define el mensaje que verá el visitante" icon={Megaphone} iconVariant="brand">
           <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
             <NexusInput label="Subtítulo" value={eyebrow} onChange={(event) => setEyebrow(event.target.value)} maxLength={60} placeholder="Aviso importante" />
             <NexusInput label="Título" value={title} onChange={(event) => setTitle(event.target.value)} maxLength={120} required />
@@ -128,7 +128,7 @@ export const StorefrontAnnouncementForm = forwardRef<StorefrontAnnouncementFormR
         </NexusSection>
 
         <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
-          <NexusSection title="Destino y Comportamiento" subtitle="Controla dónde y con qué frecuencia aparece" icon={Crosshair}>
+          <NexusSection title="Destino y comportamiento" subtitle="Controla dónde y con qué frecuencia aparece" icon={Crosshair}>
             <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
               <NexusSelect label="Destino" value={scope} onChange={(event) => setScope(event.target.value as StorefrontAnnouncementScope)}>
                 <option value="GLOBAL">Todo el Storefront</option><option value="STORE">Tienda</option><option value="RAFFLES">Rifas</option>

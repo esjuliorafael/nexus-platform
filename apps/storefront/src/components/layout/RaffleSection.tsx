@@ -30,14 +30,14 @@ export function RaffleSection() {
             >
               <Badge className="border-brand-500/30 bg-brand-500/20 text-brand-400">
                 <Ticket size={12} className="mr-2" />
-                Rifas Exclusivas
+                Rifas exclusivas
               </Badge>
             </motion.div>
 
             <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
               <h2 className="sf-text-display text-white uppercase italic">
-                Gana Genetica <br />
-                <span className="text-brand-500">de Clase Mundial</span>
+                Gana genetica <br />
+                <span className="text-brand-500">de clase mundial</span>
               </h2>
               <p className="sf-text-body max-w-md text-stone-400">
                 Participa en nuestras rifas oficiales y obten la oportunidad de llevarte ejemplares de registro y sementales probados.
@@ -55,7 +55,7 @@ export function RaffleSection() {
 
               <Button asChild context="section" className="bg-brand-500 hover:bg-brand-600">
                 <Link href="/raffles">
-                  Ver Proximas Rifas
+                  Ver proximas rifas
                   <ArrowRight className="ml-2 transition-transform group-hover:translate-x-1" />
                 </Link>
               </Button>
@@ -73,7 +73,7 @@ export function RaffleSection() {
             >
               <div className="absolute -right-12 -top-12 h-48 w-48 rounded-full bg-brand-500/20 blur-3xl" />
               <Ticket size={80} className="text-brand-500 transition-transform duration-700 group-hover:scale-110" />
-              <h3 className="sf-text-h1 text-white uppercase">Sistema de Boletos Digital</h3>
+              <h3 className="sf-text-h1 text-white uppercase">Sistema de boletos digital</h3>
               <p className="sf-text-secondary max-w-[240px] text-stone-500">
                 Transparencia total y seleccion automatica de ganadores.
               </p>

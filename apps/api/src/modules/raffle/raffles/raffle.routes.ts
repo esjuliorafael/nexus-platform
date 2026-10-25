@@ -1218,7 +1218,7 @@ export async function raffleRoutes(server: FastifyInstance) {
           RAFFLE_DRAW_REMINDER_TEMPLATE_MISSING: {
             status: 409,
             message:
-              "Configura la plantilla Recordatorio de la rifa antes de enviar.",
+              "Configura la plantilla recordatorio de la rifa antes de enviar.",
           },
         };
         const mapped = errors[error?.message];
@@ -1505,7 +1505,7 @@ export async function raffleRoutes(server: FastifyInstance) {
           RAFFLE_DRAW_REMINDER_TEMPLATE_MISSING: {
             status: 409,
             message:
-              "Configura la plantilla Recordatorio de la rifa antes de programar.",
+              "Configura la plantilla recordatorio de la rifa antes de programar.",
           },
           RAFFLE_DRAW_REMINDER_SCHEDULE_IN_PAST: {
             status: 409,
@@ -1755,12 +1755,12 @@ export async function raffleRoutes(server: FastifyInstance) {
           RAFFLE_INVITATION_TEMPLATE_MISSING: {
             status: 409,
             message:
-              "Configura la plantilla Invitación a una nueva rifa antes de iniciar la campaña.",
+              "Configura la plantilla invitación a una nueva rifa antes de iniciar la campaña.",
           },
           RAFFLE_INVITATION_DESCRIPTION_MISSING: {
             status: 409,
             message:
-              "Completa la Descripción breve de la rifa antes de iniciar la campaña.",
+              "Completa la descripción breve de la rifa antes de iniciar la campaña.",
           },
         };
         const mapped = errors[error?.message];
@@ -1890,7 +1890,7 @@ export async function raffleRoutes(server: FastifyInstance) {
       }
       if (validated.winningNumber || validated.status === "FINISHED") {
         return reply.status(400).send({
-          message: "El resultado debe publicarse desde el Resumen de Rifa.",
+          message: "El resultado debe publicarse desde el resumen de rifa.",
           code: "RAFFLE_RESULT_MANAGED_OPERATIONALLY",
         });
       }
@@ -1945,7 +1945,7 @@ export async function raffleRoutes(server: FastifyInstance) {
         return reply.status(404).send({ message: "Raffle not found" });
       if (validated.winningNumber !== undefined) {
         return reply.status(400).send({
-          message: "El resultado debe publicarse desde el Resumen de Rifa.",
+          message: "El resultado debe publicarse desde el resumen de rifa.",
           code: "RAFFLE_RESULT_MANAGED_OPERATIONALLY",
         });
       }

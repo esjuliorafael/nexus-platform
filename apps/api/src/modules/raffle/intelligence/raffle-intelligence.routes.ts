@@ -43,9 +43,12 @@ const audienceParamsSchema = z.object({
 
 async function requireSuperadmin(server: FastifyInstance, request: any, reply: any) {
   await server.authenticate(request, reply);
-  const role = String(request.user?.role || "").toUpperCase();
-  if (role !== "SUPERADMIN") {
-    return reply.status(403).send({ message: "Forbidden" });
+  const permission = request.method === "GET"
+    ? "raffles.intelligence.view"
+    : "raffles.intelligence.manage";
+  if (reply.sent) return;
+  if (!request.user?.permissions?.includes(permission)) {
+    return reply.status(403).send({ message: "No tienes permiso para consultar esta información." });
   }
 }
 

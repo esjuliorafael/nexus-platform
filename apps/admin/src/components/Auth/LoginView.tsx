@@ -115,11 +115,11 @@ const STYLES = `
 `;
 
 const FALLBACK_CARDS = [
-  { bg: 'linear-gradient(135deg, #2d1810 0%, #5c3222 50%, #8b4e32 100%)', label: 'Aves de Combate', sublabel: 'Criadero' },
+  { bg: 'linear-gradient(135deg, #2d1810 0%, #5c3222 50%, #8b4e32 100%)', label: 'Aves de combate', sublabel: 'Criadero' },
   { bg: 'linear-gradient(135deg, #1a2a1a 0%, #2d4a20 50%, #4a6e30 100%)', label: 'Instalaciones', sublabel: 'Sector Norte' },
   { bg: 'linear-gradient(135deg, #3d2a10 0%, #7a5020 50%, #c08040 100%)', label: 'Temporada 2024', sublabel: 'Galería' },
   { bg: 'linear-gradient(135deg, #1a1a2a 0%, #2a2a4a 50%, #3a3a6a 100%)', label: 'Nocturnos', sublabel: 'Especial' },
-  { bg: 'linear-gradient(135deg, #2a1a10 0%, #5a3a20 50%, #8a6040 100%)', label: 'Cría y Crianza', sublabel: 'Generación' },
+  { bg: 'linear-gradient(135deg, #2a1a10 0%, #5a3a20 50%, #8a6040 100%)', label: 'Cría y crianza', sublabel: 'Generación' },
   { bg: 'linear-gradient(135deg, #1a2820 0%, #2a4230 50%, #3a5a40 100%)', label: 'Campos Verdes', sublabel: 'Panorámica' },
 ];
 
@@ -151,12 +151,12 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
   useEffect(() => {
     const loadSystemData = async () => {
       try {
-        const cfg = await apiSystem.getConfig();
+        const cfg = await apiSystem.getPublicConfig();
         if (cfg['branding_logo_url']) {
           setLogoUrl(cfg['branding_logo_url']);
         }
 
-        const media = await apiGallery.getAll();
+        const media = await apiGallery.getPublicAll();
         const imagesOnly = media.filter(m => m.type === 'image');
         
         if (imagesOnly.length > 0) {
@@ -207,6 +207,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
         token,
         name: user.name,
         role: user.role.toLowerCase(),
+        permissions: user.permissions || [],
         expiresAt: new Date().getTime() + (12 * 60 * 60 * 1000) 
       };
 
@@ -274,7 +275,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
               fontSize: '0.65rem', fontWeight: 600, letterSpacing: '0.2em',
               textTransform: 'uppercase', color: 'rgba(255,255,255,0.5)',
             }}>
-              Rancho Las Trojes · Galería
+              Rancho Las Trojes · galería
             </span>
           </div>
         </div>
@@ -426,7 +427,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
                 fontSize: '0.6rem', fontWeight: 700, letterSpacing: '0.2em',
                 textTransform: 'uppercase', color: 'rgba(180,126,116,0.85)',
               }}>
-                Panel Administrativo
+                Panel administrativo
               </span>
             </div>
 
@@ -542,7 +543,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
             >
               {isLoading
                 ? <><Loader2 size={18} style={{ animation: 'spin 1s linear infinite' }} /> Verificando...</>
-                : <>Entrar al Sistema <ArrowRight size={18} /></>}
+                : <>Entrar al sistema <ArrowRight size={18} /></>}
             </button>
           </form>
 
@@ -557,7 +558,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess, showToast 
             opacity: phase >= 3 ? 1 : 0,
             transition: 'opacity 0.6s ease 0.5s',
           }}>
-            Acceso restringido · Solo personal autorizado<br />
+            Acceso restringido · solo personal autorizado<br />
             © {new Date().getFullYear()} Rancho Las Trojes. Todos los derechos reservados. 
           </p>
         </div>

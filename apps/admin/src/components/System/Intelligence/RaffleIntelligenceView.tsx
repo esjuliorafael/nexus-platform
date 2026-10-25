@@ -158,7 +158,7 @@ export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ 
       setAudienceOptions(optionsData);
     } catch (error: any) {
       if (error.response?.status === 403) {
-        showToast('Solo Superadmin puede consultar inteligencia de rifas', 'error');
+        showToast('Tu usuario no tiene permiso para consultar inteligencia de rifas', 'error');
       } else {
         showToast('No se pudo cargar la inteligencia de rifas', 'error');
       }
@@ -249,10 +249,10 @@ export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ 
     <div className="space-y-8 pb-12 animate-in fade-in duration-300">
       <NexusHero
         title={overview.uniqueParticipants.toLocaleString('es-MX')}
-        subtitle="Participantes Unicos"
+        subtitle="Participantes unicos"
         icon={Brain}
         variant="dark"
-        badge="Conversion Global"
+        badge="Conversion global"
         badgeValue={formatRate(overview.paymentConversionRate)}
       />
 
@@ -284,7 +284,7 @@ export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ 
       </div>
 
       <NexusSection
-        title="Audiencias Guardadas"
+        title="Audiencias guardadas"
         subtitle="Define perfiles reutilizables; la promoción se ejecuta después desde una rifa"
         icon={UserRoundSearch}
         iconVariant="brand"
@@ -296,7 +296,7 @@ export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ 
               setAudienceModalOpen(true);
             }}
           >
-            Nueva Audiencia
+            Nueva audiencia
           </NexusSectionButton>
         }
       >
@@ -359,13 +359,13 @@ export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ 
       </NexusSection>
 
       <NexusSection
-        title="Segmentos de Audiencia"
+        title="Segmentos de audiencia"
         subtitle="Grupos automaticos segun comportamiento de pago y recurrencia"
         icon={Sparkles}
         iconVariant="brand"
         action={
           <NexusSectionButton onClick={handleExport} icon={Download} isLoading={isExporting}>
-            Exportar Audiencia
+            Exportar audiencia
           </NexusSectionButton>
         }
       >
@@ -402,7 +402,7 @@ export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ 
       </NexusSection>
 
       <div className="grid grid-cols-1 xl:grid-cols-2" style={{ gap: 'var(--space-md)' }}>
-        <NexusSection title="Estados Fuertes" subtitle="Regiones con mayor valor pagado" icon={TrendingUp} iconVariant="emerald">
+        <NexusSection title="Estados fuertes" subtitle="Regiones con mayor valor pagado" icon={TrendingUp} iconVariant="emerald">
           <div className="flex flex-col gap-3">
             {overview.topStates.map((item, idx) => (
               <div key={item.state} className="flex items-center justify-between border border-border-main bg-bg-muted px-5 py-4 rounded-[1.5rem]">
@@ -416,7 +416,7 @@ export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ 
           </div>
         </NexusSection>
 
-        <NexusSection title="Rifas con Mayor Valor" subtitle="Ranking por ingreso confirmado" icon={Ticket} iconVariant="blue">
+        <NexusSection title="Rifas con mayor valor" subtitle="Ranking por ingreso confirmado" icon={Ticket} iconVariant="blue">
           <div className="flex flex-col gap-3">
             {overview.topRaffles.map((item, idx) => (
               <div key={item.id} className="flex items-center justify-between border border-border-main bg-bg-muted px-5 py-4 rounded-[1.5rem] gap-4">
@@ -432,7 +432,7 @@ export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ 
       </div>
 
       <NexusSection
-        title="Explorador de Participantes"
+        title="Explorador de participantes"
         subtitle="Filtro fino para encontrar audiencias exportables"
         icon={Filter}
         iconVariant="muted"
@@ -513,7 +513,7 @@ export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ 
       />
       <NexusConfirmModal
         isOpen={Boolean(audienceToDelete)}
-        title="Eliminar Audiencia"
+        title="Eliminar audiencia"
         message={`Se eliminará “${audienceToDelete?.name || ""}”. Esto no afecta participantes ni mensajes anteriores.`}
         confirmLabel="Eliminar"
         onConfirm={handleDeleteAudience}

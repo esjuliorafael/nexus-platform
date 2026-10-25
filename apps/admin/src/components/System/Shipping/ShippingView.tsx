@@ -172,7 +172,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
               <div className="absolute inset-0 border-4 border-brand-100" style={{ borderRadius: 'var(--radius-inner-visual)' }} />
               <div className="absolute inset-0 border-4 border-brand-500 border-t-transparent animate-spin" style={{ borderRadius: 'var(--radius-inner-visual)', animationDuration: '1s', animationTimingFunction: 'var(--ease-emil)' }} />
            </div>
-           <p className="text-label text-text-muted">Analizando Red de Logística...</p>
+           <p className="text-label text-text-muted">Analizando red de logística...</p>
         </div>
       );
     }
@@ -182,11 +182,11 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
         <div key="shipping-zones-content" className="flex flex-col animate-in fade-in duration-300" style={{ gap: 'var(--space-lg)' }}>
           
           <NexusHero
-            title="Cobertura Territorial"
-            subtitle="Configuración de Zonas por Estado"
+            title="Cobertura territorial"
+            subtitle="Configuración de zonas por estado"
             icon={MapPin}
             variant="dark"
-            badge="Actualización Masiva"
+            badge="Actualización masiva"
             badgeValue={`${localStates.length} Estados`}
           />
 
@@ -229,7 +229,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                           ]}
                         />
                       ) : (
-                        <span className="text-label font-black uppercase text-stone-300 tracking-widest">Sin Cobertura</span>
+                        <span className="text-label font-black uppercase text-stone-300 tracking-widest">Sin cobertura</span>
                       )}
                       
                       {/* Switch (Right side on mobile) */}
@@ -253,18 +253,18 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
       <div key="shipping-config-content" className="flex flex-col animate-in fade-in duration-300" style={{ gap: 'var(--space-lg)' }}>
         
         <NexusHero
-          title="Logística y Envíos"
-          subtitle="Configuración de Costos y Umbrales"
+          title="Logística y envíos"
+          subtitle="Configuración de costos y umbrales"
           icon={Truck}
           variant="dark"
-          badge="Modo Activo"
+          badge="Modo activo"
           badgeValue="Tarifas Dinámicas"
         />
 
         <div className="grid grid-cols-1 lg:grid-cols-2" style={{ gap: 'var(--space-lg)' }}>
           {/* SECCIÓN ARTÍCULOS */}
           <NexusSection
-            title="Envíos de Artículos"
+            title="Envíos de artículos"
             subtitle="Gestión de costo base de envío"
             icon={Package}
             iconVariant="brand"
@@ -296,13 +296,13 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                         isMuted={!config.freeShippingArticles}
                       />
                       <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                        <h4 className="text-h2 text-text-main">Envío Gratis</h4>
+                        <h4 className="text-h2 text-text-main">Envío gratis</h4>
                         <p className="text-secondary text-text-muted">Anula el costo base en la compra de artículos.</p>
                       </div>
                     </div>
                     <div className="flex items-center justify-between pt-[var(--space-sm)] sm:pt-0 border-t sm:border-t-0 border-border-main/30 w-full sm:w-auto">
                       <span className="text-label font-black uppercase text-stone-400 tracking-widest sm:hidden">
-                        Modo de Operación
+                        Modo de operación
                       </span>
                       <div className="flex flex-col items-center" style={{ gap: 'var(--space-xs)' }}>
                         <NexusSwitch
@@ -324,7 +324,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
 
           {/* SECCIÓN AVES */}
           <NexusSection
-            title="Envíos de Aves"
+            title="Envíos de aves"
             subtitle="Costos territoriales por zona"
             icon={Bird}
             iconVariant="blue"
@@ -333,7 +333,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
             <div className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
               <div className={`grid grid-cols-1 sm:grid-cols-2 transition-all duration-500 ${config.freeShippingBirds ? 'opacity-40 grayscale pointer-events-none' : ''}`} style={{ gap: 'var(--space-md)' }}>
                 <NexusInput 
-                  label="Costo Zona Normal"
+                  label="Costo zona normal"
                   type="number"
                   value={config.costNormalZone.toString()}
                   disabled={config.freeShippingBirds}
@@ -342,7 +342,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                   helperText="Costo base para cobertura estándar."
                 />
                 <NexusInput 
-                  label="Costo Zona Extendida"
+                  label="Costo zona extendida"
                   type="number"
                   value={config.costExtendedZone.toString()}
                   disabled={config.freeShippingBirds}
@@ -365,13 +365,13 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                         isMuted={!config.freeShippingBirds}
                       />
                       <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                        <h4 className="text-h2 text-text-main">Envío Gratis</h4>
+                        <h4 className="text-h2 text-text-main">Envío gratis</h4>
                         <p className="text-secondary text-text-muted">Anula los costos territoriales en la compra de aves.</p>
                       </div>
                     </div>
                     <div className="flex items-center justify-between pt-[var(--space-sm)] sm:pt-0 border-t sm:border-t-0 border-border-main/30 w-full sm:w-auto">
                       <span className="text-label font-black uppercase text-stone-400 tracking-widest sm:hidden">
-                        Modo de Operación
+                        Modo de operación
                       </span>
                       <div className="flex flex-col items-center" style={{ gap: 'var(--space-xs)' }}>
                         <NexusSwitch
@@ -394,14 +394,14 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
 
         {/* RESUMEN TERRITORIAL */}
         <NexusSection
-          title="Resumen Territorial"
+          title="Resumen territorial"
           subtitle="Distribución de estados por zona operativa"
           icon={MapPin}
           iconVariant="emerald"
           delay="600ms"
           action={
             <NexusSectionButton onClick={() => setSubView('zones')} icon={ArrowRight} variant="brand">
-              Gestionar Cobertura
+              Gestionar cobertura
             </NexusSectionButton>
           }
         >
@@ -409,14 +409,14 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
             <NexusSectionCard
               icon={MapPin}
               iconVariant="emerald"
-              title="Cobertura Normal"
+              title="Cobertura normal"
               subtitle={`${stats.standard} Estados activos`}
               helperText="Zonas con logística estándar y costo base."
             />
             <NexusSectionCard
               icon={MapPin}
               iconVariant="orange"
-              title="Zonas Extendidas"
+              title="Zonas extendidas"
               subtitle={`${stats.extended} Estados identificados`}
               helperText="Zonas con costos adicionales por difícil acceso."
             />
@@ -424,7 +424,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
               icon={MapPin}
               iconVariant="muted"
               isMuted={true}
-              title="Sin Cobertura"
+              title="Sin cobertura"
               subtitle={`${stats.inactive} Estados deshabilitados`}
               helperText="Regiones sin rutas de entrega activas."
             />

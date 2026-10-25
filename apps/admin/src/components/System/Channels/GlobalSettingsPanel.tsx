@@ -71,13 +71,13 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ showTo
   return (
     <div className="space-y-12 mt-12 animate-in fade-in slide-in-from-bottom-6 duration-700 delay-300 [animation-fill-mode:both]">
       <NexusSection
-        title="Canal Principal"
+        title="Canal principal"
         subtitle="Fallback bancario y pasarela principal para flujos sin canal especializado"
         icon={ShieldCheck}
         iconVariant="muted"
         action={
           <NexusButton onClick={handleSave} isLoading={isSaving} size="sm" icon={Zap}>
-            Guardar Cambios
+            Guardar cambios
           </NexusButton>
         }
       >
@@ -99,7 +99,7 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ showTo
             <h4 className="text-label text-text-muted ml-1">Pasarela principal</h4>
             <div className="flex flex-col gap-6">
               <NexusInput 
-                label="Identidad en Extracto" 
+                label="Identidad en extracto"
                 name="mp_statement_descriptor"
                 value={config['mp_statement_descriptor'] || ''} 
                 onChange={(e) => setConfig({ ...config, [e.target.name]: e.target.value.substring(0, 16).toUpperCase() })} 
@@ -115,7 +115,7 @@ export const GlobalSettingsPanel: React.FC<GlobalSettingsPanelProps> = ({ showTo
                       <CheckCircle2 size={24} />
                     </div>
                     <div>
-                      <p className="text-secondary font-black text-text-main">Mercado Pago Principal</p>
+                      <p className="text-secondary font-black text-text-main">Mercado Pago principal</p>
                       <p className="text-label text-text-muted">{config['mp_seller_access_token'] ? 'Cuenta Vinculada' : 'Pendiente de Vincular'}</p>
                     </div>
                   </div>

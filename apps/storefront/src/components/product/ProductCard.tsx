@@ -242,7 +242,7 @@ export function ProductCard({ product }: { product: Product }) {
                   borderRadius: "var(--sf-radius-card-nested)",
                 }}
               >
-                No Disp.
+                No disp.
               </div>
             )}
           </div>

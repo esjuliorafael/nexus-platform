@@ -46,7 +46,7 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
               isIconOnly
               onClick={() => onEdit(category)}
               icon={Edit2}
-              title="Editar Categoría"
+              title="Editar categoría"
             />
             <NexusAutonomousButton 
               density="compact"
@@ -55,7 +55,7 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
               onClick={() => onDelete(category.id)}
               icon={Trash2}
               className="hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100"
-              title="Eliminar Categoría"
+              title="Eliminar categoría"
             />
           </div>
         </div>
@@ -92,7 +92,7 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
           icon={Layers}
           className="w-full truncate"
         >
-          Ver Subs
+          Ver subs
         </NexusAutonomousButton>
         <NexusAutonomousButton 
           density="compact"
@@ -101,7 +101,7 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
           icon={Plus}
           className="w-full truncate bg-brand-50 text-brand-600 border-brand-200 hover:bg-brand-100 shadow-none"
         >
-          Nueva Sub
+          Nueva sub
         </NexusAutonomousButton>
       </div>
     </NexusAutonomousCard>

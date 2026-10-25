@@ -279,7 +279,7 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
                     size="normal"
                     className="aspect-video w-full shadow-sm"
                     icon={Upload}
-                    title="Medio de la Galería"
+                    title="Medio de la galería"
                     description="Imagen o video para la galería."
                     onClick={() =>
                       !isProcessing && fileInputRef.current?.click()
@@ -310,7 +310,7 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
                       />
                     )}
 
-                    <UploadPreviewOverlay label="Cambiar Medio" />
+                    <UploadPreviewOverlay label="Cambiar medio" />
 
                     <div
                       className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between"
@@ -369,7 +369,7 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
 
             <div className="lg:col-span-5">
               <NexusSection
-                title="Detalles del Medio"
+                title="Detalles del medio"
                 subtitle="Informacion y clasificacion"
                 icon={isVideo ? Film : ImageIcon}
                 iconVariant="brand"
@@ -380,7 +380,7 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
                 >
                   <NexusInput
                     label="Titulo *"
-                    placeholder="Ej. Atardecer en los Agaves"
+                    placeholder="Ej. Atardecer en los agaves"
                     value={title}
                     onChange={(event) => setTitle(event.target.value)}
                   />
@@ -523,7 +523,7 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
 
         <NexusModal
           isOpen={isSubcategoryPickerOpen}
-          title="Seleccionar Subcategorias"
+          title="Seleccionar subcategorias"
           eyebrow={
             categories.find((cat) => cat.id.toString() === category)?.name
           }
@@ -571,7 +571,7 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
                 }}
                 className="flex-[2]"
               >
-                Aplicar Seleccion
+                Aplicar seleccion
               </NexusAutonomousButton>
             </NexusModalActions>
           </div>
@@ -585,7 +585,7 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
               {categories.find((cat) => cat.id.toString() === category)?.name}
             </>
           }
-          eyebrow="Nueva Subcategoria"
+          eyebrow="Nueva subcategoria"
           icon={Plus}
           onClose={() => setIsSubModalOpen(false)}
           zIndex={200}
@@ -596,8 +596,8 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
             style={{ gap: "var(--space-lg)" }}
           >
             <NexusInput
-              label="Nombre de la Subcategoria *"
-              placeholder="Ej. Instalaciones, Equipo..."
+              label="Nombre de la subcategoria *"
+              placeholder="Ej. Instalaciones, equipo..."
               value={newSubName}
               autoFocus
               onChange={(event) => setNewSubName(event.target.value)}
@@ -620,7 +620,7 @@ export const MediaForm = forwardRef<{ handleSave: () => void }, MediaFormProps>(
                 variant="brand"
                 icon={Check}
               >
-                Crear y Seleccionar
+                Crear y seleccionar
               </NexusAutonomousButton>
             </NexusModalActions>
           </form>

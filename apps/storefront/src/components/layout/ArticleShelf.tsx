@@ -27,9 +27,9 @@ export function ArticleShelf({ products }: ArticleShelfProps) {
           <div className="flex max-w-2xl flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
             <div className="inline-flex items-center sf-text-label text-brand-500" style={{ gap: 'var(--sf-space-sm)' }}>
               <Package size={12} />
-              Equipamiento & Nutricion
+              Equipamiento & nutricion
             </div>
-            <h2 className="sf-text-display text-stone-950 uppercase">Articulos e Insumos</h2>
+            <h2 className="sf-text-display text-stone-950 uppercase">Articulos e insumos</h2>
             <p className="sf-text-body max-w-md text-stone-500">
               Alimentos formulados, suplementos y accesorios oficiales para el cuidado de tus ejemplares.
             </p>

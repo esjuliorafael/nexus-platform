@@ -154,7 +154,7 @@ export const GalleryView = React.forwardRef<GalleryViewRef, GalleryViewProps>(
         isOpen: true,
         title: '¿Eliminar este medio?',
         message: 'Esta acción es irreversible. El archivo se borrará permanentemente de la galería.',
-        confirmLabel: 'Sí, Eliminar',
+        confirmLabel: 'Sí, eliminar',
         variant: 'danger',
         onConfirm: async () => {
           try {

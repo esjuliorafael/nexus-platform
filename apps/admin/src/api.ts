@@ -528,42 +528,51 @@ export const apiStorePaymentAssistance = {
   },
 };
 
+const mapApiMedia = (
+  item: any,
+): Media & { assetStatus?: "UPLOADING" | "PROCESSING" | "READY" | "FAILED" | null } => {
+  const subcategories = Array.isArray(item.subcategories)
+    ? item.subcategories
+    : item.subcategory
+      ? [item.subcategory]
+      : [];
+  return {
+    id: item.id.toString(),
+    title: item.title,
+    description: item.description,
+    type: item.mediaType === "PHOTO" ? "image" : "video",
+    assetId: item.assetId,
+    mediaUrl: item.mediaUrl,
+    posterUrl: item.posterUrl,
+    assetStatus: item.assetStatus,
+    mediaType: item.mediaType,
+    url: item.mediaUrl,
+    thumbnail: item.posterUrl || undefined,
+    category: item.category?.name,
+    categoryId: item.categoryId,
+    subcategory: subcategories.map((sub: any) => sub.name).join(", "),
+    subcategoryId: subcategories[0]?.id,
+    subcategories: subcategories.map((sub: any) => ({
+      id: sub.id.toString(),
+      name: sub.name,
+      categoryId: sub.categoryId.toString(),
+    })),
+    subcategoryIds: subcategories.map((sub: any) => sub.id.toString()),
+    location: item.location || "",
+    likes: item.likes || 0,
+    isFavorite: Boolean(item.isFavorite),
+    createdAt: item.mediaDate || item.createdAt,
+  };
+};
+
 export const apiGallery = {
   getAll: async (): Promise<Media[]> => {
     const res = await api.get("/admin/media");
-    return res.data.map((item: any) => {
-      const subcategories = Array.isArray(item.subcategories)
-        ? item.subcategories
-        : item.subcategory
-          ? [item.subcategory]
-          : [];
-      return {
-        id: item.id.toString(),
-        title: item.title,
-        description: item.description,
-        type: item.mediaType === "PHOTO" ? "image" : "video",
-        assetId: item.assetId,
-        mediaUrl: item.mediaUrl,
-        posterUrl: item.posterUrl,
-        assetStatus: item.assetStatus,
-        mediaType: item.mediaType,
-        url: item.mediaUrl,
-        thumbnail: item.posterUrl || undefined,
-        category: item.category?.name,
-        categoryId: item.categoryId,
-        subcategory: subcategories.map((sub: any) => sub.name).join(", "),
-        subcategoryId: subcategories[0]?.id,
-        subcategories: subcategories.map((sub: any) => ({
-          id: sub.id.toString(),
-          name: sub.name,
-          categoryId: sub.categoryId.toString(),
-        })),
-        subcategoryIds: subcategories.map((sub: any) => sub.id.toString()),
-        location: item.location || "",
-        likes: item.likes || 0,
-        createdAt: item.mediaDate || item.createdAt,
-      };
-    });
+    return res.data.map(mapApiMedia);
+  },
+  getPublicAll: async (): Promise<Media[]> => {
+    const res = await api.get("/store/media");
+    return res.data.map(mapApiMedia);
   },
   create: async (data: any) => {
     return api.post("/admin/media", data);
@@ -1068,6 +1077,7 @@ export const apiUsers = {
       notificationEmail: item.notificationEmail || item.email,
       contactProfile: item.contactProfile,
       role: item.role.toLowerCase(),
+      permissions: item.permissions || [],
     }));
   },
   create: async (data: any) => api.post("/admin/users", data),
@@ -1086,6 +1096,17 @@ export const apiSystem = {
     Object.values(res.data).forEach((group: any) => {
       Object.entries(group).forEach(([k, v]) => {
         flat[k] = v as string;
+      });
+    });
+    return flat;
+  },
+
+  getPublicConfig: async (): Promise<Record<string, string>> => {
+    const res = await api.get("/store/settings");
+    const flat: Record<string, string> = {};
+    Object.values(res.data).forEach((group: any) => {
+      Object.entries(group).forEach(([key, value]) => {
+        flat[key] = value as string;
       });
     });
     return flat;
@@ -1795,6 +1816,7 @@ function mapOrderResponse(item: any): Order {
       price: parseFloat(i.unitPrice),
       quantity: i.quantity,
       type: mapProductType(i.productType),
+      ringNumber: i.productRingNumber ?? null,
       imageUrl: i.product?.thumbnail,
     })),
   };

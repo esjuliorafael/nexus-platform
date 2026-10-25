@@ -47,7 +47,7 @@ const STATUS_OPTIONS: NexusFilterOption<OperationsStatusFilter>[] = [
 
 const PAYMENT_OPTIONS: NexusFilterOption<OperationsPaymentFilter>[] = [
   { value: "all", label: "Todos" },
-  { value: "transfer", label: "Depósito / Transferencia" },
+  { value: "transfer", label: "Depósito / transferencia" },
   { value: "card", label: "Tarjeta" },
 ];
 
@@ -71,8 +71,8 @@ export const OperationsFiltersModal: React.FC<
   return (
     <NexusDrawer
       isOpen={isOpen}
-      title="Filtrar Operaciones"
-      eyebrow="Centro Operativo"
+      title="Filtrar operaciones"
+      eyebrow="Centro operativo"
       icon={Filter}
       onClose={onClose}
       footer={
@@ -120,7 +120,7 @@ export const OperationsFiltersModal: React.FC<
           }
         />
         <NexusFilterGroup
-          title="Método de Pago"
+          title="Método de pago"
           value={draft.paymentMethod}
           options={PAYMENT_OPTIONS}
           onChange={(paymentMethod) =>

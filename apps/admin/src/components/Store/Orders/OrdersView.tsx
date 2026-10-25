@@ -14,7 +14,8 @@ import {
 interface OrdersViewProps {
   orders: Order[];
   isLoading: boolean;
-  canManageOperations: boolean;
+  canManageOrder: boolean;
+  canManageOrderFinancial: boolean;
   advancedFilters?: OrderAdvancedFilters;
   searchQuery?: string;
   onOrdersChange: (orders: Order[]) => void;
@@ -35,7 +36,8 @@ const normalizeSearch = (value: string) =>
 export const OrdersView: React.FC<OrdersViewProps> = ({
   orders,
   isLoading,
-  canManageOperations,
+  canManageOrder,
+  canManageOrderFinancial,
   advancedFilters = DEFAULT_ORDER_ADVANCED_FILTERS,
   searchQuery = "",
   onOrdersChange,
@@ -172,7 +174,8 @@ export const OrdersView: React.FC<OrdersViewProps> = ({
             >
               <OrderCard
                 order={order}
-                canManageOperations={canManageOperations}
+                canManageOrder={canManageOrder}
+                canManageOrderFinancial={canManageOrderFinancial}
                 onViewDetail={onViewDetail}
                 onMarkAsPaid={handleMarkAsPaid}
                 onCancelOrder={handleCancelOrder}

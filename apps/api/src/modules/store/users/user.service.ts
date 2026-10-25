@@ -8,6 +8,7 @@ const userSelect = {
   email: true,
   phone: true,
   role: true,
+  permissions: true,
   active: true,
   receiveNotifications: true,
   notificationEmail: true,
@@ -59,6 +60,7 @@ export const userService = {
   async delete(id: number) {
     return storePrisma.user.delete({
       where: { id },
+      select: { id: true },
     });
   },
 };

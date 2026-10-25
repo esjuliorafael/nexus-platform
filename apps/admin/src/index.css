@@ -95,7 +95,7 @@
 
   /* Fluid UI Components Heights & Semantic Sizes */
   --h-input: clamp(3rem, 4vw, 3.5rem); /* 48px to 56px */
-  --h-button-section: clamp(3rem, 4vw, 3.5rem); /* Main CTAs: 48px to 56px */
+  --h-button-section: var(--h-input); /* Section CTAs align with form controls */
   --h-button-card: clamp(2.5rem, 3vw, 3rem); /* Secondary CTAs: 40px to 48px */
   --h-card-divider-vertical: var(--h-button-card);
 

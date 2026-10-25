@@ -367,7 +367,7 @@ export const RaffleMaterialsView: React.FC<RaffleMaterialsViewProps> = ({
   return (
     <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
       <NexusSection
-        title="Materiales de la Rifa"
+        title="Materiales de la rifa"
         subtitle="Genera piezas visuales controladas para comunicar esta rifa."
         icon={Palette}
         action={

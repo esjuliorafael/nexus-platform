@@ -26,8 +26,8 @@ const ProductRowSkeleton: React.FC = () => (
 const LatestProductsSkeleton: React.FC = () => (
   <NexusAutonomousCard className="h-full animate-pulse">
     <NexusHeader
-      title="Últimos Productos"
-      subtitle="Estado de Inventario"
+      title="Últimos productos"
+      subtitle="Estado de inventario"
       icon={Package}
     />
     <div className="flex flex-col gap-2">
@@ -79,8 +79,8 @@ export const LatestProducts: React.FC<LatestProductsProps> = ({ items = [], isLo
   return (
     <NexusAutonomousCard className="h-full flex flex-col">
       <NexusHeader
-        title="Últimos Productos"
-        subtitle="Estado de Inventario"
+        title="Últimos productos"
+        subtitle="Estado de inventario"
         icon={Package}
         iconVariant="brand"
       />
@@ -130,7 +130,7 @@ export const LatestProducts: React.FC<LatestProductsProps> = ({ items = [], isLo
         onClick={onViewGallery}
         icon={Tag}
       >
-        Ver Catálogo
+        Ver catálogo
       </NexusAutonomousButton>
     </NexusAutonomousCard>
   );

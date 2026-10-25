@@ -4,21 +4,17 @@ import { createUserSchema, updateUserSchema } from "./user.schema";
 import { updateContactProfileSchema } from "../profile/profile.schema";
 import { profileService } from "../profile/profile.service";
 
-function roleOf(request: any) {
-  return String(request.user?.role || "").toUpperCase();
-}
-
-function rejectUnlessAdmin(request: any, reply: any) {
-  const role = roleOf(request);
-  if (role !== "ADMIN" && role !== "SUPERADMIN") {
-    reply.status(403).send({ message: "No tienes permisos para administrar usuarios." });
+function rejectUnlessUsersManager(request: any, reply: any) {
+  const permissions = request.user?.permissions || [];
+  if (!permissions.includes("users.manage")) {
+    reply.status(403).send({ message: "No tienes permiso para administrar usuarios." });
     return true;
   }
   return false;
 }
 
-function canManageTarget(actorRole: string, targetRole: string) {
-  return actorRole === "SUPERADMIN" || targetRole === "STAFF";
+function canAssignPermissions(actorPermissions: string[], requestedPermissions: string[]) {
+  return requestedPermissions.every((permission) => actorPermissions.includes(permission));
 }
 
 function sendRouteError(error: any, reply: any) {
@@ -37,16 +33,17 @@ export async function userRoutes(server: FastifyInstance) {
   server.addHook("preHandler", server.authenticate);
 
   server.get("/", async (request, reply) => {
-    if (rejectUnlessAdmin(request, reply)) return;
+    if (rejectUnlessUsersManager(request, reply)) return;
     return userService.getAll();
   });
 
   server.post("/", async (request, reply) => {
-    if (rejectUnlessAdmin(request, reply)) return;
+    if (rejectUnlessUsersManager(request, reply)) return;
     try {
       const validated = createUserSchema.parse(request.body);
-      if (roleOf(request) !== "SUPERADMIN" && validated.role !== "STAFF") {
-        return reply.status(403).send({ message: "Solo Superadmin puede crear administradores." });
+      const actorPermissions = (request.user as any).permissions || [];
+      if (!canAssignPermissions(actorPermissions, validated.permissions)) {
+        return reply.status(403).send({ message: "No puedes asignar permisos que no tienes." });
       }
       return await userService.create(validated);
     } catch (error) {
@@ -55,18 +52,21 @@ export async function userRoutes(server: FastifyInstance) {
   });
 
   server.put("/:id", async (request, reply) => {
-    if (rejectUnlessAdmin(request, reply)) return;
+    if (rejectUnlessUsersManager(request, reply)) return;
     try {
       const { id } = request.params as { id: string };
       const target = await userService.getById(parseInt(id));
       if (!target) return reply.status(404).send({ message: "Usuario no encontrado." });
-      const actorRole = roleOf(request);
-      if (!canManageTarget(actorRole, target.role)) {
-        return reply.status(403).send({ message: "No puedes modificar este usuario." });
-      }
       const validated = updateUserSchema.parse(request.body);
-      if (actorRole !== "SUPERADMIN" && validated.role && validated.role !== "STAFF") {
-        return reply.status(403).send({ message: "Solo Superadmin puede asignar ese rol." });
+      if (target.id === Number((request.user as any).id)) {
+        return reply.status(409).send({ message: "Administra tu cuenta desde mi perfil." });
+      }
+      const actorPermissions = (request.user as any).permissions || [];
+      const newlyGranted = validated.permissions?.filter(
+        (permission) => !target.permissions.includes(permission),
+      ) || [];
+      if (!canAssignPermissions(actorPermissions, newlyGranted)) {
+        return reply.status(403).send({ message: "No puedes asignar permisos que no tienes." });
       }
       return await userService.update(parseInt(id), validated);
     } catch (error) {
@@ -75,14 +75,11 @@ export async function userRoutes(server: FastifyInstance) {
   });
 
   server.put("/:id/contact", async (request, reply) => {
-    if (rejectUnlessAdmin(request, reply)) return;
+    if (rejectUnlessUsersManager(request, reply)) return;
     try {
       const { id } = request.params as { id: string };
       const target = await userService.getById(parseInt(id));
       if (!target) return reply.status(404).send({ message: "Usuario no encontrado." });
-      if (!canManageTarget(roleOf(request), target.role)) {
-        return reply.status(403).send({ message: "No puedes modificar este contacto." });
-      }
       const validated = updateContactProfileSchema.parse(request.body);
       return await profileService.updateContactProfile(parseInt(id), validated, true);
     } catch (error) {
@@ -91,7 +88,7 @@ export async function userRoutes(server: FastifyInstance) {
   });
 
   server.delete("/:id", async (request, reply) => {
-    if (rejectUnlessAdmin(request, reply)) return;
+    if (rejectUnlessUsersManager(request, reply)) return;
     const { id } = request.params as { id: string };
     const targetId = parseInt(id);
     if (targetId === Number((request.user as any).id)) {
@@ -99,9 +96,6 @@ export async function userRoutes(server: FastifyInstance) {
     }
     const target = await userService.getById(targetId);
     if (!target) return reply.status(404).send({ message: "Usuario no encontrado." });
-    if (!canManageTarget(roleOf(request), target.role)) {
-      return reply.status(403).send({ message: "No puedes eliminar este usuario." });
-    }
     return userService.delete(targetId);
   });
 }

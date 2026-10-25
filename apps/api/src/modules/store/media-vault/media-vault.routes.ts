@@ -7,9 +7,8 @@ import {
 import { mediaVaultService } from "./media-vault.service";
 
 function rejectUnlessAdmin(request: any, reply: any) {
-  const role = String(request.user?.role || "").toUpperCase();
-  if (role !== "ADMIN" && role !== "SUPERADMIN") {
-    reply.status(403).send({ message: "No tienes permisos para administrar la bóveda." });
+  if (!request.user?.permissions?.includes("media.vault.manage")) {
+    reply.status(403).send({ message: "No tienes permiso para administrar la bóveda." });
     return true;
   }
   return false;

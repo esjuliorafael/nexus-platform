@@ -276,7 +276,7 @@ const UploadQueueStatus: React.FC<{ tasks: UploadTask[] }> = ({ tasks }) => {
                 <p className="truncate text-label font-bold text-text-main">
                   {task.label}
                 </p>
-                <p className="truncate text-caption text-text-muted">
+                <p className="truncate text-secondary text-text-muted">
                   {task.status === "failed"
                     ? task.error || "Error de subida"
                     : task.status === "retrying"

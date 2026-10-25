@@ -160,7 +160,7 @@ function ImmersiveProductCard({ product, priority = false }: { product: Product,
                     className="w-full h-12 bg-white/5 backdrop-blur-md border border-white/5 flex items-center justify-center text-[10px] font-black uppercase text-white/30 tracking-widest"
                     style={{ borderRadius: 'var(--sf-radius-inner)' }}
                   >
-                    No Disp.
+                    No disp.
                   </div>
                 )}
               </div>

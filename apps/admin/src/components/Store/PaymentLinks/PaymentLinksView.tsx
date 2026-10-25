@@ -415,8 +415,8 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
           </div>
           <div className="mt-[var(--space-sm)] flex flex-col gap-[var(--space-sm)] sm:flex-row sm:items-center">
             <div className="min-w-0 flex-1">
-              <code className="block break-all text-caption text-text-muted">{lastGenerated.url}</code>
-              <p className="mt-[var(--space-xs)] text-caption text-text-muted">
+              <code className="block break-all font-mono text-secondary text-text-muted">{lastGenerated.url}</code>
+              <p className="mt-[var(--space-xs)] text-secondary text-text-muted">
                 {lastGenerated.items?.map((item) => `${item.quantity} × ${item.name}`).join(" · ")}
               </p>
             </div>
@@ -433,7 +433,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
               Copiar
             </NexusButton>
           </div>
-          <p className="mt-[var(--space-sm)] text-caption text-text-muted">
+          <p className="mt-[var(--space-sm)] text-secondary text-text-muted">
             Vence el {formatDate(lastGenerated.expiresAt)}. El token solo se muestra en esta sesión.
           </p>
         </div>
@@ -441,7 +441,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
 
       <NexusModal
         isOpen={isGeneratorOpen}
-        title="Generación Asistida"
+        title="Generación asistida"
         eyebrow="ENLACES DE PAGO"
         icon={Link2}
         onClose={onCloseGenerator}
@@ -460,7 +460,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
               onClick={() => void handleGenerate()}
               className="w-full sm:min-w-[13rem]"
             >
-              Generar Enlace
+              Generar enlace
             </NexusAutonomousButton>
           </NexusModalActions>
         }
@@ -502,7 +502,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
                 icon={Search}
                 value={productSearchQuery}
                 onChange={(event) => setProductSearchQuery(event.target.value)}
-                placeholder="Ej. Kelso KA o Anillo 096"
+                placeholder="Ej. Kelso KA o anillo 096"
               />
 
               <div
@@ -537,7 +537,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
                             <p className="truncate text-button-card font-semibold text-text-main">
                               {productLabel(product)}
                             </p>
-                            <p className="mt-[var(--space-xs)] text-caption text-text-muted">
+                            <p className="mt-[var(--space-xs)] text-secondary text-text-muted">
                               ${product.price.toLocaleString("es-MX")} · {product.type === "BIRD" ? "Ejemplar único" : `${product.stock} disponibles`}
                             </p>
                           </div>
@@ -589,7 +589,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
                 >
                   <ShoppingCart size={22} className="text-text-muted" />
                   <p className="text-secondary text-text-muted">
-                    El carrito está vacío. Agrega productos desde la pestaña Productos.
+                    El carrito está vacío. Agrega productos desde la pestaña productos.
                   </p>
                 </div>
               ) : (
@@ -612,7 +612,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
                           <ProductThumbnail product={product} />
                           <div className="min-w-0">
                             <p className="truncate text-button-card font-semibold text-text-main">{productLabel(product)}</p>
-                            <p className="mt-[var(--space-xs)] text-caption text-text-muted">
+                            <p className="mt-[var(--space-xs)] text-secondary text-text-muted">
                               ${product.price.toLocaleString("es-MX")} por unidad
                             </p>
                           </div>
@@ -722,7 +722,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
                       <NexusBadge variant={meta.variant} icon={link.status === "PAID" ? CheckCircle2 : link.status === "IN_PAYMENT" ? CreditCard : link.status === "EXPIRED" ? Clock3 : link.status === "REVOKED" ? Ban : Check}>
                         {meta.label}
                       </NexusBadge>
-                      <span className="text-caption text-text-muted">{meta.description}</span>
+                      <span className="text-secondary text-text-muted">{meta.description}</span>
                     </div>
 
                     <div className="text-secondary text-text-muted">
@@ -730,12 +730,12 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
                         <>
                           <p className="text-button-card text-text-main">{link.paymentHold.customerName}</p>
                           <p>{link.paymentHold.customerPhone}</p>
-                          <p className="text-caption">Retención vence {formatDate(link.paymentHold.expiresAt)}</p>
+                          <p className="text-secondary">Retención vence {formatDate(link.paymentHold.expiresAt)}</p>
                         </>
                       ) : (
                         <>
                           <p>Sin retención iniciada</p>
-                          <p className="text-caption">Enlace vence {formatDate(link.expiresAt)}</p>
+                          <p className="text-secondary">Enlace vence {formatDate(link.expiresAt)}</p>
                         </>
                       )}
                     </div>

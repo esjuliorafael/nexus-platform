@@ -284,7 +284,7 @@ async function completeSession(
     } else {
       if (!session.channelId) {
         throw Object.assign(
-          new Error("La sesión perdió su Canal Especializado."),
+          new Error("La sesión perdió su canal especializado."),
           { statusCode: 409 },
         );
       }

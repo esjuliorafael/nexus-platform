@@ -15,7 +15,7 @@ export const MessagingCostWidget = ({ cost, isLoading }: { cost?: DashboardComme
       <div className="flex min-w-0 items-center" style={{ gap: "var(--space-md)", marginBottom: "var(--space-lg)" }}>
         <NexusAutonomousIcon icon={BadgeDollarSign} variant="brand" />
         <div className="min-w-0">
-          <h3 className="text-h1 text-text-main">Costo de Mensajería</h3>
+          <h3 className="text-h1 text-text-main">Costo de mensajería</h3>
           <p className="text-secondary text-text-muted">Estimado Meta para los filtros seleccionados.</p>
         </div>
       </div>
@@ -25,7 +25,7 @@ export const MessagingCostWidget = ({ cost, isLoading }: { cost?: DashboardComme
           <Metric label="Facturables" value={value.billable} icon={MessageCircleMore} />
           <Metric label="Sin cargo" value={value.exempt} icon={ShieldCheck} />
         </div>
-        <p className="text-caption text-text-muted">
+        <p className="text-secondary text-text-muted">
           {value.cloudDelivered} entregas Cloud API. {value.evolution} envíos Evolution no generan costo Meta estimado.
           {value.unpriced > 0 ? ` ${value.unpriced} sin tarifa de destino.` : ""}
         </p>
@@ -35,5 +35,5 @@ export const MessagingCostWidget = ({ cost, isLoading }: { cost?: DashboardComme
 };
 
 function Metric({ label, value, icon: Icon }: { label: string; value: number; icon: React.ElementType }) {
-  return <div className="flex items-center justify-between border border-border-main bg-bg-muted" style={{ gap: "var(--space-sm)", padding: "var(--padding-card-nested)", borderRadius: "var(--radius-card-nested-compact)" }}><div className="flex flex-col" style={{ gap: "var(--space-xs)" }}><span className="text-caption text-text-muted">{label}</span><strong className="text-h2 tabular-nums text-text-main">{value}</strong></div><Icon className="text-brand-600" style={{ width: "var(--size-inner-icon-card)", height: "var(--size-inner-icon-card)" }} /></div>;
+  return <div className="flex items-center justify-between border border-border-main bg-bg-muted" style={{ gap: "var(--space-sm)", padding: "var(--padding-card-nested)", borderRadius: "var(--radius-card-nested-compact)" }}><div className="flex flex-col" style={{ gap: "var(--space-xs)" }}><span className="text-secondary text-text-muted">{label}</span><strong className="text-h2 tabular-nums text-text-main">{value}</strong></div><Icon className="text-brand-600" style={{ width: "var(--size-inner-icon-card)", height: "var(--size-inner-icon-card)" }} /></div>;
 }

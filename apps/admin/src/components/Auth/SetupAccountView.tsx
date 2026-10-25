@@ -51,7 +51,7 @@ export const SetupAccountView: React.FC<SetupAccountViewProps> = ({ onSetupCompl
           </div>
           <div>
             <h1 className="text-display text-text-main">Bienvenido, {userName}</h1>
-            <p className="text-secondary text-text-muted mt-2">Configuración de Seguridad de tu Cuenta</p>
+            <p className="text-secondary text-text-muted mt-2">Configuración de seguridad de tu cuenta</p>
           </div>
         </div>
 
@@ -62,7 +62,7 @@ export const SetupAccountView: React.FC<SetupAccountViewProps> = ({ onSetupCompl
               <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
                  <h2 className="text-h1 text-text-main flex items-center" style={{ gap: 'var(--space-sm)' }}>
                    <Lock className="text-brand-500" size={24} />
-                   Seguridad Requerida
+                   Seguridad requerida
                  </h2>
                  <p className="text-body text-text-muted">
                    Tu cuenta fue creada por un administrador con una contraseña temporal por defecto o tu clave actual requiere un reseteo de seguridad. 
@@ -87,20 +87,20 @@ export const SetupAccountView: React.FC<SetupAccountViewProps> = ({ onSetupCompl
                   className="flex-1"
                   icon={ArrowRight}
                 >
-                  Cambiar Contraseña
+                  Cambiar contraseña
                 </NexusSectionButton>
               </div>
             </div>
           ) : (
             <form onSubmit={handleSubmit} className="animate-in slide-in-from-right-8 duration-500 flex flex-col" style={{ padding: 'var(--padding-outer)', gap: 'var(--space-lg)' }}>
               <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                 <h2 className="text-h1 text-text-main">Nueva Contraseña</h2>
+                 <h2 className="text-h1 text-text-main">Nueva contraseña</h2>
                  <p className="text-secondary text-text-muted">Ingresa al menos 6 caracteres seguros.</p>
               </div>
 
               <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
                  <NexusInput 
-                   label="Contraseña Segura"
+                   label="Contraseña segura"
                    type="password"
                    required
                    value={password}
@@ -111,7 +111,7 @@ export const SetupAccountView: React.FC<SetupAccountViewProps> = ({ onSetupCompl
                  />
                  
                  <NexusInput 
-                   label="Confirmar Contraseña"
+                   label="Confirmar contraseña"
                    type="password"
                    required
                    value={confirmPassword}
@@ -130,7 +130,7 @@ export const SetupAccountView: React.FC<SetupAccountViewProps> = ({ onSetupCompl
                   disabled={password.length < 6 || password !== confirmPassword}
                   icon={Save}
                 >
-                  Actualizar y Entrar al Sistema
+                  Actualizar y entrar al sistema
                 </NexusSectionButton>
               </div>
             </form>

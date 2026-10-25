@@ -153,7 +153,7 @@ export function Header({ showRaffles = false, onOpenCart }: HeaderProps) {
                     strokeWidth={isActive ? 2.35 : 2.3}
                   />
                 </motion.span>
-                <span className="sf-text-caption min-w-0 whitespace-nowrap text-current">
+                <span className="sf-text-secondary min-w-0 whitespace-nowrap text-current">
                   {link.label}
                 </span>
               </Link>

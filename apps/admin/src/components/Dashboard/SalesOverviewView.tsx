@@ -309,7 +309,7 @@ export const SalesOverviewView = ({
                       className="flex min-w-0 flex-1 flex-col"
                       style={{ gap: "var(--space-xs)" }}
                     >
-                      <h3 className="text-h1 text-text-main">Ingresos Netos</h3>
+                      <h3 className="text-h1 text-text-main">Ingresos netos</h3>
                       <p className="text-secondary text-text-muted">
                         Ventas confirmadas del periodo.
                       </p>
@@ -483,7 +483,7 @@ export const SalesOverviewView = ({
                     style={{ gap: "var(--space-xs)" }}
                   >
                     <h3 className="text-h1 text-text-main">
-                      Tendencia de Ventas
+                      Tendencia de ventas
                     </h3>
                     <p className="text-secondary text-text-muted">
                       Ingresos netos del periodo.
@@ -564,7 +564,7 @@ export const SalesOverviewView = ({
           </div>
 
           <NexusSection
-            title="Historial de Órdenes"
+            title="Historial de órdenes"
             subtitle={`${historyPagination.totalItems.toLocaleString("es-MX")} ${
               historyPagination.totalItems === 1 ? "orden pagada" : "órdenes pagadas"
             } en el periodo y tipo seleccionados.`}

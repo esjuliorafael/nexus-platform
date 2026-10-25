@@ -508,7 +508,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
         channelId: Number(whatsappObj.id),
       });
       setConfirmDisconnectKapso(false);
-      showToast("Cloud API desvinculada del Canal Especializado");
+      showToast("Cloud API desvinculada del canal especializado");
       await loadChannelData();
     } catch (error: any) {
       showToast(
@@ -653,7 +653,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
         iconVariant="brand"
         action={
           <NexusSectionButton onClick={() => setModal("identity")} icon={Edit2}>
-            Editar Identidad
+            Editar identidad
           </NexusSectionButton>
         }
       >
@@ -661,7 +661,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
           <NexusSectionCard
             icon={Banknote}
             iconVariant={paymentReady ? "emerald" : "muted"}
-            title="Informacion Bancaria"
+            title="Informacion bancaria"
             subtitle={
               paymentReady
                 ? `${paymentData.bank} / ${paymentData.beneficiary}`
@@ -704,7 +704,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
           <NexusSectionCard
             icon={MessageCircle}
             iconVariant={whatsappReady ? "emerald" : "muted"}
-            title="Mensajería Especializada"
+            title="Mensajería especializada"
             subtitle={
               whatsappData.phone
                 ? `${whatsappData.phone} / ${
@@ -736,8 +736,8 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       </NexusSection>
 
       <NexusSection
-        title="Plantillas de Mensajería"
-        subtitle="Este canal utiliza el contenido administrado desde el Canal Principal."
+        title="Plantillas de mensajería"
+        subtitle="Este canal utiliza el contenido administrado desde el canal principal."
         icon={FileText}
         iconVariant={templatesReady ? "brand" : "muted"}
       >
@@ -827,7 +827,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
         <NexusModal
           isOpen
           title="Identidad del canal"
-          eyebrow="Editar Canal"
+          eyebrow="Editar canal"
           icon={Building2}
           onClose={() => setModal(null)}
           size="standard"
@@ -853,7 +853,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
               icon={Save}
               className="w-full"
             >
-              Guardar Identidad
+              Guardar identidad
             </NexusAutonomousButton>
           </div>
         </NexusModal>
@@ -863,7 +863,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
         <NexusModal
           isOpen
           title="Información bancaria"
-          eyebrow="Configurar Canal"
+          eyebrow="Configurar canal"
           icon={Banknote}
           onClose={() => setModal(null)}
           size="standard"
@@ -916,7 +916,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
               icon={Save}
               className="w-full"
             >
-              Guardar Banco
+              Guardar banco
             </NexusAutonomousButton>
           </div>
         </NexusModal>
@@ -926,7 +926,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
         <NexusModal
           isOpen
           title="Mercado Pago"
-          eyebrow="Configurar Canal"
+          eyebrow="Configurar canal"
           icon={CreditCard}
           onClose={() => setModal(null)}
           size="standard"
@@ -980,8 +980,8 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       {modal === "whatsapp" && (
         <NexusModal
           isOpen
-          title="Mensajería Especializada"
-          eyebrow="Configurar Canal"
+          title="Mensajería especializada"
+          eyebrow="Configurar canal"
           icon={MessageCircle}
           onClose={() => setModal(null)}
           size="standard"
@@ -1248,7 +1248,7 @@ export const ChannelEditor: React.FC<ChannelEditorProps> = ({
       <NexusConfirmModal
         isOpen={confirmDisconnectKapso}
         title="¿Desvincular Cloud API?"
-        message="Kapso retirará este número del proyecto. El Canal Especializado conservará su configuración de Evolution API."
+        message="Kapso retirará este número del proyecto. El canal especializado conservará su configuración de Evolution API."
         confirmLabel="Desvincular"
         onConfirm={disconnectKapso}
         onCancel={() => setConfirmDisconnectKapso(false)}

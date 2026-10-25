@@ -45,8 +45,13 @@ import {
   storefrontAnnouncementPublicRoutes,
 } from "./storefront-announcements/storefront-announcement.routes";
 import { inventoryIntegrityRoutes } from "./inventory/inventory-integrity.routes";
+import { authorizeAdminRequest } from "../../utils/user-permissions";
 
 export async function storeRoutes(server: FastifyInstance) {
+  server.addHook("preHandler", (request, reply) =>
+    authorizeAdminRequest(server, request, reply),
+  );
+
   // Public Storefront Routes
   await server.register(productRoutes, { prefix: "/store/products" });
   await server.register(homeSlidePublicRoutes, {

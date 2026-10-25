@@ -91,7 +91,7 @@ async function bootstrap() {
         role: user.role 
       });
 
-      return { token, user: { id: user.id, username: user.username, name: user.name, role: user.role, mustChangePassword: user.mustChangePassword } };
+      return { token, user: { id: user.id, username: user.username, name: user.name, role: user.role, permissions: user.permissions, mustChangePassword: user.mustChangePassword } };
     });
 
     server.get("/api/v1/auth/me", { preHandler: [server.authenticate] }, async (request) => {
@@ -100,7 +100,7 @@ async function bootstrap() {
         where: { id: payload.id },
       });
       if (!user) throw new Error("User not found");
-      return { id: user.id, username: user.username, name: user.name, role: user.role, mustChangePassword: user.mustChangePassword };
+      return { id: user.id, username: user.username, name: user.name, role: user.role, permissions: user.permissions, mustChangePassword: user.mustChangePassword };
     });
 
     server.post("/api/v1/auth/setup-account", { preHandler: [server.authenticate] }, async (request, reply) => {

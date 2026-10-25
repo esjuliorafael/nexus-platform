@@ -23,8 +23,8 @@ const MediaRowSkeleton: React.FC = () => (
 const LatestMediaSkeleton: React.FC = () => (
   <NexusAutonomousCard className="h-full animate-pulse">
     <NexusHeader
-      title="Últimos Medios"
-      subtitle="Contenido Visual"
+      title="Últimos medios"
+      subtitle="Contenido visual"
       icon={Images}
     />
     <div className="flex flex-col gap-2">
@@ -45,8 +45,8 @@ export const LatestMedia: React.FC<LatestMediaProps> = ({ items = [], onViewGall
   return (
     <NexusAutonomousCard className="h-full flex flex-col">
       <NexusHeader
-        title="Últimos Medios"
-        subtitle="Contenido Visual"
+        title="Últimos medios"
+        subtitle="Contenido visual"
         icon={Images}
         iconVariant="brand"
       />
@@ -82,7 +82,7 @@ export const LatestMedia: React.FC<LatestMediaProps> = ({ items = [], onViewGall
         onClick={onViewGallery}
         icon={Images}
       >
-        Ver Galería
+        Ver galería
       </NexusAutonomousButton>
     </NexusAutonomousCard>
   );

@@ -2,7 +2,7 @@ import React from "react";
 import type { DashboardMilestoneProgress } from "../../types";
 
 interface UseRevenueMilestonesOptions {
-  isAdminUser: boolean;
+  enabled: boolean;
   isLoading: boolean;
   milestones?: DashboardMilestoneProgress[];
   onAcknowledge: (milestoneId: string) => Promise<void>;
@@ -10,7 +10,7 @@ interface UseRevenueMilestonesOptions {
 }
 
 export const useRevenueMilestones = ({
-  isAdminUser,
+  enabled,
   isLoading,
   milestones,
   onAcknowledge,
@@ -47,7 +47,7 @@ export const useRevenueMilestones = ({
   );
 
   React.useEffect(() => {
-    if (!isAdminUser || isLoading) {
+    if (!enabled || isLoading) {
       setActiveMilestone(null);
       setIsOpen(false);
       return;
@@ -62,7 +62,7 @@ export const useRevenueMilestones = ({
       setActiveMilestone(nextMilestone);
       setIsOpen(true);
     }
-  }, [activeMilestone, isAdminUser, isLoading, nextMilestone]);
+  }, [activeMilestone, enabled, isLoading, nextMilestone]);
 
   const acknowledgeMilestone = React.useCallback(async () => {
     if (!activeMilestone) return;

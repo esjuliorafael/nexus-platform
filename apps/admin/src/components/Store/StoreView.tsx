@@ -329,7 +329,7 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
         title: "¿Eliminar producto?",
         message:
           "Esta acción borrará el producto y sus archivos multimedia permanentemente.",
-        confirmLabel: "Sí, Eliminar",
+        confirmLabel: "Sí, eliminar",
         variant: "danger",
         onConfirm: async () => {
           try {
@@ -579,7 +579,7 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
     return (
       <div className="w-full" ref={storeTopRef}>
         {isLoading ? (
-          <NexusSpinner label="Actualizando Inventario..." />
+          <NexusSpinner label="Actualizando inventario..." />
         ) : filtered.length > 0 ? (
           <div
             className="flex flex-col max-w-6xl mx-auto"
@@ -624,7 +624,7 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
                   onClick={() => onSetViewMode("create")}
                   icon={Plus}
                 >
-                  Nuevo Producto
+                  Nuevo producto
                 </NexusSectionButton>
               )
             }

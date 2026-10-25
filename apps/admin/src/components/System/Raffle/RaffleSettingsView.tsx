@@ -14,12 +14,13 @@ export interface RaffleSettingsViewRef {
 interface RaffleSettingsViewProps {
   showToast: (message: string, type?: "success" | "error") => void;
   onStatusChange?: (enabled: boolean) => void;
+  canManageRaffleSettings: boolean;
 }
 
 export const RaffleSettingsView = forwardRef<
   RaffleSettingsViewRef,
   RaffleSettingsViewProps
->(({ showToast, onStatusChange }, ref) => {
+>(({ showToast, onStatusChange, canManageRaffleSettings }, ref) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
 
@@ -31,7 +32,7 @@ export const RaffleSettingsView = forwardRef<
     const loadConfig = async () => {
       setIsLoading(true);
       try {
-        const data = await apiSystem.getConfig();
+        const data = await apiSystem.getPublicConfig();
         const active = data["raffle_enabled"] === "1";
         setEnabled(active);
       } catch (error) {
@@ -48,7 +49,7 @@ export const RaffleSettingsView = forwardRef<
   // 2. Guardar datos (expuesto al App.tsx)
   useImperativeHandle(ref, () => ({
     handleSave: async () => {
-      if (isSaving) return;
+      if (isSaving || !canManageRaffleSettings) return;
       setIsSaving(true);
 
       try {
@@ -76,7 +77,7 @@ export const RaffleSettingsView = forwardRef<
           <div className="absolute inset-0 border-4 border-brand-500 border-t-transparent rounded-full animate-spin" />
         </div>
         <p className="text-stone-400 font-black uppercase tracking-[0.2em] text-[10px]">
-          Cargando Ajustes...
+          Cargando ajustes...
         </p>
       </div>
     );
@@ -94,7 +95,7 @@ export const RaffleSettingsView = forwardRef<
         </div>
         <div>
           <h4 className="text-lg font-black text-brand-900 tracking-tight">
-            Configuración Global de Rifas
+            Configuración global de rifas
           </h4>
           <p className="text-sm text-brand-800/80 mt-1.5 leading-relaxed font-medium">
             Este interruptor controla la visibilidad de la sección de rifas en
@@ -114,7 +115,7 @@ export const RaffleSettingsView = forwardRef<
             </div>
             <div>
               <h3 className="font-black text-text-main uppercase tracking-widest text-sm leading-tight">
-                Estado del Módulo
+                Estado del módulo
               </h3>
               <p className="text-[10px] text-stone-400 font-bold uppercase mt-1">
                 Activa o desactiva las rifas en el sistema
@@ -124,6 +125,8 @@ export const RaffleSettingsView = forwardRef<
 
           <button
             onClick={() => setEnabled(!isEnabled)}
+            disabled={!canManageRaffleSettings}
+            aria-label="Activar o desactivar las rifas"
             className={`flex-shrink-0 w-14 h-7 rounded-full transition-all relative active:scale-90 ${isEnabled ? "bg-brand-500 shadow-lg shadow-brand-500/20" : "bg-stone-300"}`}
             style={{ transitionTimingFunction: "var(--ease-emil)" }}
           >
@@ -154,12 +157,12 @@ export const RaffleSettingsView = forwardRef<
         </div>
         <div>
           <h4 className="text-lg font-black text-amber-900 tracking-tight">
-            Restricción de Seguridad
+            Restricción de seguridad
           </h4>
           <p className="text-sm text-amber-800/80 mt-1.5 leading-relaxed font-medium">
-            Solo los usuarios con privilegio de <strong>Superadmin</strong>{" "}
-            pueden modificar este ajuste. Asegúrate de que no haya rifas activas
-            antes de deshabilitar el módulo.
+            Se requiere el permiso de configuración de rifas para modificar este
+            ajuste. Asegúrate de que no haya rifas activas antes de deshabilitar
+            el módulo.
           </p>
         </div>
       </div>

@@ -9,6 +9,7 @@ interface HeaderProps {
   setActiveTab: (tab: string) => void;
   onLogout: () => void;
   raffleEnabled?: boolean;
+  tabs?: string[];
   hasBillingNotification?: boolean;
   newOrdersCount?: number;
   onOpenProfile: () => void;
@@ -19,6 +20,7 @@ export const Header: React.FC<HeaderProps> = ({
   setActiveTab,
   onLogout,
   raffleEnabled = false,
+  tabs,
   hasBillingNotification = false,
   newOrdersCount = 0,
   onOpenProfile,
@@ -32,7 +34,7 @@ export const Header: React.FC<HeaderProps> = ({
 
   useFavicon(logoUrl);
 
-  const navItems = [
+  const navItems = tabs || [
     "Inicio",
     "Operaciones",
     "Tienda",
@@ -52,7 +54,7 @@ export const Header: React.FC<HeaderProps> = ({
   useEffect(() => {
     const loadLogo = async () => {
       try {
-        const config = await apiSystem.getConfig();
+        const config = await apiSystem.getPublicConfig();
         if (config["branding_logo_url"]) {
           setLogoUrl(config["branding_logo_url"]);
         }
@@ -129,7 +131,7 @@ export const Header: React.FC<HeaderProps> = ({
                   {logoUrl ? (
                     <img
                       src={logoUrl}
-                      alt="Logo del Sistema"
+                      alt="Logo del sistema"
                       className="h-full w-full object-cover"
                     />
                   ) : (
@@ -250,7 +252,7 @@ export const Header: React.FC<HeaderProps> = ({
                   height: "var(--size-button-section)",
                   transitionTimingFunction: "var(--ease-emil)",
                 }}
-                title="Cerrar Sesión"
+                title="Cerrar sesión"
               >
                 <LogOut
                   size={20}

@@ -98,10 +98,10 @@ export function GalleryFeatured({ items }: GalleryFeaturedProps) {
         <div className="flex flex-col" style={{ gap: 'var(--sf-space-xl)' }}>
           <div className="mx-auto flex max-w-2xl flex-col items-center text-center" style={{ gap: 'var(--sf-space-md)' }}>
             <Badge variant="brand" context="section" icon={ImageIcon}>
-              Archivo Visual
+              Archivo visual
             </Badge>
             <h2 className="sf-text-display text-white uppercase italic">
-              Vida en <span className="text-brand-500">Nuestra Granja</span>
+              Vida en <span className="text-brand-500">Nuestra granja</span>
             </h2>
             <p className="sf-text-body text-stone-500">
               Testimonios visuales de nuestra dedicacion, linajes y el entorno donde forjamos campeones.
@@ -138,7 +138,7 @@ export function GalleryFeatured({ items }: GalleryFeaturedProps) {
           <div className="text-center">
             <Button asChild variant="outline" context="section" className="border-white/10 text-white hover:bg-white hover:text-stone-950">
               <Link href="/gallery">
-                Ver Galeria Completa
+                Ver galeria completa
                 <ArrowRight className="ml-2 transition-transform group-hover:translate-x-1" size={18} />
               </Link>
             </Button>

@@ -496,7 +496,7 @@ export function RaffleDetailsClient({
           style={{ gap: "var(--sf-space-sm)" }}
         >
           <ArrowLeft size={14} />
-          Volver a Rifas
+          Volver a rifas
         </motion.button>
 
         <div className="flex flex-col gap-[var(--sf-space-lg)] lg:gap-[var(--sf-space-xl)]">

@@ -234,7 +234,7 @@ export const MediaVaultView = forwardRef<
                   icon={UploadCloud}
                   onClick={() => onSetViewMode("vault_upload")}
                 >
-                  Subir Archivos
+                  Subir archivos
                 </NexusSectionButton>
               ) : undefined
             }

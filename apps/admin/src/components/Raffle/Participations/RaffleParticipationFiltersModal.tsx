@@ -52,7 +52,7 @@ const TYPE_OPTIONS: NexusFilterOption<RaffleParticipationTypeFilter>[] = [
 
 const PAYMENT_OPTIONS: NexusFilterOption<RaffleParticipationPaymentFilter>[] = [
   { value: "all", label: "Todos" },
-  { value: "transfer", label: "Depósito / Transferencia" },
+  { value: "transfer", label: "Depósito / transferencia" },
   { value: "card", label: "Tarjeta" },
 ];
 
@@ -73,7 +73,7 @@ export const RaffleParticipationFiltersModal: React.FC<
   return (
     <NexusDrawer
       isOpen={isOpen}
-      title="Filtrar Participaciones"
+      title="Filtrar participaciones"
       eyebrow="Rifas"
       icon={Filter}
       onClose={onClose}
@@ -109,13 +109,13 @@ export const RaffleParticipationFiltersModal: React.FC<
           onChange={(status) => setDraft((current) => ({ ...current, status }))}
         />
         <NexusFilterGroup
-          title="Tipo de Rifa"
+          title="Tipo de rifa"
           value={draft.type}
           options={TYPE_OPTIONS}
           onChange={(type) => setDraft((current) => ({ ...current, type }))}
         />
         <NexusFilterGroup
-          title="Método de Pago"
+          title="Método de pago"
           value={draft.paymentMethod}
           options={PAYMENT_OPTIONS}
           onChange={(paymentMethod) => setDraft((current) => ({ ...current, paymentMethod }))}

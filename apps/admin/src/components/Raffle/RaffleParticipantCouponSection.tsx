@@ -23,7 +23,7 @@ import { NexusSelect, NexusTextarea } from "../ui/NexusInputs";
 
 interface Props {
   raffle: Raffle;
-  canManageOperations: boolean;
+  canManageRaffleCoupons: boolean;
   showToast: (message: string, type?: "success" | "error") => void;
   embedded?: boolean;
 }
@@ -76,7 +76,7 @@ const defaultMessage =
 
 export const RaffleParticipantCouponSection: React.FC<Props> = ({
   raffle,
-  canManageOperations,
+  canManageRaffleCoupons,
   showToast,
   embedded = false,
 }) => {
@@ -185,7 +185,7 @@ export const RaffleParticipantCouponSection: React.FC<Props> = ({
   return (
     <>
       <NexusSection
-        title="Cupón para Participantes"
+        title="Cupón para participantes"
         subtitle="Envía una promoción a quienes ya participan en esta rifa."
         icon={Gift}
         bare={embedded}
@@ -193,7 +193,7 @@ export const RaffleParticipantCouponSection: React.FC<Props> = ({
         <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
           <NexusSectionCard
             icon={Gift}
-            title="Cupón para Participantes"
+            title="Cupón para participantes"
             subtitle="Personaliza el motivo y las instrucciones del descuento."
             rightContent={
               <div
@@ -229,7 +229,7 @@ export const RaffleParticipantCouponSection: React.FC<Props> = ({
               </div>
             }
             actions={
-              canManageOperations ? (
+              canManageRaffleCoupons ? (
                 <div
                   className="flex w-full items-center md:w-auto"
                   style={{ gap: "var(--space-sm)" }}
@@ -241,7 +241,7 @@ export const RaffleParticipantCouponSection: React.FC<Props> = ({
                       onClick={() => void retry(latest.id)}
                       disabled={submitting}
                     >
-                      Reintentar Fallidas
+                      Reintentar fallidas
                     </NexusCardButton>
                   )}
                   <NexusCardButton
@@ -288,7 +288,7 @@ export const RaffleParticipantCouponSection: React.FC<Props> = ({
               }}
             >
               <p className="text-secondary">
-                Configura la plantilla “Cupón para Participantes” en Canales de WhatsApp para habilitar el envío.
+                Configura la plantilla “cupón para participantes” en canales de WhatsApp para habilitar el envío.
               </p>
             </div>
           )}

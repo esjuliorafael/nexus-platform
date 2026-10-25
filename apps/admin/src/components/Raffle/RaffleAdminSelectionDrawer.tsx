@@ -119,7 +119,7 @@ export const RaffleAdminSelectionDrawer: React.FC<
   return (
     <NexusDrawer
       isOpen={isOpen}
-      title="Mi Selección"
+      title="Mi selección"
       eyebrow={`${sortedTickets.length} ${sortedTickets.length === 1 ? "boleto" : "boletos"}`}
       icon={Ticket}
       onClose={onClose}
@@ -141,7 +141,7 @@ export const RaffleAdminSelectionDrawer: React.FC<
               >
                 <Tag className="shrink-0 text-brand-600" size={18} />
                 <div className="min-w-0">
-                  <p className="text-label text-text-muted">Cupón Aplicado</p>
+                  <p className="text-label text-text-muted">Cupón aplicado</p>
                   <p className="truncate text-secondary font-bold text-text-main">
                     {coupon.code} · -{formatCurrency(discount)}
                   </p>
@@ -207,7 +207,7 @@ export const RaffleAdminSelectionDrawer: React.FC<
             onClick={onContinue}
             className="w-full"
           >
-            Finalizar Apartado
+            Finalizar apartado
           </NexusAutonomousButton>
         </div>
       }
@@ -216,7 +216,7 @@ export const RaffleAdminSelectionDrawer: React.FC<
         <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
           <div className="flex flex-col" style={{ gap: "var(--space-sm)" }}>
             <h4 className="text-secondary font-bold text-text-main">
-              Boletos Seleccionados
+              Boletos seleccionados
             </h4>
             <div className="no-scrollbar -mx-[var(--padding-inner)] overflow-x-auto px-[var(--padding-inner)]">
               <div
@@ -294,7 +294,7 @@ export const RaffleAdminSelectionDrawer: React.FC<
                   style={{ gap: "var(--space-xs)" }}
                 >
                   <h4 className="text-secondary font-bold text-text-main">
-                    Oportunidades Adicionales
+                    Oportunidades adicionales
                   </h4>
                   <p className="text-secondary text-text-muted">
                     Este boleto también participa con estos números.

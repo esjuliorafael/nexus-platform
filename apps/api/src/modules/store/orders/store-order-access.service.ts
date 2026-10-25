@@ -146,7 +146,7 @@ export async function getStoreBankInfo(
       }
     : {
         source: "MAIN" as const,
-        label: "Canal Principal, respaldo",
+        label: "Canal principal, respaldo",
         bank: main.bank_main_name!,
         beneficiary: main.bank_main_beneficiary!,
         accountNumber: main.bank_main_account || null,
@@ -197,9 +197,9 @@ export function toStoreOrderAccessItem(item: {
     lineTotal: Number(item.unitPrice) * item.quantity,
     productInfo: isBird
       ? {
-          ringNumber: item.productRingNumber ?? item.product?.ringNumber ?? null,
-          age: item.productAge ?? item.product?.age ?? null,
-          purpose: item.productPurpose ?? item.product?.purpose ?? null,
+          ringNumber: item.productRingNumber ?? null,
+          age: item.productAge ?? null,
+          purpose: item.productPurpose ?? null,
         }
       : null,
   };

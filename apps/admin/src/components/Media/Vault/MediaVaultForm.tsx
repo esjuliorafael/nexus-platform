@@ -144,7 +144,7 @@ export const MediaVaultForm = forwardRef<
   return (
     <div className="w-full">
       <NexusSection
-        title="Archivos Originales"
+        title="Archivos originales"
         subtitle="Fotografías y videos sin compresión ni pérdida de calidad."
         icon={UploadCloud}
         action={
@@ -155,7 +155,7 @@ export const MediaVaultForm = forwardRef<
             onClick={() => inputRef.current?.click()}
             disabled={isUploading || files.length >= MAX_FILES}
           >
-            Seleccionar Archivos
+            Seleccionar archivos
           </NexusSectionButton>
         }
       >

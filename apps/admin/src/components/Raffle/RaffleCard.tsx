@@ -24,6 +24,7 @@ import { NexusSwitch } from "../ui/NexusSwitch";
 
 interface RaffleCardProps {
   raffle: Raffle;
+  canManageRaffle: boolean;
   onOpen: () => void;
   onEdit: () => void;
   onDelete: () => void;
@@ -76,6 +77,7 @@ const formatDrawDate = (drawDate?: string) => {
 
 export const RaffleCard: React.FC<RaffleCardProps> = ({
   raffle,
+  canManageRaffle,
   onOpen,
   onEdit,
   onDelete,
@@ -122,9 +124,9 @@ export const RaffleCard: React.FC<RaffleCardProps> = ({
 
   return (
     <NexusAutonomousCard
-      swipeable
-      onEdit={onEdit}
-      onDelete={onDelete}
+      swipeable={canManageRaffle}
+      onEdit={canManageRaffle ? onEdit : undefined}
+      onDelete={canManageRaffle ? onDelete : undefined}
       isMuted={raffle.status !== "ACTIVE" || !raffle.published}
       className="h-full transition-[transform,box-shadow] duration-300 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-stone-200/40 active:scale-[0.995]"
     >
@@ -206,26 +208,30 @@ export const RaffleCard: React.FC<RaffleCardProps> = ({
                 className="animate-raffle-actions-enter absolute inset-0 flex items-center justify-end"
                 style={{ gap: "var(--space-xs)" }}
               >
-                <FeaturedControls
-                  raffle={raffle}
-                  onToggleFeatured={onToggleFeatured}
-                  onMoveFeaturedUp={onMoveFeaturedUp}
-                  onMoveFeaturedDown={onMoveFeaturedDown}
-                  canMoveFeaturedUp={canMoveFeaturedUp}
-                  canMoveFeaturedDown={canMoveFeaturedDown}
-                  isTogglingFeatured={isTogglingFeatured}
-                  isReorderingFeatured={isReorderingFeatured}
-                />
-                <NexusAutonomousButton density="compact" variant="secondary" isIconOnly icon={Edit2} onClick={onEdit} aria-label="Editar rifa" />
-                <NexusAutonomousButton
-                  density="compact"
-                  variant="secondary"
-                  isIconOnly
-                  icon={Trash2}
-                  onClick={onDelete}
-                  aria-label="Eliminar rifa"
-                  className="hover:border-rose-200 hover:bg-rose-50 hover:text-rose-500"
-                />
+                {canManageRaffle && (
+                  <>
+                    <FeaturedControls
+                      raffle={raffle}
+                      onToggleFeatured={onToggleFeatured}
+                      onMoveFeaturedUp={onMoveFeaturedUp}
+                      onMoveFeaturedDown={onMoveFeaturedDown}
+                      canMoveFeaturedUp={canMoveFeaturedUp}
+                      canMoveFeaturedDown={canMoveFeaturedDown}
+                      isTogglingFeatured={isTogglingFeatured}
+                      isReorderingFeatured={isReorderingFeatured}
+                    />
+                    <NexusAutonomousButton density="compact" variant="secondary" isIconOnly icon={Edit2} onClick={onEdit} aria-label="Editar rifa" />
+                    <NexusAutonomousButton
+                      density="compact"
+                      variant="secondary"
+                      isIconOnly
+                      icon={Trash2}
+                      onClick={onDelete}
+                      aria-label="Eliminar rifa"
+                      className="hover:border-rose-200 hover:bg-rose-50 hover:text-rose-500"
+                    />
+                  </>
+                )}
                 <NexusAutonomousButton
                   density="compact"
                   variant="secondary"
@@ -251,26 +257,34 @@ export const RaffleCard: React.FC<RaffleCardProps> = ({
                 </div>
 
                 <div className="flex shrink-0 items-center" style={{ gap: "var(--space-sm)" }}>
-                  <div className="flex flex-col items-center" style={{ gap: "var(--space-xs)" }}>
-                    <NexusSwitch
-                      checked={raffle.published}
-                      onChange={onTogglePublished}
-                      disabled={isTogglingPublished}
-                      aria-label={raffle.published ? "Pausar rifa" : "Publicar rifa"}
-                    />
+                  {canManageRaffle ? (
+                    <>
+                      <div className="flex flex-col items-center" style={{ gap: "var(--space-xs)" }}>
+                        <NexusSwitch
+                          checked={raffle.published}
+                          onChange={onTogglePublished}
+                          disabled={isTogglingPublished}
+                          aria-label={raffle.published ? "Pausar rifa" : "Publicar rifa"}
+                        />
+                        <span className="text-label uppercase tracking-[0.15em] text-text-muted">
+                          {raffle.published ? "Publicado" : "Pausado"}
+                        </span>
+                      </div>
+                      <NexusAutonomousButton
+                        density="compact"
+                        variant="secondary"
+                        isIconOnly
+                        icon={MoreVertical}
+                        onClick={() => setIsActionsOpen(true)}
+                        aria-label="Más acciones"
+                        aria-expanded={false}
+                      />
+                    </>
+                  ) : (
                     <span className="text-label uppercase tracking-[0.15em] text-text-muted">
                       {raffle.published ? "Publicado" : "Pausado"}
                     </span>
-                  </div>
-                  <NexusAutonomousButton
-                    density="compact"
-                    variant="secondary"
-                    isIconOnly
-                    icon={MoreVertical}
-                    onClick={() => setIsActionsOpen(true)}
-                    aria-label="Más acciones"
-                    aria-expanded={false}
-                  />
+                  )}
                 </div>
               </div>
             )}

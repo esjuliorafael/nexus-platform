@@ -233,7 +233,7 @@ export const RaffleAudienceModal: React.FC<RaffleAudienceModalProps> = ({
     <NexusModal
       isOpen={isOpen}
       title={audience ? "Editar Audiencia" : "Nueva Audiencia"}
-      eyebrow="Inteligencia de Rifas"
+      eyebrow="Inteligencia de rifas"
       icon={BarChart3}
       size="wide"
       onClose={onClose}
@@ -333,7 +333,7 @@ export const RaffleAudienceModal: React.FC<RaffleAudienceModalProps> = ({
                 toggleArrayValue(draft.paymentMethods, "TRANSFER"),
               )}
             >
-              Depósito / Transferencia
+              Depósito / transferencia
             </ChoiceButton>
             <ChoiceButton
               selected={draft.paymentMethods.includes("MERCADOPAGO")}
@@ -457,7 +457,7 @@ export const RaffleAudienceModal: React.FC<RaffleAudienceModalProps> = ({
               isLoading={isPreviewing}
               className="w-full"
             >
-              Previsualizar Audiencia
+              Previsualizar audiencia
             </NexusAutonomousButton>
           </div>
         </div>
@@ -522,7 +522,7 @@ export const RaffleAudienceModal: React.FC<RaffleAudienceModalProps> = ({
         )}
 
         <NexusInlineNotice icon={Trophy} title="Separación de responsabilidades">
-          Guardar esta definición no crea una campaña. La promoción se preparará después desde el Resumen de una rifa.
+          Guardar esta definición no crea una campaña. La promoción se preparará después desde el resumen de una rifa.
         </NexusInlineNotice>
 
         <NexusModalActions className="flex-col sm:flex-row">
@@ -537,7 +537,7 @@ export const RaffleAudienceModal: React.FC<RaffleAudienceModalProps> = ({
             isLoading={isSaving}
             className="flex-[2]"
           >
-            Guardar Audiencia
+            Guardar audiencia
           </NexusAutonomousButton>
         </NexusModalActions>
       </div>

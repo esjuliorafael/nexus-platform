@@ -74,8 +74,8 @@ export const GalleryFiltersModal: React.FC<GalleryFiltersModalProps> = ({
   return (
     <NexusDrawer
       isOpen={isOpen}
-      title="Filtrar Medios"
-      eyebrow="Panel de Medios"
+      title="Filtrar medios"
+      eyebrow="Panel de medios"
       icon={Filter}
       onClose={onClose}
       footer={
@@ -103,7 +103,7 @@ export const GalleryFiltersModal: React.FC<GalleryFiltersModalProps> = ({
     >
       <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
         <NexusFilterGroup
-          title="Tipo de Medio"
+          title="Tipo de medio"
           value={draft.type}
           options={TYPE_OPTIONS}
           onChange={(type) => setDraft((current) => ({ ...current, type }))}

@@ -19,6 +19,7 @@ export interface BillingViewRef {
 interface BillingViewProps {
   showToast: (message: string, type?: 'success' | 'error') => void;
   setConfirmDialog: (dialog: any) => void;
+  canManageBilling: boolean;
 }
 
 // --- UTILIDADES ---
@@ -37,7 +38,7 @@ const formatDateForInput = (dateStr?: string | null) => {
 };
 
 export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
-  ({ showToast, setConfirmDialog }, ref) => {
+  ({ showToast, setConfirmDialog, canManageBilling }, ref) => {
     // --- ESTADO ---
     const [isLoading, setIsLoading] = useState(true);
     const [services, setServices] = useState<AnnualService[]>([]);
@@ -64,14 +65,6 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
     const [paymentFormData, setPaymentFormData] = useState({
       concept: '', amount: '', notes: '', paymentDate: new Date().toISOString().split('T')[0]
     });
-
-    // Permisos
-    const [userRole] = useState<string>(() => {
-      const authString = localStorage.getItem('admin_session');
-      if (!authString) return 'staff';
-      try { return (JSON.parse(authString).role || 'staff').toLowerCase(); } catch { return 'staff'; }
-    });
-    const isSuperadmin = userRole === 'superadmin';
 
     // --- CARGA DE DATOS ---
     const loadBillingData = async () => {
@@ -142,9 +135,9 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
     const removeService = (id: string) => {
       setConfirmDialog({
         isOpen: true,
-        title: '¿Eliminar Servicio?',
+        title: '¿Eliminar servicio?',
         message: 'Esta acción es irreversible y afectará el plan anual.',
-        confirmLabel: 'Sí, Eliminar',
+        confirmLabel: 'Sí, eliminar',
         variant: 'danger',
         onConfirm: async () => {
           try {
@@ -208,9 +201,9 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
     const removeCharge = (id: string) => {
       setConfirmDialog({
         isOpen: true,
-        title: '¿Eliminar Cargo?',
+        title: '¿Eliminar cargo?',
         message: 'El cargo será eliminado permanentemente de la cuenta.',
-        confirmLabel: 'Sí, Eliminar',
+        confirmLabel: 'Sí, eliminar',
         variant: 'danger',
         onConfirm: async () => {
           try {
@@ -276,9 +269,9 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
     const removePayment = (id: string) => {
       setConfirmDialog({
         isOpen: true,
-        title: '¿Eliminar Registro de Pago?',
+        title: '¿Eliminar registro de pago?',
         message: 'Esta acción restará este abono del saldo actual.',
-        confirmLabel: 'Sí, Eliminar',
+        confirmLabel: 'Sí, eliminar',
         variant: 'danger',
         onConfirm: async () => {
           try {
@@ -390,7 +383,7 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
               <div className="absolute inset-0 border-4 border-brand-100 rounded-[2rem]" />
               <div className="absolute inset-0 border-4 border-brand-500 border-t-transparent rounded-[2rem] animate-spin" style={{ animationDuration: '1s', animationTimingFunction: 'var(--ease-emil)' }} />
            </div>
-           <p className="text-label text-text-muted">Consultando Estado de Cuenta...</p>
+           <p className="text-label text-text-muted">Consultando estado de cuenta...</p>
         </div>
       );
     }
@@ -409,23 +402,23 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
 
         {/* SERVICIOS ANUALES */}
         <NexusSection
-          title="Servicios Anuales"
-          subtitle="Infraestructura y Licenciamiento"
+          title="Servicios anuales"
+          subtitle="Infraestructura y licenciamiento"
           icon={Server}
           delay="200ms"
-          action={isSuperadmin && (
+          action={canManageBilling && (
             <NexusSectionButton
               onClick={() => handleOpenServiceModal()}
               icon={Plus}
               variant="brand"
             >
-              Nuevo Servicio
+              Nuevo servicio
             </NexusSectionButton>
           )}
         >
           <div className="flex flex-col gap-5">
             {services.length === 0 ? (
-              <EmptyState icon={Server} title="Sin Servicios" description="No hay servicios anuales registrados." />
+              <EmptyState icon={Server} title="Sin servicios" description="No hay servicios anuales registrados." />
             ) : (
               services.map((service, idx) => (
                 <NexusSectionCard
@@ -445,14 +438,14 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
                   }
                   rightContent={
                     <>
-                      <p className="text-label uppercase tracking-[0.15em] text-stone-400">Importe Anual</p>
+                      <p className="text-label uppercase tracking-[0.15em] text-stone-400">Importe anual</p>
                       <div className="flex items-baseline text-h1 text-brand-700">
                         <span className="text-secondary mr-0.5 opacity-50">$</span>
                         {service.amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </div>
                     </>
                   }
-                  actions={isSuperadmin && (
+                  actions={canManageBilling && (
                     <>
                       {renderOrderButtons(
                         idx,
@@ -468,10 +461,10 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
                       </NexusCardButton>
                     </>
                   )}
-                  onEdit={isSuperadmin ? () => handleOpenServiceModal(service) : undefined}
-                  onDelete={isSuperadmin ? () => removeService(service.id) : undefined}
-                  showActionsAlways={isSuperadmin}
-                  swipeable={isSuperadmin}
+                  onEdit={canManageBilling ? () => handleOpenServiceModal(service) : undefined}
+                  onDelete={canManageBilling ? () => removeService(service.id) : undefined}
+                  showActionsAlways={canManageBilling}
+                  swipeable={canManageBilling}
                 />
               ))
             )}
@@ -480,23 +473,23 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
 
         {/* CARGOS ADICIONALES */}
         <NexusSection
-          title="Cargos Adicionales"
-          subtitle="Soporte y Requerimientos Extra"
+          title="Cargos adicionales"
+          subtitle="Soporte y requerimientos extra"
           icon={Receipt}
           delay="400ms"
-          action={isSuperadmin && (
+          action={canManageBilling && (
             <NexusSectionButton
               onClick={() => handleOpenChargeModal()}
               icon={Plus}
               variant="brand"
             >
-              Nuevo Cargo
+              Nuevo cargo
             </NexusSectionButton>
           )}
         >
           <div className="flex flex-col gap-5">
             {extraCharges.length === 0 ? (
-              <EmptyState icon={Receipt} title="Sin Pendientes" description="No hay cargos adicionales registrados." />
+              <EmptyState icon={Receipt} title="Sin pendientes" description="No hay cargos adicionales registrados." />
             ) : (
               extraCharges.map((charge, idx) => (
                 <NexusSectionCard
@@ -512,14 +505,14 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
                   }
                   rightContent={
                     <>
-                      <p className="text-label uppercase tracking-[0.15em] text-stone-400">Importe Total</p>
+                      <p className="text-label uppercase tracking-[0.15em] text-stone-400">Importe total</p>
                       <div className="flex items-baseline text-h1 text-brand-700">
                         <span className="text-secondary mr-0.5 opacity-50">$</span>
                         {charge.amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </div>
                     </>
                   }
-                  actions={isSuperadmin && (
+                  actions={canManageBilling && (
                     <>
                       {renderOrderButtons(
                         idx,
@@ -535,10 +528,10 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
                       </NexusCardButton>
                     </>
                   )}
-                  onEdit={isSuperadmin ? () => handleOpenChargeModal(charge) : undefined}
-                  onDelete={isSuperadmin ? () => removeCharge(charge.id) : undefined}
-                  showActionsAlways={isSuperadmin}
-                  swipeable={isSuperadmin}
+                  onEdit={canManageBilling ? () => handleOpenChargeModal(charge) : undefined}
+                  onDelete={canManageBilling ? () => removeCharge(charge.id) : undefined}
+                  showActionsAlways={canManageBilling}
+                  swipeable={canManageBilling}
                 />
               ))
             )}
@@ -547,23 +540,23 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
 
         {/* HISTORIAL DE PAGOS */}
         <NexusSection
-          title="Pagos Recibidos"
-          subtitle="Trazabilidad de Abonos y Liquidaciones"
+          title="Pagos recibidos"
+          subtitle="Trazabilidad de abonos y liquidaciones"
           icon={Wallet}
           delay="600ms"
-          action={isSuperadmin && (
+          action={canManageBilling && (
             <NexusSectionButton
               onClick={handleOpenPaymentModal}
               icon={Plus}
               variant="success"
             >
-              Nuevo Abono
+              Nuevo abono
             </NexusSectionButton>
           )}
         >
           <div className="flex flex-col gap-5">
             {payments.length === 0 ? (
-              <EmptyState icon={Wallet} title="Sin Pagos" description="No se han registrado abonos aún." />
+              <EmptyState icon={Wallet} title="Sin pagos" description="No se han registrado abonos aún." />
             ) : (
               payments.map((payment, idx) => (
                 <NexusSectionCard
@@ -580,23 +573,23 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
                   }
                   rightContent={
                     <>
-                      <p className="text-label uppercase tracking-[0.15em] text-stone-400">Monto Abonado</p>
+                      <p className="text-label uppercase tracking-[0.15em] text-stone-400">Monto abonado</p>
                       <div className="flex items-baseline text-h1 text-emerald-600">
                         <span className="text-secondary mr-0.5 opacity-50">$</span>
                         {payment.amount.toLocaleString('es-MX', { minimumFractionDigits: 2 })}
                       </div>
                     </>
                   }
-                  actions={isSuperadmin && renderOrderButtons(
+                  actions={canManageBilling && renderOrderButtons(
                     idx,
                     payments.length,
                     () => reorderPayments(payment.id, 'up'),
                     () => reorderPayments(payment.id, 'down')
                   )}
-                  onEdit={isSuperadmin ? () => handleOpenPaymentModal(payment) : undefined}
-                  onDelete={isSuperadmin ? () => removePayment(payment.id) : undefined}
-                  showActionsAlways={isSuperadmin}
-                  swipeable={isSuperadmin}
+                  onEdit={canManageBilling ? () => handleOpenPaymentModal(payment) : undefined}
+                  onDelete={canManageBilling ? () => removePayment(payment.id) : undefined}
+                  showActionsAlways={canManageBilling}
+                  swipeable={canManageBilling}
                 />
               ))
             )}
@@ -616,7 +609,7 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
                     <NexusSelect label="Icono" value={serviceFormData.iconType} onChange={(e) => setServiceFormData({...serviceFormData, iconType: e.target.value})}>
                       <option value="default">General</option>
                       <option value="globe">Web/SSL</option>
-                      <option value="server">Cloud/Hosting</option>
+                      <option value="server">Cloud/hosting</option>
                       <option value="shield">Seguridad</option>
                       <option value="wrench">Mantenimiento</option>
                     </NexusSelect>
@@ -661,7 +654,7 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
                   <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
                     <NexusInput label="Concepto" required value={chargeFormData.concept} onChange={(e) => setChargeFormData({...chargeFormData, concept: e.target.value})} icon={Tag} />
                     <NexusInput label="Monto (MXN)" type="number" required step="0.01" value={chargeFormData.amount} onChange={(e) => setChargeFormData({...chargeFormData, amount: e.target.value})} icon={DollarSign} />
-                    <NexusInput label="Fecha del Cargo" type="date" required value={chargeFormData.chargeDate} onChange={(e) => setChargeFormData({...chargeFormData, chargeDate: e.target.value})} />
+                    <NexusInput label="Fecha del cargo" type="date" required value={chargeFormData.chargeDate} onChange={(e) => setChargeFormData({...chargeFormData, chargeDate: e.target.value})} />
                   </div>
                   <NexusModalActions>
                     <NexusAutonomousButton
@@ -694,9 +687,9 @@ export const BillingView = forwardRef<BillingViewRef, BillingViewProps>(
         >
                 <form onSubmit={handleSavePayment} className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
                   <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
-                    <NexusInput label="Concepto / Referencia" required value={paymentFormData.concept} onChange={(e) => setPaymentFormData({...paymentFormData, concept: e.target.value})} placeholder="Ej. Abono Quincenal, Transferencia..." icon={Wallet} />
-                    <NexusInput label="Monto Recibido (MXN)" type="number" required step="0.01" value={paymentFormData.amount} onChange={(e) => setPaymentFormData({...paymentFormData, amount: e.target.value})} icon={DollarSign} />
-                    <NexusInput label="Fecha de Pago" type="date" value={paymentFormData.paymentDate} onChange={(e) => setPaymentFormData({...paymentFormData, paymentDate: e.target.value})} />
+                    <NexusInput label="Concepto / referencia" required value={paymentFormData.concept} onChange={(e) => setPaymentFormData({...paymentFormData, concept: e.target.value})} placeholder="Ej. Abono quincenal, transferencia..." icon={Wallet} />
+                    <NexusInput label="Monto recibido (MXN)" type="number" required step="0.01" value={paymentFormData.amount} onChange={(e) => setPaymentFormData({...paymentFormData, amount: e.target.value})} icon={DollarSign} />
+                    <NexusInput label="Fecha de pago" type="date" value={paymentFormData.paymentDate} onChange={(e) => setPaymentFormData({...paymentFormData, paymentDate: e.target.value})} />
                     <NexusTextarea label="Notas adicionales" rows={2} value={paymentFormData.notes} onChange={(e) => setPaymentFormData({...paymentFormData, notes: e.target.value})} placeholder="Banco, folio, etc." />
                   </div>
                   <NexusModalActions>

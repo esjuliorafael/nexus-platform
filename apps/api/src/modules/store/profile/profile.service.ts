@@ -54,6 +54,7 @@ export const profileService = {
       email: user.email,
       phone: user.phone,
       role: user.role,
+      permissions: user.permissions,
       active: user.active,
       mustChangePassword: user.mustChangePassword,
       receiveNotifications: user.receiveNotifications,

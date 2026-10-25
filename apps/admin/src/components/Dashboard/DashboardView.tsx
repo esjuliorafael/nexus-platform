@@ -46,7 +46,7 @@ interface DashboardViewProps {
   isLoading: boolean;
   stats: DashboardStats | null;
   commercialOverview: DashboardCommercialOverview | null;
-  userRole: string;
+  canViewMilestones: boolean;
   billingServices: AnnualService[];
   billingCharges: ExtraCharge[];
   billingPayments: BillingPayment[];
@@ -86,7 +86,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   isLoading,
   stats,
   commercialOverview,
-  userRole,
+  canViewMilestones,
   billingServices,
   billingCharges,
   billingPayments,
@@ -99,7 +99,6 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   onOpenCommercialHistory,
   isLoadingCommercial,
 }) => {
-  const isAdminUser = userRole === 'admin' || userRole === 'superadmin';
   const isDevelopment = import.meta.env.DEV;
   const initialPreviewId = React.useMemo(() => {
     if (!isDevelopment) return null;
@@ -150,7 +149,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     acknowledgeMilestone,
     handleAfterClose,
   } = useRevenueMilestones({
-    isAdminUser,
+    enabled: canViewMilestones,
     isLoading: milestonePreview
       ? false
       : isLoading || isLoadingCommercial || !stats,
@@ -198,14 +197,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   return (
     <>
       <DashboardMilestoneModal
-        isOpen={isAdminUser && isMilestoneOpen}
+        isOpen={canViewMilestones && isMilestoneOpen}
         milestone={activeMilestone}
         onClose={() => void acknowledgeMilestone()}
         onAfterClose={handleAfterClose}
       />
 
       <div className="flex flex-col animate-in fade-in duration-300" style={{ gap: 'var(--space-lg)' }}>
-      {isDevelopment && isAdminUser && (
+      {isDevelopment && canViewMilestones && (
         <NexusSection
           title="Previsualización local"
           subtitle="Prueba cualquier hito sin modificar datos reales."
@@ -301,7 +300,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </div>
       </section>
 
-      {isAdminUser && (
+      {canViewMilestones && (
         <section className="min-w-0">
           <DashboardMilestoneProgressWidget
             milestones={stats?.milestones}
@@ -337,7 +336,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               })
             }
           >
-            Ver Todo
+            Ver todo
           </NexusSectionButton>
         }
       >

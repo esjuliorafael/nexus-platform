@@ -118,7 +118,7 @@ export const OperationalAttentionWidget = ({
           className="flex min-w-0 flex-1 flex-col"
           style={{ gap: 'var(--space-xs)' }}
         >
-          <h3 className="text-h1 text-text-main">Atención Operativa</h3>
+          <h3 className="text-h1 text-text-main">Atención operativa</h3>
           <p className="text-secondary text-text-muted">
             Excepciones que requieren seguimiento.
           </p>

@@ -44,8 +44,8 @@ export const MediaVaultFiltersModal: React.FC<MediaVaultFiltersModalProps> = ({
   return (
     <NexusDrawer
       isOpen={isOpen}
-      title="Filtrar Archivos"
-      eyebrow="Bóveda de Medios"
+      title="Filtrar archivos"
+      eyebrow="Bóveda de medios"
       icon={Filter}
       onClose={onClose}
       footer={
@@ -72,7 +72,7 @@ export const MediaVaultFiltersModal: React.FC<MediaVaultFiltersModalProps> = ({
       }
     >
       <NexusFilterGroup
-        title="Tipo de Archivo"
+        title="Tipo de archivo"
         value={draft}
         options={TYPE_OPTIONS}
         onChange={setDraft}

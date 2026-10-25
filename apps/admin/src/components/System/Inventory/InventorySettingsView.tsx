@@ -230,7 +230,7 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
 
         <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "var(--space-xl)" }}>
           <NexusSection
-            title="Órdenes de Tienda"
+            title="Órdenes de tienda"
             subtitle="Apartados por depósito o transferencia"
             icon={RotateCcw}
             action={(
@@ -286,7 +286,7 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
           </NexusSection>
 
           <NexusSection
-            title="Apartados de Rifas"
+            title="Apartados de rifas"
             subtitle="Reservas por depósito o transferencia"
             icon={RotateCcw}
             action={(
@@ -343,7 +343,7 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
         </div>
 
         <NexusSection
-          title="Pagos con Tarjeta"
+          title="Pagos con tarjeta"
           subtitle="Retención temporal de productos y boletos"
           icon={CreditCard}
           iconVariant="blue"
@@ -386,7 +386,7 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
               </NexusInlineNotice>
             ) : !config.paymentRecoveryTemplatesReady ? (
               <NexusInlineNotice title="Plantillas pendientes" variant="warning" context="section">
-                Configura y aprueba las plantillas de Pago no concretado para Tienda y Rifas antes de activar los envíos.
+                Configura y aprueba las plantillas de pago no concretado para tienda y rifas antes de activar los envíos.
               </NexusInlineNotice>
             ) : config.paymentRecoveryEnabled ? (
               <NexusInlineNotice title="Recuperación activa" variant="success" context="section">

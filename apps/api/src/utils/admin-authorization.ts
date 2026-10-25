@@ -47,13 +47,6 @@ export async function requireAdminActor(
     reply.status(403).send({ message: "La cuenta no está disponible." });
     return null;
   }
-  if (user.role !== "ADMIN" && user.role !== "SUPERADMIN") {
-    reply.status(403).send({
-      message: "Solo administradores y superadministradores pueden realizar esta acción.",
-    });
-    return null;
-  }
-
   return {
     type: "USER",
     userId: user.id,

@@ -21,16 +21,9 @@ const revenueMilestoneParamsSchema = z.object({
   milestoneId: z.string().trim().min(1).max(64),
 });
 
-const adminRoleOf = (request: any) =>
-  String(request.user?.role || "").toUpperCase();
-
 export async function dashboardRoutes(server: FastifyInstance) {
   server.get("/stats", { preHandler: [server.authenticate] }, async (request) => {
-    const role = adminRoleOf(request);
-    const userId =
-      role === "ADMIN" || role === "SUPERADMIN"
-        ? Number((request.user as any)?.id)
-        : undefined;
+    const userId = Number((request.user as any)?.id);
 
     return dashboardService.getStats(
       Number.isInteger(userId) ? userId : undefined,
@@ -42,11 +35,6 @@ export async function dashboardRoutes(server: FastifyInstance) {
     { preHandler: [server.authenticate] },
     async (request, reply) => {
       try {
-        const role = adminRoleOf(request);
-        if (role !== "ADMIN" && role !== "SUPERADMIN") {
-          return reply.status(403).send({ message: "Acceso no autorizado." });
-        }
-
         const userId = Number((request.user as any)?.id);
         if (!Number.isInteger(userId)) {
           return reply.status(401).send({ message: "Sesión no válida." });

@@ -154,7 +154,7 @@ async function getRaffleBankInfo() {
   return specializedReady
     ? {
         source: "SPECIALIZED" as const,
-        label: "Canal de Rifas",
+        label: "Canal de rifas",
         bank: raffleChannel!.bank,
         beneficiary: raffleChannel!.beneficiary,
         accountNumber: raffleChannel!.accountNumber,
@@ -163,7 +163,7 @@ async function getRaffleBankInfo() {
       }
     : {
         source: "MAIN" as const,
-        label: "Canal Principal, respaldo",
+        label: "Canal principal, respaldo",
         bank: main.bank_main_name!,
         beneficiary: main.bank_main_beneficiary!,
         accountNumber: main.bank_main_account || null,

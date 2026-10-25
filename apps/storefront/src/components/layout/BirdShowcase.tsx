@@ -23,7 +23,7 @@ export function BirdShowcase({ combatBirds, breedingBirds }: BirdShowcaseProps) 
             <ShowcaseHeader
               dark
               icon={ShieldCheck}
-              eyebrow="Poderio & Caracter"
+              eyebrow="Poderio & caracter"
               title={<>Aves de <span className="text-brand-500">Combate</span></>}
               description="Ejemplares seleccionados por su casta, velocidad y corte. Genetica probada en los niveles mas exigentes."
               href="/store?type=BIRD&purpose=COMBAT"
@@ -43,7 +43,7 @@ export function BirdShowcase({ combatBirds, breedingBirds }: BirdShowcaseProps) 
         <div className="flex flex-col" style={{ gap: 'var(--sf-space-xl)' }}>
           <ShowcaseHeader
             icon={Dna}
-            eyebrow="Pureza & Herencia"
+            eyebrow="Pureza & herencia"
             title={<>Aves de <span className="text-brand-500/80">Cria</span></>}
             description="Sementales y reproductoras de registro. El corazon de nuestra excelencia genetica para tu propio rancho."
             href="/store?type=BIRD&purpose=BREEDING"

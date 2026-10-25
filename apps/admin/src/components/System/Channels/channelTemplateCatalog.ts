@@ -411,7 +411,7 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
       {
         type: "PARTICIPANT_COUPON",
         key: "whatsapp_global_raffle_participant_coupon",
-        label: "Cupón para Participantes",
+        label: "Cupón para participantes",
         variables: [
           "{{customer_name}}",
           "{{raffle_name}}",

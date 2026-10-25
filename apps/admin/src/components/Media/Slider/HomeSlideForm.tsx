@@ -338,7 +338,7 @@ export const HomeSlideForm = forwardRef<
                     size="normal"
                     className="aspect-video w-full shadow-sm"
                     icon={Upload}
-                    title="Medio del Slide"
+                    title="Medio del slide"
                     description="Imagen o video principal para el hero (16:9 recomendado)."
                     onClick={() => fileInputRef.current?.click()}
                   />
@@ -365,7 +365,7 @@ export const HomeSlideForm = forwardRef<
                       />
                     )}
 
-                    <UploadPreviewOverlay label="Cambiar Medio" />
+                    <UploadPreviewOverlay label="Cambiar medio" />
 
                     <div
                       className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between"
@@ -415,7 +415,7 @@ export const HomeSlideForm = forwardRef<
             </div>
 
             <NexusSection
-              title="Encuadre en Computadora"
+              title="Encuadre en computadora"
               subtitle="Ajuste del medio en el hero de escritorio"
               icon={MonitorPlay}
               iconVariant="brand"
@@ -442,7 +442,7 @@ export const HomeSlideForm = forwardRef<
             </NexusSection>
 
             <NexusSection
-              title="Encuadre en Celular"
+              title="Encuadre en celular"
               subtitle="Ajuste del medio en el hero movil"
               icon={Smartphone}
               iconVariant="brand"
@@ -475,7 +475,7 @@ export const HomeSlideForm = forwardRef<
             style={{ gap: "var(--space-lg)" }}
           >
             <NexusSection
-              title="Detalles del Slide"
+              title="Detalles del slide"
               subtitle="Contenido editorial del inicio"
               icon={MonitorPlay}
               iconVariant="brand"
@@ -583,22 +583,22 @@ export const HomeSlideForm = forwardRef<
                 style={{ gap: "var(--space-md)" }}
               >
                 <NexusInput
-                  label="Botón Primario"
+                  label="Botón primario"
                   value={primaryText}
                   onChange={(e) => setPrimaryText(e.target.value)}
                 />
                 <NexusInput
-                  label="URL Primaria"
+                  label="URL primaria"
                   value={primaryHref}
                   onChange={(e) => setPrimaryHref(e.target.value)}
                 />
                 <NexusInput
-                  label="Botón Secundario (Opcional)"
+                  label="Botón secundario (opcional)"
                   value={secondaryText}
                   onChange={(e) => setSecondaryText(e.target.value)}
                 />
                 <NexusInput
-                  label="URL Secundaria (Opcional)"
+                  label="URL secundaria (opcional)"
                   value={secondaryHref}
                   onChange={(e) => setSecondaryHref(e.target.value)}
                 />

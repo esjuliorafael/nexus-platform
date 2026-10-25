@@ -26,7 +26,12 @@ const ITEMS_PER_PAGE = 8;
 
 interface RaffleViewProps {
   searchQuery: string;
-  canManageOperations: boolean;
+  canManageRaffles: boolean;
+  canManageRaffleCoupons: boolean;
+  canManageResults: boolean;
+  canManageParticipations: boolean;
+  canViewMessages: boolean;
+  canSendMessages: boolean;
   advancedFilters?: RaffleAdvancedFilters;
   ticketBoardSearchQuery?: string;
   ticketBoardFilter?: TicketBoardFilter;
@@ -65,7 +70,12 @@ interface RaffleViewProps {
 
 export const RaffleView: React.FC<RaffleViewProps> = ({
   searchQuery,
-  canManageOperations,
+  canManageRaffles,
+  canManageRaffleCoupons,
+  canManageResults,
+  canManageParticipations,
+  canViewMessages,
+  canSendMessages,
   advancedFilters = DEFAULT_RAFFLE_ADVANCED_FILTERS,
   ticketBoardSearchQuery = "",
   ticketBoardFilter = DEFAULT_TICKET_BOARD_FILTER,
@@ -452,6 +462,9 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
   };
 
   if (viewMode === "create" || viewMode === "edit") {
+    if (!canManageRaffles) {
+      return <EmptyState icon={Ticket} title="Permiso requerido" description="Tu cuenta no tiene permiso para administrar rifas." />;
+    }
     return (
       <RaffleForm
         key={selectedRaffle ? selectedRaffle.id : "new"}
@@ -468,6 +481,9 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
   }
 
   if (viewMode === "coupon_create" || viewMode === "coupon_edit") {
+    if (!canManageRaffleCoupons) {
+      return <EmptyState icon={Ticket} title="Permiso requerido" description="Tu cuenta no tiene permiso para administrar cupones de rifas." />;
+    }
     return (
       <RaffleCouponForm
         key={selectedCoupon?.id || "new-raffle-coupon"}
@@ -484,6 +500,9 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
   }
 
   if (viewMode === "coupon_list") {
+    if (!canManageRaffleCoupons) {
+      return <EmptyState icon={Ticket} title="Permiso requerido" description="Tu cuenta no tiene permiso para consultar cupones de rifas." />;
+    }
     return (
       <RaffleCouponsView
         showToast={showToast}
@@ -504,7 +523,10 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
     return (
       <RaffleOverviewView
         raffle={selectedRaffle}
-        canManageOperations={canManageOperations}
+        canManageResults={canManageResults}
+        canManageRaffleCoupons={canManageRaffleCoupons}
+        canViewMessages={canViewMessages}
+        canSendMessages={canSendMessages}
         showToast={showToast}
         onRaffleChange={(updatedRaffle) => {
           setSelectedRaffle(updatedRaffle);
@@ -536,7 +558,7 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
     return (
       <RaffleTicketBoardView
         raffle={selectedRaffle}
-        canManageOperations={canManageOperations}
+        canManageParticipations={canManageParticipations}
         showToast={showToast}
         searchQuery={ticketBoardSearchQuery}
         filter={ticketBoardFilter}
@@ -566,12 +588,14 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
         title="Sin rifas creadas"
         description="Crea la primera rifa para configurar su universo y comenzar a vender boletos."
         action={
-          <NexusSectionButton
-            icon={PlusCircle}
-            onClick={() => onSetViewMode?.("create")}
-          >
-            Crear rifa
-          </NexusSectionButton>
+          canManageRaffles ? (
+            <NexusSectionButton
+              icon={PlusCircle}
+              onClick={() => onSetViewMode?.("create")}
+            >
+              Crear rifa
+            </NexusSectionButton>
+          ) : undefined
         }
       />
     );
@@ -605,6 +629,7 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
           >
             <RaffleCard
               raffle={raffle}
+              canManageRaffle={canManageRaffles}
               onOpen={() => handleOpenOverview(raffle)}
               onEdit={() => handleEdit(raffle)}
               onDelete={() => handleDelete(raffle.id)}

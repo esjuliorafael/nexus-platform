@@ -136,7 +136,7 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
       poll = setInterval(async () => {
         const state = await checkInstanceStatus(pairingData.instanceName);
         if (state === 'open') {
-          showToast('¡WhatsApp Vinculado!', 'success');
+          showToast('¡WhatsApp vinculado!', 'success');
           setPairingData(null);
         }
       }, 3000);
@@ -193,11 +193,11 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
       
       {/* CHANNEL SETUP HERO - USING STANDARD COMPONENT */}
       <NexusHero 
-        title="Centro de Canales"
+        title="Centro de canales"
         subtitle={currentStep === 1 ? 'Identidad Estructural' : currentStep === 2 ? 'Ingeniería Financiera' : 'Motor de Mensajería'}
         icon={LayoutGrid}
         variant="dark"
-        badge="Siguiente Paso"
+        badge="Siguiente paso"
         badgeValue={currentStep === 1 ? 'Finanzas' : currentStep === 2 ? 'WhatsApp' : 'Sincronizar'}
         className="mb-12"
       />
@@ -208,7 +208,7 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
         {currentStep === 1 && (
           <div className="animate-in fade-in slide-in-from-right-8 duration-700">
             <NexusSection
-              title="Cimientos del Canal"
+              title="Cimientos del canal"
               subtitle="Definición estructural y propósito de negocio"
               icon={Layout}
               iconVariant="brand"
@@ -216,14 +216,14 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
               <div className="space-y-10">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
                   <NexusInput 
-                    label="Nombre del Departamento" 
+                    label="Nombre del departamento"
                     value={generalData.name} 
                     onChange={(e) => setGeneralData({ ...generalData, name: e.target.value })} 
-                    placeholder="Ej. Combate, Cría..." 
+                    placeholder="Ej. Combate, cría..."
                     icon={Building2}
                   />
                   <NexusSelect 
-                    label="Propósito Estructural" 
+                    label="Propósito estructural"
                     value={generalData.purpose} 
                     onChange={(e) => setGeneralData({ ...generalData, purpose: e.target.value })}
                   >
@@ -251,7 +251,7 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
 
             <div className="flex justify-center pt-12">
               <NexusButton onClick={() => setCurrentStep(2)} disabled={!isStep1Valid} size="lg" className="px-16 h-16 rounded-[1.5rem] shadow-xl shadow-brand-500/10">
-                Configurar Ingeniería Financiera
+                Configurar ingeniería financiera
               </NexusButton>
             </div>
           </div>
@@ -261,18 +261,18 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
         {currentStep === 2 && (
           <div className="animate-in fade-in slide-in-from-right-8 duration-700">
             <NexusSection
-              title="Rutas de Liquidación"
+              title="Rutas de liquidación"
               subtitle="Gestión de capital y pasarelas de pago"
               icon={CreditCard}
               iconVariant="blue"
             >
               <div className="space-y-12">
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-x-10 gap-y-10">
-                    <NexusInput label="Banco Receptor" value={paymentData.bank} onChange={(e) => setPaymentData({ ...paymentData, bank: e.target.value })} icon={Building2} placeholder="Ej. BBVA" />
-                    <NexusInput label="Titular de Cuenta" value={paymentData.beneficiary} onChange={(e) => setPaymentData({ ...paymentData, beneficiary: e.target.value })} icon={User} placeholder="Nombre completo" />
+                    <NexusInput label="Banco receptor" value={paymentData.bank} onChange={(e) => setPaymentData({ ...paymentData, bank: e.target.value })} icon={Building2} placeholder="Ej. BBVA" />
+                    <NexusInput label="Titular de cuenta" value={paymentData.beneficiary} onChange={(e) => setPaymentData({ ...paymentData, beneficiary: e.target.value })} icon={User} placeholder="Nombre completo" />
                     <NexusInput label="No. Cuenta" value={paymentData.account} onChange={(e) => setPaymentData({ ...paymentData, account: e.target.value })} icon={Hash} placeholder="No. de cuenta" />
-                    <NexusInput label="CLABE Interbancaria" value={paymentData.clabe} onChange={(e) => setPaymentData({ ...paymentData, clabe: e.target.value })} icon={Hash} placeholder="18 dígitos" />
-                    <NexusInput label="Número de Tarjeta" value={paymentData.card} onChange={(e) => setPaymentData({ ...paymentData, card: e.target.value })} icon={CreditCard} placeholder="16 dígitos" />
+                    <NexusInput label="CLABE interbancaria" value={paymentData.clabe} onChange={(e) => setPaymentData({ ...paymentData, clabe: e.target.value })} icon={Hash} placeholder="18 dígitos" />
+                    <NexusInput label="Número de tarjeta" value={paymentData.card} onChange={(e) => setPaymentData({ ...paymentData, card: e.target.value })} icon={CreditCard} placeholder="16 dígitos" />
                 </div>
 
                 <div className="pt-12 border-t border-border-main">
@@ -291,7 +291,7 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
                       className="w-full h-20 bg-blue-600 shadow-2xl shadow-blue-900/30 hover:bg-blue-700 text-white text-secondary rounded-[1.5rem]" 
                       icon={CreditCard}
                     >
-                      Abrir Autorización de Pasarela
+                      Abrir autorización de pasarela
                     </NexusButton>
                 </div>
               </div>
@@ -310,7 +310,7 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
         {currentStep === 3 && (
           <div className="animate-in fade-in slide-in-from-right-8 duration-700">
             <NexusSection
-              title="Motor de Mensajería"
+              title="Motor de mensajería"
               subtitle="Configuración de Evolution API y notificaciones"
               icon={MessageCircle}
               iconVariant="emerald"
@@ -327,7 +327,7 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
                     />
 
                     <div className="space-y-6">
-                      <p className="text-label text-text-muted ml-1 uppercase tracking-widest">Hardware de Conexión</p>
+                      <p className="text-label text-text-muted ml-1 uppercase tracking-widest">Hardware de conexión</p>
                       <div className="grid grid-cols-1 sm:grid-cols-3" style={{ gap: 'var(--space-sm)' }}>
                         <NexusButton 
                           isLoading={isConnecting}
@@ -335,7 +335,7 @@ export const ChannelForm = forwardRef<ChannelFormRef, ChannelFormProps>(({
                           className="bg-emerald-600 text-white hover:bg-emerald-700"
                           icon={QrCode}
                         >
-                          Generar Código QR
+                          Generar código QR
                         </NexusButton>
                         <NexusButton
                           isLoading={isConnecting}

@@ -2,10 +2,8 @@ import React from "react";
 import {
   Archive,
   Image,
-  Layers,
   ShoppingBag,
   PackagePlus,
-  ListOrdered,
   ClipboardList,
   PenTool,
   Settings,
@@ -14,7 +12,6 @@ import {
   LayoutGrid,
   Tags,
   ArrowLeft,
-  CreditCard,
   MessageCircle,
   Timer,
   Bell,
@@ -30,7 +27,13 @@ import {
   ChartNoAxesCombined,
   Link2,
 } from "lucide-react";
-import { QuickActionGroup } from "../types";
+import type { PermissionId } from "@nexus/types";
+
+type ActionItem = {
+  icon: React.ReactNode;
+  label: string;
+  permission?: PermissionId | PermissionId[];
+};
 
 interface QuickActionsProps {
   className?: string;
@@ -38,7 +41,7 @@ interface QuickActionsProps {
   onAction?: (label: string) => void;
   isDetail?: boolean;
   raffleEnabled?: boolean;
-  userRole?: string;
+  permissions: string[];
   detailActions?: Array<{ icon: React.ReactNode; label: string }>;
 }
 
@@ -48,33 +51,32 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
   onAction,
   isDetail,
   raffleEnabled = false,
-  userRole = "staff",
+  permissions,
   detailActions = [],
 }) => {
-  const allActions = [
+  const can = (permission?: PermissionId | PermissionId[]) =>
+    !permission || (Array.isArray(permission)
+      ? permission.some((item) => permissions.includes(item))
+      : permissions.includes(permission));
+
+  const allActions: { group: string; items: ActionItem[] }[] = [
     {
       group: "Medios",
       items: [
-        { icon: <Image size={20} />, label: "Ver Medios" },
-        { icon: <Tags size={20} />, label: "Ver Categorías" },
-        { icon: <MonitorPlay size={20} />, label: "Slider Inicio" },
-        ...(["admin", "superadmin"].includes(userRole?.toLowerCase())
-          ? [
-              { icon: <Archive size={20} />, label: "Bóveda de Medios" },
-            ]
-          : []),
-      ],
+        { icon: <Image size={20} />, label: "Ver medios", permission: "media.manage" },
+        { icon: <Tags size={20} />, label: "Ver categorías", permission: "categories.manage" },
+        { icon: <MonitorPlay size={20} />, label: "Slider inicio", permission: "storefront.content.manage" },
+        { icon: <Archive size={20} />, label: "Bóveda de medios", permission: "media.vault.manage" },
+      ] satisfies ActionItem[],
     },
     {
       group: "Tienda",
       items: [
-        { icon: <ShoppingBag size={20} />, label: "Ver Productos" },
-        { icon: <PackagePlus size={20} />, label: "Nuevo Producto" },
-        { icon: <MonitorPlay size={20} />, label: "Héroes Tienda" },
-        { icon: <BadgePercent size={20} />, label: "Cupones" },
-        ...(userRole?.toLowerCase() === "superadmin" || userRole?.toLowerCase() === "admin"
-          ? [{ icon: <Link2 size={20} />, label: "Enlaces de pago" }]
-          : []),
+        { icon: <ShoppingBag size={20} />, label: "Ver productos", permission: "products.view" },
+        { icon: <PackagePlus size={20} />, label: "Nuevo producto", permission: "products.manage" },
+        { icon: <MonitorPlay size={20} />, label: "Héroes tienda", permission: "storefront.content.manage" },
+        { icon: <BadgePercent size={20} />, label: "Cupones", permission: "coupons.manage" },
+        { icon: <Link2 size={20} />, label: "Enlaces de pago", permission: "payment-links.manage" },
         {
           icon: isDetail ? (
             <ArrowLeft size={20} />
@@ -82,63 +84,61 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
             <ClipboardList size={20} />
           ),
           label: isDetail ? "Volver" : "Ver Órdenes",
+          permission: isDetail ? undefined : "orders.view",
         },
-      ],
+      ] satisfies ActionItem[],
     },
     {
       group: "Operaciones",
       items: [
         {
           icon: <ClipboardList size={20} />,
-          label: "Gestión de Operaciones",
+          label: "Gestión de operaciones",
+          permission: ["orders.view", "products.view", "raffles.participations.view"],
         },
         {
           icon: <ChartNoAxesCombined size={20} />,
-          label: "Resumen de Órdenes",
+          label: "Resumen de órdenes",
+          permission: "dashboard.view",
         },
-      ],
+      ] satisfies ActionItem[],
     },
     {
       group: "Rifas",
       items: [
-        { icon: <Ticket size={20} />, label: "Ver Rifas" },
-        { icon: <BadgePercent size={20} />, label: "Cupones de Rifas" },
+        { icon: <Ticket size={20} />, label: "Ver rifas", permission: "raffles.view" },
+        { icon: <BadgePercent size={20} />, label: "Cupones de rifas", permission: "raffles.coupons.manage" },
         {
           icon: <ClipboardList size={20} />,
-          label: "Gestión de Participaciones",
+          label: "Gestión de participaciones",
+          permission: "raffles.participations.view",
         },
-      ],
+      ] satisfies ActionItem[],
     },
     {
       group: "Sistema",
       items: [
-        { icon: <Receipt size={20} />, label: "Estado de Cuenta" },
-        { icon: <Store size={20} />, label: "Estado Storefront" },
-        { icon: <Megaphone size={20} />, label: "Avisos Storefront" },
-        ...(userRole?.toLowerCase() === "superadmin"
-          ? [{ icon: <Settings size={20} />, label: "Plataforma" }]
-          : []),
-        ...(userRole?.toLowerCase() === "superadmin" || userRole?.toLowerCase() === "admin"
-          ? [{ icon: <Users size={20} />, label: "Usuarios" }]
-          : []),
-        { icon: <LayoutGrid size={20} />, label: "Departamentos" },
-        { icon: <Truck size={20} />, label: "Configurar Envíos" },
-        { icon: <Ticket size={20} />, label: "Activar Rifas" },
-        ...(userRole?.toLowerCase() === "superadmin"
-          ? [{ icon: <Brain size={20} />, label: "Audiencias" }]
-          : []),
-        { icon: <Timer size={20} />, label: "Lib. Inventario" },
-        { icon: <PenTool size={20} />, label: "Añadir Logo" },
-      ],
+        { icon: <Receipt size={20} />, label: "Estado de cuenta", permission: "billing.view" },
+        { icon: <Store size={20} />, label: "Estado Storefront", permission: "settings.view" },
+        { icon: <Megaphone size={20} />, label: "Avisos Storefront", permission: "storefront.content.manage" },
+        { icon: <Settings size={20} />, label: "Plataforma", permission: "settings.manage" },
+        { icon: <Users size={20} />, label: "Usuarios", permission: "users.manage" },
+        { icon: <LayoutGrid size={20} />, label: "Departamentos", permission: "categories.manage" },
+        { icon: <Truck size={20} />, label: "Configurar envíos", permission: "shipping.manage" },
+        { icon: <Ticket size={20} />, label: "Activar rifas", permission: "raffles.settings.manage" },
+        { icon: <Brain size={20} />, label: "Audiencias", permission: "raffles.intelligence.view" },
+        { icon: <Timer size={20} />, label: "Lib. Inventario", permission: "inventory.audit" },
+        { icon: <PenTool size={20} />, label: "Añadir logo", permission: "storefront.content.manage" },
+      ] satisfies ActionItem[],
     },
     {
       group: "Mi Perfil",
       items: [
-        { icon: <UserRound size={20} />, label: "Datos Personales" },
-        { icon: <MessageCircle size={20} />, label: "Contacto Público" },
+        { icon: <UserRound size={20} />, label: "Datos personales" },
+        { icon: <MessageCircle size={20} />, label: "Contacto público" },
         { icon: <Bell size={20} />, label: "Notificaciones" },
         { icon: <KeyRound size={20} />, label: "Seguridad" },
-      ],
+      ] satisfies ActionItem[],
     },
   ];
 
@@ -146,6 +146,13 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
     context && context !== "Inicio"
       ? allActions.filter((group) => group.group === context)
       : allActions;
+
+  filteredActions = filteredActions
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => can(item.permission)),
+    }))
+    .filter((group) => group.items.length > 0);
 
   if (!raffleEnabled) {
     filteredActions = filteredActions.filter(
@@ -211,7 +218,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
                 >
                   {action.icon}
                 </div>
-                <span className="text-caption uppercase text-text-main text-center w-full truncate">
+                <span className="text-secondary font-medium leading-tight normal-case text-text-main text-center w-full truncate">
                   {action.label}
                 </span>
               </button>

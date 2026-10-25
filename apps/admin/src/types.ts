@@ -1,9 +1,11 @@
 import React from "react";
+import type { PermissionId } from "@nexus/types";
 
 export interface OrderItem {
   id: string;
   name: string;
   type: "BIRD" | "ITEM";
+  ringNumber?: string | null;
   price: number;
   quantity: number;
 }
@@ -190,6 +192,7 @@ export interface Media {
   assetId: string;
   mediaUrl: string;
   posterUrl?: string | null;
+  assetStatus?: "UPLOADING" | "PROCESSING" | "READY" | "FAILED" | null;
   mediaType: "PHOTO" | "VIDEO";
   thumbnail?: string;
   location?: string;
@@ -338,6 +341,7 @@ export interface User {
   notificationEmail?: string;
   contactProfile?: ContactProfile | null;
   role: "superadmin" | "admin" | "staff";
+  permissions: PermissionId[];
 }
 
 export type ContactChannelType = "WHATSAPP" | "PHONE";
@@ -369,6 +373,7 @@ export interface OwnProfile {
   email?: string | null;
   phone?: string | null;
   role: "SUPERADMIN" | "ADMIN" | "STAFF";
+  permissions: PermissionId[];
   active: boolean;
   mustChangePassword: boolean;
   receiveNotifications: boolean;

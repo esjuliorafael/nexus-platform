@@ -36,17 +36,17 @@ const statusCopy: Record<
 > = {
   LIVE: {
     label: "Publicado",
-    title: "Storefront Publicado",
+    title: "Storefront publicado",
     description: "La tienda pública funciona con normalidad.",
   },
   MAINTENANCE: {
     label: "Mantenimiento",
-    title: "Modo Mantenimiento",
+    title: "Modo mantenimiento",
     description: "El Storefront mostrará una pantalla temporal para visitantes.",
   },
   COMING_SOON: {
     label: "Próximamente",
-    title: "Modo Lanzamiento",
+    title: "Modo lanzamiento",
     description: "Ideal para preparar una temporada, colección o reapertura.",
   },
 };
@@ -227,7 +227,7 @@ export const StorefrontStatusView = forwardRef<
         </NexusSection>
 
         <NexusSection
-          title="Pantallas Temporales"
+          title="Pantallas temporales"
           subtitle="Plantillas editoriales para mantenimiento y próximamente"
           icon={Sparkles}
           iconVariant="brand"

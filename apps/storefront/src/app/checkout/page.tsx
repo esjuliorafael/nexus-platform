@@ -1561,7 +1561,7 @@ export default function CheckoutPage() {
                       {!isAssistedCheckout && (
                         <PaymentMethodCard
                           icon={Wallet}
-                          title="Depósito / Transferencia"
+                          title="Depósito / transferencia"
                           subtitle="Pago manual verificado"
                           active={paymentMethod === "TRANSFER"}
                           onClick={() => setPaymentMethod("TRANSFER")}

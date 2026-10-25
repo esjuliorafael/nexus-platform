@@ -21,7 +21,8 @@ import { NexusAutonomousIcon } from "../../ui/NexusIcon";
 
 interface RaffleParticipationCardProps {
   participation: RaffleParticipation;
-  canManageOperations: boolean;
+  canManageParticipation: boolean;
+  canManageRaffleFinancial: boolean;
   onViewDetail: () => void;
   onMarkAsPaid: () => void;
   onCancel: () => void;
@@ -55,7 +56,8 @@ const useDesktopLayout = () => {
 
 export const RaffleParticipationCard: React.FC<RaffleParticipationCardProps> = ({
   participation,
-  canManageOperations,
+  canManageParticipation,
+  canManageRaffleFinancial,
   onViewDetail,
   onMarkAsPaid,
   onCancel,
@@ -96,28 +98,33 @@ export const RaffleParticipationCard: React.FC<RaffleParticipationCardProps> = (
           : status.label;
 
   const isPendingTransfer = participation.status === "PENDING" && participation.paymentMethod !== "MERCADOPAGO";
-  const canManagePendingTransfer = canManageOperations && isPendingTransfer;
+  const canConfirmPendingPayment = canManageRaffleFinancial && isPendingTransfer;
+  const canCancelPendingParticipation = canManageParticipation && isPendingTransfer;
   const methodLabel = participation.paymentMethod === "MERCADOPAGO" ? "Tarjeta" : "Dep. / Trans.";
 
   return (
     <NexusAutonomousCard
-      swipeable={canManagePendingTransfer}
+      swipeable={canConfirmPendingPayment || canCancelPendingParticipation}
       isMuted={["CANCELLED", "NOT_COMPLETED"].includes(participation.status)}
       className={["CANCELLED", "NOT_COMPLETED"].includes(participation.status) ? "opacity-70 grayscale-[0.5]" : ""}
       customSwipeLeft={
-        <NexusAutonomousButton variant="success" icon={Check} onClick={onMarkAsPaid}>
-          Confirmar pago
-        </NexusAutonomousButton>
+        canConfirmPendingPayment ? (
+          <NexusAutonomousButton variant="success" icon={Check} onClick={onMarkAsPaid}>
+            Confirmar pago
+          </NexusAutonomousButton>
+        ) : undefined
       }
       customSwipeRight={
-        <NexusAutonomousButton
-          variant="secondary"
-          icon={CircleX}
-          onClick={onCancel}
-          className="border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700"
-        >
-          Cancelar apartado
-        </NexusAutonomousButton>
+        canCancelPendingParticipation ? (
+          <NexusAutonomousButton
+            variant="secondary"
+            icon={CircleX}
+            onClick={onCancel}
+            className="border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700"
+          >
+            Cancelar apartado
+          </NexusAutonomousButton>
+        ) : undefined
       }
     >
       <div
@@ -208,8 +215,7 @@ export const RaffleParticipationCard: React.FC<RaffleParticipationCardProps> = (
               className="animate-raffle-actions-enter absolute inset-y-0 right-0 flex items-center justify-end"
               style={{ gap: "var(--space-sm)", left: "var(--space-md)" }}
             >
-            {canManagePendingTransfer && (
-              <>
+            {canConfirmPendingPayment && (
                 <NexusAutonomousButton
                   density="compact"
                   variant="success"
@@ -221,6 +227,8 @@ export const RaffleParticipationCard: React.FC<RaffleParticipationCardProps> = (
                     onMarkAsPaid();
                   }}
                 />
+            )}
+            {canCancelPendingParticipation && (
                 <NexusAutonomousButton
                   density="compact"
                   variant="secondary"
@@ -232,7 +240,6 @@ export const RaffleParticipationCard: React.FC<RaffleParticipationCardProps> = (
                     onCancel();
                   }}
                 />
-              </>
             )}
             <NexusAutonomousButton
               density="compact"

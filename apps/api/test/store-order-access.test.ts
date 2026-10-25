@@ -28,7 +28,7 @@ test("keeps the bird details captured when the order was created", () => {
   assert.equal(result.lineTotal, 320);
 });
 
-test("uses current product details only for legacy orders without a snapshot", () => {
+test("does not substitute current product details for missing historical snapshots", () => {
   const result = toStoreOrderAccessItem({
     id: 8,
     productId: 43,
@@ -44,9 +44,9 @@ test("uses current product details only for legacy orders without a snapshot", (
   });
 
   assert.deepEqual(result.productInfo, {
-    ringNumber: "512",
-    age: "COCK",
-    purpose: "COMBAT",
+    ringNumber: null,
+    age: null,
+    purpose: null,
   });
 });
 

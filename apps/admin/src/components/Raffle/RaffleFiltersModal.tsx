@@ -88,7 +88,7 @@ export const RaffleFiltersModal: React.FC<RaffleFiltersModalProps> = ({
   return (
     <NexusDrawer
       isOpen={isOpen}
-      title="Filtrar Rifas"
+      title="Filtrar rifas"
       eyebrow="Rifas"
       icon={Filter}
       onClose={onClose}
@@ -123,7 +123,7 @@ export const RaffleFiltersModal: React.FC<RaffleFiltersModalProps> = ({
             onChange={(status) => setDraft((current) => ({ ...current, status }))}
           />
           <NexusFilterGroup
-            title="Tipo de Rifa"
+            title="Tipo de rifa"
             value={draft.type}
             options={TYPE_OPTIONS}
             onChange={(type) => setDraft((current) => ({ ...current, type }))}

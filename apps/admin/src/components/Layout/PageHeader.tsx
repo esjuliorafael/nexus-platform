@@ -20,6 +20,7 @@ interface PageHeaderProps {
   isCreatingRaffle: boolean;
   isEditingRaffle: boolean;
   systemViewMode: string;
+  usersFormMode?: "create" | "edit" | null;
   announcementViewMode?: string;
   profileViewMode: string;
   shippingSubView: string;
@@ -54,6 +55,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   isCreatingRaffle,
   isEditingRaffle,
   systemViewMode,
+  usersFormMode = null,
   announcementViewMode = "list",
   profileViewMode,
   shippingSubView,
@@ -83,103 +85,103 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
     if (isPrincipalTemplateEditor)
       return (
         <>
-          Editar <span className="text-text-muted">Plantilla</span>
+          Editar <span className="text-text-muted">plantilla</span>
         </>
       );
     if (isDashboardMode && dashboardViewMode === "milestones")
       return (
         <>
-          Hitos de <span className="text-text-muted">Crecimiento</span>
+          Hitos de <span className="text-text-muted">crecimiento</span>
         </>
       );
     if (isCreatingMedia)
       return (
         <>
-          Subir <span className="text-text-muted">Nuevo Medio</span>
+          Subir <span className="text-text-muted">nuevo medio</span>
         </>
       );
     if (isEditingMedia)
       return (
         <>
-          Editar <span className="text-text-muted">Medio</span>
+          Editar <span className="text-text-muted">medio</span>
         </>
       );
     if (isCreatingSlide)
       return (
         <>
-          Nuevo <span className="text-text-muted">Slide</span>
+          Nuevo <span className="text-text-muted">slide</span>
         </>
       );
     if (isEditingSlide)
       return (
         <>
-          Editar <span className="text-text-muted">Slide</span>
+          Editar <span className="text-text-muted">slide</span>
         </>
       );
     if (isMediaMode && mediaViewMode === "vault_upload")
       return (
         <>
-          Subir a <span className="text-text-muted">Bóveda</span>
+          Subir a <span className="text-text-muted">bóveda</span>
         </>
       );
     if (isStoreMode && storeViewMode === "coupon_create")
       return (
         <>
-          Nuevo <span className="text-text-muted">{"Cup\u00f3n"}</span>
+          Nuevo <span className="text-text-muted">{"cup\u00f3n"}</span>
         </>
       );
     if (isStoreMode && storeViewMode === "coupon_edit")
       return (
         <>
-          Editar <span className="text-text-muted">{"Cup\u00f3n"}</span>
+          Editar <span className="text-text-muted">{"cup\u00f3n"}</span>
         </>
       );
     if (isCreatingProduct)
       return (
         <>
-          Nuevo <span className="text-text-muted">Producto</span>
+          Nuevo <span className="text-text-muted">producto</span>
         </>
       );
     if (isEditingProduct)
       return (
         <>
-          Editar <span className="text-text-muted">Producto</span>
+          Editar <span className="text-text-muted">producto</span>
         </>
       );
     if (isCreatingStoreHero)
       return (
         <>
-          Nuevo <span className="text-text-muted">Hero</span>
+          Nuevo <span className="text-text-muted">hero</span>
         </>
       );
     if (isEditingStoreHero)
       return (
         <>
-          Editar <span className="text-text-muted">Hero</span>
+          Editar <span className="text-text-muted">hero</span>
         </>
       );
     if (isRafflesMode && raffleViewMode === "coupon_create")
       return (
         <>
-          Nuevo <span className="text-text-muted">Cupón</span>
+          Nuevo <span className="text-text-muted">cupón</span>
         </>
       );
     if (isRafflesMode && raffleViewMode === "coupon_edit")
       return (
         <>
-          Editar <span className="text-text-muted">Cupón</span>
+          Editar <span className="text-text-muted">cupón</span>
         </>
       );
     if (isCreatingRaffle)
       return (
         <>
-          Nueva <span className="text-text-muted">Rifa</span>
+          Nueva <span className="text-text-muted">rifa</span>
         </>
       );
     if (isEditingRaffle)
       return (
         <>
-          Editar <span className="text-text-muted">Rifa</span>
+          Editar <span className="text-text-muted">rifa</span>
         </>
       );
 
@@ -191,24 +193,24 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       )
         return (
           <>
-            Gestionar <span className="text-text-muted">Categorías</span>
+            Gestionar <span className="text-text-muted">categorías</span>
           </>
         );
       if (mediaViewMode === "slider_list")
         return (
           <>
-            Slider <span className="text-text-muted">Principal</span>
+            Slider <span className="text-text-muted">principal</span>
           </>
         );
       if (mediaViewMode === "vault_list")
         return (
           <>
-            Bóveda de <span className="text-text-muted">Medios</span>
+            Bóveda de <span className="text-text-muted">medios</span>
           </>
         );
       return (
         <>
-          Panel de <span className="text-text-muted">Medios</span>
+          Panel de <span className="text-text-muted">medios</span>
         </>
       );
     }
@@ -219,25 +221,25 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           <>
             Detalle de{" "}
             <span className="text-text-muted">
-              {selectedOrderRecordType === "PAYMENT_HOLD" ? "Intento" : "Orden"}
+              {selectedOrderRecordType === "PAYMENT_HOLD" ? "intento" : "orden"}
             </span>
           </>
         );
       if (storeViewMode === "orders-overview")
         return (
           <>
-            Resumen de <span className="text-text-muted">Órdenes</span>
+            Resumen de <span className="text-text-muted">órdenes</span>
           </>
         );
       if (isOperationsTab)
         return (
           <>
-            Gestión de <span className="text-text-muted">Operaciones</span>
+            Gestión de <span className="text-text-muted">operaciones</span>
           </>
         );
       return (
         <>
-          Gestión de <span className="text-text-muted">Órdenes</span>
+          Gestión de <span className="text-text-muted">órdenes</span>
         </>
       );
     }
@@ -246,19 +248,19 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       if (storeViewMode === "overview")
         return (
           <>
-            Resumen del <span className="text-text-muted">Producto</span>
+          Resumen del <span className="text-text-muted">producto</span>
           </>
         );
       if (storeViewMode === "orders")
         return (
           <>
-            Gestión de <span className="text-text-muted">Órdenes</span>
+            Gestión de <span className="text-text-muted">órdenes</span>
           </>
         );
       if (storeViewMode === "payment_links")
         return (
           <>
-            Enlaces de <span className="text-text-muted">Pago</span>
+            Enlaces de <span className="text-text-muted">pago</span>
           </>
         );
       if (storeViewMode === "order-detail")
@@ -266,25 +268,25 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           <>
             Detalle de{" "}
             <span className="text-text-muted">
-              {selectedOrderRecordType === "PAYMENT_HOLD" ? "Intento" : "Orden"}
+              {selectedOrderRecordType === "PAYMENT_HOLD" ? "intento" : "orden"}
             </span>
           </>
         );
       if (storeViewMode === "coupon_list")
         return (
           <>
-            Cupones de <span className="text-text-muted">Tienda</span>
+            Cupones de <span className="text-text-muted">tienda</span>
           </>
         );
       if (storeViewMode === "hero_list")
         return (
           <>
-            Héroes de <span className="text-text-muted">Tienda</span>
+            Héroes de <span className="text-text-muted">tienda</span>
           </>
         );
       return (
         <>
-          Gestión de <span className="text-text-muted">Tienda</span>
+          Gestión de <span className="text-text-muted">tienda</span>
         </>
       );
     }
@@ -293,42 +295,42 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       if (raffleViewMode === "coupon_list")
         return (
           <>
-            Cupones de <span className="text-text-muted">Rifas</span>
+            Cupones de <span className="text-text-muted">rifas</span>
           </>
         );
       if (raffleViewMode === "participations")
         return (
           <>
-            Gestión de <span className="text-text-muted">Participaciones</span>
+            Gestión de <span className="text-text-muted">participaciones</span>
           </>
         );
       if (raffleViewMode === "participation-detail")
         return (
           <>
-            Detalle de <span className="text-text-muted">Participación</span>
+            Detalle de <span className="text-text-muted">participación</span>
           </>
         );
       if (raffleViewMode === "detail")
         return (
           <>
-            Resumen de <span className="text-text-muted">Rifa</span>
+            Resumen de <span className="text-text-muted">rifa</span>
           </>
         );
       if (raffleViewMode === "tickets")
         return (
           <>
-            Boletera de <span className="text-text-muted">Rifa</span>
+            Boletera de <span className="text-text-muted">rifa</span>
           </>
         );
       if (raffleViewMode === "materials")
         return (
           <>
-            Materiales de la <span className="text-text-muted">Rifa</span>
+            Materiales de la <span className="text-text-muted">rifa</span>
           </>
         );
       return (
         <>
-          Gestión de <span className="text-text-muted">Rifas</span>
+          Gestión de <span className="text-text-muted">rifas</span>
         </>
       );
     }
@@ -338,32 +340,36 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         if (shippingSubView === "zones")
           return (
             <>
-              Zonas por <span className="text-text-muted">Estado</span>
+              Zonas por <span className="text-text-muted">estado</span>
             </>
           );
         return (
           <>
-            Gestión de <span className="text-text-muted">Envíos</span>
+          Gestión de <span className="text-text-muted">envíos</span>
           </>
         );
       }
+      if (systemViewMode === "users" && usersFormMode === "create")
+        return <>Nuevo <span className="text-text-muted">usuario</span></>;
+      if (systemViewMode === "users" && usersFormMode === "edit")
+        return <>Editar <span className="text-text-muted">usuario</span></>;
       if (systemViewMode === "users")
         return (
           <>
-            Gestión de <span className="text-text-muted">Miembros</span>
+            Gestión de <span className="text-text-muted">miembros</span>
           </>
         );
       if (systemViewMode === "identity")
         return (
           <>
-            Identidad del <span className="text-text-muted">Sistema</span>
+            Identidad del <span className="text-text-muted">sistema</span>
           </>
         );
       if (systemViewMode === "channels") {
         if (channelsViewMode === "hub")
           return (
             <>
-              Centro de <span className="text-text-muted">Canales</span>
+              Centro de <span className="text-text-muted">canales</span>
             </>
           );
         if (principalTemplateEditor)
@@ -371,31 +377,31 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         if (channelsViewMode === "principal")
           return (
             <>
-              Canal <span className="text-text-muted">Principal</span>
+              Canal <span className="text-text-muted">principal</span>
             </>
           );
         if (channelsViewMode === "create")
           return (
             <>
-              Nuevo <span className="text-text-muted">Canal</span>
+              Nuevo <span className="text-text-muted">canal</span>
             </>
           );
         return (
           <>
-            Configurar <span className="text-text-muted">Canal</span>
+            Configurar <span className="text-text-muted">canal</span>
           </>
         );
       }
       if (systemViewMode === "inventory")
         return (
           <>
-            Ajustes de <span className="text-text-muted">Inventario</span>
+            Ajustes de <span className="text-text-muted">inventario</span>
           </>
         );
       if (systemViewMode === "billing")
         return (
           <>
-            Estado de <span className="text-text-muted">Cuenta</span>
+            Estado de <span className="text-text-muted">cuenta</span>
           </>
         );
       if (systemViewMode === "storefront")
@@ -408,13 +414,13 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         if (announcementViewMode === "create")
           return (
             <>
-              Nuevo <span className="text-text-muted">Aviso</span>
+              Nuevo <span className="text-text-muted">aviso</span>
             </>
           );
         if (announcementViewMode === "edit")
           return (
             <>
-              Editar <span className="text-text-muted">Aviso</span>
+              Editar <span className="text-text-muted">aviso</span>
             </>
           );
         return (
@@ -426,18 +432,18 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       if (systemViewMode === "intelligence")
         return (
           <>
-            Inteligencia de <span className="text-text-muted">Audiencias</span>
+            Inteligencia de <span className="text-text-muted">audiencias</span>
           </>
         );
       if (systemViewMode === "config")
         return (
           <>
-            Ajustes de <span className="text-text-muted">Plataforma</span>
+            Ajustes de <span className="text-text-muted">plataforma</span>
           </>
         );
       return (
         <>
-          Ajustes del <span className="text-text-muted">Sistema</span>
+          Ajustes del <span className="text-text-muted">sistema</span>
         </>
       );
     }
@@ -446,31 +452,31 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       if (profileViewMode === "contact")
         return (
           <>
-            Contacto <span className="text-text-muted">Público</span>
+            Contacto <span className="text-text-muted">público</span>
           </>
         );
       if (profileViewMode === "notifications")
         return (
           <>
-            Mis <span className="text-text-muted">Notificaciones</span>
+            Mis <span className="text-text-muted">notificaciones</span>
           </>
         );
       if (profileViewMode === "security")
         return (
           <>
-            Cuenta y <span className="text-text-muted">Seguridad</span>
+            Cuenta y <span className="text-text-muted">seguridad</span>
           </>
         );
       return (
         <>
-          Mi <span className="text-text-muted">Perfil</span>
+          Mi <span className="text-text-muted">perfil</span>
         </>
       );
     }
 
     return (
       <>
-        ¡Bienvenido de Nuevo,{" "}
+        ¡Bienvenido de nuevo,{" "}
         <span className="text-text-muted">{userName}!</span>
       </>
     );
@@ -559,6 +565,10 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           return "Administra la clasificación territorial de envíos para la República Mexicana.";
         return "Define las reglas financieras para el envío de artículos y aves.";
       }
+      if (systemViewMode === "users" && usersFormMode === "create")
+        return "Crea una cuenta y asigna únicamente los permisos necesarios para su trabajo.";
+      if (systemViewMode === "users" && usersFormMode === "edit")
+        return "Actualiza los datos de acceso y las responsabilidades de este usuario.";
       if (systemViewMode === "users")
         return "Supervisa el acceso, define roles administrativos y gestiona las credenciales del equipo.";
       if (systemViewMode === "identity")

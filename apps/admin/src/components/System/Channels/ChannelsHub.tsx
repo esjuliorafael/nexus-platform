@@ -136,8 +136,8 @@ export const ChannelsHub: React.FC<ChannelsHubProps> = ({
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-500">
       <NexusHero
-        title="Canales Operativos"
-        subtitle="Cobro, Mensajeria y Fallback"
+        title="Canales operativos"
+        subtitle="Cobro, mensajeria y fallback"
         icon={LayoutGrid}
         variant="dark"
         badge={readyCount === 4 ? 'Principal listo' : 'Principal incompleto'}
@@ -160,7 +160,7 @@ export const ChannelsHub: React.FC<ChannelsHubProps> = ({
       </div>
 
       <NexusSection
-        title="Canal Principal"
+        title="Canal principal"
         subtitle="Fallback para tienda general, pedidos mixtos y flujos sin canal especializado"
         icon={ShieldCheck}
         iconVariant={readyCount === 4 ? 'emerald' : 'brand'}
@@ -199,13 +199,13 @@ export const ChannelsHub: React.FC<ChannelsHubProps> = ({
       </NexusSection>
 
       <NexusSection
-        title="Canales Especializados"
-        subtitle="Sobrescriben el Canal Principal cuando el flujo coincide con su proposito"
+        title="Canales especializados"
+        subtitle="Sobrescriben el canal principal cuando el flujo coincide con su proposito"
         icon={Activity}
         iconVariant="brand"
         action={
           <NexusSectionButton onClick={onCreateChannel} icon={PlusCircle} variant="brand">
-            Nuevo Canal
+            Nuevo canal
           </NexusSectionButton>
         }
       >
@@ -213,10 +213,10 @@ export const ChannelsHub: React.FC<ChannelsHubProps> = ({
           <EmptyState
             icon={Briefcase}
             title="Sin canales especializados"
-            description="El sistema usara el Canal Principal para todos los cobros y mensajes hasta que crees un canal por proposito."
+            description="El sistema usara el canal principal para todos los cobros y mensajes hasta que crees un canal por proposito."
             action={
               <NexusSectionButton onClick={onCreateChannel} icon={PlusCircle}>
-                Crear Canal
+                Crear canal
               </NexusSectionButton>
             }
           />
@@ -273,7 +273,7 @@ export const ChannelsHub: React.FC<ChannelsHubProps> = ({
       </NexusSection>
 
       <NexusSection
-        title="Matriz de Entrega"
+        title="Matriz de entrega"
         subtitle="Mapa de fallback para cobros y notificaciones"
         icon={WalletCards}
         iconVariant="muted"
@@ -287,7 +287,7 @@ export const ChannelsHub: React.FC<ChannelsHubProps> = ({
               </div>
               <div className="text-right">
                 <p className="text-label text-brand-600">{route}</p>
-                <p className="text-label text-text-muted/50 mt-1">Banco / WA / Plantilla</p>
+                <p className="text-label text-text-muted/50 mt-1">Banco / WA / plantilla</p>
               </div>
             </div>
           ))}

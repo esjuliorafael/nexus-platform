@@ -23,7 +23,8 @@ import { NexusAutonomousIcon } from '../../ui/NexusIcon';
 
 interface OrderCardProps {
   order: Order;
-  canManageOperations: boolean;
+  canManageOrder: boolean;
+  canManageOrderFinancial: boolean;
   onViewDetail: (order: Order) => void;
   onMarkAsPaid: (orderId: string) => void;
   onCancelOrder: (orderId: string) => void;
@@ -41,7 +42,8 @@ const formatDate = (dateStr: string) => {
 
 export const OrderCard: React.FC<OrderCardProps> = ({
   order,
-  canManageOperations,
+  canManageOrder,
+  canManageOrderFinancial,
   onViewDetail,
   onMarkAsPaid,
   onCancelOrder,
@@ -153,31 +155,37 @@ export const OrderCard: React.FC<OrderCardProps> = ({
 
   const isCardPayment = order.paymentMethod === 'MERCADOPAGO';
   const paymentMethodLabel = isCardPayment ? 'Tarjeta' : 'Dep. / Trans.';
+  const canConfirmPayment = canManageOrderFinancial && !isPaymentHold && order.status === 'pending';
+  const canCancelOrder = canManageOrder && !isPaymentHold && (order.status === 'pending' || order.status === 'paid');
 
   return (
     <NexusAutonomousCard
-      swipeable={canManageOperations && !isPaymentHold && order.status === 'pending'}
+      swipeable={canConfirmPayment || canCancelOrder}
       isMuted={order.status === 'cancelled' || order.status === 'not_completed'}
       className={`group ${statusConfig.cardOpacity} animate-in fade-in duration-500`}
       style={style}
       customSwipeLeft={
-        <NexusAutonomousButton
-          onClick={() => onMarkAsPaid(order.id)}
-          variant="success"
-          icon={Check}
-        >
-          Confirmar pago
-        </NexusAutonomousButton>
+        canConfirmPayment ? (
+          <NexusAutonomousButton
+            onClick={() => onMarkAsPaid(order.id)}
+            variant="success"
+            icon={Check}
+          >
+            Confirmar pago
+          </NexusAutonomousButton>
+        ) : undefined
       }
       customSwipeRight={
-        <NexusAutonomousButton
-          onClick={() => onCancelOrder(order.id)}
-          variant="secondary"
-          className="border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700"
-          icon={CircleX}
-        >
-          Cancelar orden
-        </NexusAutonomousButton>
+        canCancelOrder ? (
+          <NexusAutonomousButton
+            onClick={() => onCancelOrder(order.id)}
+            variant="secondary"
+            className="border-rose-200 bg-rose-50 text-rose-600 hover:bg-rose-100 hover:text-rose-700"
+            icon={CircleX}
+          >
+            Cancelar orden
+          </NexusAutonomousButton>
+        ) : undefined
       }
     >
       <div
@@ -326,7 +334,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                 className="animate-raffle-actions-enter absolute inset-y-0 right-0 flex items-center justify-end"
                 style={{ gap: 'var(--space-sm)', left: 'var(--space-md)' }}
               >
-              {canManageOperations && !isPaymentHold && order.status === 'pending' && (
+              {canConfirmPayment && (
                 <NexusAutonomousButton
                   density="compact"
                   onClick={(e) => {
@@ -339,7 +347,7 @@ export const OrderCard: React.FC<OrderCardProps> = ({
                   title="Marcar pagada"
                 />
               )}
-              {canManageOperations && !isPaymentHold && (order.status === 'pending' || order.status === 'paid') && (
+              {canCancelOrder && (
                 <NexusAutonomousButton
                   density="compact"
                   onClick={(e) => {

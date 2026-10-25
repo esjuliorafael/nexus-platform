@@ -234,7 +234,7 @@ export const SalesChart: React.FC<SalesChartProps> = ({
             className="flex min-w-0 flex-1 flex-col"
             style={{ gap: 'var(--space-xs)' }}
           >
-            <h3 className="text-h1 text-text-main">Tendencia de Ventas</h3>
+            <h3 className="text-h1 text-text-main">Tendencia de ventas</h3>
             <p className="text-secondary text-text-muted">
               {periodDescription}
             </p>

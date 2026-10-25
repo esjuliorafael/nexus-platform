@@ -63,9 +63,9 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
   const handleDeleteCategory = (id: string) => {
     setConfirmDialog({
       isOpen: true,
-      title: '¿Eliminar Categoría?',
+      title: '¿Eliminar categoría?',
       message: 'Esta acción eliminará la categoría y todas sus subcategorías. Los medios asociados quedarán sin clasificar.',
-      confirmLabel: 'Sí, Eliminar',
+      confirmLabel: 'Sí, eliminar',
       variant: 'danger',
       onConfirm: async () => {
         try {
@@ -350,7 +350,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
                   style={{ gap: 'var(--space-lg)' }}
                 >
                   <NexusInput
-                    label="Nombre de la Subcategoria *"
+                    label="Nombre de la subcategoria *"
                     type="text"
                     placeholder="Ej. Atardeceres, Equipo A, Temporada 1..."
                     value={subNameInput}
@@ -391,7 +391,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
                 onClick={() => { setManagerView('form'); setEditingSub(null); setSubNameInput(''); }}
                 className="w-full"
               >
-                Nueva Subcategoria
+                Nueva subcategoria
               </NexusAutonomousButton>
             </div>
           )}

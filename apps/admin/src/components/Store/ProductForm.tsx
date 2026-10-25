@@ -290,7 +290,7 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                 size="normal"
                 className="aspect-video w-full shadow-sm"
                 icon={Upload}
-                title="Portada del Producto"
+                title="Portada del producto"
                 description="Imagen o video principal del producto (16:9 recomendado)."
                 onClick={() => !isProcessing && coverInputRef.current?.click()}
               />
@@ -305,7 +305,7 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                 ) : (
                   <img src={coverUrl} className="w-full h-full object-cover" alt="Portada" />
                 )}
-                <UploadPreviewOverlay label="Cambiar Portada" />
+                <UploadPreviewOverlay label="Cambiar portada" />
                 
                 {/* Controles Flotantes Nivel 2 (Autonomous Scale) */}
                 <div className="absolute top-0 inset-x-0 flex items-center justify-between z-20 pointer-events-none" style={{ padding: 'var(--padding-inner)' }}>
@@ -345,7 +345,7 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
             {/* Miniature Selector (Only if Video) */}
             {isVideo && (
               <NexusSection
-                title="Miniatura del Video"
+                title="Miniatura del video"
                 subtitle="Selecciona el fotograma para el catálogo"
                 icon={ImageIcon}
                 iconVariant="brand"
@@ -418,8 +418,8 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
 
             {/* Gallery Section - Organic Grid Look */}
             <NexusSection
-              title="Galería Adicional"
-              subtitle="Multimedia secundario (Máx. 6)"
+              title="Galería adicional"
+              subtitle="Multimedia secundario (máx. 6)"
               icon={Film}
               iconVariant="brand"
             >
@@ -500,7 +500,7 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
 
         {/* RIGHT COLUMN: DETAILS (SPAN 5/12) */}
         <div className="lg:col-span-5">
-          <NexusSection title="Detalles del Producto" subtitle="Configuración técnica" icon={productType === 'BIRD' ? Box : Package} iconVariant="brand">
+          <NexusSection title="Detalles del producto" subtitle="Configuración técnica" icon={productType === 'BIRD' ? Box : Package} iconVariant="brand">
             <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
               
               {/* Product Type Toggle */}
@@ -528,7 +528,7 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
               </div>
 
               <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
-                  <NexusInput label="Nombre del Producto *" value={name} onChange={(e) => setName(e.target.value)} />
+                  <NexusInput label="Nombre del producto *" value={name} onChange={(e) => setName(e.target.value)} />
                   
                   <div className="grid grid-cols-1 sm:grid-cols-2 items-end" style={{ gap: 'var(--space-md)' }}>
                     <NexusInput label="Precio *" type="number" icon={DollarSign} value={price} onChange={(e) => setPrice(e.target.value)} />
@@ -545,9 +545,9 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                           {initialData.status === 'reserved' ? 'Reservado' : initialData.status === 'sold' ? 'Vendido' : 'Disponible'}
                         </NexusBadge>
                       ) : (
-                        <span className="text-caption text-text-muted">Se determina por inventario</span>
+                        <span className="text-secondary text-text-muted">Se determina por inventario</span>
                       )}
-                      <span className="text-caption text-text-muted">Lo actualizan las reservas y las órdenes.</span>
+                      <span className="text-secondary text-text-muted">Lo actualizan las reservas y las órdenes.</span>
                     </div>
                   </div>
 
@@ -574,7 +574,7 @@ export const ProductForm = forwardRef<{ handleSave: () => void }, ProductFormPro
                     </NexusSelect>
                   )}
 
-                  <NexusTextarea label="Descripción y Genética" value={description} onChange={(e) => setDescription(e.target.value)} rows={6} />
+                  <NexusTextarea label="Descripción y genética" value={description} onChange={(e) => setDescription(e.target.value)} rows={6} />
               </div>
 
               {isSubmitting && (

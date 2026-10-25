@@ -10,7 +10,7 @@ import { NexusSection } from "../ui/NexusSection";
 
 interface Props {
   raffle: Raffle;
-  canManageOperations: boolean;
+  canSendMessages: boolean;
   showToast: (message: string, type?: "success" | "error") => void;
   embedded?: boolean;
 }
@@ -26,7 +26,7 @@ const statusLabel: Record<string, string> = {
 
 export const RaffleInvitationSection: React.FC<Props> = ({
   raffle,
-  canManageOperations,
+  canSendMessages,
   showToast,
   embedded = false,
 }) => {
@@ -115,7 +115,7 @@ export const RaffleInvitationSection: React.FC<Props> = ({
   return (
     <>
       <NexusSection
-        title="Promoción de la Rifa"
+        title="Promoción de la rifa"
         subtitle="Invita a participantes autorizados y conserva la trazabilidad de cada envío"
         icon={Megaphone}
         bare={embedded}
@@ -123,7 +123,7 @@ export const RaffleInvitationSection: React.FC<Props> = ({
         <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
           <NexusSectionCard
             icon={Megaphone}
-            title="Promoción de la Rifa"
+            title="Promoción de la rifa"
             subtitle="Envía una invitación a una audiencia autorizada."
             rightContent={
               <div
@@ -164,7 +164,7 @@ export const RaffleInvitationSection: React.FC<Props> = ({
               </div>
             }
             actions={
-              canManageOperations ? (
+              canSendMessages ? (
                 <div
                   className="flex w-full items-center md:w-auto"
                   style={{ gap: "var(--space-sm)" }}
@@ -175,7 +175,7 @@ export const RaffleInvitationSection: React.FC<Props> = ({
                       icon={RefreshCw}
                       onClick={() => void retry(latest.id)}
                     >
-                      Reintentar Fallidas
+                      Reintentar fallidas
                     </NexusCardButton>
                   )}
                   <NexusCardButton
@@ -187,7 +187,7 @@ export const RaffleInvitationSection: React.FC<Props> = ({
                     }
                     onClick={() => setConfirmOpen(true)}
                   >
-                    Enviar Invitación
+                    Enviar invitación
                   </NexusCardButton>
                 </div>
               ) : undefined
@@ -233,7 +233,7 @@ export const RaffleInvitationSection: React.FC<Props> = ({
         isOpen={confirmOpen}
         title="Enviar invitación"
         message={`Se congelará una audiencia de ${eligible} destinatario${eligible === 1 ? "" : "s"} y se enviará la invitación a “${raffle.title}”. Los participantes actuales y contactos recientes quedan excluidos.`}
-        confirmLabel="Enviar Invitación"
+        confirmLabel="Enviar invitación"
         cancelLabel="Cancelar"
         tone="brand"
         icon={Megaphone}

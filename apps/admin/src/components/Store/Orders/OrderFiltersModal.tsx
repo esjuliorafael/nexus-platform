@@ -56,7 +56,7 @@ const TYPE_OPTIONS: NexusFilterOption<OrderTypeFilter>[] = [
 
 const PAYMENT_OPTIONS: NexusFilterOption<OrderPaymentMethodFilter>[] = [
   { value: "all", label: "Todos" },
-  { value: "transfer", label: "Depósito / Transferencia" },
+  { value: "transfer", label: "Depósito / transferencia" },
   { value: "card", label: "Tarjeta" },
 ];
 
@@ -88,7 +88,7 @@ export const OrderFiltersModal: React.FC<OrderFiltersModalProps> = ({
   return (
     <NexusDrawer
       isOpen={isOpen}
-      title="Filtrar Órdenes"
+      title="Filtrar órdenes"
       eyebrow="Tienda"
       icon={Filter}
       onClose={onClose}
@@ -124,20 +124,20 @@ export const OrderFiltersModal: React.FC<OrderFiltersModalProps> = ({
           onChange={(status) => setDraft((current) => ({ ...current, status }))}
         />
         <NexusFilterGroup
-          title="Tipo de Pedido"
+          title="Tipo de pedido"
           value={draft.type}
           options={TYPE_OPTIONS}
           desktopFullRowValues={["mixed"]}
           onChange={(type) => setDraft((current) => ({ ...current, type }))}
         />
         <NexusFilterGroup
-          title="Método de Pago"
+          title="Método de pago"
           value={draft.paymentMethod}
           options={PAYMENT_OPTIONS}
           onChange={(paymentMethod) => setDraft((current) => ({ ...current, paymentMethod }))}
         />
         <NexusFilterGroup
-          title="Método de Entrega"
+          title="Método de entrega"
           value={draft.deliveryMethod}
           options={DELIVERY_OPTIONS}
           desktopFullRowValues={["parcel"]}

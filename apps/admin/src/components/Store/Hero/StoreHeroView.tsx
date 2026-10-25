@@ -186,7 +186,7 @@ export const StoreHeroView: React.FC<StoreHeroViewProps> = ({
           level={1}
           icon={MonitorPlay}
           title="Sin heroes de tienda"
-          description="Crea un hero para Todo, Aves o Artículos."
+          description="Crea un hero para todo, aves o artículos."
           action={
             <NexusSectionButton icon={Plus} onClick={onCreate}>
               Crear hero

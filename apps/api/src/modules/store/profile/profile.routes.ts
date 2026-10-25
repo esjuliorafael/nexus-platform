@@ -47,11 +47,10 @@ export async function ownProfileRoutes(server: FastifyInstance) {
   server.put("/contact", async (request, reply) => {
     try {
       const data = updateContactProfileSchema.parse(request.body);
-      const role = String((request.user as any).role || "").toUpperCase();
       return await profileService.updateContactProfile(
         Number((request.user as any).id),
         data,
-        role === "ADMIN" || role === "SUPERADMIN",
+        (request.user as any).permissions?.includes("users.manage") || false,
       );
     } catch (error) {
       return sendRouteError(error, reply);

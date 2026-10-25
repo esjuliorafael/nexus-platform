@@ -4,9 +4,10 @@ import { whatsappChannelSchema } from "../shared.schema";
 
 export async function whatsappChannelRoutes(server: FastifyInstance) {
   server.get("/", async () => {
-    return storePrisma.whatsappChannel.findMany({
+    const channels = await storePrisma.whatsappChannel.findMany({
       include: { templates: true },
     });
+    return channels.map(({ evolutionKey: _evolutionKey, ...channel }) => channel);
   });
 
   server.post(
@@ -71,7 +72,7 @@ export async function whatsappChannelRoutes(server: FastifyInstance) {
     async (_request, reply) => {
       return reply.status(409).send({
         message:
-          "Las plantillas se administran exclusivamente desde el Canal Principal.",
+          "Las plantillas se administran exclusivamente desde el canal principal.",
       });
     },
   );

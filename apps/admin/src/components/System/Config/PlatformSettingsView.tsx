@@ -80,11 +80,11 @@ export const PlatformSettingsView = forwardRef<PlatformSettingsViewRef, Platform
       <div key="platform-settings-content" className="space-y-8 pb-12 animate-in fade-in duration-300">
         
         <NexusHero
-          title="Ajustes Globales"
+          title="Ajustes globales"
           subtitle="Infraestructura"
           icon={ShieldCheck}
           variant="dark"
-          badge="Impacto Inmediato"
+          badge="Impacto inmediato"
           badgeValue="Todos los servicios"
         />
 
@@ -99,7 +99,7 @@ export const PlatformSettingsView = forwardRef<PlatformSettingsViewRef, Platform
           <div className="grid grid-cols-1 gap-y-12">
             <div className="animate-in fade-in zoom-in-95 duration-300 [animation-fill-mode:both]" style={{ animationDelay: '100ms' }}>
               <NexusInput 
-                label="Comisión de Plataforma (%)"
+                label="Comisión de plataforma (%)"
                 type="number"
                 min="0"
                 max="100"
@@ -140,11 +140,11 @@ export const PlatformSettingsView = forwardRef<PlatformSettingsViewRef, Platform
 
             <div className="animate-in fade-in zoom-in-95 duration-300 [animation-fill-mode:both]" style={{ animationDelay: '200ms' }}>
               <NexusInput 
-                label="Global API Key"
+                label="Global API key"
                 type="password" 
                 value={config.evolutionKey} 
                 onChange={(e) => setConfig({ ...config, evolutionKey: e.target.value })}
-                placeholder="Tu API Key secreta" 
+                placeholder="Tu API key secreta"
                 icon={Key}
                 copyable
                 helperText="Llave maestra definida en la configuración del servidor."
@@ -167,8 +167,8 @@ export const PlatformSettingsView = forwardRef<PlatformSettingsViewRef, Platform
 
         {/* CLOUDFLARE R2 SECTION */}
         <NexusSection
-          title="Cloud Storage (R2/S3)"
-          subtitle="Almacenamiento de Medios y Galería"
+          title="Cloud storage (R2/S3)"
+          subtitle="Almacenamiento de medios y galería"
           icon={Cloud}
           iconVariant="brand"
           delay="600ms"
@@ -179,7 +179,7 @@ export const PlatformSettingsView = forwardRef<PlatformSettingsViewRef, Platform
                 label="Account ID"
                 value={config.r2AccountId} 
                 onChange={(e) => setConfig({ ...config, r2AccountId: e.target.value })}
-                placeholder="Cloudflare Account ID" 
+                placeholder="Cloudflare account ID"
                 icon={ShieldCheck}
                 copyable
               />
@@ -187,7 +187,7 @@ export const PlatformSettingsView = forwardRef<PlatformSettingsViewRef, Platform
 
             <div className="animate-in fade-in zoom-in-95 duration-300 [animation-fill-mode:both]" style={{ animationDelay: '200ms' }}>
               <NexusInput 
-                label="Bucket Name"
+                label="Bucket name"
                 value={config.r2BucketName} 
                 onChange={(e) => setConfig({ ...config, r2BucketName: e.target.value })}
                 placeholder="ej. nexus-assets" 
@@ -221,13 +221,13 @@ export const PlatformSettingsView = forwardRef<PlatformSettingsViewRef, Platform
 
             <div className="md:col-span-2 animate-in fade-in zoom-in-95 duration-300 [animation-fill-mode:both]" style={{ animationDelay: '500ms' }}>
               <NexusInput 
-                label="Public Domain URL"
+                label="Public domain URL"
                 value={config.r2PublicDomain} 
                 onChange={(e) => setConfig({ ...config, r2PublicDomain: e.target.value })}
                 placeholder="https://pub-xxxx.r2.dev" 
                 icon={ExternalLink}
                 copyable
-                helperText="URL pública para servir los archivos (Configurada en Cloudflare R2)."
+                helperText="URL pública para servir los archivos (configurada en Cloudflare R2)."
               />
             </div>
           </div>
@@ -237,7 +237,7 @@ export const PlatformSettingsView = forwardRef<PlatformSettingsViewRef, Platform
           <div className="flex gap-4">
              <div className="text-text-muted shrink-0 mt-0.5"><ExternalLink size={16} /></div>
              <p className="text-secondary text-text-muted leading-relaxed">
-              <span className="text-label text-text-main block mb-1">Nota de Seguridad</span>
+              <span className="text-label text-text-main block mb-1">Nota de seguridad</span>
               Los cambios realizados en esta sección se aplican inmediatamente a todos los servicios centrales. Asegúrate de que las credenciales sean correctas antes de guardar para evitar interrupciones en el servicio.
             </p>
           </div>

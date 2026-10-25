@@ -32,7 +32,7 @@ import { NexusSection } from "../ui/NexusSection";
 
 interface Props {
   raffle: Raffle;
-  canManageOperations: boolean;
+  canSendMessages: boolean;
   showToast: (message: string, type?: "success" | "error") => void;
   content?: "all" | "reminder" | "results";
   embedded?: boolean;
@@ -42,12 +42,12 @@ const CAMPAIGN_PRESENTATION: Record<
   RaffleResultCampaign["status"],
   { label: string; variant: NexusBadgeVariant }
 > = {
-  QUEUED: { label: "En Cola", variant: "warning" },
-  PROCESSING: { label: "En Proceso", variant: "warning" },
-  PARTIAL: { label: "Envío Parcial", variant: "warning" },
+  QUEUED: { label: "En cola", variant: "warning" },
+  PROCESSING: { label: "En proceso", variant: "warning" },
+  PARTIAL: { label: "Envío parcial", variant: "warning" },
   SENT: { label: "Procesada", variant: "success" },
   FAILED: { label: "Fallida", variant: "danger" },
-  EMPTY: { label: "Sin Destinatarios", variant: "muted" },
+  EMPTY: { label: "Sin destinatarios", variant: "muted" },
   CLOSED: { label: "Cerrada", variant: "muted" },
 };
 
@@ -105,7 +105,7 @@ const toDateTimeLocalValue = (value?: string | null) => {
 
 export const RaffleResultCommunicationSection: React.FC<Props> = ({
   raffle,
-  canManageOperations,
+  canSendMessages,
   showToast,
   content = "all",
   embedded = false,
@@ -350,7 +350,7 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
     <>
       {showReminder && (
         <NexusSection
-          title="Recordatorio de la Rifa"
+          title="Recordatorio de la rifa"
           subtitle="Comunicación operativa previa para participaciones pagadas"
           icon={Bell}
           iconVariant="brand"
@@ -362,13 +362,13 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
               style={{ borderRadius: "var(--radius-inner-visual)" }}
             />
           ) : !drawReminder?.drawDate ? (
-            <NexusInlineNotice title="Fecha Pendiente" variant="neutral">
+            <NexusInlineNotice title="Fecha pendiente" variant="neutral">
               Configura la fecha de la rifa para habilitar este aviso.
             </NexusInlineNotice>
           ) : (
             <NexusSectionCard
               icon={Bell}
-              title="Recordatorio de la Rifa"
+              title="Recordatorio de la rifa"
               subtitle={displayDrawReminderSubtitle}
               stackActionsOnMobile
               rightContent={
@@ -421,7 +421,7 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
                 </div>
               }
               actions={
-                canManageOperations && !drawReminder.campaign ? (
+                canSendMessages && !drawReminder.campaign ? (
                   <div
                     className="grid w-full grid-cols-3 md:flex md:w-auto"
                     style={{ gap: "var(--space-sm)" }}
@@ -456,7 +456,7 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
                       Enviar
                     </NexusCardButton>
                   </div>
-                ) : canManageOperations && drawReminderScheduled ? (
+                ) : canSendMessages && drawReminderScheduled ? (
                   <div
                     className="grid w-full grid-cols-3 md:flex md:w-auto"
                     style={{ gap: "var(--space-sm)" }}
@@ -490,7 +490,7 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
 
       {showResults && (
         <NexusSection
-          title="Comunicación de Resultados"
+          title="Comunicación de resultados"
           subtitle="Mensajes independientes de la publicación de la rifa"
           icon={MessageCircle}
           iconVariant="brand"
@@ -501,7 +501,7 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
               style={{ borderRadius: "var(--radius-inner-visual)" }}
             />
           ) : !overview?.resultPublishedAt ? (
-            <NexusInlineNotice title="Resultados Pendientes" variant="neutral">
+            <NexusInlineNotice title="Resultados pendientes" variant="neutral">
               Publica primero los resultados para habilitar las comunicaciones.
             </NexusInlineNotice>
           ) : (
@@ -516,7 +516,7 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
                 icon={Trophy}
                 campaign={latestCampaign("WINNERS")}
                 estimate={audienceEstimate("WINNERS")}
-                canManage={canManageOperations}
+                canManage={canSendMessages}
                 isSubmitting={isSubmitting}
                 onStart={() => setPendingAudience("WINNERS")}
                 onRetry={handleRetry}
@@ -529,7 +529,7 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
                 icon={UsersRound}
                 campaign={latestCampaign("PARTICIPANTS")}
                 estimate={audienceEstimate("PARTICIPANTS")}
-                canManage={canManageOperations}
+                canManage={canSendMessages}
                 isSubmitting={isSubmitting}
                 onStart={() => setPendingAudience("PARTICIPANTS")}
                 onRetry={handleRetry}
@@ -542,13 +542,13 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
 
       {showResults && overview?.resultPublishedAt && (
         <NexusSection
-          title="Entrega de Premios"
+          title="Entrega de premios"
           subtitle="Seguimiento posterior para cada ganador elegible"
           icon={Gift}
         >
           {eligiblePrizes.length === 0 ? (
             <NexusInlineNotice
-              title="Sin Premios Entregables"
+              title="Sin premios entregables"
               variant="neutral"
             >
               Ningún lugar publicado tiene una participación pagada asociada.
@@ -572,7 +572,7 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
                     </NexusCardBadge>
                   }
                   actions={
-                    canManageOperations ? (
+                    canSendMessages ? (
                       <NexusCardButton
                         type="button"
                         variant="secondary"
@@ -591,7 +591,7 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
 
       <NexusConfirmModal
         isOpen={pendingDrawReminder}
-        title="Enviar Recordatorio de la Rifa"
+        title="Enviar recordatorio de la rifa"
         message={`Se preparará un mensaje para ${drawReminder?.totalRecipients || 0} destinatario(s) único(s), agrupando todas sus participaciones pagadas. ${drawReminder?.invalidRecipients ? `${drawReminder.invalidRecipients} número(s) inválido(s) quedarán registrados como fallidos. ` : ""}La audiencia y la plantilla quedarán congeladas para evitar duplicados.`}
         confirmLabel={isSubmitting ? "Enviando..." : "Enviar Aviso"}
         cancelLabel="Cancelar"
@@ -608,14 +608,14 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
         onClose={() => {
           if (!isSubmitting) setIsScheduleModalOpen(false);
         }}
-        eyebrow="Recordatorio de la Rifa"
-        title="Programar Aviso"
+        eyebrow="Recordatorio de la rifa"
+        title="Programar aviso"
         icon={Clock3}
         size="compact"
       >
         <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
           <NexusInput
-            label="Fecha y Hora de Envío"
+            label="Fecha y hora de envío"
             type="datetime-local"
             value={scheduledFor}
             onChange={(event) => setScheduledFor(event.target.value)}
@@ -640,7 +640,7 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
               isLoading={isSubmitting}
               onClick={() => void handleScheduleDrawReminder()}
             >
-              Programar Aviso
+              Programar aviso
             </NexusSectionButton>
           </NexusModalActions>
         </div>
@@ -648,7 +648,7 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
 
       <NexusConfirmModal
         isOpen={pendingScheduleCancellation}
-        title="Cancelar Aviso Programado"
+        title="Cancelar aviso programado"
         message="El aviso no se enviará a la hora programada. Podrás volver a programarlo mientras la rifa no se haya definido."
         confirmLabel={isSubmitting ? "Cancelando..." : "Cancelar Aviso"}
         cancelLabel="Conservar"
@@ -691,7 +691,7 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
       <NexusModal
         isOpen={Boolean(selectedCampaign)}
         onClose={() => setSelectedCampaign(null)}
-        eyebrow="Comunicación de Resultados"
+        eyebrow="Comunicación de resultados"
         title={
           selectedCampaign?.audience === "WINNERS"
             ? "Mensajes a Ganadores"
@@ -794,7 +794,7 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
             </div>
           ))}
           {selectedCampaign?.recipients.length === 0 && (
-            <NexusInlineNotice title="Sin Destinatarios" variant="neutral">
+            <NexusInlineNotice title="Sin destinatarios" variant="neutral">
               Esta audiencia no contiene destinatarios válidos.
             </NexusInlineNotice>
           )}
@@ -807,13 +807,13 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
           if (!isSubmitting) setEditingPrize(null);
         }}
         eyebrow={editingPrize ? placeLabel(editingPrize.position) : "Premio"}
-        title="Actualizar Entrega"
+        title="Actualizar entrega"
         icon={Gift}
         size="compact"
       >
         <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
           <NexusSelect
-            label="Estado de la Entrega"
+            label="Estado de la entrega"
             value={fulfillmentStatus}
             onChange={(event) =>
               setFulfillmentStatus(
@@ -852,7 +852,7 @@ export const RaffleResultCommunicationSection: React.FC<Props> = ({
               isLoading={isSubmitting}
               onClick={() => void handleFulfillment()}
             >
-              Guardar Estado
+              Guardar estado
             </NexusSectionButton>
           </NexusModalActions>
         </div>
@@ -924,7 +924,7 @@ function CampaignCard({
               {presentation.label}
             </NexusCardBadge>
           ) : (
-            <NexusCardBadge variant="muted">No Enviada</NexusCardBadge>
+            <NexusCardBadge variant="muted">No enviada</NexusCardBadge>
           )}
           <span className="text-secondary font-semibold text-text-main">
             {campaign
@@ -965,7 +965,7 @@ function CampaignCard({
               }
               onClick={() => onDetails(campaign)}
             >
-              Ver Detalle
+              Ver detalle
             </NexusCardButton>
           )}
           {canManage && !campaign && (
@@ -995,7 +995,7 @@ function CampaignCard({
               disabled={isSubmitting}
               onClick={() => void onRetry(campaign)}
             >
-              Reintentar Fallidos
+              Reintentar fallidos
             </NexusCardButton>
           )}
         </div>

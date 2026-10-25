@@ -440,7 +440,7 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
 
         const principal = {
           id: "principal",
-          name: "Canal Principal",
+          name: "Canal principal",
           purpose: "PRINCIPAL",
           bank: {
             ready: Boolean(

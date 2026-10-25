@@ -32,7 +32,10 @@ import { RaffleParticipantCouponSection } from "./RaffleParticipantCouponSection
 
 interface RaffleOverviewViewProps {
   raffle: Raffle;
-  canManageOperations: boolean;
+  canManageResults: boolean;
+  canManageRaffleCoupons: boolean;
+  canViewMessages: boolean;
+  canSendMessages: boolean;
   showToast: (message: string, type?: "success" | "error") => void;
   onRaffleChange: (raffle: Raffle) => void;
   onOpenTicketBoard: () => void;
@@ -107,7 +110,10 @@ export const buildRaffleTicketNumbers = (raffle: Raffle) => {
 
 export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
   raffle,
-  canManageOperations,
+  canManageResults,
+  canManageRaffleCoupons,
+  canViewMessages,
+  canSendMessages,
   showToast,
   onRaffleChange,
   onOpenTicketBoard,
@@ -225,7 +231,7 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
       </div>
 
       <NexusSection
-        title="Ocupación de la Rifa"
+        title="Ocupación de la rifa"
         subtitle={`${metrics.occupied} de ${raffle.ticketQuantity} boletos no están disponibles`}
         icon={Activity}
         iconVariant="brand"
@@ -289,7 +295,7 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
       </NexusSection>
 
       <NexusSection
-        title="Costo de Mensajería Meta"
+        title="Costo de mensajería Meta"
         subtitle="Estimación de plantillas Cloud API entregadas para esta rifa. No incluye la mensualidad de Kapso."
         icon={ReceiptText}
         iconVariant="emerald"
@@ -409,7 +415,7 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
             icon={Eye}
             onClick={onOpenTicketBoard}
           >
-            Ver Boletera Completa
+            Ver boletera completa
           </NexusSectionButton>
         }
       >
@@ -437,65 +443,73 @@ export const RaffleOverviewView: React.FC<RaffleOverviewViewProps> = ({
         </div>
       </NexusSection>
 
-      <NexusSection
-        title="Comunicaciones de la Rifa"
+      {(canViewMessages || canManageRaffleCoupons) && <NexusSection
+        title="Comunicaciones de la rifa"
         subtitle="Programa y envía avisos operativos y promocionales."
         icon={Megaphone}
       >
         <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
-          <RaffleInvitationSection
-            raffle={raffle}
-            canManageOperations={canManageOperations}
-            showToast={showToast}
-            embedded
-          />
-          <RaffleResultCommunicationSection
-            raffle={raffle}
-            canManageOperations={canManageOperations}
-            showToast={showToast}
-            content="reminder"
-            embedded
-          />
-          <RaffleDateChangeSection
-            raffle={raffle}
-            canManageOperations={canManageOperations}
-            showToast={showToast}
-            embedded
-          />
-          <RaffleParticipantCouponSection
-            raffle={raffle}
-            canManageOperations={canManageOperations}
-            showToast={showToast}
-            embedded
-          />
+          {canViewMessages && (
+            <>
+              <RaffleInvitationSection
+                raffle={raffle}
+                canSendMessages={canSendMessages}
+                showToast={showToast}
+                embedded
+              />
+              <RaffleResultCommunicationSection
+                raffle={raffle}
+                canSendMessages={canSendMessages}
+                showToast={showToast}
+                content="reminder"
+                embedded
+              />
+              <RaffleDateChangeSection
+                raffle={raffle}
+                canSendMessages={canSendMessages}
+                showToast={showToast}
+                embedded
+              />
+            </>
+          )}
+          {canManageRaffleCoupons && (
+            <RaffleParticipantCouponSection
+              raffle={raffle}
+              canManageRaffleCoupons={canManageRaffleCoupons}
+              showToast={showToast}
+              embedded
+            />
+          )}
         </div>
-      </NexusSection>
+      </NexusSection>}
 
       <RaffleResultSection
         raffle={raffle}
-        canManageOperations={canManageOperations}
+        canManageResults={canManageResults}
         showToast={showToast}
         onRaffleChange={onRaffleChange}
         content="resolution"
       />
 
-      <RaffleResultCommunicationSection
-        raffle={raffle}
-        canManageOperations={canManageOperations}
-        showToast={showToast}
-        content="results"
-      />
+      {canViewMessages && (
+        <RaffleResultCommunicationSection
+          raffle={raffle}
+          canSendMessages={canSendMessages}
+          showToast={showToast}
+          content="results"
+        />
+      )}
 
       <RaffleResultSection
         raffle={raffle}
-        canManageOperations={canManageOperations}
+        canManageResults={canManageResults}
         showToast={showToast}
         onRaffleChange={onRaffleChange}
         content="history"
       />
 
       <NexusSection
-        title="Historial de Participaciones"
+        title="Historial de participaciones"
         subtitle={`${participationHistory.length.toLocaleString("es-MX")} ${
           participationHistory.length === 1
             ? "participación"

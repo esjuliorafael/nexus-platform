@@ -1548,7 +1548,7 @@ function RaffleAvailabilityProgress({
                 height: "var(--sf-size-inner-icon-badge)",
               }}
             />
-            <p className="sf-text-caption font-semibold normal-case">
+            <p className="sf-text-secondary font-semibold normal-case">
               {activityCopy}
               {relativeActivity ? ` · ${relativeActivity}` : ""}
             </p>

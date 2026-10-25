@@ -45,7 +45,7 @@ export const RaffleTicketBoardFiltersModal: React.FC<
   return (
     <NexusDrawer
       isOpen={isOpen}
-      title="Filtrar Boletos"
+      title="Filtrar boletos"
       eyebrow="Boletera"
       icon={Filter}
       onClose={onClose}

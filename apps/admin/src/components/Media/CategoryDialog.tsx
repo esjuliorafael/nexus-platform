@@ -73,10 +73,10 @@ export const CategoryDialog: React.FC<CategoryDialogProps> = ({
           style={{ gap: 'var(--space-lg)' }}
         >
           <NexusInput
-            label="Nombre de la Categoria *"
+            label="Nombre de la categoria *"
             type="text"
             required
-            placeholder="Ej. Temporada de Cosecha, Nuevas Instalaciones..."
+            placeholder="Ej. Temporada de cosecha, nuevas instalaciones..."
             value={name}
             autoFocus
             onChange={(event) => setName(event.target.value)}

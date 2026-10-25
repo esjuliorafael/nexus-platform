@@ -180,7 +180,7 @@ export const StorefrontTemplateForm = forwardRef<
           Volver
         </NexusSectionButton>
         <NexusSectionButton type="submit" icon={MonitorPlay} isLoading={isSaving}>
-          Guardar Pantalla
+          Guardar pantalla
         </NexusSectionButton>
       </div>
 
@@ -217,7 +217,7 @@ export const StorefrontTemplateForm = forwardRef<
                   <img src={previewUrl} className="h-full w-full object-cover" alt={`Medio de ${meta.label}`} />
                 )}
 
-                <UploadPreviewOverlay label="Cambiar Medio" />
+                <UploadPreviewOverlay label="Cambiar medio" />
 
                 <div
                   className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between"
@@ -246,7 +246,7 @@ export const StorefrontTemplateForm = forwardRef<
           </div>
 
           <NexusSection
-            title="Encuadre en Computadora"
+            title="Encuadre en computadora"
             subtitle="Ajuste visual para pantallas amplias"
             icon={MonitorPlay}
             iconVariant="brand"
@@ -261,7 +261,7 @@ export const StorefrontTemplateForm = forwardRef<
           </NexusSection>
 
           <NexusSection
-            title="Encuadre en Celular"
+            title="Encuadre en celular"
             subtitle="Ajuste visual para pantallas verticales"
             icon={Smartphone}
             iconVariant="blue"
@@ -315,8 +315,8 @@ export const StorefrontTemplateForm = forwardRef<
                 }}
               >
                 <div className="flex flex-col" style={{ gap: "var(--space-xs)" }}>
-                  <h4 className="text-h2 text-text-main">Mostrar Logo</h4>
-                  <p className="text-secondary text-text-muted">Usa el logo cargado en Identidad.</p>
+                  <h4 className="text-h2 text-text-main">Mostrar logo</h4>
+                  <p className="text-secondary text-text-muted">Usa el logo cargado en identidad.</p>
                 </div>
                 <div className="flex flex-col items-center" style={{ gap: "var(--space-xs)" }}>
                   <NexusSwitch

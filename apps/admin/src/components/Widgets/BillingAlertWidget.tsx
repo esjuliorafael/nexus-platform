@@ -52,7 +52,7 @@ export const BillingAlertWidget: React.FC<BillingAlertWidgetProps> = ({
     >
       <NexusHero
         title={`$${netBalance.toLocaleString('es-MX', { minimumFractionDigits: 2 })}`}
-        subtitle="Saldo Total Pendiente"
+        subtitle="Saldo total pendiente"
         icon={AlertCircle}
         variant="dark"
         badge={nextDueDate ? "Próximo Vencimiento" : undefined}

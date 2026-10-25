@@ -36,7 +36,7 @@ import { useRaffleOperationalOverview } from "./useRaffleOperationalOverview";
 
 interface RaffleTicketBoardViewProps {
   raffle: Raffle;
-  canManageOperations: boolean;
+  canManageParticipations: boolean;
   showToast: (message: string, type?: "success" | "error") => void;
   onOpenParticipation: (participation: RaffleParticipation) => void;
   searchQuery?: string;
@@ -63,7 +63,7 @@ const formatCurrency = (value: number) =>
 
 export const RaffleTicketBoardView: React.FC<RaffleTicketBoardViewProps> = ({
   raffle,
-  canManageOperations,
+  canManageParticipations,
   showToast,
   onOpenParticipation,
   searchQuery = "",
@@ -330,16 +330,16 @@ export const RaffleTicketBoardView: React.FC<RaffleTicketBoardViewProps> = ({
     >
       <div ref={ticketSectionRef}>
         <NexusSection
-          title="Boletera Completa"
+          title="Boletera completa"
           subtitle={
-            canManageOperations
+            canManageParticipations
               ? "Selecciona boletos disponibles para crear un apartado o consulta una participación existente"
               : "Selecciona un boleto ocupado para consultar su participación"
           }
           icon={Ticket}
           iconVariant="brand"
           action={
-            canManageOperations && selectedCount > 0 ? (
+            canManageParticipations && selectedCount > 0 ? (
               <div
                 className="flex items-center"
                 style={{ gap: "var(--space-sm)" }}
@@ -358,7 +358,7 @@ export const RaffleTicketBoardView: React.FC<RaffleTicketBoardViewProps> = ({
                   icon={Eye}
                   onClick={() => setIsSelectionDrawerOpen(true)}
                 >
-                  Revisar Selección
+                  Revisar selección
                 </NexusSectionButton>
               </div>
             ) : undefined
@@ -410,7 +410,7 @@ export const RaffleTicketBoardView: React.FC<RaffleTicketBoardViewProps> = ({
                       onClick={
                         participationId
                           ? () => void handleOpenTicket(participationId)
-                          : canManageOperations
+                          : canManageParticipations
                             ? () => handleToggleTicket(number)
                             : undefined
                       }
@@ -439,7 +439,7 @@ export const RaffleTicketBoardView: React.FC<RaffleTicketBoardViewProps> = ({
         onPageChange={setCurrentPage}
       />
 
-      {canManageOperations && (
+      {canManageParticipations && (
         <div
           className="fixed inset-x-0 bottom-0 z-[70] md:hidden"
           style={{
@@ -462,7 +462,7 @@ export const RaffleTicketBoardView: React.FC<RaffleTicketBoardViewProps> = ({
           >
             <div className="min-w-0 flex-1">
               <p className="text-label uppercase text-text-muted">
-                Mi Selección
+                Mi selección
               </p>
               <p className="truncate text-secondary font-bold text-text-main">
                 {selectedCount > 0
@@ -512,8 +512,8 @@ export const RaffleTicketBoardView: React.FC<RaffleTicketBoardViewProps> = ({
         onClose={() => {
           if (!isCreating) setIsCreateModalOpen(false);
         }}
-        eyebrow="Apartado Administrativo"
-        title="Nueva Participación"
+        eyebrow="Apartado administrativo"
+        title="Nueva participación"
         icon={UserRound}
         size="standard"
       >
@@ -532,7 +532,7 @@ export const RaffleTicketBoardView: React.FC<RaffleTicketBoardViewProps> = ({
 
             <div className="flex flex-col" style={{ gap: "var(--space-sm)" }}>
               <h4 className="text-secondary font-bold text-text-main">
-                Boletos Seleccionados
+                Boletos seleccionados
               </h4>
               <div className="no-scrollbar -mx-[var(--padding-inner)] overflow-x-auto px-[var(--padding-inner)]">
                 <div
@@ -559,7 +559,7 @@ export const RaffleTicketBoardView: React.FC<RaffleTicketBoardViewProps> = ({
 
           <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
             <NexusInput
-              label="Nombre Completo"
+              label="Nombre completo"
               icon={UserRound}
               value={customerName}
               onChange={(event) => setCustomerName(event.target.value)}
@@ -629,7 +629,7 @@ export const RaffleTicketBoardView: React.FC<RaffleTicketBoardViewProps> = ({
               disabled={!canSubmit}
               className="flex-[2]"
             >
-              Crear Apartado
+              Crear apartado
             </NexusAutonomousButton>
           </NexusModalActions>
         </form>

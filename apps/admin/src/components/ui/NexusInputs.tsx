@@ -148,6 +148,8 @@ export const NexusDateTimeInput: React.FC<DateTimeInputProps> = ({
   const dateId = `${generatedId}-date`;
   const timeId = `${generatedId}-time`;
   const [draft, setDraft] = useState(() => splitDateTimeValue(value));
+  const dateInputRef = useRef<HTMLInputElement>(null);
+  const timeInputRef = useRef<HTMLInputElement>(null);
   const lastExternalValue = useRef(value);
   const isInsideTemporarySurface = useNexusTemporarySurfaceContext();
 
@@ -160,6 +162,18 @@ export const NexusDateTimeInput: React.FC<DateTimeInputProps> = ({
   const updateDraft = (nextDraft: { date: string; time: string }) => {
     setDraft(nextDraft);
     onChange(nextDraft.date && nextDraft.time ? `${nextDraft.date}T${nextDraft.time}` : '');
+  };
+
+  const openNativePicker = (input: HTMLInputElement | null) => {
+    if (!input || disabled) return;
+
+    input.focus({ preventScroll: true });
+    const pickerInput = input as HTMLInputElement & { showPicker?: () => void };
+    try {
+      pickerInput.showPicker?.();
+    } catch {
+      // Firefox and older browsers open the picker through the focused input.
+    }
   };
 
   const dateDisplayClass = draft.date ? 'text-text-main' : 'text-text-muted';
@@ -189,10 +203,12 @@ export const NexusDateTimeInput: React.FC<DateTimeInputProps> = ({
               {formatDateSegment(draft.date)}
             </span>
             <input
+              ref={dateInputRef}
               id={dateId}
               type="date"
               value={draft.date}
               onChange={(event) => updateDraft({ date: event.target.value, time: draft.time })}
+              onPointerDown={() => openNativePicker(dateInputRef.current)}
               aria-label={`${label}: fecha`}
               aria-invalid={Boolean(error)}
               disabled={disabled}
@@ -207,10 +223,12 @@ export const NexusDateTimeInput: React.FC<DateTimeInputProps> = ({
               {draft.time || 'hh:mm'}
             </span>
             <input
+              ref={timeInputRef}
               id={timeId}
               type="time"
               value={draft.time}
               onChange={(event) => updateDraft({ date: draft.date, time: event.target.value })}
+              onPointerDown={() => openNativePicker(timeInputRef.current)}
               aria-label={`${label}: hora`}
               aria-invalid={Boolean(error)}
               disabled={disabled}

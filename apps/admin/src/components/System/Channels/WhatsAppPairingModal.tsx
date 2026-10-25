@@ -119,7 +119,7 @@ export const WhatsAppPairingModal: React.FC<WhatsAppPairingModalProps> = ({
               </span>
             </div>
             <p className="text-secondary text-text-muted">
-              En WhatsApp abre Dispositivos vinculados, elige Vincular con número de teléfono e ingresa este código.
+              En WhatsApp abre dispositivos vinculados, elige vincular con número de teléfono e ingresa este código.
             </p>
             <NexusAutonomousButton
               onClick={copyCode}

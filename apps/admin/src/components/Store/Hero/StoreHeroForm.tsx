@@ -199,7 +199,7 @@ export const StoreHeroForm = forwardRef<
                 size="normal"
                 className="aspect-video w-full shadow-sm"
                 icon={Upload}
-                title="Medio del Hero"
+                title="Medio del hero"
                 description="Imagen o video principal para la tienda (16:9 recomendado)."
                 onClick={() => fileInputRef.current?.click()}
               />
@@ -215,7 +215,7 @@ export const StoreHeroForm = forwardRef<
                   <img src={previewUrl} className="h-full w-full object-cover" alt="Medio del hero" />
                 )}
 
-                <UploadPreviewOverlay label="Cambiar Medio" />
+                <UploadPreviewOverlay label="Cambiar medio" />
 
                 <div
                   className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between"
@@ -248,7 +248,7 @@ export const StoreHeroForm = forwardRef<
           </div>
 
           <NexusSection
-            title="Encuadre en Computadora"
+            title="Encuadre en computadora"
             subtitle="Ajuste del medio en el hero de escritorio"
             icon={MonitorPlay}
             iconVariant="brand"
@@ -275,7 +275,7 @@ export const StoreHeroForm = forwardRef<
           </NexusSection>
 
           <NexusSection
-            title="Encuadre en Celular"
+            title="Encuadre en celular"
             subtitle="Ajuste del medio en el hero móvil"
             icon={Smartphone}
             iconVariant="brand"
@@ -307,7 +307,7 @@ export const StoreHeroForm = forwardRef<
           style={{ gap: "var(--space-lg)" }}
         >
           <NexusSection
-            title="Detalles del Hero"
+            title="Detalles del hero"
             subtitle="Contenido editorial de la tienda"
             icon={ImagePlus}
             iconVariant="brand"

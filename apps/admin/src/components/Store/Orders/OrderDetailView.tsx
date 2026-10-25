@@ -113,7 +113,9 @@ interface OrderDetailViewProps {
   order: Order;
   onBack: () => void;
   showToast: (message: string, type?: 'success' | 'error') => void;
-  canManageOperations: boolean;
+  canManageOrder: boolean;
+  canRefundOrder: boolean;
+  canSendMessages: boolean;
 }
 
 // Utilidad para formatear fecha (YYYY-MM-DD... -> DD/MM/YYYY)
@@ -239,7 +241,9 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
   order,
   onBack,
   showToast,
-  canManageOperations,
+  canManageOrder,
+  canRefundOrder,
+  canSendMessages,
   }) => {
   const [currentOrder, setCurrentOrder] = React.useState(order);
   const [isResending, setIsResending] = React.useState(false);
@@ -293,7 +297,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
   const isPaymentHold = currentOrder.recordType === 'PAYMENT_HOLD';
   const isMercadoPagoOrder = currentOrder.paymentMethod === 'MERCADOPAGO';
   const canRefundMercadoPago =
-    canManageOperations &&
+    canRefundOrder &&
     isMercadoPagoOrder &&
     String(currentOrder.status || '').toLowerCase() === 'paid' &&
     currentOrder.paymentStatus === 'APPROVED' &&
@@ -470,7 +474,11 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                         {truncateProductName(item?.name || 'Producto sin nombre')}
                       </p>
                       <p className="text-label text-stone-400 uppercase tracking-[0.15em]">
-                        {item?.type?.toUpperCase() === 'BIRD' ? 'Ave' : 'Artículo'}
+                        {item?.type?.toUpperCase() === 'BIRD'
+                          ? item?.ringNumber
+                            ? `Ave · Anillo ${item.ringNumber}`
+                            : 'Ave'
+                          : 'Artículo'}
                       </p>
                     </div>
                   </div>
@@ -509,7 +517,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                   <Truck size={24} strokeWidth={1.5} />
                </div>
                <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                  <h3 className="text-h2 tracking-tight">Logística de Envío</h3>
+                  <h3 className="text-h2 tracking-tight">Logística de envío</h3>
                   <p className="text-label text-white/40 uppercase tracking-[0.15em]">Instrucciones de entrega</p>
                </div>
             </div>
@@ -519,7 +527,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                 <div className="flex flex-col" style={{ gap: 'var(--space-sm)' }}>
                   <div className="flex items-center text-brand-400" style={{ gap: 'var(--space-xs)' }}>
                     <Plane size={16} strokeWidth={2.5} />
-                    <span className="text-label uppercase tracking-[0.15em]">Envío de Aves</span>
+                    <span className="text-label uppercase tracking-[0.15em]">Envío de aves</span>
                   </div>
                   <div
                     className="bg-white/5 border border-white/10"
@@ -542,7 +550,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                 <div className="flex flex-col" style={{ gap: 'var(--space-sm)' }}>
                   <div className="flex items-center text-blue-400" style={{ gap: 'var(--space-xs)' }}>
                     <Truck size={16} strokeWidth={2.5} />
-                    <span className="text-label uppercase tracking-[0.15em]">Envío de Artículos</span>
+                    <span className="text-label uppercase tracking-[0.15em]">Envío de artículos</span>
                   </div>
                   <div
                     className="bg-white/5 border border-white/10"
@@ -551,7 +559,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                       borderRadius: 'var(--radius-inner-visual)'
                     }}
                   >
-                    <p className="text-label text-white/30 uppercase tracking-[0.15em]" style={{ marginBottom: 'var(--space-xs)' }}>Dirección Completa</p>
+                    <p className="text-label text-white/30 uppercase tracking-[0.15em]" style={{ marginBottom: 'var(--space-xs)' }}>Dirección completa</p>
                     <p className="text-secondary leading-relaxed text-stone-300">
                       {currentOrder.customerAddress || 'No se proporcionó dirección completa.'}
                     </p>
@@ -577,12 +585,12 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
             iconVariant="brand"
             actionPlacement="below"
             action={
-              !isPaymentHold && canManageOperations ? (
+              !isPaymentHold && canManageOrder ? (
                 <NexusSectionButton
                   onClick={handleOpenCustomerModal}
                   icon={Edit2}
                 >
-                  Editar Cliente
+                  Editar cliente
                 </NexusSectionButton>
               ) : undefined
             }
@@ -633,7 +641,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
             isOpen={isCustomerModalOpen}
             onClose={() => setIsCustomerModalOpen(false)}
             title={currentOrder.customer || 'Cliente'}
-            eyebrow="Editar Cliente"
+            eyebrow="Editar cliente"
             icon={User}
             iconTone="brand"
             size="standard"
@@ -690,7 +698,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                   disabled={!customerForm.customerName.trim() || !isCustomerPhoneComplete(customerForm.customerPhone)}
                   className="flex-[2]"
                 >
-                  Guardar Cambios
+                  Guardar cambios
                 </NexusAutonomousButton>
               </NexusModalActions>
             </form>
@@ -710,7 +718,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                     icon={RotateCcw}
                     variant="secondary"
                   >
-                    Devolver Pago
+                    Devolver pago
                   </NexusSectionButton>
                 ) : undefined
               }
@@ -812,7 +820,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
             icon={MessageCircle}
             iconVariant="emerald"
             actionPlacement="below"
-            action={canManageOperations ? (
+            action={canSendMessages ? (
               <NexusSectionButton
                 onClick={handleResendWhatsApp}
                 isLoading={isResending}
@@ -920,7 +928,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
 
           {!isPaymentHold && (
             <NexusSection
-              title="Historial de Actividad"
+              title="Historial de actividad"
               subtitle="Acciones y responsables"
               icon={History}
               iconVariant="muted"

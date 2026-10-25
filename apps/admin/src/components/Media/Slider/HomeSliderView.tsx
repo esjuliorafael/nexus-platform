@@ -254,7 +254,7 @@ export const HomeSliderView = forwardRef<
               icon={ImageIcon}
               onClick={() => onSetViewMode("slide_create")}
             >
-              Crear Slide
+              Crear slide
             </NexusSectionButton>
           }
         />

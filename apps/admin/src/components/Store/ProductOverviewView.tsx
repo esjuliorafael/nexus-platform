@@ -73,7 +73,7 @@ const MetricCard = ({
       <div className="flex min-w-0 flex-1 flex-col" style={{ gap: "var(--space-xs)" }}>
         <span className="text-label text-text-muted">{label}</span>
         <strong className="text-h2 text-text-main">{value}</strong>
-        <span className="text-caption text-text-muted">{helper}</span>
+        <span className="text-secondary text-text-muted">{helper}</span>
       </div>
     </div>
   </NexusAutonomousCard>

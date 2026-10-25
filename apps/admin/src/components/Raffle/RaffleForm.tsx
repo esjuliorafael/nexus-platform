@@ -502,7 +502,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                 size="normal"
                 className="aspect-video w-full shadow-sm"
                 icon={Upload}
-                title="Portada de la Rifa"
+                title="Portada de la rifa"
                 description="Imagen o video principal que verán los participantes."
                 onClick={() => coverInputRef.current?.click()}
               />
@@ -525,7 +525,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                 ) : (
                   <img src={imageUrl} className="h-full w-full object-cover" alt="Portada de la rifa" />
                 )}
-                <UploadPreviewOverlay label="Cambiar Portada" />
+                <UploadPreviewOverlay label="Cambiar portada" />
                 <div
                   className="pointer-events-none absolute inset-x-0 top-0 z-20 flex items-center justify-between"
                   style={{ padding: "var(--padding-inner)" }}
@@ -569,7 +569,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
 
           {coverMediaType === "VIDEO" && imageUrl && (
             <NexusSection
-              title="Miniatura del Video"
+              title="Miniatura del video"
               subtitle="Selecciona el fotograma para la cartelera"
               icon={ImageIcon}
               iconVariant="brand"
@@ -639,7 +639,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
           )}
 
           <NexusSection
-            title="Galería Adicional"
+            title="Galería adicional"
             subtitle={`Medios secundarios de la rifa. Máximo ${MAX_GALLERY_ITEMS}.`}
             icon={Layers}
             iconVariant="brand"
@@ -716,7 +716,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
           </NexusSection>
 
           <NexusSection
-            title="Configuración del Universo"
+            title="Configuración del universo"
             subtitle="Define el tipo de rifa, los folios y las oportunidades."
             icon={Hash}
             iconVariant="brand"
@@ -757,7 +757,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
 
               <div className="grid grid-cols-1" style={{ gap: "var(--space-md)" }}>
                 <NexusInput
-                  label="Número de Boletos (Folios) *"
+                  label="Número de boletos (folios) *"
                   type="number"
                   inputMode="numeric"
                   min="1"
@@ -772,7 +772,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
               {raffleType === "OPPORTUNITIES" && (
                 <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-md)" }}>
                   <NexusInput
-                    label="Oportunidades por Boleto *"
+                    label="Oportunidades por boleto *"
                     type="number"
                     inputMode="numeric"
                     min="2"
@@ -862,7 +862,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
           </NexusSection>
 
           <NexusSection
-            title="Participación Compartida"
+            title="Participación compartida"
             subtitle="Permite vender la mitad de un boleto a dos participantes."
             icon={UsersRound}
             iconVariant="brand"
@@ -913,21 +913,21 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
 
         <div className="lg:col-span-5 flex flex-col" style={{ gap: "var(--space-lg)" }}>
           <NexusSection
-            title="Detalles de la Rifa"
+            title="Detalles de la rifa"
             subtitle="Información que se mostrará a los participantes."
             icon={Ticket}
             iconVariant="brand"
           >
             <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
               <NexusInput
-                label="Título de la Rifa *"
+                label="Título de la rifa *"
                 required
                 value={title}
                 onChange={(event) => setTitle(event.target.value)}
                 placeholder="Ej. Gran Rifa Semental Hatch"
               />
               <NexusInput
-                label="Precio por Boleto *"
+                label="Precio por boleto *"
                 type="number"
                 inputMode="decimal"
                 min="0.01"
@@ -939,7 +939,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                 placeholder="0.00"
               />
               <NexusDateTimeInput
-                label="Fecha y Hora de la Rifa"
+                label="Fecha y hora de la rifa"
                 icon={Calendar}
                 value={drawDate}
                 onChange={setDrawDate}
@@ -947,7 +947,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
               />
               <div className="flex flex-col" style={{ gap: "var(--space-xs)" }}>
                 <span className="text-form-label text-text-muted">
-                  Envío del Premio *
+                  Envío del premio *
                 </span>
                 <NexusSegmentedControl
                   context="section"
@@ -992,7 +992,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                 placeholder="Ej. Cruzas disponibles: Giro PV MT y Giro PA MT."
                 helperText="Dato opcional que complementa la descripción en las invitaciones."
               />
-              <NexusSelect label="Estado Actual" value={status} onChange={(event) => setStatus(event.target.value as Raffle["status"])}>
+              <NexusSelect label="Estado actual" value={status} onChange={(event) => setStatus(event.target.value as Raffle["status"])}>
                 <option value="ACTIVE">Activa</option>
                 <option value="CANCELLED">Cancelada</option>
                 {initialData?.status === "FINISHED" && (
@@ -1013,14 +1013,14 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
           </NexusSection>
 
           <NexusSection
-            title="Premios por Lugar"
+            title="Premios por lugar"
             subtitle="Especifica con claridad qué recibe cada lugar de la rifa."
             icon={Gift}
             iconVariant="brand"
             action={
               prizes.length < MAX_PRIZES ? (
                 <NexusSectionButton type="button" icon={PlusCircle} onClick={addPrize}>
-                  Añadir Premio
+                  Añadir premio
                 </NexusSectionButton>
               ) : undefined
             }
@@ -1085,7 +1085,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                       placeholder="Ej. Percha completa de diez pollos"
                     />
                     <NexusTextarea
-                      label="Descripción del Premio *"
+                      label="Descripción del premio *"
                       rows={4}
                       maxLength={1000}
                       value={prize.description}
@@ -1101,7 +1101,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                       style={{ gap: "var(--space-md)" }}
                     >
                       <NexusSelect
-                        label="Referencia del Resultado"
+                        label="Referencia del resultado"
                         value={prize.resultSource}
                         onChange={(event) =>
                           updatePrize(index, {
@@ -1114,13 +1114,13 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                         }
                       >
                         <option value="MAJOR_PRIZE">Premio Mayor</option>
-                        <option value="SECOND_PRIZE">Segundo Premio</option>
-                        <option value="THIRD_PRIZE">Tercer Premio</option>
-                        <option value="CUSTOM">Otra Referencia</option>
+                        <option value="SECOND_PRIZE">Segundo premio</option>
+                        <option value="THIRD_PRIZE">Tercer premio</option>
+                        <option value="CUSTOM">Otra referencia</option>
                       </NexusSelect>
                       {prize.resultSource === "CUSTOM" && (
                         <NexusInput
-                          label="Nombre de la Referencia"
+                          label="Nombre de la referencia"
                           value={prize.resultSourceLabel ?? ""}
                           maxLength={120}
                           onChange={(event) =>
@@ -1133,7 +1133,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
                       )}
                     </div>
                     <NexusTextarea
-                      label="Criterio de Asignación"
+                      label="Criterio de asignación"
                       rows={3}
                       maxLength={500}
                       value={prize.winnerRule ?? ""}
@@ -1148,7 +1148,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
           </NexusSection>
 
           <NexusSection
-            title="Disponibilidad de la Participación"
+            title="Disponibilidad de la participación"
             subtitle="Programa cuándo pueden apartarse boletos y habilita accesos anticipados."
             icon={Clock3}
             iconVariant="brand"
@@ -1156,13 +1156,13 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
             <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
               <div className="grid grid-cols-1" style={{ gap: "var(--space-md)" }}>
                 <NexusDateTimeInput
-                  label="Inicio de la Participación"
+                  label="Inicio de la participación"
                   icon={Calendar}
                   value={participationStartsAt}
                   onChange={setParticipationStartsAt}
                 />
                 <NexusDateTimeInput
-                  label="Cierre de la Participación"
+                  label="Cierre de la participación"
                   icon={Calendar}
                   value={participationEndsAt}
                   onChange={setParticipationEndsAt}
@@ -1172,7 +1172,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
               <NexusInlineNotice
                 variant={!hasCompleteParticipationWindow || !hasValidParticipationWindow ? "warning" : "neutral"}
                 icon={Clock3}
-                title="Periodo de Participación"
+                title="Periodo de participación"
               >
                 {!hasCompleteParticipationWindow
                   ? "Define tanto el inicio como el cierre para programar la participación."
@@ -1235,7 +1235,7 @@ export const RaffleForm: React.FC<RaffleFormProps> = ({
             style={{ gap: "var(--space-md)", padding: "var(--padding-outer)", borderRadius: "var(--radius-outer)" }}
           >
             <Loader2 className="animate-spin text-brand-500" size={32} />
-            <span className="text-form-label text-text-main">Guardando Rifa</span>
+            <span className="text-form-label text-text-main">Guardando rifa</span>
           </div>
         </div>
       )}

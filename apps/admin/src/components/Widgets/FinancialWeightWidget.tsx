@@ -118,7 +118,7 @@ export const FinancialWeightWidget = ({
         'border-emerald-200 bg-emerald-50 text-emerald-700',
     },
     {
-      label: 'Por Cobrar',
+      label: 'Por cobrar',
       value: pending,
       icon: Clock3,
       valueClassName: 'text-amber-600',
@@ -126,7 +126,7 @@ export const FinancialWeightWidget = ({
         'border-amber-200 bg-amber-50 text-amber-700',
     },
     {
-      label: 'No Concretadas',
+      label: 'No concretadas',
       value: cancelled,
       icon: XCircle,
       valueClassName: 'text-rose-600',
@@ -151,7 +151,7 @@ export const FinancialWeightWidget = ({
               className="flex min-w-0 flex-1 flex-col"
               style={{ gap: 'var(--space-xs)' }}
             >
-              <h3 className="text-h1 text-text-main">Pulso Comercial</h3>
+              <h3 className="text-h1 text-text-main">Pulso comercial</h3>
               <p className="text-secondary text-text-muted">{description}</p>
             </div>
           </div>
@@ -175,7 +175,7 @@ export const FinancialWeightWidget = ({
                   %
                 </strong>
               </div>
-              <span className="text-right text-caption text-text-muted">
+              <span className="text-right text-secondary text-text-muted">
                 {confirmed.count} de {confirmed.count + cancelled.count} resueltas
               </span>
             </div>
@@ -212,7 +212,7 @@ export const FinancialWeightWidget = ({
             hoverGroup="group/operations"
           />
           <div className="flex min-w-0 flex-1 flex-col" style={{ gap: 'var(--space-xs)' }}>
-            <h3 className="text-h1 text-text-main">Estado de Operaciones</h3>
+            <h3 className="text-h1 text-text-main">Estado de operaciones</h3>
             <p className="text-secondary text-text-muted">
               Resumen de operaciones según su estado comercial.
             </p>

@@ -10,7 +10,7 @@ import { NexusSection } from "../ui/NexusSection";
 
 interface Props {
   raffle: Raffle;
-  canManageOperations: boolean;
+  canSendMessages: boolean;
   showToast: (message: string, type?: "success" | "error") => void;
   embedded?: boolean;
 }
@@ -25,7 +25,7 @@ const campaignLabel = (status?: string | null) => {
 
 export const RaffleDateChangeSection: React.FC<Props> = ({
   raffle,
-  canManageOperations,
+  canSendMessages,
   showToast,
   embedded = false,
 }) => {
@@ -117,14 +117,14 @@ export const RaffleDateChangeSection: React.FC<Props> = ({
   const campaign = overview?.campaign;
   return (
     <NexusSection
-      title="Cambio de Fecha"
+      title="Cambio de fecha"
       subtitle="Programa y envía avisos operativos y promocionales."
       icon={CalendarClock}
       bare={embedded}
     >
       <NexusSectionCard
         icon={CalendarClock}
-        title="Cambio de Fecha"
+        title="Cambio de fecha"
         subtitle="Avisa a participantes activos sobre el cambio de fecha."
         rightContent={
           <div
@@ -152,7 +152,7 @@ export const RaffleDateChangeSection: React.FC<Props> = ({
           </div>
         }
         actions={
-          canManageOperations && campaign?.status !== "CLOSED" ? (
+          canSendMessages && campaign?.status !== "CLOSED" ? (
             <div
               className="grid w-full grid-cols-3 md:flex md:w-auto"
               style={{ gap: "var(--space-sm)" }}

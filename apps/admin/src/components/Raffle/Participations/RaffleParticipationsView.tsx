@@ -12,7 +12,8 @@ import {
 } from "./RaffleParticipationFiltersModal";
 
 interface RaffleParticipationsViewProps {
-  canManageOperations: boolean;
+  canManageParticipation: boolean;
+  canManageRaffleFinancial: boolean;
   advancedFilters?: RaffleParticipationAdvancedFilters;
   searchQuery: string;
   onViewDetail: (participation: RaffleParticipation) => void;
@@ -26,7 +27,8 @@ const normalize = (value: string) =>
   value.toLocaleLowerCase("es-MX").normalize("NFD").replace(/[\u0300-\u036f]/g, "").trim();
 
 export const RaffleParticipationsView: React.FC<RaffleParticipationsViewProps> = ({
-  canManageOperations,
+  canManageParticipation,
+  canManageRaffleFinancial,
   advancedFilters = DEFAULT_RAFFLE_PARTICIPATION_FILTERS,
   searchQuery,
   onViewDetail,
@@ -106,7 +108,7 @@ export const RaffleParticipationsView: React.FC<RaffleParticipationsViewProps> =
     isOpen: true,
     title: "¿Confirmar pago?",
     message: `Se marcarán como pagados los ${participation.ticketCount} boletos de esta participación.`,
-    confirmLabel: "Confirmar Pago",
+    confirmLabel: "Confirmar pago",
     variant: "brand",
     onConfirm: async () => {
       await updateStatus(participation, "PAID");
@@ -118,7 +120,7 @@ export const RaffleParticipationsView: React.FC<RaffleParticipationsViewProps> =
     isOpen: true,
     title: "¿Cancelar apartado?",
     message: "Los boletos volverán a estar disponibles y se notificará al participante.",
-    confirmLabel: "Sí, Cancelar",
+    confirmLabel: "Sí, cancelar",
     variant: "danger",
     onConfirm: async () => {
       await updateStatus(participation, "CANCELLED");
@@ -144,7 +146,8 @@ export const RaffleParticipationsView: React.FC<RaffleParticipationsViewProps> =
             <div key={participation.id} className="animate-card-enter" style={{ animationDelay: `${index * 60}ms` }}>
               <RaffleParticipationCard
                 participation={participation}
-                canManageOperations={canManageOperations}
+                canManageParticipation={canManageParticipation}
+                canManageRaffleFinancial={canManageRaffleFinancial}
                 onViewDetail={() => onViewDetail(participation)}
                 onMarkAsPaid={() => confirmPayment(participation)}
                 onCancel={() => cancelParticipation(participation)}

@@ -15,7 +15,11 @@ import {
 interface OperationsViewProps {
   orders: Order[];
   isLoadingOrders: boolean;
-  canManageOperations: boolean;
+  canManageOrder: boolean;
+  canManageOrderFinancial: boolean;
+  canViewParticipations: boolean;
+  canManageParticipation: boolean;
+  canManageRaffleFinancial: boolean;
   filters?: OperationsAdvancedFilters;
   searchQuery: string;
   onOrdersChange: (orders: Order[]) => void;
@@ -51,7 +55,11 @@ const normalizeParticipationStatus = (status: string) => {
 export const OperationsView: React.FC<OperationsViewProps> = ({
   orders,
   isLoadingOrders,
-  canManageOperations,
+  canManageOrder,
+  canManageOrderFinancial,
+  canViewParticipations,
+  canManageParticipation,
+  canManageRaffleFinancial,
   filters = DEFAULT_OPERATIONS_FILTERS,
   searchQuery,
   onOrdersChange,
@@ -63,11 +71,17 @@ export const OperationsView: React.FC<OperationsViewProps> = ({
   const [participations, setParticipations] = useState<RaffleParticipation[]>(
     [],
   );
-  const [isLoadingParticipations, setIsLoadingParticipations] = useState(true);
+  const [isLoadingParticipations, setIsLoadingParticipations] = useState(canViewParticipations);
   const [currentPage, setCurrentPage] = useState(1);
   const topRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    if (!canViewParticipations) {
+      setParticipations([]);
+      setIsLoadingParticipations(false);
+      return;
+    }
+    setIsLoadingParticipations(true);
     void apiRaffleParticipations
       .getAll()
       .then(setParticipations)
@@ -75,7 +89,7 @@ export const OperationsView: React.FC<OperationsViewProps> = ({
         showToast("No se pudieron cargar las participaciones", "error"),
       )
       .finally(() => setIsLoadingParticipations(false));
-  }, [showToast]);
+  }, [canViewParticipations, showToast]);
 
   useEffect(() => setCurrentPage(1), [filters, searchQuery]);
 
@@ -248,7 +262,8 @@ export const OperationsView: React.FC<OperationsViewProps> = ({
               {record.kind === "ORDER" ? (
                 <OrderCard
                   order={record.order}
-                  canManageOperations={canManageOperations}
+                  canManageOrder={canManageOrder}
+                  canManageOrderFinancial={canManageOrderFinancial}
                   onViewDetail={onViewOrder}
                   onMarkAsPaid={() =>
                     confirmAction(
@@ -272,7 +287,8 @@ export const OperationsView: React.FC<OperationsViewProps> = ({
               ) : (
                 <RaffleParticipationCard
                   participation={record.participation}
-                  canManageOperations={canManageOperations}
+                  canManageParticipation={canManageParticipation}
+                  canManageRaffleFinancial={canManageRaffleFinancial}
                   onViewDetail={() =>
                     onViewParticipation(record.participation)
                   }

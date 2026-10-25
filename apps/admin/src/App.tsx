@@ -83,7 +83,8 @@ import {
 } from "./components/Store/Orders/OrderFiltersModal";
 import { PlatformSettingsView } from "./components/System/Config/PlatformSettingsView";
 import { ShippingView } from "./components/System/Shipping/ShippingView";
-import { UsersView, UsersViewRef } from "./components/System/Users/UsersView";
+import { UsersView } from "./components/System/Users/UsersView";
+import { UserForm, type UserFormRef } from "./components/System/Users/UserForm";
 import {
   IdentityView,
   IdentityViewRef,
@@ -141,13 +142,16 @@ import {
   BillingPayment,
   Raffle,
   RaffleParticipation,
+  User,
 } from "./types";
+import type { PermissionId } from "@nexus/types";
 import {
   apiOrders,
   apiDashboard,
   apiBilling,
   apiSystem,
   api,
+  apiAuth,
   apiRaffleParticipations,
 } from "./api";
 import {
@@ -507,6 +511,47 @@ function App() {
     }
   }, [token]);
 
+  const [userPermissions, setUserPermissions] = useState<string[]>(() => {
+    try {
+      return JSON.parse(localStorage.getItem("admin_session") || "{}").permissions || [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    if (!token) {
+      setUserPermissions([]);
+      return;
+    }
+    let active = true;
+    apiAuth.me().then((user) => {
+      if (!active) return;
+      const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+      setUserPermissions(permissions);
+      setUserRole(String(user.role || "staff").toLowerCase());
+      const sessionValue = localStorage.getItem("admin_session");
+      if (sessionValue) {
+        const session = JSON.parse(sessionValue);
+        session.permissions = permissions;
+        session.role = String(user.role || "staff").toLowerCase();
+        localStorage.setItem("admin_session", JSON.stringify(session));
+      }
+    }).catch((error) => {
+      if (!active || error?.response?.status !== 401) return;
+      localStorage.removeItem("admin_session");
+      setToken(null);
+      setUserPermissions([]);
+      setUserRole("staff");
+      setUserName("Usuario");
+      setMustChangePassword(false);
+      setIsAuthenticated(false);
+    });
+    return () => {
+      active = false;
+    };
+  }, [token]);
+
   const [userName, setUserName] = useState<string>(() => {
     const authString = localStorage.getItem("admin_session");
     if (!authString) return "Usuario";
@@ -593,7 +638,24 @@ function App() {
         : saved;
   });
   const [isPaymentLinkGeneratorOpen, setIsPaymentLinkGeneratorOpen] = useState(false);
-  const canManageOperations = userRole === "admin" || userRole === "superadmin";
+  const canManageOrder = userPermissions.includes("orders.manage");
+  const canManageOrderFinancial = userPermissions.includes("orders.financial.manage");
+  const canRefundOrder = userPermissions.includes("orders.refund");
+  const canSendMessages = userPermissions.includes("messaging.send");
+  const canManageRaffles = userPermissions.includes("raffles.manage");
+  const canManageResults = userPermissions.includes("raffles.results.manage");
+  const canManageRaffleCoupons = userPermissions.includes("raffles.coupons.manage");
+  const canManageParticipation = userPermissions.includes("raffles.participations.manage");
+  const canManageRaffleFinancial = userPermissions.includes("raffles.financial.manage");
+  const canViewMessages = userPermissions.some((permission) => [
+    "messaging.view", "messaging.manage", "messaging.send",
+  ].includes(permission));
+  const canViewOrders = userPermissions.some((permission) => [
+    "orders.view", "orders.manage", "orders.financial.manage", "orders.refund", "orders.restore",
+  ].includes(permission));
+  const canViewRaffleParticipations = userPermissions.some((permission) => [
+    "raffles.participations.view", "raffles.participations.manage", "raffles.financial.manage",
+  ].includes(permission));
   const [raffleViewMode, setRaffleViewMode] = useState<RaffleModeType>(() => {
     const legacyMode = localStorage.getItem("admin_raffle_view_mode");
     if (legacyMode === "orders" || legacyMode === "order-detail") {
@@ -634,6 +696,8 @@ function App() {
       return saved as SystemViewType;
     return "billing";
   });
+  const [userFormMode, setUserFormMode] = useState<"create" | "edit" | null>(null);
+  const [selectedUserForForm, setSelectedUserForForm] = useState<User | null>(null);
 
   useEffect(() => {
     localStorage.setItem("last_system_view", systemViewMode);
@@ -699,6 +763,7 @@ function App() {
   const [announcementViewMode, setAnnouncementViewMode] =
     useState<StorefrontAnnouncementViewMode>("list");
   const [isFormValid, setIsFormValid] = useState(false);
+  const [isUserFormSaving, setIsUserFormSaving] = useState(false);
   const [raffleEnabled, setRaffleEnabled] = useState(
     () => localStorage.getItem("admin_raffle_enabled") === "1",
   );
@@ -707,7 +772,7 @@ function App() {
     handleSaveConfig: () => void;
     handleSaveZones: () => void;
   }>(null);
-  const usersRef = React.useRef<UsersViewRef>(null);
+  const userFormRef = React.useRef<UserFormRef>(null);
   const identityRef = React.useRef<IdentityViewRef>(null);
   const channelFormRef = React.useRef<{ handleSave: () => void }>(null);
   const inventoryRef = React.useRef<InventorySettingsViewRef>(null);
@@ -916,10 +981,16 @@ function App() {
       try {
         const [ordersData, statsData, billingData, configData] =
           await Promise.all([
-            apiOrders.getAll(),
-            apiDashboard.getStats(),
-            apiBilling.getAll(),
-            apiSystem.getConfig(),
+            canViewOrders
+              ? apiOrders.getAll()
+              : Promise.resolve([]),
+            userPermissions.includes("dashboard.view")
+              ? apiDashboard.getStats()
+              : Promise.resolve(null),
+            userPermissions.includes("billing.view")
+              ? apiBilling.getAll()
+              : Promise.resolve({ services: [], charges: [], payments: [] }),
+            apiSystem.getPublicConfig(),
           ]);
 
         flushSync(() => {
@@ -953,10 +1024,10 @@ function App() {
       }
     };
     fetchInitialData();
-  }, [token, showToast, syncUnreadOrders]);
+  }, [token, userPermissions, showToast, syncUnreadOrders]);
 
   useEffect(() => {
-    if (!token) return;
+    if (!token || !canViewOrders) return;
 
     const pollOrders = async () => {
       try {
@@ -972,7 +1043,7 @@ function App() {
 
     const interval = window.setInterval(pollOrders, 30000);
     return () => window.clearInterval(interval);
-  }, [token, syncUnreadOrders]);
+  }, [token, canViewOrders, syncUnreadOrders]);
 
   const closeConfirm = () =>
     setConfirmDialog((prev) => ({ ...prev, isOpen: false }));
@@ -986,6 +1057,7 @@ function App() {
       username: userData.username,
       name: userData.name,
       role: normalizedRole,
+      permissions: userData.permissions || [],
       mustChangePassword: userData.mustChangePassword,
       expiresAt: new Date().getTime() + 12 * 60 * 60 * 1000,
     };
@@ -996,6 +1068,7 @@ function App() {
     setPendingOrderIds(new Set());
     setUserName(userData.name.split(" ")[0]);
     setUserRole(normalizedRole);
+    setUserPermissions(userData.permissions || []);
     setToken(jwtToken);
     setMustChangePassword(userData.mustChangePassword);
     setIsAuthenticated(true);
@@ -1008,6 +1081,7 @@ function App() {
     setOrders([]);
     setSelectedOrder(null);
     setToken(null);
+    setUserPermissions([]);
     setIsAuthenticated(false);
   };
 
@@ -1056,6 +1130,59 @@ function App() {
     isRafflesMode && raffleViewMode === "tickets";
   // The active raffle route reserves its navigation rail before remote config resolves.
   const showRaffleNavigation = raffleEnabled || isRafflesMode;
+  const hasPermission = (permission: string) => userPermissions.includes(permission);
+  const visibleTabs: ActiveTabType[] = [
+    ...(hasPermission("dashboard.view") ? ["Inicio" as const] : []),
+    ...((hasPermission("products.view") || hasPermission("products.manage") || canViewOrders || canViewRaffleParticipations) ? ["Operaciones" as const] : []),
+    ...((hasPermission("products.view") || hasPermission("products.manage") || canViewOrders || hasPermission("payment-links.manage") || hasPermission("coupons.manage")) ? ["Tienda" as const] : []),
+    ...(raffleEnabled && userPermissions.some((permission) => permission.startsWith("raffles.")) ? ["Rifas" as const] : []),
+    ...((hasPermission("media.manage") || hasPermission("media.upload") || hasPermission("media.vault.manage") || hasPermission("storefront.content.manage")) ? ["Medios" as const] : []),
+    ...(userPermissions.some((permission) => [
+      "shipping.view", "shipping.manage", "payments.config.manage", "settings.view",
+      "settings.manage", "billing.view", "billing.manage", "channels.view",
+      "channels.manage", "messaging.view", "messaging.manage", "users.manage",
+    ].includes(permission)) ? ["Sistema" as const] : []),
+  ];
+
+  useEffect(() => {
+    if (
+      canViewRaffleParticipations &&
+      !hasPermission("raffles.view") &&
+      !hasPermission("raffles.manage") &&
+      !hasPermission("raffles.results.manage") &&
+      raffleViewMode === "list"
+    ) {
+      setRaffleViewMode("participations");
+    }
+    if (
+      hasPermission("raffles.coupons.manage") &&
+      !hasPermission("raffles.view") &&
+      !hasPermission("raffles.manage") &&
+      !hasPermission("raffles.results.manage") &&
+      !canViewRaffleParticipations &&
+      raffleViewMode === "list"
+    ) {
+      setRaffleViewMode("coupon_list");
+    }
+    if (!hasPermission("products.view") && !hasPermission("products.manage") && canViewOrders && storeViewMode === "list") {
+      setStoreViewMode("orders");
+    }
+    if (
+      !hasPermission("products.view") &&
+      !hasPermission("products.manage") &&
+      !canViewOrders &&
+      userPermissions.includes("payment-links.manage") &&
+      storeViewMode === "list"
+    ) {
+      setStoreViewMode("payment_links");
+    }
+  }, [userPermissions, canViewOrders, canViewRaffleParticipations, raffleViewMode, storeViewMode]);
+
+  useEffect(() => {
+    if (activeTab !== "Mi Perfil" && !visibleTabs.includes(activeTab)) {
+      setActiveTab(visibleTabs[0] || "Mi Perfil");
+    }
+  }, [activeTab, userPermissions, raffleEnabled]);
 
   const hasStoreProductAdvancedFilters =
     storeProductAdvancedFilters.type !==
@@ -1161,6 +1288,8 @@ function App() {
     isRafflesMode && raffleViewMode === "coupon_create";
   const isEditingRaffleCoupon =
     isRafflesMode && raffleViewMode === "coupon_edit";
+  const isCreatingUser = isSystemMode && systemViewMode === "users" && userFormMode === "create";
+  const isEditingUser = isSystemMode && systemViewMode === "users" && userFormMode === "edit";
 
   const isFormMode =
     isCreatingMedia ||
@@ -1177,7 +1306,9 @@ function App() {
     isCreatingRaffle ||
     isEditingRaffle ||
     isCreatingRaffleCoupon ||
-    isEditingRaffleCoupon;
+    isEditingRaffleCoupon ||
+    isCreatingUser ||
+    isEditingUser;
 
   const navigateToMedia = (mode: any = "list") => {
     setActiveTab("Medios");
@@ -1234,34 +1365,34 @@ function App() {
       case "Nuevo Medio":
         navigateToMedia("create");
         break;
-      case "Ver Medios":
+      case "Ver medios":
         navigateToMedia("list");
         break;
       case "Nueva Categoría":
         navigateToMedia("category_create");
         break;
-      case "Ver Categorías":
+      case "Ver categorías":
         navigateToMedia("categories_list");
         break;
-      case "Slider Inicio":
+      case "Slider inicio":
         navigateToMedia("slider_list");
         break;
       case "Nuevo Slide":
         navigateToMedia("slide_create");
         break;
-      case "Bóveda de Medios":
+      case "Bóveda de medios":
         navigateToMedia("vault_list");
         break;
       case "Subir a Bóveda":
         navigateToMedia("vault_upload");
         break;
-      case "Nuevo Producto":
+      case "Nuevo producto":
         navigateToStore("create");
         break;
-      case "Ver Productos":
+      case "Ver productos":
         navigateToStore("list");
         break;
-      case "Héroes Tienda":
+      case "Héroes tienda":
         navigateToStore("hero_list");
         break;
       case "Cupones":
@@ -1276,17 +1407,17 @@ function App() {
       case "Gestión de Órdenes":
         navigateToOrders();
         break;
-      case "Gestión de Operaciones":
+      case "Gestión de operaciones":
         setActiveTab("Operaciones");
         setStoreViewMode("list");
         window.scrollTo({ top: 0, behavior: "smooth" });
         break;
-      case "Resumen de Órdenes":
+      case "Resumen de órdenes":
         setActiveTab("Tienda");
         setStoreViewMode("orders-overview");
         window.scrollTo({ top: 0, behavior: "smooth" });
         break;
-      case "Estado de Cuenta":
+      case "Estado de cuenta":
         navigateToSystem("billing");
         break;
       case "Estado Storefront":
@@ -1305,16 +1436,16 @@ function App() {
       case "Departamentos":
         navigateToSystem("channels");
         break;
-      case "Configurar Envíos":
+      case "Configurar envíos":
         navigateToSystem("shipping");
         break;
-      case "Activar Rifas":
+      case "Activar rifas":
         navigateToSystem("raffle");
         break;
       case "Audiencias":
         navigateToSystem("intelligence");
         break;
-      case "Ver Rifas":
+      case "Ver rifas":
         setActiveTab("Rifas");
         setRaffleViewMode("list");
         break;
@@ -1335,11 +1466,11 @@ function App() {
         setRaffleViewMode("create");
         break;
       case "Participaciones":
-      case "Gestión de Participaciones":
+      case "Gestión de participaciones":
         setActiveTab("Rifas");
         setRaffleViewMode("participations");
         break;
-      case "Cupones de Rifas":
+      case "Cupones de rifas":
         setActiveTab("Rifas");
         setRaffleViewMode("coupon_list");
         window.scrollTo({ top: 0, behavior: "smooth" });
@@ -1348,11 +1479,11 @@ function App() {
         setActiveTab("Mi Perfil");
         setProfileViewMode("notifications");
         break;
-      case "Datos Personales":
+      case "Datos personales":
         setActiveTab("Mi Perfil");
         setProfileViewMode("details");
         break;
-      case "Contacto Público":
+      case "Contacto público":
         setActiveTab("Mi Perfil");
         setProfileViewMode("contact");
         break;
@@ -1363,7 +1494,7 @@ function App() {
       case "Lib. Inventario":
         navigateToSystem("inventory");
         break;
-      case "Añadir Logo":
+      case "Añadir logo":
         navigateToSystem("identity");
         break;
       case "Volver":
@@ -1442,10 +1573,14 @@ function App() {
       isOpen: true,
       title: "¿Descartar cambios?",
       message: "Si cancelas ahora, perderás toda la información ingresada.",
-      confirmLabel: "Sí, Descartar",
+      confirmLabel: "Sí, descartar",
       variant: "warning",
       onConfirm: () => {
-        if (isCreatingStoreHero || isEditingStoreHero)
+        if (isCreatingUser || isEditingUser) {
+          setUserFormMode(null);
+          setSelectedUserForForm(null);
+          setIsFormValid(false);
+        } else if (isCreatingStoreHero || isEditingStoreHero)
           setStoreViewMode("hero_list");
         else if (isCreatingCoupon || isEditingCoupon)
           setStoreViewMode("coupon_list");
@@ -1649,7 +1784,7 @@ function App() {
           icon={ArrowLeft}
           onClick={() => setDashboardViewMode("overview")}
         >
-          Volver a Inicio
+          Volver a inicio
         </NexusSectionButton>
       );
     }
@@ -1660,6 +1795,7 @@ function App() {
       channelsViewMode === "principal" &&
       principalTemplateEditor
     ) {
+      if (!hasPermission("messaging.manage")) return null;
       return (
         <div className="flex flex-wrap items-center" style={{ gap: "var(--space-sm)" }}>
           {principalTemplateEditor.provider === "EVOLUTION" && (
@@ -1681,7 +1817,7 @@ function App() {
             isLoading={principalTemplateEditor.isSaving}
             onClick={principalTemplateEditor.onSave}
           >
-            Guardar Plantilla
+            Guardar plantilla
           </NexusSectionButton>
         </div>
       );
@@ -1722,6 +1858,7 @@ function App() {
     }
 
     if (isStoreMode && storeViewMode === "payment_links") {
+      if (!hasPermission("payment-links.manage")) return null;
       return (
         <NexusSectionButton
           type="button"
@@ -1729,18 +1866,30 @@ function App() {
           icon={Link2}
           onClick={() => setIsPaymentLinkGeneratorOpen(true)}
         >
-          Generar Enlace
+          Generar enlace
         </NexusSectionButton>
       );
     }
 
     if (isFormMode) {
+      const canSaveCurrentForm =
+        ((isCreatingProduct || isEditingProduct) && hasPermission("products.manage")) ||
+        ((isCreatingStoreHero || isEditingStoreHero) && hasPermission("storefront.content.manage")) ||
+        ((isCreatingCoupon || isEditingCoupon) && hasPermission("coupons.manage")) ||
+        ((isCreatingMedia || isEditingMedia) && hasPermission("media.manage")) ||
+        ((isCreatingSlide || isEditingSlide) && hasPermission("storefront.content.manage")) ||
+        (isUploadingToVault && hasPermission("media.upload")) ||
+        ((isCreatingRaffle || isEditingRaffle) && hasPermission("raffles.manage")) ||
+        ((isCreatingRaffleCoupon || isEditingRaffleCoupon) && hasPermission("raffles.coupons.manage")) ||
+        ((isCreatingUser || isEditingUser) && hasPermission("users.manage"));
+      if (!canSaveCurrentForm) return null;
       return (
         <PageHeaderActionPair>
           <NexusSectionButton
             onClick={handleCancelAction}
             variant="secondary"
             className="text-text-muted hover:text-text-main"
+            disabled={(isCreatingUser || isEditingUser) && isUserFormSaving}
           >
             Cancelar
           </NexusSectionButton>
@@ -1769,33 +1918,42 @@ function App() {
                     "raffle-coupon-form",
                   ) as HTMLFormElement | null
                 )?.requestSubmit();
+              if (isCreatingUser || isEditingUser)
+                userFormRef.current?.handleSave();
             }}
             variant="brand"
-            icon={isUploadingToVault ? Upload : Save}
+            icon={isCreatingUser ? UserPlus : isUploadingToVault ? Upload : Save}
             disabled={
-              (isCreatingRaffle ||
+              ((isCreatingRaffle ||
                 isEditingRaffle ||
                 isCreatingRaffleCoupon ||
                 isEditingRaffleCoupon ||
-                isUploadingToVault) &&
-              !isFormValid
+                isUploadingToVault ||
+                isCreatingUser ||
+                isEditingUser) &&
+                !isFormValid) ||
+              ((isCreatingUser || isEditingUser) && isUserFormSaving)
             }
+            isLoading={(isCreatingUser || isEditingUser) && isUserFormSaving}
           >
-            {isUploadingToVault ? "Subir Archivos" : "Guardar Cambios"}
+            {isCreatingUser
+              ? "Crear usuario"
+              : isUploadingToVault
+                ? "Subir Archivos"
+                : "Guardar cambios"}
           </NexusSectionButton>
         </PageHeaderActionPair>
       );
     }
 
     if (
-      canManageOperations &&
       (isStoreMode || isOperationsTab) &&
       storeViewMode === "order-detail" &&
       selectedOrder
     ) {
       return (
         <PageHeaderActionPair>
-          {(selectedOrder.status === "pending" ||
+          {hasPermission("orders.manage") && (selectedOrder.status === "pending" ||
             selectedOrder.status === "paid") && (
             <NexusSectionButton
               onClick={() =>
@@ -1804,7 +1962,7 @@ function App() {
                   title: "Cancelar orden",
                   message:
                     "Esta acción cancelará la orden y liberará el inventario reservado cuando aplique.",
-                  confirmLabel: "Cancelar Orden",
+                  confirmLabel: "Cancelar orden",
                   variant: "danger",
                   onConfirm: async () => {
                     await handleDetailOrderStatusChange(
@@ -1821,7 +1979,7 @@ function App() {
               Cancelar
             </NexusSectionButton>
           )}
-          {selectedOrder.status === "pending" && (
+          {hasPermission("orders.financial.manage") && selectedOrder.status === "pending" && (
             <NexusSectionButton
               onClick={() =>
                 setConfirmDialog({
@@ -1829,7 +1987,7 @@ function App() {
                   title: "Confirmar pago",
                   message:
                     "Esta acción marcará la orden como pagada y puede activar cambios de estado y notificaciones.",
-                  confirmLabel: "Confirmar Pago",
+                  confirmLabel: "Confirmar pago",
                   variant: "brand",
                   onConfirm: async () => {
                     await handleDetailOrderStatusChange(
@@ -1843,10 +2001,10 @@ function App() {
               variant="brand"
               icon={CheckCircle2}
             >
-              Confirmar Pago
+              Confirmar pago
             </NexusSectionButton>
           )}
-          {selectedOrder.status === "cancelled" && (
+          {hasPermission("orders.restore") && selectedOrder.status === "cancelled" && (
             <NexusSectionButton
               onClick={() =>
                 setConfirmDialog({
@@ -1854,7 +2012,7 @@ function App() {
                   title: "Restaurar orden",
                   message:
                     "Se validará que los productos sigan disponibles y se generará un nuevo tiempo límite de apartado.",
-                  confirmLabel: "Restaurar Orden",
+                  confirmLabel: "Restaurar orden",
                   variant: "brand",
                   onConfirm: async () => {
                     await handleRestoreOrder(selectedOrder.id);
@@ -1865,7 +2023,7 @@ function App() {
               variant="brand"
               icon={RefreshCw}
             >
-              Restaurar Orden
+              Restaurar orden
             </NexusSectionButton>
           )}
         </PageHeaderActionPair>
@@ -1874,7 +2032,6 @@ function App() {
 
     if (
       isRafflesMode &&
-      canManageOperations &&
       raffleViewMode === "participation-detail" &&
       selectedRaffleParticipation?.status === "PENDING"
     ) {
@@ -1883,7 +2040,7 @@ function App() {
       if (!isTransfer) return null;
       return (
         <PageHeaderActionPair>
-          <NexusSectionButton
+          {hasPermission("raffles.participations.manage") && <NexusSectionButton
             variant="secondary"
             className="w-full text-text-muted hover:text-text-main md:w-auto"
             onClick={() =>
@@ -1892,7 +2049,7 @@ function App() {
                 title: "¿Cancelar apartado?",
                 message:
                   "Los boletos volverán a estar disponibles y se notificará al participante.",
-                confirmLabel: "Sí, Cancelar",
+                confirmLabel: "Sí, cancelar",
                 variant: "danger",
                 onConfirm: async () => {
                   await handleRaffleParticipationStatusChange("CANCELLED");
@@ -1902,8 +2059,8 @@ function App() {
             }
           >
             Cancelar
-          </NexusSectionButton>
-          <NexusSectionButton
+          </NexusSectionButton>}
+          {hasPermission("raffles.financial.manage") && <NexusSectionButton
             variant="brand"
             icon={CheckCircle2}
             className="w-full md:w-auto"
@@ -1912,7 +2069,7 @@ function App() {
                 isOpen: true,
                 title: "¿Confirmar pago?",
                 message: `Se confirmará el pago de ${selectedRaffleParticipation.ticketCount} ${selectedRaffleParticipation.ticketCount === 1 ? "boleto" : "boletos"}.`,
-                confirmLabel: "Confirmar Pago",
+                confirmLabel: "Confirmar pago",
                 variant: "brand",
                 onConfirm: async () => {
                   await handleRaffleParticipationStatusChange("PAID");
@@ -1921,15 +2078,15 @@ function App() {
               })
             }
           >
-            Confirmar Pago
-          </NexusSectionButton>
+            Confirmar pago
+          </NexusSectionButton>}
         </PageHeaderActionPair>
       );
     }
 
     if (
       isRafflesMode &&
-      canManageOperations &&
+      hasPermission("raffles.financial.manage") &&
       raffleViewMode === "participation-detail" &&
       selectedRaffleParticipation?.recordType !== "PAYMENT_HOLD" &&
       selectedRaffleParticipation?.paymentMethod !== "MERCADOPAGO" &&
@@ -1943,10 +2100,10 @@ function App() {
           onClick={() =>
             setConfirmDialog({
               isOpen: true,
-              title: "¿Revertir Confirmación?",
+              title: "¿Revertir confirmación?",
               message:
-                "La participación volverá a Apartada. Se conservará el plazo original y se enviará nuevamente el mensaje de apartado con el tiempo restante; no se crearán 24 horas nuevas.",
-              confirmLabel: "Revertir Confirmación",
+                "La participación volverá a apartada. Se conservará el plazo original y se enviará nuevamente el mensaje de apartado con el tiempo restante; no se crearán 24 horas nuevas.",
+              confirmLabel: "Revertir confirmación",
               variant: "warning",
               onConfirm: async () => {
                 await handleRevertRafflePaymentConfirmation();
@@ -1955,14 +2112,13 @@ function App() {
             })
           }
         >
-          Revertir Confirmación
+          Revertir confirmación
         </NexusSectionButton>
       );
     }
 
     if (
       isRafflesMode &&
-      canManageOperations &&
       raffleViewMode === "participation-detail" &&
       selectedRaffleParticipation?.recordType !== "PAYMENT_HOLD" &&
       selectedRaffleParticipation?.paymentMethod !== "MERCADOPAGO" &&
@@ -1973,7 +2129,7 @@ function App() {
           className="flex w-full flex-col sm:flex-row"
           style={{ gap: "var(--space-sm)" }}
         >
-          <NexusSectionButton
+          {hasPermission("raffles.participations.manage") && <NexusSectionButton
             variant="secondary"
             icon={RotateCcw}
             className="w-full whitespace-nowrap sm:w-auto"
@@ -1983,7 +2139,7 @@ function App() {
                 title: "¿Restaurar participación?",
                 message:
                   "Nexus comprobará que todos los boletos sigan disponibles, iniciará un nuevo plazo de apartado y notificará al participante.",
-                confirmLabel: "Restaurar Participación",
+                confirmLabel: "Restaurar participación",
                 variant: "brand",
                 onConfirm: async () => {
                   await handleRestoreRaffleParticipation();
@@ -1992,9 +2148,9 @@ function App() {
               })
             }
           >
-            Restaurar Participación
-          </NexusSectionButton>
-          <NexusSectionButton
+            Restaurar participación
+          </NexusSectionButton>}
+          {hasPermission("raffles.financial.manage") && <NexusSectionButton
             variant="brand"
             icon={CheckCircle2}
             className="w-full whitespace-nowrap sm:w-auto"
@@ -2004,7 +2160,7 @@ function App() {
                 title: "¿Restaurar y confirmar pago?",
                 message:
                   "Usa esta acción únicamente si ya recibiste el pago. Nexus restaurará los boletos, marcará la participación como pagada y enviará la confirmación por WhatsApp.",
-                confirmLabel: "Restaurar y Confirmar Pago",
+                confirmLabel: "Restaurar y confirmar pago",
                 variant: "brand",
                 onConfirm: async () => {
                   await handleRestoreRaffleParticipation(true);
@@ -2013,144 +2169,156 @@ function App() {
               })
             }
           >
-            Restaurar y Confirmar
-          </NexusSectionButton>
+            Restaurar y confirmar
+          </NexusSectionButton>}
         </div>
       );
     }
 
     if (isMediaMode) {
       if (mediaViewMode === "list") {
+        if (!hasPermission("media.manage")) return null;
         return (
           <NexusSectionButton
             onClick={() => setMediaViewMode("create")}
             variant="brand"
             icon={Plus}
           >
-            Nuevo Medio
+            Nuevo medio
           </NexusSectionButton>
         );
       }
       if (mediaViewMode === "categories_list") {
+        if (!hasPermission("categories.manage")) return null;
         return (
           <NexusSectionButton
             onClick={() => setMediaViewMode("category_create")}
             variant="brand"
             icon={Plus}
           >
-            Nueva Categoría
+            Nueva categoría
           </NexusSectionButton>
         );
       }
       if (mediaViewMode === "slider_list") {
+        if (!hasPermission("storefront.content.manage")) return null;
         return (
           <NexusSectionButton
             onClick={() => setMediaViewMode("slide_create")}
             variant="brand"
             icon={Plus}
           >
-            Nuevo Slide
+            Nuevo slide
           </NexusSectionButton>
         );
       }
       if (mediaViewMode === "vault_list") {
+        if (!hasPermission("media.upload")) return null;
         return (
           <NexusSectionButton
             onClick={() => setMediaViewMode("vault_upload")}
             variant="brand"
             icon={Upload}
           >
-            Subir Archivos
+            Subir archivos
           </NexusSectionButton>
         );
       }
     }
 
     if (isStoreMode && storeViewMode === "overview") {
+      if (!hasPermission("products.manage")) return null;
       return (
         <NexusSectionButton
           onClick={() => storeRef.current?.handleEditSelected()}
           variant="brand"
           icon={Pencil}
         >
-          Editar Producto
+          Editar producto
         </NexusSectionButton>
       );
     }
 
     if (isStoreMode && storeViewMode === "list") {
+      if (!hasPermission("products.manage")) return null;
       return (
         <NexusSectionButton
           onClick={() => setStoreViewMode("create")}
           variant="brand"
           icon={Plus}
         >
-          Nuevo Producto
+          Nuevo producto
         </NexusSectionButton>
       );
     }
 
     if (isStoreMode && storeViewMode === "hero_list") {
+      if (!hasPermission("storefront.content.manage")) return null;
       return (
         <NexusSectionButton
           onClick={() => setStoreViewMode("hero_create")}
           variant="brand"
           icon={Plus}
         >
-          Nuevo Hero
+          Nuevo hero
         </NexusSectionButton>
       );
     }
 
     if (isStoreMode && storeViewMode === "coupon_list") {
+      if (!hasPermission("coupons.manage")) return null;
       return (
         <NexusSectionButton
           onClick={() => setStoreViewMode("coupon_create")}
           variant="brand"
           icon={Plus}
         >
-          Nuevo Cupón
+          Nuevo cupón
         </NexusSectionButton>
       );
     }
 
     if (isRafflesMode && raffleViewMode === "list") {
+      if (!hasPermission("raffles.manage")) return null;
       return (
         <NexusSectionButton
           onClick={() => setRaffleViewMode("create")}
           variant="brand"
           icon={Plus}
         >
-          Nueva Rifa
+          Nueva rifa
         </NexusSectionButton>
       );
     }
 
     if (isRafflesMode && raffleViewMode === "coupon_list") {
+      if (!hasPermission("raffles.coupons.manage")) return null;
       return (
         <NexusSectionButton
           onClick={() => setRaffleViewMode("coupon_create")}
           variant="brand"
           icon={Plus}
         >
-          Nuevo Cupón
+          Nuevo cupón
         </NexusSectionButton>
       );
     }
 
     if (isSystemMode) {
       if (systemViewMode === "config") {
+        if (!hasPermission("settings.manage")) return null;
         return (
           <NexusSectionButton
             onClick={() => platformSettingsRef.current?.handleSave()}
             variant="brand"
             icon={Save}
           >
-            Guardar Configuración
+            Guardar configuración
           </NexusSectionButton>
         );
       }
       if (systemViewMode === "shipping") {
+        if (!hasPermission("shipping.manage")) return null;
         return (
           <NexusSectionButton
             onClick={() =>
@@ -2161,12 +2329,13 @@ function App() {
             variant="brand"
             icon={Save}
           >
-            Guardar Cambios
+            Guardar cambios
           </NexusSectionButton>
         );
       }
       if (systemViewMode === "identity") {
         if (identityStatus === "editing") {
+          if (!hasPermission("settings.manage")) return null;
           return (
             <PageHeaderActionPair>
               <NexusSectionButton
@@ -2181,7 +2350,7 @@ function App() {
                 variant="brand"
                 icon={Save}
               >
-                Guardar Identidad
+                Guardar identidad
               </NexusSectionButton>
             </PageHeaderActionPair>
           );
@@ -2195,22 +2364,24 @@ function App() {
             variant="brand"
             icon={Save}
           >
-            Guardar Ajustes
+            Guardar ajustes
           </NexusSectionButton>
         );
       }
       if (systemViewMode === "storefront") {
+        if (!hasPermission("settings.manage")) return null;
         return (
           <NexusSectionButton
             onClick={() => storefrontStatusRef.current?.handleSave()}
             variant="brand"
             icon={Save}
           >
-            Guardar Estado
+            Guardar estado
           </NexusSectionButton>
         );
       }
       if (systemViewMode === "announcements") {
+        if (!hasPermission("storefront.content.manage")) return null;
         if (announcementViewMode === "list") {
           return (
             <NexusSectionButton
@@ -2218,7 +2389,7 @@ function App() {
               variant="brand"
               icon={Plus}
             >
-              Nuevo Aviso
+              Nuevo aviso
             </NexusSectionButton>
           );
         }
@@ -2237,19 +2408,20 @@ function App() {
               icon={Save}
               disabled={!isFormValid}
             >
-              Guardar Aviso
+              Guardar aviso
             </NexusSectionButton>
           </PageHeaderActionPair>
         );
       }
       if (systemViewMode === "raffle") {
+        if (!hasPermission("raffles.settings.manage")) return null;
         return (
           <NexusSectionButton
             onClick={() => raffleSettingsRef.current?.handleSave()}
             variant="brand"
             icon={Save}
           >
-            Guardar Módulo
+            Guardar módulo
           </NexusSectionButton>
         );
       }
@@ -2257,6 +2429,7 @@ function App() {
         systemViewMode === "channels" &&
         (channelsViewMode === "create" || channelsViewMode === "edit")
       ) {
+        if (!hasPermission("channels.manage")) return null;
         return (
           <PageHeaderActionPair>
             <NexusSectionButton
@@ -2299,16 +2472,9 @@ function App() {
       />
     );
 
-  const bottomNavTabs: Array<
+  const bottomNavTabs = visibleTabs.filter((tab) => tab !== "Mi Perfil") as Array<
     "Inicio" | "Medios" | "Tienda" | "Operaciones" | "Sistema" | "Rifas"
-  > = [
-    "Inicio",
-    "Operaciones",
-    "Tienda",
-    ...(showRaffleNavigation ? ["Rifas" as const] : []),
-    "Medios",
-    "Sistema",
-  ];
+  >;
 
   return (
     <ThemeContext.Provider value={{ theme, toggleTheme }}>
@@ -2325,6 +2491,7 @@ function App() {
             }}
             onLogout={handleLogout}
             raffleEnabled={showRaffleNavigation}
+            tabs={visibleTabs.filter((tab) => tab !== "Mi Perfil")}
             newOrdersCount={pendingOrderIds.size}
             onOpenProfile={() => {
               setActiveTab("Mi Perfil");
@@ -2376,6 +2543,7 @@ function App() {
                 isCreatingRaffle={isCreatingRaffle}
                 isEditingRaffle={isEditingRaffle}
                 systemViewMode={systemViewMode}
+                usersFormMode={userFormMode}
                 announcementViewMode={announcementViewMode}
                 profileViewMode={profileViewMode}
                 shippingSubView={shippingSubView}
@@ -2589,13 +2757,13 @@ function App() {
                     detailActions={
                       isRafflesMode && raffleViewMode === "materials"
                         ? [
-                            { icon: <ImageIcon size={20} />, label: "Ficha de la Rifa" },
-                            { icon: <Ticket size={20} />, label: "Boletera Visual" },
+                            { icon: <ImageIcon size={20} />, label: "Ficha de la rifa" },
+                            { icon: <Ticket size={20} />, label: "Boletera visual" },
                           ]
                         : undefined
                     }
                     raffleEnabled={showRaffleNavigation}
-                    userRole={userRole}
+                    permissions={userPermissions}
                   />
                 </div>
               )}
@@ -2658,7 +2826,9 @@ function App() {
                   storeViewMode === "order-detail" && selectedOrder ? (
                     <OrderDetailView
                       order={selectedOrder}
-                      canManageOperations={canManageOperations}
+                      canManageOrder={canManageOrder}
+                      canRefundOrder={canRefundOrder}
+                      canSendMessages={canSendMessages}
                       onBack={handleBackFromOrderDetail}
                       showToast={showToast}
                     />
@@ -2666,7 +2836,11 @@ function App() {
                     <OperationsView
                       orders={orders}
                       isLoadingOrders={isLoadingDashboard}
-                      canManageOperations={canManageOperations}
+                      canManageOrder={canManageOrder}
+                      canManageOrderFinancial={canManageOrderFinancial}
+                      canViewParticipations={canViewRaffleParticipations}
+                      canManageParticipation={canManageParticipation}
+                      canManageRaffleFinancial={canManageRaffleFinancial}
                       filters={operationsFilters}
                       searchQuery={operationsSearchQuery}
                       onOrdersChange={setOrders}
@@ -2696,7 +2870,8 @@ function App() {
                     <OrdersView
                       orders={orders}
                       isLoading={isLoadingDashboard}
-                      canManageOperations={canManageOperations}
+                      canManageOrder={canManageOrder}
+                      canManageOrderFinancial={canManageOrderFinancial}
                       advancedFilters={orderAdvancedFilters}
                       searchQuery={orderSearchQuery}
                       onOrdersChange={setOrders}
@@ -2707,7 +2882,9 @@ function App() {
                   ) : storeViewMode === "order-detail" && selectedOrder ? (
                     <OrderDetailView
                       order={selectedOrder}
-                      canManageOperations={canManageOperations}
+                      canManageOrder={canManageOrder}
+                      canRefundOrder={canRefundOrder}
+                      canSendMessages={canSendMessages}
                       onBack={handleBackFromOrderDetail}
                       showToast={showToast}
                     />
@@ -2734,7 +2911,8 @@ function App() {
                 ) : isRafflesMode ? (
                   raffleViewMode === "participations" ? (
                     <RaffleParticipationsView
-                      canManageOperations={canManageOperations}
+                      canManageParticipation={canManageParticipation}
+                      canManageRaffleFinancial={canManageRaffleFinancial}
                       advancedFilters={raffleParticipationFilters}
                       searchQuery={raffleParticipationSearchQuery}
                       onViewDetail={(participation) => {
@@ -2757,14 +2935,21 @@ function App() {
                     selectedRaffleParticipation ? (
                     <RaffleParticipationDetailView
                       participation={selectedRaffleParticipation}
-                      canManageOperations={canManageOperations}
+                      canManageParticipation={canManageParticipation}
+                      canManageRaffleFinancial={canManageRaffleFinancial}
+                      canSendMessages={canSendMessages}
                       onLoaded={setSelectedRaffleParticipation}
                       showToast={showToast}
                     />
                   ) : (
                     <RaffleView
                       searchQuery={raffleSearchQuery}
-                      canManageOperations={canManageOperations}
+                      canManageRaffles={canManageRaffles}
+                      canManageRaffleCoupons={canManageRaffleCoupons}
+                      canManageResults={canManageResults}
+                      canManageParticipations={canManageParticipation}
+                      canViewMessages={canViewMessages}
+                      canSendMessages={canSendMessages}
                       advancedFilters={raffleAdvancedFilters}
                       ticketBoardSearchQuery={raffleTicketBoardSearchQuery}
                       ticketBoardFilter={raffleTicketBoardFilter}
@@ -2799,11 +2984,40 @@ function App() {
                         showToast={showToast}
                       />
                     ) : systemViewMode === "users" ? (
-                      <UsersView
-                        ref={usersRef}
-                        showToast={showToast}
-                        setConfirmDialog={setConfirmDialog}
-                      />
+                      userFormMode ? (
+                        <UserForm
+                          key={`${userFormMode}-${selectedUserForForm?.id ?? "new"}`}
+                          ref={userFormRef}
+                          user={selectedUserForForm}
+                          currentUserPermissions={userPermissions as PermissionId[]}
+                          showToast={showToast}
+                          onSavingChange={setIsUserFormSaving}
+                          onValidationChange={setIsFormValid}
+                          onSaved={() => {
+                            setUserFormMode(null);
+                            setSelectedUserForForm(null);
+                            setIsFormValid(false);
+                            setIsUserFormSaving(false);
+                          }}
+                        />
+                      ) : (
+                        <UsersView
+                          showToast={showToast}
+                          setConfirmDialog={setConfirmDialog}
+                          onCreateUser={() => {
+                            setSelectedUserForForm(null);
+                            setIsFormValid(false);
+                            setUserFormMode("create");
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          }}
+                          onEditUser={(user) => {
+                            setSelectedUserForForm(user);
+                            setIsFormValid(false);
+                            setUserFormMode("edit");
+                            window.scrollTo({ top: 0, behavior: "smooth" });
+                          }}
+                        />
+                      )
                     ) : systemViewMode === "identity" ? (
                       <IdentityView
                         ref={identityRef}
@@ -2863,6 +3077,7 @@ function App() {
                         ref={billingRef}
                         showToast={showToast}
                         setConfirmDialog={setConfirmDialog}
+                        canManageBilling={hasPermission("billing.manage")}
                       />
                     ) : systemViewMode === "storefront" ? (
                       <StorefrontStatusView
@@ -2882,6 +3097,7 @@ function App() {
                       <RaffleSettingsView
                         ref={raffleSettingsRef}
                         showToast={showToast}
+                        canManageRaffleSettings={hasPermission("raffles.settings.manage")}
                         onStatusChange={(enabled) => {
                           localStorage.setItem(
                             "admin_raffle_enabled",
@@ -2903,7 +3119,7 @@ function App() {
                             variant="muted"
                           />
                           <h3 className="text-h3 text-text-main">
-                            Módulo en Desarrollo
+                            Módulo en desarrollo
                           </h3>
                           <p className="text-secondary text-text-muted">
                             Esta sección del sistema estará disponible
@@ -2924,7 +3140,7 @@ function App() {
                     isLoadingCommercial={isLoadingDashboardCommercial}
                     stats={dashboardStats}
                     commercialOverview={dashboardCommercialOverview}
-                    userRole={userRole}
+                    canViewMilestones={hasPermission("dashboard.view")}
                     billingServices={billingServices}
                     billingCharges={billingCharges}
                     billingPayments={billingPayments}

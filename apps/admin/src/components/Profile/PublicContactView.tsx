@@ -39,7 +39,7 @@ export const PublicContactView: React.FC<PublicContactViewProps> = ({
   showToast,
   saveContact,
   onSaved,
-  canPublish = profile.role === "ADMIN" || profile.role === "SUPERADMIN",
+  canPublish = false,
   saveLabel = "Guardar contacto",
   successMessage = "Contacto publico actualizado",
 }) => {

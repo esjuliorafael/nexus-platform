@@ -593,7 +593,7 @@ export const ticketSaleService = {
           raffleId: sales[0].raffleId,
           eventType: "PAYMENT_CONFIRMATION_REVERTED",
           message:
-            "Confirmación de pago revertida desde Admin. La participación volvió a Apartada.",
+            "Confirmación de pago revertida desde Admin. La participación volvió a apartada.",
           ...auditActorData(actor),
           previousState: { paymentStatus: TicketStatus.PAID },
           nextState: { paymentStatus: TicketStatus.PENDING },

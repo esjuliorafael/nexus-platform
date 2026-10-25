@@ -21,7 +21,9 @@ interface RaffleParticipationDetailViewProps {
   participation: RaffleParticipation;
   onLoaded: (participation: RaffleParticipation) => void;
   showToast: (message: string, type?: "success" | "error") => void;
-  canManageOperations: boolean;
+  canManageParticipation: boolean;
+  canManageRaffleFinancial: boolean;
+  canSendMessages: boolean;
 }
 
 const formatCurrency = (value: number) =>
@@ -121,7 +123,7 @@ const financialReasonOptions: Array<{ value: RaffleFinancialReason; label: strin
 const financialReasonLabel = (value?: string | null) =>
   financialReasonOptions.find((option) => option.value === value)?.label || value || "Sin motivo";
 
-export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailViewProps> = ({ participation, onLoaded, showToast, canManageOperations }) => {
+export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailViewProps> = ({ participation, onLoaded, showToast, canManageParticipation, canManageRaffleFinancial, canSendMessages }) => {
   const [detail, setDetail] = useState<RaffleParticipation>(participation);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
@@ -243,7 +245,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
   const originVariant = detail.origin === "OPERATIONAL_PROTECTION" ? "info" as const : "muted" as const;
   const mercadoPagoStatus = getMercadoPagoStatusPresentation(detail.mpPaymentStatus, detail.status);
   const canRefundMercadoPago =
-    canManageOperations &&
+    canManageRaffleFinancial &&
     detail.paymentMethod === "MERCADOPAGO" &&
     detail.status === "PAID" &&
     Boolean(detail.mpPaymentId) &&
@@ -376,7 +378,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
           iconVariant={detail.status === "PAYMENT_REVIEW" ? "orange" : "brand"}
           actionPlacement="below"
           action={
-            !isPaymentHold && canManageOperations ? (
+            !isPaymentHold && canManageRaffleFinancial ? (
               <NexusSectionButton
                 onClick={handleOpenFinancialDispositionModal}
                 icon={ShieldCheck}
@@ -664,9 +666,9 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
           iconVariant="emerald"
           actionPlacement="below"
           action={
-            !isPaymentHold && canManageOperations ? (
+            !isPaymentHold && canManageParticipation ? (
               <NexusSectionButton onClick={handleOpenParticipantModal} icon={Edit2}>
-                Editar Participante
+                Editar participante
               </NexusSectionButton>
             ) : undefined
           }
@@ -682,7 +684,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
           isOpen={isParticipantModalOpen}
           onClose={() => setIsParticipantModalOpen(false)}
           title={detail.customerName || "Participante"}
-          eyebrow="Editar Participante"
+          eyebrow="Editar participante"
           icon={UserRound}
           iconTone="brand"
           size="standard"
@@ -735,7 +737,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
                 disabled={!participantForm.customerName.trim() || !isCustomerPhoneComplete(participantForm.customerPhone)}
                 className="flex-[2]"
               >
-                Guardar Cambios
+                Guardar cambios
               </NexusAutonomousButton>
             </NexusModalActions>
           </form>
@@ -755,7 +757,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
                   icon={RotateCcw}
                   variant="secondary"
                 >
-                  Devolver Pago
+                  Devolver pago
                 </NexusSectionButton>
               ) : undefined
             }
@@ -868,7 +870,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
           icon={MessageCircle}
           iconVariant="emerald"
           actionPlacement="below"
-          action={canManageOperations && detail.origin !== "OPERATIONAL_PROTECTION" ? (
+          action={canSendMessages && detail.origin !== "OPERATIONAL_PROTECTION" ? (
             <NexusSectionButton
               onClick={handleResendWhatsApp}
               isLoading={isResendingWhatsApp}
@@ -952,7 +954,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
                 </div>
               )}
 
-              {selectedWhatsappLog.status === "failed" && canManageOperations && (
+              {selectedWhatsappLog.status === "failed" && canSendMessages && (
                 <NexusModalActions>
                   <NexusAutonomousButton
                     onClick={() => {
@@ -972,7 +974,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
 
         {!isPaymentHold && (
           <NexusSection
-            title="Historial de Actividad"
+            title="Historial de actividad"
             subtitle="Acciones y responsables"
             icon={History}
             iconVariant="muted"

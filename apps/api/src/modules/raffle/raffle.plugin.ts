@@ -4,8 +4,13 @@ import { ticketSaleRoutes } from "./ticket-sales/ticket-sale.routes";
 import { raffleSettingRoutes } from "./settings/raffle-setting.routes";
 import { raffleIntelligenceRoutes } from "./intelligence/raffle-intelligence.routes";
 import { raffleCouponAdminRoutes, raffleCouponPublicRoutes } from "./coupons/raffle-coupon.routes";
+import { authorizeAdminRequest } from "../../utils/user-permissions";
 
 export async function rafflePlugin(server: FastifyInstance) {
+  server.addHook("preHandler", (request, reply) =>
+    authorizeAdminRequest(server, request, reply),
+  );
+
   await server.register(raffleRoutes, { prefix: "/raffles" });
   await server.register(ticketSaleRoutes, { prefix: "/ticket-sales" });
   await server.register(raffleSettingRoutes, { prefix: "/settings" });

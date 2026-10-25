@@ -26,7 +26,7 @@ export function MarketingConsentField({
         <span className="sf-text-secondary font-bold text-stone-700">
           Quiero recibir invitaciones y novedades por WhatsApp
         </span>
-        <span className="sf-text-caption text-stone-500">
+        <span className="sf-text-secondary text-stone-500">
           Es opcional. Puedes cancelar cuando quieras respondiendo BAJA.
         </span>
       </span>

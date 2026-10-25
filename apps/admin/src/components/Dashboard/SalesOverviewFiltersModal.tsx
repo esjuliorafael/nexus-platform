@@ -27,9 +27,9 @@ export const DEFAULT_SALES_OVERVIEW_FILTERS: SalesOverviewFilters = {
 
 const PERIOD_OPTIONS: NexusFilterOption<SalesOverviewPeriod>[] = [
   { value: "TODAY", label: "Hoy" },
-  { value: "7D", label: "7 Días" },
-  { value: "15D", label: "15 Días" },
-  { value: "MONTH", label: "Este Mes" },
+  { value: "7D", label: "7 días" },
+  { value: "15D", label: "15 días" },
+  { value: "MONTH", label: "Este mes" },
   { value: "ALL", label: "Histórico" },
 ];
 
@@ -41,7 +41,7 @@ const PRODUCT_TYPE_OPTIONS: NexusFilterOption<SalesOverviewProductType>[] = [
 
 const PAYMENT_METHOD_OPTIONS: NexusFilterOption<SalesOverviewPaymentMethod>[] = [
   { value: "ALL", label: "Todos" },
-  { value: "TRANSFER", label: "Depósito / Transferencia" },
+  { value: "TRANSFER", label: "Depósito / transferencia" },
   { value: "MERCADOPAGO", label: "Tarjeta" },
 ];
 
@@ -70,8 +70,8 @@ export const SalesOverviewFiltersModal: React.FC<
   return (
     <NexusDrawer
       isOpen={isOpen}
-      title="Filtrar Órdenes"
-      eyebrow="Resumen de Órdenes"
+      title="Filtrar órdenes"
+      eyebrow="Resumen de órdenes"
       icon={Filter}
       onClose={onClose}
       footer={
@@ -107,7 +107,7 @@ export const SalesOverviewFiltersModal: React.FC<
           }
         />
         <NexusFilterGroup
-          title="Tipo de Producto"
+          title="Tipo de producto"
           value={draft.productType}
           options={PRODUCT_TYPE_OPTIONS}
           onChange={(productType) =>
@@ -115,7 +115,7 @@ export const SalesOverviewFiltersModal: React.FC<
           }
         />
         <NexusFilterGroup
-          title="Método de Pago"
+          title="Método de pago"
           value={draft.paymentMethod}
           options={PAYMENT_METHOD_OPTIONS}
           onChange={(paymentMethod) =>
