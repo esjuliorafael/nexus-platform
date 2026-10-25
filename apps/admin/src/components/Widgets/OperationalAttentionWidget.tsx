@@ -21,10 +21,13 @@ interface OperationalAttentionWidgetProps {
   orders?: AttentionStatus;
   participations?: AttentionStatus;
   attention?: {
-    paymentReviews: AttentionStatus;
-    inventoryIncidents: number;
-    rafflesAwaitingResolution: number;
-    prizesAwaitingFulfillment: number;
+    paymentReviews?: {
+      orders?: AttentionStatus;
+      participations?: AttentionStatus;
+    };
+    inventoryIncidents?: number;
+    rafflesAwaitingResolution?: number;
+    prizesAwaitingFulfillment?: number;
   };
   isLoading?: boolean;
   onOpenOrders: () => void;
@@ -68,12 +71,20 @@ export const OperationalAttentionWidget = ({
       onClick: onOpenParticipations,
     },
     {
-      label: 'Pagos en revisión',
+      label: 'Pagos de pedidos en revisión',
       description: 'Mercado Pago aún no entrega una resolución definitiva.',
-      status: attention?.paymentReviews ?? { count: 0, amount: 0 },
+      status: attention?.paymentReviews?.orders ?? { count: 0, amount: 0 },
       icon: BadgeAlert,
       tone: 'orange',
       onClick: onOpenOrders,
+    },
+    {
+      label: 'Pagos de participaciones en revisión',
+      description: 'Mercado Pago aún no entrega una resolución definitiva.',
+      status: attention?.paymentReviews?.participations ?? { count: 0, amount: 0 },
+      icon: BadgeAlert,
+      tone: 'orange',
+      onClick: onOpenParticipations,
     },
     {
       label: 'Inventario por revisar',

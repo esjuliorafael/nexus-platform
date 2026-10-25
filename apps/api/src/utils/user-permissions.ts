@@ -3,6 +3,27 @@ import type { PermissionId } from "@nexus/types";
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
+const readImpliedPermissions: Partial<Record<PermissionId, PermissionId[]>> = {
+  "orders.view": [
+    "orders.manage", "orders.financial.manage", "orders.refund", "orders.restore",
+  ],
+  "products.view": ["products.manage", "payment-links.manage", "coupons.manage"],
+  "shipping.view": ["shipping.manage"],
+  "settings.view": ["settings.manage"],
+  "billing.view": ["billing.manage"],
+  "channels.view": ["channels.manage"],
+  "messaging.view": ["messaging.manage", "messaging.send"],
+  "raffles.view": [
+    "raffles.manage", "raffles.results.manage", "raffles.participations.manage",
+    "raffles.financial.manage", "raffles.coupons.manage", "raffles.settings.manage",
+    "raffles.intelligence.view", "raffles.intelligence.manage",
+  ],
+  "raffles.participations.view": [
+    "raffles.participations.manage", "raffles.financial.manage",
+  ],
+  "raffles.intelligence.view": ["raffles.intelligence.manage"],
+};
+
 const pathOf = (request: FastifyRequest) => request.url.split("?")[0];
 const methodOf = (request: FastifyRequest) => request.method.toUpperCase() as Method;
 const starts = (path: string, prefix: string) => path === prefix || path.startsWith(`${prefix}/`);
@@ -22,7 +43,15 @@ export function requiredPermissionForRequest(request: FastifyRequest): Permissio
   const path = pathOf(request);
   const method = methodOf(request);
 
-  if (starts(path, "/api/v1/admin/dashboard")) return "dashboard.view";
+  if (starts(path, "/api/v1/admin/dashboard")) {
+    if (/^\/api\/v1\/admin\/dashboard\/milestones\/[^/]+\/acknowledge$/.test(path)) {
+      return "dashboard.milestones.acknowledge";
+    }
+    if (path === "/api/v1/admin/dashboard/stats") return "dashboard.operations.view";
+    if (path === "/api/v1/admin/dashboard/commercial-overview") return "dashboard.sales.view";
+    if (path === "/api/v1/admin/dashboard/sales-overview") return "orders.view";
+    return null;
+  }
   if (starts(path, "/api/v1/admin/users")) return "users.manage";
   if (starts(path, "/api/v1/admin/billing")) return isWrite(method) ? "billing.manage" : "billing.view";
   if (starts(path, "/api/v1/admin/products")) return isWrite(method) ? "products.manage" : "products.view";
@@ -96,28 +125,43 @@ export function requiredPermissionForRequest(request: FastifyRequest): Permissio
 
 function permissionsAllowedForRequest(request: FastifyRequest, required: PermissionId) {
   if (methodOf(request) !== "GET") return [required];
-
-  const readImpliedPermissions: Partial<Record<PermissionId, PermissionId[]>> = {
-    "orders.view": [
-      "orders.manage", "orders.financial.manage", "orders.refund", "orders.restore",
-    ],
-    "products.view": ["products.manage", "payment-links.manage", "coupons.manage"],
-    "shipping.view": ["shipping.manage"],
-    "settings.view": ["settings.manage"],
-    "billing.view": ["billing.manage"],
-    "channels.view": ["channels.manage"],
-    "messaging.view": ["messaging.manage", "messaging.send"],
-    "raffles.view": [
-      "raffles.manage", "raffles.results.manage", "raffles.participations.manage",
-      "raffles.financial.manage", "raffles.coupons.manage", "raffles.settings.manage",
-      "raffles.intelligence.view", "raffles.intelligence.manage",
-    ],
-    "raffles.participations.view": [
-      "raffles.participations.manage", "raffles.financial.manage",
-    ],
-    "raffles.intelligence.view": ["raffles.intelligence.manage"],
-  };
   return [required, ...(readImpliedPermissions[required] ?? [])];
+}
+
+function permissionRequirementGroupsForRequest(
+  request: FastifyRequest,
+): PermissionId[][] {
+  const path = pathOf(request);
+  if (starts(path, "/api/v1/admin/dashboard")) {
+    if (/^\/api\/v1\/admin\/dashboard\/milestones\/[^/]+\/acknowledge$/.test(path)) {
+      return [["dashboard.milestones.acknowledge"], ["dashboard.milestones.view"]];
+    }
+    if (path.endsWith("/stats")) {
+      return [["dashboard.operations.view", "dashboard.milestones.view"]];
+    }
+    if (path.endsWith("/commercial-overview")) {
+      return [[
+        "dashboard.sales.view",
+        "messaging.cost.view",
+        "orders.view",
+        "raffles.participations.view",
+      ]];
+    }
+    if (path.endsWith("/sales-overview")) return [["orders.view"]];
+  }
+
+  const required = requiredPermissionForRequest(request);
+  return required ? [[required]] : [];
+}
+
+export function actorHasReadPermission(
+  request: FastifyRequest,
+  required: PermissionId,
+) {
+  const permissions = (request.user as { permissions?: string[] } | undefined)?.permissions ?? [];
+  return [required, ...(readImpliedPermissions[required] ?? [])].some((permission) =>
+    permissions.includes(permission),
+  );
 }
 
 export function isAdminManagedRequest(request: FastifyRequest) {
@@ -148,12 +192,18 @@ export async function authorizeAdminRequest(
 
   const permission = requiredPermissionForRequest(request);
   const permissions = (request.user as { permissions?: string[] } | undefined)?.permissions ?? [];
-  const allowedPermissions = permission
-    ? permissionsAllowedForRequest(request, permission)
-    : [];
+  const requirementGroups = permissionRequirementGroupsForRequest(request);
+  const hasPermissionForEveryGroup = requirementGroups.every((group) =>
+    group.some((required) =>
+      permissionsAllowedForRequest(request, required).some((allowed) =>
+        permissions.includes(allowed),
+      ),
+    ),
+  );
   if (
     !permission ||
-    !allowedPermissions.some((allowed) => permissions.includes(allowed))
+    requirementGroups.length === 0 ||
+    !hasPermissionForEveryGroup
   ) {
     return reply.status(403).send({
       message: "No tienes el permiso necesario para realizar esta acción.",

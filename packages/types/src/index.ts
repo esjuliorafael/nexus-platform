@@ -14,10 +14,28 @@ export const PERMISSION_GROUPS = [
 
 export const PERMISSIONS = [
   {
-    id: "dashboard.view",
+    id: "dashboard.operations.view",
     group: "dashboard",
-    label: "Consultar el panel de inicio",
-    description: "Incluye el resumen comercial, indicadores y metas. Es de solo lectura.",
+    label: "Consultar atención operativa",
+    description: "Muestra pendientes de pedidos, rifas e inventario según tus permisos en cada módulo.",
+  },
+  {
+    id: "dashboard.sales.view",
+    group: "dashboard",
+    label: "Consultar indicadores comerciales",
+    description: "Muestra tendencias, montos y conversión agregados; no concede acceso al detalle de pedidos o participaciones.",
+  },
+  {
+    id: "dashboard.milestones.view",
+    group: "dashboard",
+    label: "Consultar progreso de hitos",
+    description: "Muestra el acumulado histórico de ingresos, órdenes y participaciones.",
+  },
+  {
+    id: "dashboard.milestones.acknowledge",
+    group: "dashboard",
+    label: "Marcar hitos como vistos",
+    description: "Guarda que ya viste un hito; también requiere permiso para consultar los hitos.",
   },
   { id: "orders.view", group: "orders", label: "Consultar pedidos" },
   {
@@ -113,6 +131,12 @@ export const PERMISSIONS = [
     group: "marketing",
     label: "Consultar canales y comunicaciones",
     description: "Permite revisar canales de WhatsApp, plantillas y registros de comunicación.",
+  },
+  {
+    id: "messaging.cost.view",
+    group: "marketing",
+    label: "Consultar costo estimado de mensajería",
+    description: "Muestra métricas de costo de mensajes; no permite configurar canales ni enviar campañas.",
   },
   {
     id: "messaging.manage",

@@ -46,7 +46,14 @@ interface DashboardViewProps {
   isLoading: boolean;
   stats: DashboardStats | null;
   commercialOverview: DashboardCommercialOverview | null;
+  canViewOperations: boolean;
+  canViewSales: boolean;
   canViewMilestones: boolean;
+  canAcknowledgeMilestones: boolean;
+  canViewMessagingCost: boolean;
+  canViewBilling: boolean;
+  canViewOrderHistory: boolean;
+  canViewParticipationHistory: boolean;
   billingServices: AnnualService[];
   billingCharges: ExtraCharge[];
   billingPayments: BillingPayment[];
@@ -86,7 +93,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   isLoading,
   stats,
   commercialOverview,
+  canViewOperations,
+  canViewSales,
   canViewMilestones,
+  canAcknowledgeMilestones,
+  canViewMessagingCost,
+  canViewBilling,
+  canViewOrderHistory,
+  canViewParticipationHistory,
   billingServices,
   billingCharges,
   billingPayments,
@@ -119,6 +133,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   const milestonePreview = isDevelopment
     ? getDashboardMilestonePreview(activePreviewId)
     : null;
+  const canShowMilestoneModal =
+    canViewMilestones && (canAcknowledgeMilestones || Boolean(milestonePreview));
   const milestoneResetKey = `${activePreviewId || 'live'}:${previewRun}`;
 
   const setPreviewUrl = React.useCallback((milestoneId: string | null) => {
@@ -149,14 +165,14 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
     acknowledgeMilestone,
     handleAfterClose,
   } = useRevenueMilestones({
-    enabled: canViewMilestones,
+    enabled: canShowMilestoneModal,
     isLoading: milestonePreview
       ? false
       : isLoading || isLoadingCommercial || !stats,
     milestones: milestonePreview?.milestones || stats?.milestones,
     resetKey: milestoneResetKey,
     onAcknowledge: async (milestoneId) => {
-      if (milestonePreview) return;
+      if (milestonePreview || !canAcknowledgeMilestones) return;
       await apiDashboard.acknowledgeMilestone(milestoneId);
     },
   });
@@ -181,23 +197,26 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         ? `Conversión de las rifas durante ${commercialPeriodLabel}.`
         : `Conversión de tienda y rifas durante ${commercialPeriodLabel}.`;
   const commercialHistory = commercialOverview?.history ?? [];
+  const canViewAnyHistory = canViewOrderHistory || canViewParticipationHistory;
   const historyTitle =
-    commercialSource === 'STORE'
+    commercialSource === 'STORE' ||
+    (commercialSource === 'ALL' && canViewOrderHistory && !canViewParticipationHistory)
       ? 'Historial de Órdenes'
-      : commercialSource === 'RAFFLES'
+      : commercialSource === 'RAFFLES' ||
+          (commercialSource === 'ALL' && canViewParticipationHistory && !canViewOrderHistory)
         ? 'Historial de Participaciones'
         : 'Historial Comercial';
   const historySubtitle =
-    commercialSource === 'STORE'
+    historyTitle === 'Historial de Órdenes'
       ? `Últimas órdenes de ${commercialPeriodLabel}.`
-      : commercialSource === 'RAFFLES'
+      : historyTitle === 'Historial de Participaciones'
         ? `Últimas participaciones de ${commercialPeriodLabel}.`
         : `Últimos movimientos de tienda y rifas durante ${commercialPeriodLabel}.`;
 
   return (
     <>
       <DashboardMilestoneModal
-        isOpen={canViewMilestones && isMilestoneOpen}
+        isOpen={canShowMilestoneModal && isMilestoneOpen}
         milestone={activeMilestone}
         onClose={() => void acknowledgeMilestone()}
         onAfterClose={handleAfterClose}
@@ -255,50 +274,56 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </NexusSection>
       )}
       {/* NIVEL A: ALERTAS CRÍTICAS */}
-      <BillingAlertWidget
-        services={billingServices}
-        charges={billingCharges}
-        payments={billingPayments}
-        isLoading={isLoading}
-        onNavigate={() => onNavigateToSystem('billing')}
-      />
+      {canViewBilling && (
+        <BillingAlertWidget
+          services={billingServices}
+          charges={billingCharges}
+          payments={billingPayments}
+          isLoading={isLoading}
+          onNavigate={() => onNavigateToSystem('billing')}
+        />
+      )}
 
       {/* NIVEL B: OPERATIVO (SOLO CUANDO REQUIERE ATENCIÓN) */}
-      <section className="min-w-0">
-        <OperationalAttentionWidget
-          orders={orderStats?.pending}
-          participations={stats?.participations?.pending}
-          attention={stats?.attention}
-          isLoading={isLoading}
-          onOpenOrders={() => onTabChange('Operaciones')}
-          onOpenParticipations={onOpenRaffleParticipations}
-          onOpenStore={() => onTabChange('Tienda')}
-          onOpenRaffles={() => onTabChange('Rifas')}
-        />
-      </section>
+      {canViewOperations && (
+        <section className="min-w-0">
+          <OperationalAttentionWidget
+            orders={orderStats?.pending}
+            participations={stats?.participations?.pending}
+            attention={stats?.attention}
+            isLoading={isLoading}
+            onOpenOrders={() => onTabChange('Operaciones')}
+            onOpenParticipations={onOpenRaffleParticipations}
+            onOpenStore={() => onTabChange('Tienda')}
+            onOpenRaffles={() => onTabChange('Rifas')}
+          />
+        </section>
+      )}
 
       {/* NIVEL C: ESTRATÉGICO (TENDENCIAS) */}
-      <section
-        className="grid min-w-0 grid-cols-1 items-stretch xl:grid-cols-2"
-        style={{ gap: 'var(--space-lg)' }}
-      >
-        <div className="min-w-0">
-          <SalesChart
-            data={commercialOverview?.salesBySource}
-            period={commercialPeriod}
-            source={commercialSource}
-            totalAmount={commercialOverview?.pulse.confirmed.amount}
-            isLoading={isLoadingCommercial}
-          />
-        </div>
-        <div className="min-w-0">
-          <FinancialWeightWidget
-            pulse={commercialOverview?.pulse}
-            description={pulseDescription}
-            isLoading={isLoadingCommercial}
-          />
-        </div>
-      </section>
+      {canViewSales && (
+        <section
+          className="grid min-w-0 grid-cols-1 items-stretch xl:grid-cols-2"
+          style={{ gap: 'var(--space-lg)' }}
+        >
+          <div className="min-w-0">
+            <SalesChart
+              data={commercialOverview?.salesBySource}
+              period={commercialPeriod}
+              source={commercialSource}
+              totalAmount={commercialOverview?.pulse?.confirmed.amount}
+              isLoading={isLoadingCommercial}
+            />
+          </div>
+          <div className="min-w-0">
+            <FinancialWeightWidget
+              pulse={commercialOverview?.pulse}
+              description={pulseDescription}
+              isLoading={isLoadingCommercial}
+            />
+          </div>
+        </section>
+      )}
 
       {canViewMilestones && (
         <section className="min-w-0">
@@ -310,15 +335,17 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </section>
       )}
 
-      <section className="min-w-0">
-        <MessagingCostWidget
-          cost={commercialOverview?.messagingCost}
-          isLoading={isLoadingCommercial}
-        />
-      </section>
+      {canViewMessagingCost && (
+        <section className="min-w-0">
+          <MessagingCostWidget
+            cost={commercialOverview?.messagingCost}
+            isLoading={isLoadingCommercial}
+          />
+        </section>
+      )}
 
       {/* NIVEL E: HISTORIAL COMERCIAL */}
-      <NexusSection
+      {canViewAnyHistory && <NexusSection
         title={historyTitle}
         subtitle={historySubtitle}
         icon={History}
@@ -495,7 +522,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
             </p>
           )}
         </div>
-      </NexusSection>
+      </NexusSection>}
 
       </div>
     </>

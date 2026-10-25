@@ -5,12 +5,25 @@ import {
   isAdminManagedRequest,
   requiredPermissionForRequest,
 } from "../src/utils/user-permissions";
+import { createUserSchema } from "../src/modules/store/users/user.schema";
 
 function makeRequest(url: string, method = "GET", permissions: string[] = [], body?: unknown) {
   return { url, method, user: { permissions }, body } as any;
 }
 
 test("maps high-impact admin operations to explicit permissions", () => {
+  assert.equal(
+    requiredPermissionForRequest(makeRequest("/api/v1/admin/dashboard/stats")),
+    "dashboard.operations.view",
+  );
+  assert.equal(
+    requiredPermissionForRequest(makeRequest("/api/v1/admin/dashboard/commercial-overview")),
+    "dashboard.sales.view",
+  );
+  assert.equal(
+    requiredPermissionForRequest(makeRequest("/api/v1/admin/dashboard/sales-overview")),
+    "orders.view",
+  );
   assert.equal(
     requiredPermissionForRequest(makeRequest("/api/v1/admin/shipping-zones/4", "PUT")),
     "shipping.manage",
@@ -58,6 +71,69 @@ test("maps high-impact admin operations to explicit permissions", () => {
       settings: [{ key: "raffle_enabled", value: "0" }, { key: "shipping_cost", value: "1" }],
     })),
     "settings.manage",
+  );
+});
+
+test("dashboard endpoints accept only the relevant granular permissions", async () => {
+  const makeReply = () => ({
+    sent: false,
+    statusCode: 200,
+    status(code: number) { this.statusCode = code; return this; },
+    send(body: unknown) { this.sent = true; this.body = body; return body; },
+  });
+  const authorize = (url: string, permissions: string[]) => {
+    const reply: any = makeReply();
+    return authorizeAdminRequest(
+      { authenticate: async () => undefined } as any,
+      makeRequest(url, url.includes("acknowledge") ? "POST" : "GET", permissions),
+      reply,
+    ).then(() => reply);
+  };
+
+  assert.equal(
+    (await authorize("/api/v1/admin/dashboard/stats", ["dashboard.milestones.view"])).sent,
+    false,
+  );
+  assert.equal(
+    (await authorize("/api/v1/admin/dashboard/commercial-overview", ["orders.view"])).sent,
+    false,
+  );
+  assert.equal(
+    (await authorize("/api/v1/admin/dashboard/commercial-overview", ["dashboard.operations.view"])).statusCode,
+    403,
+  );
+  assert.equal(
+    (await authorize("/api/v1/admin/dashboard/milestones/REVENUE_1/acknowledge", ["dashboard.milestones.acknowledge"])).statusCode,
+    403,
+  );
+  const acknowledgedWithBothPermissions = await authorize(
+    "/api/v1/admin/dashboard/milestones/REVENUE_1/acknowledge",
+    [
+      "dashboard.milestones.acknowledge",
+      "dashboard.milestones.view",
+    ],
+  );
+  assert.equal(acknowledgedWithBothPermissions.sent, false, JSON.stringify(acknowledgedWithBothPermissions));
+});
+
+test("milestone acknowledgement permission requires milestone visibility", () => {
+  const baseUser = { username: "staff", password: "long-enough-password", name: "Staff" };
+  assert.equal(
+    createUserSchema.safeParse({
+      ...baseUser,
+      permissions: ["dashboard.milestones.acknowledge"],
+    }).success,
+    false,
+  );
+  assert.equal(
+    createUserSchema.safeParse({
+      ...baseUser,
+      permissions: [
+        "dashboard.milestones.view",
+        "dashboard.milestones.acknowledge",
+      ],
+    }).success,
+    true,
   );
 });
 

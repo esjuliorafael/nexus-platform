@@ -99,7 +99,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
         {
           icon: <ChartNoAxesCombined size={20} />,
           label: "Resumen de órdenes",
-          permission: "dashboard.view",
+          permission: "orders.view",
         },
       ] satisfies ActionItem[],
     },

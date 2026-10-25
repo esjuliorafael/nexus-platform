@@ -1,6 +1,11 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
 import { dashboardService } from "./dashboard.service";
+import {
+  getDashboardAccess,
+  projectDashboardCommercialOverview,
+  projectDashboardStats,
+} from "./dashboard-permissions";
 
 const salesOverviewQuerySchema = z.object({
   period: z.enum(["TODAY", "7D", "15D", "MONTH", "ALL"]).default("MONTH"),
@@ -24,10 +29,10 @@ const revenueMilestoneParamsSchema = z.object({
 export async function dashboardRoutes(server: FastifyInstance) {
   server.get("/stats", { preHandler: [server.authenticate] }, async (request) => {
     const userId = Number((request.user as any)?.id);
-
-    return dashboardService.getStats(
+    const stats = await dashboardService.getStats(
       Number.isInteger(userId) ? userId : undefined,
     );
+    return projectDashboardStats(stats, getDashboardAccess(request));
   });
 
   server.post(
@@ -76,10 +81,19 @@ export async function dashboardRoutes(server: FastifyInstance) {
     async (request, reply) => {
       try {
         const query = commercialOverviewQuerySchema.parse(request.query);
-        return dashboardService.getCommercialOverview(
+        const access = getDashboardAccess(request);
+        const overview = await dashboardService.getCommercialOverview(
           query.period,
           query.source,
           query.paymentMethod,
+          {
+            includeStoreData: access.sales || access.orders,
+            includeRaffleData: access.sales || access.raffleParticipations,
+          },
+        );
+        return projectDashboardCommercialOverview(
+          overview,
+          access,
         );
       } catch (error: any) {
         if (error?.issues) {

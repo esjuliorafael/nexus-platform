@@ -325,6 +325,10 @@ export const UserForm = forwardRef<UserFormRef, UserFormProps>(
                   {activeGroupPermissions.map((permission) => {
                     const canDelegate = currentUserPermissions.includes(permission.id);
                     const checked = formData.permissions.includes(permission.id);
+                    const needsMilestoneView =
+                      permission.id === "dashboard.milestones.acknowledge" &&
+                      !formData.permissions.includes("dashboard.milestones.view") &&
+                      !currentUserPermissions.includes("dashboard.milestones.view");
                     const description = "description" in permission
                       ? permission.description
                       : undefined;
@@ -347,15 +351,27 @@ export const UserForm = forwardRef<UserFormRef, UserFormProps>(
                         </span>
                         <NexusCheckboxControl
                           checked={checked}
-                          disabled={!canDelegate && !checked}
-                          onChange={() =>
-                            updateField(
-                              "permissions",
-                              checked
-                                ? formData.permissions.filter((item) => item !== permission.id)
-                                : [...formData.permissions, permission.id],
-                            )
-                          }
+                          disabled={(!canDelegate && !checked) || needsMilestoneView}
+                          onChange={() => {
+                            const nextPermissions = checked
+                              ? formData.permissions.filter(
+                                  (item) =>
+                                    item !== permission.id &&
+                                    !(
+                                      permission.id === "dashboard.milestones.view" &&
+                                      item === "dashboard.milestones.acknowledge"
+                                    ),
+                                )
+                              : [
+                                  ...formData.permissions,
+                                  permission.id,
+                                  ...(permission.id === "dashboard.milestones.acknowledge" &&
+                                  !formData.permissions.includes("dashboard.milestones.view")
+                                    ? ["dashboard.milestones.view" as PermissionId]
+                                    : []),
+                                ];
+                            updateField("permissions", nextPermissions);
+                          }}
                         />
                       </label>
                     );

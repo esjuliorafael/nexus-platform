@@ -137,6 +137,7 @@ import {
   Order,
   DashboardStats,
   DashboardCommercialOverview,
+  DashboardCommercialSource,
   AnnualService,
   ExtraCharge,
   BillingPayment,
@@ -656,6 +657,30 @@ function App() {
   const canViewRaffleParticipations = userPermissions.some((permission) => [
     "raffles.participations.view", "raffles.participations.manage", "raffles.financial.manage",
   ].includes(permission));
+  const canViewDashboardOperations = userPermissions.includes("dashboard.operations.view");
+  const canViewDashboardSales = userPermissions.includes("dashboard.sales.view");
+  const canViewDashboardMilestones = userPermissions.includes("dashboard.milestones.view");
+  const canAcknowledgeDashboardMilestones = userPermissions.includes("dashboard.milestones.acknowledge");
+  const canViewMessagingCost = userPermissions.includes("messaging.cost.view");
+  const canViewBilling = userPermissions.some((permission) => [
+    "billing.view", "billing.manage",
+  ].includes(permission));
+  const canViewDashboardHistory = canViewOrders || canViewRaffleParticipations;
+  const canViewDashboardCommercial =
+    canViewDashboardSales || canViewMessagingCost || canViewDashboardHistory;
+  const dashboardCommercialSources: DashboardCommercialSource[] = canViewDashboardSales
+    ? ["STORE", "RAFFLES"]
+    : [
+        ...(canViewOrders ? (["STORE"] as const) : []),
+        ...(canViewRaffleParticipations ? (["RAFFLES"] as const) : []),
+      ];
+  const canViewDashboard =
+    canViewDashboardOperations ||
+    canViewDashboardSales ||
+    canViewDashboardMilestones ||
+    canViewMessagingCost ||
+    canViewBilling ||
+    canViewDashboardHistory;
   const [raffleViewMode, setRaffleViewMode] = useState<RaffleModeType>(() => {
     const legacyMode = localStorage.getItem("admin_raffle_view_mode");
     if (legacyMode === "orders" || legacyMode === "order-detail") {
@@ -888,7 +913,11 @@ function App() {
   }, [activeTab]);
 
   useEffect(() => {
-    if (!token || activeTab !== "Inicio") return;
+    if (!token || activeTab !== "Inicio" || !canViewDashboardCommercial) {
+      setDashboardCommercialOverview(null);
+      setIsLoadingDashboardCommercial(false);
+      return;
+    }
 
     let cancelled = false;
     setIsLoadingDashboardCommercial(true);
@@ -920,6 +949,7 @@ function App() {
     dashboardCommercialFilters.source,
     showToast,
     token,
+    canViewDashboardCommercial,
   ]);
 
   useEffect(() => {
@@ -984,10 +1014,10 @@ function App() {
             canViewOrders
               ? apiOrders.getAll()
               : Promise.resolve([]),
-            userPermissions.includes("dashboard.view")
+            canViewDashboardOperations || canViewDashboardMilestones
               ? apiDashboard.getStats()
               : Promise.resolve(null),
-            userPermissions.includes("billing.view")
+            canViewBilling
               ? apiBilling.getAll()
               : Promise.resolve({ services: [], charges: [], payments: [] }),
             apiSystem.getPublicConfig(),
@@ -1132,7 +1162,7 @@ function App() {
   const showRaffleNavigation = raffleEnabled || isRafflesMode;
   const hasPermission = (permission: string) => userPermissions.includes(permission);
   const visibleTabs: ActiveTabType[] = [
-    ...(hasPermission("dashboard.view") ? ["Inicio" as const] : []),
+    ...(canViewDashboard ? ["Inicio" as const] : []),
     ...((hasPermission("products.view") || hasPermission("products.manage") || canViewOrders || canViewRaffleParticipations) ? ["Operaciones" as const] : []),
     ...((hasPermission("products.view") || hasPermission("products.manage") || canViewOrders || hasPermission("payment-links.manage") || hasPermission("coupons.manage")) ? ["Tienda" as const] : []),
     ...(raffleEnabled && userPermissions.some((permission) => permission.startsWith("raffles.")) ? ["Rifas" as const] : []),
@@ -2554,7 +2584,7 @@ function App() {
               />
             </div>
 
-            {isDashboardMode && dashboardViewMode === "overview" && (
+            {isDashboardMode && dashboardViewMode === "overview" && canViewDashboardCommercial && (
               <div style={{ marginBottom: "var(--space-lg)" }}>
                 <NexusViewToolbar
                   filterSummaries={[
@@ -3140,7 +3170,14 @@ function App() {
                     isLoadingCommercial={isLoadingDashboardCommercial}
                     stats={dashboardStats}
                     commercialOverview={dashboardCommercialOverview}
-                    canViewMilestones={hasPermission("dashboard.view")}
+                    canViewOperations={canViewDashboardOperations}
+                    canViewSales={canViewDashboardSales}
+                    canViewMilestones={canViewDashboardMilestones}
+                    canAcknowledgeMilestones={canAcknowledgeDashboardMilestones}
+                    canViewMessagingCost={canViewMessagingCost}
+                    canViewBilling={canViewBilling}
+                    canViewOrderHistory={canViewOrders}
+                    canViewParticipationHistory={canViewRaffleParticipations}
                     billingServices={billingServices}
                     billingCharges={billingCharges}
                     billingPayments={billingPayments}
@@ -3256,6 +3293,7 @@ function App() {
           <DashboardCommercialFiltersModal
             isOpen={isDashboardCommercialFiltersOpen}
             value={dashboardCommercialFilters}
+            allowedSources={dashboardCommercialSources}
             onClose={() => setIsDashboardCommercialFiltersOpen(false)}
             onApply={(filters) => {
               setDashboardCommercialFilters(filters);

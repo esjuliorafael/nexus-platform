@@ -524,58 +524,17 @@ export interface WhatsAppChannel extends WhatsAppDetails {
 }
 
 export interface DashboardStats {
-  activeProducts: number;
-  recognizedRevenueTotal: number;
   milestones?: DashboardMilestoneProgress[];
-  products?: {
-    total: number;
-    available: number;
-    reserved: number;
-    sold: number;
-  };
-  activeCategories: number;
-  totalMedia: number;
-  orders: {
-    paid: { count: number; amount: number };
-    pending: { count: number; amount: number };
-    cancelled: { count: number; amount: number };
-    totalCount: number;
-    totalAmount: number;
-    totalGrossAmount?: number;
-    collectionRate?: number;
-  };
-  participations: {
-    paid: { count: number; amount: number };
-    pending: { count: number; amount: number };
-    cancelled: { count: number; amount: number };
-  };
+  orders?: { pending: { count: number; amount: number } };
+  participations?: { pending: { count: number; amount: number } };
   attention?: {
-    paymentReviews: { count: number; amount: number };
-    inventoryIncidents: number;
-    rafflesAwaitingResolution: number;
-    prizesAwaitingFulfillment: number;
-  };
-  sales7Days: Record<string, number>;
-  sales7DaysBySource: Record<string, { store: number; raffles: number }>;
-  commercialPulse7Days: {
-    confirmed: { count: number; amount: number };
-    pending: { count: number; amount: number };
-    cancelled: { count: number; amount: number };
-    conversionRate: number;
-  };
-  commercialPulse7DaysBySource: {
-    store: {
-      confirmed: { count: number; amount: number };
-      pending: { count: number; amount: number };
-      cancelled: { count: number; amount: number };
-      conversionRate: number;
+    paymentReviews?: {
+      orders?: { count: number; amount: number };
+      participations?: { count: number; amount: number };
     };
-    raffles: {
-      confirmed: { count: number; amount: number };
-      pending: { count: number; amount: number };
-      cancelled: { count: number; amount: number };
-      conversionRate: number;
-    };
+    inventoryIncidents?: number;
+    rafflesAwaitingResolution?: number;
+    prizesAwaitingFulfillment?: number;
   };
 }
 
@@ -620,15 +579,15 @@ export interface DashboardCommercialOverview {
   paymentMethod: SalesOverviewPaymentMethod;
   granularity: "DAY" | "MONTH";
   range: { from: string | null; to: string };
-  salesBySource: Record<string, { store: number; raffles: number }>;
-  pulse: {
+  salesBySource?: Record<string, { store: number; raffles: number }>;
+  pulse?: {
     confirmed: { count: number; amount: number };
     pending: { count: number; amount: number };
     cancelled: { count: number; amount: number };
     conversionRate: number;
   };
   history: DashboardCommercialHistoryItem[];
-  messagingCost: {
+  messagingCost?: {
     rateCardVersion: string;
     estimatedMxn: number;
     cloudDelivered: number;

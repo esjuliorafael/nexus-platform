@@ -671,8 +671,14 @@ export const dashboardService = {
       },
       attention: {
         paymentReviews: {
-          count: storePaymentReviews.length + rafflePaymentReviews.length,
-          amount: storePaymentReviewAmount + rafflePaymentReviewAmount,
+          orders: {
+            count: storePaymentReviews.length,
+            amount: storePaymentReviewAmount,
+          },
+          participations: {
+            count: rafflePaymentReviews.length,
+            amount: rafflePaymentReviewAmount,
+          },
         },
         inventoryIncidents,
         rafflesAwaitingResolution,
@@ -723,6 +729,7 @@ export const dashboardService = {
     period: SalesOverviewPeriod,
     source: CommercialOverviewSource = "ALL",
     paymentMethod: SalesPaymentMethod = "ALL",
+    dataAccess: { includeStoreData?: boolean; includeRaffleData?: boolean } = {},
   ) {
     const today = new Date();
     const pulseStart = getSalesPeriodStart(period, today);
@@ -740,9 +747,11 @@ export const dashboardService = {
       : {};
     const paymentFilter =
       paymentMethod === "ALL" ? {} : { paymentMethod };
+    const includeStoreData = dataAccess.includeStoreData !== false;
+    const includeRaffleData = dataAccess.includeRaffleData !== false;
 
     const [storeOrders, raffleSales] = await Promise.all([
-      source === "RAFFLES"
+      source === "RAFFLES" || !includeStoreData
         ? Promise.resolve([] as CommercialOrder[])
         : storePrisma.order.findMany({
             where: { ...dateFilter, ...paymentFilter },
@@ -762,7 +771,7 @@ export const dashboardService = {
               },
             },
           }),
-      source === "STORE"
+      source === "STORE" || !includeRaffleData
         ? Promise.resolve([] as PaidRaffleSale[])
         : rafflePrisma.ticketSale.findMany({
             where: { ...dateFilter, ...paymentFilter },

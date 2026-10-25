@@ -48,6 +48,7 @@ const PAYMENT_METHOD_OPTIONS: NexusFilterOption<SalesOverviewPaymentMethod>[] = 
 interface DashboardCommercialFiltersModalProps {
   isOpen: boolean;
   value: DashboardCommercialFilters;
+  allowedSources: DashboardCommercialSource[];
   onClose: () => void;
   onApply: (filters: DashboardCommercialFilters) => void;
   onClear: () => void;
@@ -55,7 +56,7 @@ interface DashboardCommercialFiltersModalProps {
 
 export const DashboardCommercialFiltersModal: React.FC<
   DashboardCommercialFiltersModalProps
-> = ({ isOpen, value, onClose, onApply, onClear }) => {
+> = ({ isOpen, value, allowedSources, onClose, onApply, onClear }) => {
   const [draft, setDraft] =
     React.useState<DashboardCommercialFilters>(value);
 
@@ -110,7 +111,9 @@ export const DashboardCommercialFiltersModal: React.FC<
         <NexusFilterGroup
           title="Origen"
           value={draft.source}
-          options={SOURCE_OPTIONS}
+          options={SOURCE_OPTIONS.filter(
+            (option) => option.value === "ALL" || allowedSources.includes(option.value),
+          )}
           onChange={(source) =>
             setDraft((current) => ({ ...current, source }))
           }

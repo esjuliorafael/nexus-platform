@@ -2,7 +2,10 @@ import { z } from "zod";
 import { Role } from "@prisma/client-store";
 
 const PERMISSION_IDS = [
-  "dashboard.view",
+  "dashboard.operations.view",
+  "dashboard.sales.view",
+  "dashboard.milestones.view",
+  "dashboard.milestones.acknowledge",
   "orders.view",
   "orders.manage",
   "orders.financial.manage",
@@ -23,6 +26,7 @@ const PERMISSION_IDS = [
   "channels.view",
   "channels.manage",
   "messaging.view",
+  "messaging.cost.view",
   "messaging.manage",
   "messaging.send",
   "coupons.manage",
@@ -46,7 +50,18 @@ const PERMISSION_IDS = [
 const permissionListSchema = z.array(z.enum(PERMISSION_IDS)).refine(
   (permissions) => new Set(permissions).size === permissions.length,
   "No repitas permisos.",
-);
+).superRefine((permissions, context) => {
+  if (
+    permissions.includes("dashboard.milestones.acknowledge") &&
+    !permissions.includes("dashboard.milestones.view")
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Para marcar hitos como vistos también debes conceder su consulta.",
+      path: ["dashboard.milestones.acknowledge"],
+    });
+  }
+});
 
 export const createUserSchema = z.object({
   username: z.string().min(1),
