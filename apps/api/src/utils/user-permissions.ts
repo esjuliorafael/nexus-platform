@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { PERMISSION_IDS, type PermissionId } from "@nexus/types";
+import type { PermissionId } from "@nexus/types";
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -153,7 +153,6 @@ export async function authorizeAdminRequest(
     : [];
   if (
     !permission ||
-    !PERMISSION_IDS.includes(permission) ||
     !allowedPermissions.some((allowed) => permissions.includes(allowed))
   ) {
     return reply.status(403).send({
