@@ -100,7 +100,7 @@ async function enqueueVideoProcessing(assetId: string) {
     "optimize-video",
     { assetId, revision },
     {
-      jobId: `${assetId}:${revision}`,
+      jobId: `${assetId}-${revision}`,
       attempts: 3,
       backoff: { type: "exponential", delay: 5000 },
       removeOnComplete: 100,
