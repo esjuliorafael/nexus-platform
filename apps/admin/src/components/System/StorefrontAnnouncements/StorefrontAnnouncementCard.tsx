@@ -31,6 +31,8 @@ interface Props {
   onDelete: () => void;
   onToggle: (active: boolean) => void;
   isToggling?: boolean;
+  canManage?: boolean;
+  canDelete?: boolean;
 }
 
 export const StorefrontAnnouncementCard: React.FC<Props> = ({
@@ -39,8 +41,10 @@ export const StorefrontAnnouncementCard: React.FC<Props> = ({
   onDelete,
   onToggle,
   isToggling,
+  canManage = true,
+  canDelete = true,
 }) => (
-  <NexusAutonomousCard swipeable onEdit={onEdit} onDelete={onDelete} isMuted={!announcement.active}>
+  <NexusAutonomousCard swipeable={canManage || canDelete} onEdit={canManage ? onEdit : undefined} onDelete={canDelete ? onDelete : undefined} isMuted={!announcement.active}>
     <div className="flex flex-col md:flex-row md:items-center" style={{ gap: "var(--space-lg)" }}>
       <div className="flex min-w-0 flex-1 items-center" style={{ gap: "var(--space-md)" }}>
         <NexusAutonomousIcon icon={BellRing} variant={announcement.active ? "brand" : "muted"} />
@@ -65,24 +69,24 @@ export const StorefrontAnnouncementCard: React.FC<Props> = ({
           <NexusSwitch
             checked={announcement.active}
             onChange={onToggle}
-            disabled={isToggling}
+            disabled={isToggling || !canManage}
             aria-label={announcement.active ? "Pausar aviso" : "Publicar aviso"}
           />
           <span className="text-label uppercase text-text-muted">
             {announcement.active ? "Publicado" : "Pausado"}
           </span>
         </div>
-        <div className="hidden items-center sm:flex" style={{ gap: "var(--space-sm)" }}>
-          <NexusAutonomousButton isIconOnly icon={Edit2} variant="secondary" onClick={onEdit} aria-label="Editar aviso" />
-          <NexusAutonomousButton
+        {(canManage || canDelete) && <div className="hidden items-center sm:flex" style={{ gap: "var(--space-sm)" }}>
+          {canManage && <NexusAutonomousButton isIconOnly icon={Edit2} variant="secondary" onClick={onEdit} aria-label="Editar aviso" />}
+          {canDelete && <NexusAutonomousButton
             isIconOnly
             icon={Trash2}
             variant="secondary"
             onClick={onDelete}
             aria-label="Eliminar aviso"
             className="hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600"
-          />
-        </div>
+          />}
+        </div>}
       </div>
     </div>
   </NexusAutonomousCard>

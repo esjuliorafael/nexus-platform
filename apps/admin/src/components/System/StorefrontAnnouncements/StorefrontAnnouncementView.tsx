@@ -18,10 +18,12 @@ interface Props {
   showToast: (message: string, type?: "success" | "error") => void;
   setConfirmDialog: (dialog: any) => void;
   onValidationChange?: (valid: boolean) => void;
+  canManage: boolean;
+  canDelete: boolean;
 }
 
 export const StorefrontAnnouncementView = forwardRef<StorefrontAnnouncementViewRef, Props>(({
-  viewMode, onSetViewMode, showToast, setConfirmDialog, onValidationChange,
+  viewMode, onSetViewMode, showToast, setConfirmDialog, onValidationChange, canManage, canDelete,
 }, ref) => {
   const [items, setItems] = useState<StorefrontAnnouncement[]>([]);
   const [selected, setSelected] = useState<StorefrontAnnouncement | null>(null);
@@ -39,7 +41,7 @@ export const StorefrontAnnouncementView = forwardRef<StorefrontAnnouncementViewR
   useEffect(() => { void load(); }, []);
   useImperativeHandle(ref, () => ({ handleSave: () => formRef.current?.handleSave() }));
 
-  if (viewMode !== "list") {
+  if (viewMode !== "list" && canManage) {
     return <StorefrontAnnouncementForm ref={formRef} initialData={viewMode === "edit" ? selected : null} onValidationChange={onValidationChange} showToast={showToast} onSave={() => { onSetViewMode("list"); setSelected(null); void load(); }} />;
   }
 
@@ -49,13 +51,15 @@ export const StorefrontAnnouncementView = forwardRef<StorefrontAnnouncementViewR
     <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
       <NexusHero title="Avisos del Storefront" subtitle="Comunicación pública" icon={BellRing} variant="dark" badge="Centralizados" badgeValue={`${items.length} configurados`} />
       {items.length === 0 ? (
-        <EmptyState level={1} icon={BellRing} title="Sin avisos configurados" description="Publica mensajes globales o específicos sin modificar una rifa o producto." action={<NexusSectionButton icon={Plus} onClick={() => onSetViewMode("create")}>Nuevo aviso</NexusSectionButton>} />
+        <EmptyState level={1} icon={BellRing} title="Sin avisos configurados" description="Publica mensajes globales o específicos sin modificar una rifa o producto." action={canManage ? <NexusSectionButton icon={Plus} onClick={() => onSetViewMode("create")}>Nuevo aviso</NexusSectionButton> : undefined} />
       ) : (
         <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
           {items.map((item) => (
             <StorefrontAnnouncementCard
               key={item.id}
               announcement={item}
+              canManage={canManage}
+              canDelete={canDelete}
               isToggling={toggling === item.id}
               onEdit={() => { setSelected(item); onSetViewMode("edit"); }}
               onToggle={async (active) => {
@@ -65,7 +69,7 @@ export const StorefrontAnnouncementView = forwardRef<StorefrontAnnouncementViewR
                 catch { setItems((current) => current.map((entry) => entry.id === item.id ? { ...entry, active: item.active } : entry)); showToast("No se pudo cambiar el estado", "error"); }
                 finally { setToggling(null); }
               }}
-              onDelete={() => setConfirmDialog({
+              onDelete={canDelete ? () => setConfirmDialog({
                 isOpen: true,
                 title: "¿Eliminar aviso?",
                 message: `Se eliminará “${item.title}”.`,
@@ -76,7 +80,7 @@ export const StorefrontAnnouncementView = forwardRef<StorefrontAnnouncementViewR
                   catch { showToast("No se pudo eliminar el aviso", "error"); }
                   setConfirmDialog({ isOpen: false });
                 },
-              })}
+              }) : undefined}
             />
           ))}
         </div>

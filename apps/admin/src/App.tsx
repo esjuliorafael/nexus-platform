@@ -145,7 +145,7 @@ import {
   RaffleParticipation,
   User,
 } from "./types";
-import type { PermissionId } from "@nexus/types";
+import { normalizePermissionIds, userHasPermission, type PermissionId } from "@nexus/types";
 import {
   apiOrders,
   apiDashboard,
@@ -514,7 +514,7 @@ function App() {
 
   const [userPermissions, setUserPermissions] = useState<string[]>(() => {
     try {
-      return JSON.parse(localStorage.getItem("admin_session") || "{}").permissions || [];
+      return normalizePermissionIds(JSON.parse(localStorage.getItem("admin_session") || "{}").permissions || []);
     } catch {
       return [];
     }
@@ -528,7 +528,7 @@ function App() {
     let active = true;
     apiAuth.me().then((user) => {
       if (!active) return;
-      const permissions = Array.isArray(user.permissions) ? user.permissions : [];
+      const permissions = normalizePermissionIds(Array.isArray(user.permissions) ? user.permissions : []);
       setUserPermissions(permissions);
       setUserRole(String(user.role || "staff").toLowerCase());
       const sessionValue = localStorage.getItem("admin_session");
@@ -639,15 +639,47 @@ function App() {
         : saved;
   });
   const [isPaymentLinkGeneratorOpen, setIsPaymentLinkGeneratorOpen] = useState(false);
+  const hasPermission = (permission: string) => userHasPermission(userPermissions, permission);
   const canManageOrder = userPermissions.includes("orders.manage");
   const canManageOrderFinancial = userPermissions.includes("orders.financial.manage");
   const canRefundOrder = userPermissions.includes("orders.refund");
   const canSendMessages = userPermissions.includes("messaging.send");
   const canManageRaffles = userPermissions.includes("raffles.manage");
+  const canViewRaffles = hasPermission("raffles.view");
   const canManageResults = userPermissions.includes("raffles.results.manage");
   const canManageRaffleCoupons = userPermissions.includes("raffles.coupons.manage");
+  const canDeleteRaffleCoupons = userPermissions.includes("raffles.coupons.delete");
+  const canViewRaffleCoupons = hasPermission("raffles.coupons.view");
   const canManageParticipation = userPermissions.includes("raffles.participations.manage");
   const canManageRaffleFinancial = userPermissions.includes("raffles.financial.manage");
+  const canCreateProducts = userPermissions.includes("products.create");
+  const canUpdateProducts = userPermissions.includes("products.update");
+  const canDeleteProducts = userPermissions.includes("products.delete");
+  const canManageHeroes = userPermissions.includes("storefront.heroes.manage");
+  const canDeleteHeroes = userPermissions.includes("storefront.heroes.delete");
+  const canManageSlides = userPermissions.includes("storefront.slides.manage");
+  const canDeleteSlides = userPermissions.includes("storefront.slides.delete");
+  const canManageAnnouncements = userPermissions.includes("storefront.announcements.manage");
+  const canDeleteAnnouncements = userPermissions.includes("storefront.announcements.delete");
+  const canManageCoupons = userPermissions.includes("coupons.manage");
+  const canDeleteCoupons = userPermissions.includes("coupons.delete");
+  const canManageMedia = userPermissions.includes("media.manage");
+  const canDeleteMedia = userPermissions.includes("media.delete");
+  const canManageCategories = userPermissions.includes("categories.manage");
+  const canDeleteCategories = userPermissions.includes("categories.delete");
+  const canUploadVaultMedia = userPermissions.includes("media.vault.upload");
+  const canDeleteVaultMedia = userPermissions.includes("media.vault.delete");
+  const canGeneratePaymentLinks = userPermissions.includes("payment-links.generate");
+  const canRevokePaymentLinks = userPermissions.includes("payment-links.revoke");
+  const canViewProducts = hasPermission("products.view");
+  const canViewHeroes = hasPermission("storefront.heroes.view");
+  const canViewSlides = hasPermission("storefront.slides.view");
+  const canViewAnnouncements = hasPermission("storefront.announcements.view");
+  const canViewCoupons = hasPermission("coupons.view");
+  const canViewPaymentLinks = hasPermission("payment-links.view");
+  const canViewMedia = hasPermission("media.view");
+  const canViewCategories = hasPermission("categories.view");
+  const canViewMediaVault = hasPermission("media.vault.view");
   const canViewMessages = userPermissions.some((permission) => [
     "messaging.view", "messaging.manage", "messaging.send",
   ].includes(permission));
@@ -658,6 +690,8 @@ function App() {
     "raffles.participations.view", "raffles.participations.manage", "raffles.financial.manage",
   ].includes(permission));
   const canViewDashboardOperations = userPermissions.includes("dashboard.operations.view");
+  const canViewDashboardHistory = userPermissions.includes("dashboard.history.view") &&
+    (canViewOrders || canViewRaffleParticipations);
   const canViewDashboardSales = userPermissions.includes("dashboard.sales.view");
   const canViewDashboardMilestones = userPermissions.includes("dashboard.milestones.view");
   const canAcknowledgeDashboardMilestones = userPermissions.includes("dashboard.milestones.acknowledge");
@@ -665,7 +699,6 @@ function App() {
   const canViewBilling = userPermissions.some((permission) => [
     "billing.view", "billing.manage",
   ].includes(permission));
-  const canViewDashboardHistory = canViewOrders || canViewRaffleParticipations;
   const canViewDashboardCommercial =
     canViewDashboardSales || canViewMessagingCost || canViewDashboardHistory;
   const dashboardCommercialSources: DashboardCommercialSource[] = canViewDashboardSales
@@ -1160,19 +1193,54 @@ function App() {
     isRafflesMode && raffleViewMode === "tickets";
   // The active raffle route reserves its navigation rail before remote config resolves.
   const showRaffleNavigation = raffleEnabled || isRafflesMode;
-  const hasPermission = (permission: string) => userPermissions.includes(permission);
   const visibleTabs: ActiveTabType[] = [
     ...(canViewDashboard ? ["Inicio" as const] : []),
-    ...((hasPermission("products.view") || hasPermission("products.manage") || canViewOrders || canViewRaffleParticipations) ? ["Operaciones" as const] : []),
-    ...((hasPermission("products.view") || hasPermission("products.manage") || canViewOrders || hasPermission("payment-links.manage") || hasPermission("coupons.manage")) ? ["Tienda" as const] : []),
+    ...((canViewProducts || canViewOrders || canViewRaffleParticipations) ? ["Operaciones" as const] : []),
+    ...((canViewProducts || canViewOrders || canViewPaymentLinks || canViewCoupons || canViewHeroes) ? ["Tienda" as const] : []),
     ...(raffleEnabled && userPermissions.some((permission) => permission.startsWith("raffles.")) ? ["Rifas" as const] : []),
-    ...((hasPermission("media.manage") || hasPermission("media.upload") || hasPermission("media.vault.manage") || hasPermission("storefront.content.manage")) ? ["Medios" as const] : []),
+    ...((canViewMedia || canViewMediaVault || canViewCategories || canViewSlides) ? ["Medios" as const] : []),
     ...(userPermissions.some((permission) => [
-      "shipping.view", "shipping.manage", "payments.config.manage", "settings.view",
-      "settings.manage", "billing.view", "billing.manage", "channels.view",
-      "channels.manage", "messaging.view", "messaging.manage", "users.manage",
+      "shipping.view", "shipping.manage", "payments.config.manage",
+      "payments.config.view", "inventory.policies.view",
+      "inventory.policies.manage", "storefront.status.view", "storefront.status.manage",
+      "storefront.announcements.view", "storefront.announcements.manage", "storefront.announcements.delete", "storefront.branding.view",
+      "storefront.branding.manage", "platform.settings.view", "platform.settings.manage",
+      "billing.view", "billing.manage", "channels.view", "channels.manage",
+      "messaging.view", "messaging.manage", "raffles.settings.view", "raffles.settings.manage",
+      "raffles.intelligence.view", "raffles.intelligence.manage", "raffles.intelligence.export",
+      "inventory.audit", "inventory.reservations.release", "users.view", "users.create",
+      "users.update", "users.delete", "users.permissions.manage", "users.roles.manage",
     ].includes(permission)) ? ["Sistema" as const] : []),
   ];
+
+  useEffect(() => {
+    if (!canViewMedia && !canViewCategories && !canViewSlides && !canViewMediaVault) return;
+    const canViewActiveMediaMode =
+      (mediaViewMode === "list" && canViewMedia) ||
+      ((mediaViewMode === "create" || mediaViewMode === "media_edit") && canManageMedia) ||
+      (mediaViewMode === "categories_list" && canViewCategories) ||
+      ((mediaViewMode === "category_create" || mediaViewMode === "category_edit") && canManageCategories) ||
+      (mediaViewMode === "slider_list" && canViewSlides) ||
+      ((mediaViewMode === "slide_create" || mediaViewMode === "slide_edit") && canManageSlides) ||
+      (mediaViewMode === "vault_list" && canViewMediaVault) ||
+      (mediaViewMode === "vault_upload" && canUploadVaultMedia);
+    if (canViewActiveMediaMode) return;
+
+    if (canViewMedia) setMediaViewMode("list");
+    else if (canViewCategories) setMediaViewMode("categories_list");
+    else if (canViewSlides) setMediaViewMode("slider_list");
+    else if (canViewMediaVault) setMediaViewMode("vault_list");
+  }, [
+    canManageMedia,
+    canManageCategories,
+    canManageSlides,
+    canViewCategories,
+    canViewMedia,
+    canViewMediaVault,
+    canViewSlides,
+    canUploadVaultMedia,
+    mediaViewMode,
+  ]);
 
   useEffect(() => {
     if (
@@ -1185,7 +1253,7 @@ function App() {
       setRaffleViewMode("participations");
     }
     if (
-      hasPermission("raffles.coupons.manage") &&
+      canViewRaffleCoupons &&
       !hasPermission("raffles.view") &&
       !hasPermission("raffles.manage") &&
       !hasPermission("raffles.results.manage") &&
@@ -1194,17 +1262,11 @@ function App() {
     ) {
       setRaffleViewMode("coupon_list");
     }
-    if (!hasPermission("products.view") && !hasPermission("products.manage") && canViewOrders && storeViewMode === "list") {
-      setStoreViewMode("orders");
-    }
-    if (
-      !hasPermission("products.view") &&
-      !hasPermission("products.manage") &&
-      !canViewOrders &&
-      userPermissions.includes("payment-links.manage") &&
-      storeViewMode === "list"
-    ) {
-      setStoreViewMode("payment_links");
+    if (!canViewProducts && storeViewMode === "list") {
+      if (canViewOrders) setStoreViewMode("orders");
+      else if (canViewPaymentLinks) setStoreViewMode("payment_links");
+      else if (canViewCoupons) setStoreViewMode("coupon_list");
+      else if (canViewHeroes) setStoreViewMode("hero_list");
     }
   }, [userPermissions, canViewOrders, canViewRaffleParticipations, raffleViewMode, storeViewMode]);
 
@@ -1464,12 +1526,14 @@ function App() {
         navigateToSystem("users");
         break;
       case "Departamentos":
+      case "Canales operativos":
         navigateToSystem("channels");
         break;
       case "Configurar envíos":
         navigateToSystem("shipping");
         break;
       case "Activar rifas":
+      case "Configuración de rifas":
         navigateToSystem("raffle");
         break;
       case "Audiencias":
@@ -1888,7 +1952,7 @@ function App() {
     }
 
     if (isStoreMode && storeViewMode === "payment_links") {
-      if (!hasPermission("payment-links.manage")) return null;
+      if (!canGeneratePaymentLinks) return null;
       return (
         <NexusSectionButton
           type="button"
@@ -1903,15 +1967,17 @@ function App() {
 
     if (isFormMode) {
       const canSaveCurrentForm =
-        ((isCreatingProduct || isEditingProduct) && hasPermission("products.manage")) ||
-        ((isCreatingStoreHero || isEditingStoreHero) && hasPermission("storefront.content.manage")) ||
+        (isCreatingProduct && hasPermission("products.create")) ||
+        (isEditingProduct && hasPermission("products.update")) ||
+        ((isCreatingStoreHero || isEditingStoreHero) && hasPermission("storefront.heroes.manage")) ||
         ((isCreatingCoupon || isEditingCoupon) && hasPermission("coupons.manage")) ||
         ((isCreatingMedia || isEditingMedia) && hasPermission("media.manage")) ||
-        ((isCreatingSlide || isEditingSlide) && hasPermission("storefront.content.manage")) ||
-        (isUploadingToVault && hasPermission("media.upload")) ||
+        ((isCreatingSlide || isEditingSlide) && hasPermission("storefront.slides.manage")) ||
+        (isUploadingToVault && hasPermission("media.vault.upload")) ||
         ((isCreatingRaffle || isEditingRaffle) && hasPermission("raffles.manage")) ||
         ((isCreatingRaffleCoupon || isEditingRaffleCoupon) && hasPermission("raffles.coupons.manage")) ||
-        ((isCreatingUser || isEditingUser) && hasPermission("users.manage"));
+        (isCreatingUser && hasPermission("users.create") && hasPermission("users.permissions.manage")) ||
+        (isEditingUser && hasPermission("users.update"));
       if (!canSaveCurrentForm) return null;
       return (
         <PageHeaderActionPair>
@@ -2231,7 +2297,7 @@ function App() {
         );
       }
       if (mediaViewMode === "slider_list") {
-        if (!hasPermission("storefront.content.manage")) return null;
+        if (!hasPermission("storefront.slides.manage")) return null;
         return (
           <NexusSectionButton
             onClick={() => setMediaViewMode("slide_create")}
@@ -2243,7 +2309,7 @@ function App() {
         );
       }
       if (mediaViewMode === "vault_list") {
-        if (!hasPermission("media.upload")) return null;
+        if (!canUploadVaultMedia) return null;
         return (
           <NexusSectionButton
             onClick={() => setMediaViewMode("vault_upload")}
@@ -2257,7 +2323,7 @@ function App() {
     }
 
     if (isStoreMode && storeViewMode === "overview") {
-      if (!hasPermission("products.manage")) return null;
+      if (!hasPermission("products.update") || !canViewOrders) return null;
       return (
         <NexusSectionButton
           onClick={() => storeRef.current?.handleEditSelected()}
@@ -2270,7 +2336,7 @@ function App() {
     }
 
     if (isStoreMode && storeViewMode === "list") {
-      if (!hasPermission("products.manage")) return null;
+      if (!hasPermission("products.create")) return null;
       return (
         <NexusSectionButton
           onClick={() => setStoreViewMode("create")}
@@ -2283,7 +2349,7 @@ function App() {
     }
 
     if (isStoreMode && storeViewMode === "hero_list") {
-      if (!hasPermission("storefront.content.manage")) return null;
+      if (!hasPermission("storefront.heroes.manage")) return null;
       return (
         <NexusSectionButton
           onClick={() => setStoreViewMode("hero_create")}
@@ -2296,7 +2362,7 @@ function App() {
     }
 
     if (isStoreMode && storeViewMode === "coupon_list") {
-      if (!hasPermission("coupons.manage")) return null;
+      if (!canManageCoupons) return null;
       return (
         <NexusSectionButton
           onClick={() => setStoreViewMode("coupon_create")}
@@ -2322,7 +2388,7 @@ function App() {
     }
 
     if (isRafflesMode && raffleViewMode === "coupon_list") {
-      if (!hasPermission("raffles.coupons.manage")) return null;
+      if (!canManageRaffleCoupons) return null;
       return (
         <NexusSectionButton
           onClick={() => setRaffleViewMode("coupon_create")}
@@ -2336,7 +2402,7 @@ function App() {
 
     if (isSystemMode) {
       if (systemViewMode === "config") {
-        if (!hasPermission("settings.manage")) return null;
+        if (!hasPermission("platform.settings.manage") || userRole !== "superadmin") return null;
         return (
           <NexusSectionButton
             onClick={() => platformSettingsRef.current?.handleSave()}
@@ -2365,7 +2431,7 @@ function App() {
       }
       if (systemViewMode === "identity") {
         if (identityStatus === "editing") {
-          if (!hasPermission("settings.manage")) return null;
+          if (!hasPermission("storefront.branding.manage") || !hasPermission("media.upload")) return null;
           return (
             <PageHeaderActionPair>
               <NexusSectionButton
@@ -2388,6 +2454,7 @@ function App() {
         return null;
       }
       if (systemViewMode === "inventory") {
+        if (!hasPermission("inventory.policies.manage") && !hasPermission("raffles.settings.manage")) return null;
         return (
           <NexusSectionButton
             onClick={() => inventoryRef.current?.handleSave()}
@@ -2399,7 +2466,7 @@ function App() {
         );
       }
       if (systemViewMode === "storefront") {
-        if (!hasPermission("settings.manage")) return null;
+        if (!hasPermission("storefront.status.manage")) return null;
         return (
           <NexusSectionButton
             onClick={() => storefrontStatusRef.current?.handleSave()}
@@ -2411,7 +2478,7 @@ function App() {
         );
       }
       if (systemViewMode === "announcements") {
-        if (!hasPermission("storefront.content.manage")) return null;
+        if (!canManageAnnouncements) return null;
         if (announcementViewMode === "list") {
           return (
             <NexusSectionButton
@@ -2769,7 +2836,7 @@ function App() {
             >
               {dashboardViewMode === "overview" && (
                 <div className="z-40 w-full flex-shrink-0 lg:w-fit">
-                  <QuickActions
+          <QuickActions
                     context={activeTab}
                     onAction={handleQuickAction}
                     isDetail={
@@ -2794,6 +2861,7 @@ function App() {
                     }
                     raffleEnabled={showRaffleNavigation}
                     permissions={userPermissions}
+            isSuperadmin={userRole === "superadmin"}
                   />
                 </div>
               )}
@@ -2826,7 +2894,11 @@ function App() {
                       viewMode={mediaViewMode}
                       onSetViewMode={setMediaViewMode}
                       showToast={showToast}
+                      setConfirmDialog={setConfirmDialog}
                       onValidationChange={setIsFormValid}
+                      canView={canViewSlides}
+                      canManage={canManageSlides}
+                      canDelete={canDeleteSlides}
                     />
                   ) : mediaViewMode === "vault_list" ||
                     mediaViewMode === "vault_upload" ? (
@@ -2839,6 +2911,9 @@ function App() {
                       showToast={showToast}
                       setConfirmDialog={setConfirmDialog}
                       onValidationChange={setIsFormValid}
+                      canView={canViewMediaVault}
+                      canUpload={canUploadVaultMedia}
+                      canDelete={canDeleteVaultMedia}
                     />
                   ) : (
                     <GalleryView
@@ -2850,6 +2925,12 @@ function App() {
                       showToast={showToast}
                       setConfirmDialog={setConfirmDialog}
                       onValidationChange={setIsFormValid}
+                      canViewMedia={canViewMedia}
+                      canManageMedia={canManageMedia}
+                      canDeleteMedia={canDeleteMedia}
+                      canViewCategories={canViewCategories}
+                      canManageCategories={canManageCategories}
+                      canDeleteCategories={canDeleteCategories}
                     />
                   )
                 ) : isOperationsTab ? (
@@ -2924,6 +3005,8 @@ function App() {
                       setConfirmDialog={setConfirmDialog}
                       isGeneratorOpen={isPaymentLinkGeneratorOpen}
                       onCloseGenerator={() => setIsPaymentLinkGeneratorOpen(false)}
+                      canGenerate={canGeneratePaymentLinks}
+                      canRevoke={canRevokePaymentLinks}
                     />
                   ) : (
                     <StoreView
@@ -2936,6 +3019,18 @@ function App() {
                       setConfirmDialog={setConfirmDialog}
                       onValidationChange={setIsFormValid}
                       onOpenOrder={handleViewProductOrder}
+                      canCreateProduct={canCreateProducts}
+                      canViewProducts={canViewProducts}
+                      canViewOrders={canViewOrders}
+                      canUpdateProduct={canUpdateProducts}
+                      canDeleteProduct={canDeleteProducts}
+                      canUploadMedia={hasPermission("media.upload")}
+                      canManageHero={canManageHeroes}
+                      canDeleteHero={canDeleteHeroes}
+                      canViewHeroes={canViewHeroes}
+                      canManageCoupon={canManageCoupons}
+                      canDeleteCoupon={canDeleteCoupons}
+                      canViewCoupons={canViewCoupons}
                     />
                   )
                 ) : isRafflesMode ? (
@@ -2974,8 +3069,11 @@ function App() {
                   ) : (
                     <RaffleView
                       searchQuery={raffleSearchQuery}
+                      canViewRaffles={canViewRaffles}
                       canManageRaffles={canManageRaffles}
                       canManageRaffleCoupons={canManageRaffleCoupons}
+                      canViewRaffleCoupons={canViewRaffleCoupons}
+                      canDeleteRaffleCoupons={canDeleteRaffleCoupons}
                       canManageResults={canManageResults}
                       canManageParticipations={canManageParticipation}
                       canViewMessages={canViewMessages}
@@ -3005,6 +3103,7 @@ function App() {
                         ref={shippingRef}
                         subView={shippingSubView}
                         setSubView={setShippingSubView}
+                        canManage={hasPermission("shipping.manage")}
                         showToast={showToast}
                         setConfirmDialog={setConfirmDialog}
                       />
@@ -3020,6 +3119,8 @@ function App() {
                           ref={userFormRef}
                           user={selectedUserForForm}
                           currentUserPermissions={userPermissions as PermissionId[]}
+                          canManagePermissions={hasPermission("users.permissions.manage")}
+                          canManageRoles={userRole === "superadmin" && hasPermission("users.roles.manage")}
                           showToast={showToast}
                           onSavingChange={setIsUserFormSaving}
                           onValidationChange={setIsFormValid}
@@ -3034,6 +3135,10 @@ function App() {
                         <UsersView
                           showToast={showToast}
                           setConfirmDialog={setConfirmDialog}
+                          canCreate={hasPermission("users.create") && hasPermission("users.permissions.manage")}
+                          canUpdate={hasPermission("users.update")}
+                          canDelete={hasPermission("users.delete")}
+                          isSuperadmin={userRole === "superadmin"}
                           onCreateUser={() => {
                             setSelectedUserForForm(null);
                             setIsFormValid(false);
@@ -3055,6 +3160,7 @@ function App() {
                         setStatus={setIdentityStatus}
                         onTempLogoChange={setHasTempLogo}
                         showToast={showToast}
+                        canManage={hasPermission("storefront.branding.manage") && hasPermission("media.upload")}
                       />
                     ) : systemViewMode === "channels" ? (
                       channelsViewMode === "hub" ? (
@@ -3072,6 +3178,17 @@ function App() {
                           }}
                           showToast={showToast}
                           setConfirmDialog={setConfirmDialog}
+                          canManageSpecialized={
+                            hasPermission("channels.manage") &&
+                            hasPermission("payments.config.manage") &&
+                            hasPermission("messaging.manage")
+                          }
+                          canManagePrincipal={
+                            hasPermission("payments.config.manage") &&
+                            hasPermission("messaging.manage") &&
+                            hasPermission("platform.settings.manage") &&
+                            userRole === "superadmin"
+                          }
                         />
                       ) : channelsViewMode === "principal" ? (
                         <PrincipalChannelView
@@ -3101,6 +3218,12 @@ function App() {
                       <InventorySettingsView
                         ref={inventoryRef}
                         showToast={showToast}
+                        canViewInventoryPolicies={hasPermission("inventory.policies.view")}
+                        canManageInventoryPolicies={hasPermission("inventory.policies.manage")}
+                        canViewRaffleSettings={hasPermission("raffles.settings.view")}
+                        canManageRaffleSettings={hasPermission("raffles.settings.manage")}
+                        canAuditInventory={hasPermission("inventory.audit")}
+                        canReleaseReservations={hasPermission("inventory.reservations.release")}
                       />
                     ) : systemViewMode === "billing" ? (
                       <BillingView
@@ -3113,6 +3236,7 @@ function App() {
                       <StorefrontStatusView
                         ref={storefrontStatusRef}
                         showToast={showToast}
+                        canManage={hasPermission("storefront.status.manage")}
                       />
                     ) : systemViewMode === "announcements" ? (
                       <StorefrontAnnouncementView
@@ -3122,6 +3246,8 @@ function App() {
                         onValidationChange={setIsFormValid}
                         showToast={showToast}
                         setConfirmDialog={setConfirmDialog}
+                        canManage={canManageAnnouncements}
+                        canDelete={canDeleteAnnouncements}
                       />
                     ) : systemViewMode === "raffle" ? (
                       <RaffleSettingsView
@@ -3137,7 +3263,11 @@ function App() {
                         }}
                       />
                     ) : systemViewMode === "intelligence" ? (
-                      <RaffleIntelligenceView showToast={showToast} />
+                      <RaffleIntelligenceView
+                        showToast={showToast}
+                        canManageAudiences={hasPermission("raffles.intelligence.manage")}
+                        canExport={hasPermission("raffles.intelligence.export") || hasPermission("raffles.intelligence.manage")}
+                      />
                     ) : (
                       <NexusAutonomousCard>
                         <div
@@ -3171,6 +3301,7 @@ function App() {
                     stats={dashboardStats}
                     commercialOverview={dashboardCommercialOverview}
                     canViewOperations={canViewDashboardOperations}
+                    canViewHistory={canViewDashboardHistory}
                     canViewSales={canViewDashboardSales}
                     canViewMilestones={canViewDashboardMilestones}
                     canAcknowledgeMilestones={canAcknowledgeDashboardMilestones}

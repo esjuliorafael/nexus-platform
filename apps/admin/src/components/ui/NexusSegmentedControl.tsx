@@ -13,6 +13,7 @@ interface NexusSegmentedControlProps<T extends string> {
   ariaLabel: string;
   context?: 'section' | 'card';
   className?: string;
+  disabled?: boolean;
 }
 
 export function NexusSegmentedControl<T extends string>({
@@ -22,6 +23,7 @@ export function NexusSegmentedControl<T extends string>({
   ariaLabel,
   context = 'card',
   className = '',
+  disabled = false,
 }: NexusSegmentedControlProps<T>) {
   const isSectionContext = context === 'section';
   const optionTypography = isSectionContext ? 'text-button-section' : 'text-button-card';
@@ -48,8 +50,9 @@ export function NexusSegmentedControl<T extends string>({
             type="button"
             role="tab"
             aria-selected={isActive}
+            disabled={disabled}
             onClick={() => onChange(option.value)}
-            className={`${optionTypography} font-semibold transition-all duration-300 ${
+            className={`${optionTypography} font-semibold transition-all duration-300 disabled:cursor-not-allowed disabled:opacity-60 ${
               isActive
                 ? option.activeClassName || 'bg-white text-brand-600 shadow-sm'
                 : 'text-stone-400 hover:text-stone-600'

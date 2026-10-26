@@ -61,6 +61,18 @@ interface StoreViewProps {
   setConfirmDialog: (dialog: any) => void;
   onValidationChange?: (isValid: boolean) => void;
   onOpenOrder?: (orderId: string) => void;
+  canCreateProduct: boolean;
+  canViewProducts: boolean;
+  canViewOrders: boolean;
+  canUpdateProduct: boolean;
+  canDeleteProduct: boolean;
+  canUploadMedia: boolean;
+  canManageHero: boolean;
+  canDeleteHero: boolean;
+  canViewHeroes: boolean;
+  canManageCoupon: boolean;
+  canDeleteCoupon: boolean;
+  canViewCoupons: boolean;
 }
 
 const ITEMS_PER_PAGE = 8;
@@ -111,6 +123,18 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
       setConfirmDialog,
       onValidationChange,
       onOpenOrder,
+      canCreateProduct,
+      canViewProducts,
+      canViewOrders,
+      canUpdateProduct,
+      canDeleteProduct,
+      canUploadMedia,
+      canManageHero,
+      canDeleteHero,
+      canViewHeroes,
+      canManageCoupon,
+      canDeleteCoupon,
+      canViewCoupons,
     },
     ref,
   ) => {
@@ -184,10 +208,12 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
     };
 
     useEffect(() => {
-      loadProducts();
-    }, []);
+      if (canViewProducts) void loadProducts();
+      else setIsLoading(false);
+    }, [canViewProducts]);
 
     useEffect(() => {
+      if (!canViewProducts) return;
       const handleMediaUploadChange = () => {
         void loadProducts();
       };
@@ -209,7 +235,7 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
           handleMediaUploadChange,
         );
       };
-    }, []);
+    }, [canViewProducts]);
 
     const filtered = useMemo(() => {
       const query = normalizeSearch(productSearchQuery);
@@ -488,6 +514,9 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
     };
 
     if (viewMode === "create" || viewMode === "edit") {
+      if (viewMode === "create" ? !canCreateProduct : !canUpdateProduct) {
+        return <EmptyState icon={ShoppingBag} title="Permiso requerido" description="No tienes permiso para crear o editar productos." />;
+      }
       return (
         <ProductForm
           ref={productFormRef}
@@ -505,6 +534,9 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
     }
 
     if (viewMode === "overview" && editingProduct) {
+      if (!canViewProducts || !canViewOrders) {
+        return <EmptyState icon={ShoppingBag} title="Permiso requerido" description="Consultar el expediente requiere permiso de productos y de pedidos, porque incluye historial de ventas." />;
+      }
       return (
         <ProductOverviewView
           productId={editingProduct.id}
@@ -515,6 +547,9 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
     }
 
     if (viewMode === "hero_create" || viewMode === "hero_edit") {
+      if (!canManageHero) {
+        return <EmptyState icon={ShoppingBag} title="Permiso requerido" description="No tienes permiso para administrar héroes de tienda." />;
+      }
       return (
         <StoreHeroForm
           ref={storeHeroFormRef}
@@ -532,6 +567,9 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
     }
 
     if (viewMode === "hero_list") {
+      if (!canViewHeroes) {
+        return <EmptyState icon={ShoppingBag} title="Permiso requerido" description="No tienes permiso para consultar héroes de tienda." />;
+      }
       return (
         <StoreHeroView
           showToast={showToast}
@@ -541,11 +579,16 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
             setEditingHero(hero);
             onSetViewMode?.("hero_edit");
           }}
+          canManage={canManageHero}
+          canDelete={canDeleteHero}
         />
       );
     }
 
     if (viewMode === "coupon_create" || viewMode === "coupon_edit") {
+      if (!canManageCoupon) {
+        return <EmptyState icon={ShoppingBag} title="Permiso requerido" description="No tienes permiso para administrar cupones de tienda." />;
+      }
       return (
         <CouponForm
           ref={couponFormRef}
@@ -563,6 +606,9 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
     }
 
     if (viewMode === "coupon_list") {
+      if (!canViewCoupons) {
+        return <EmptyState icon={ShoppingBag} title="Permiso requerido" description="No tienes permiso para consultar cupones de tienda." />;
+      }
       return (
         <CouponsView
           showToast={showToast}
@@ -572,8 +618,14 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
             setEditingCoupon(coupon);
             onSetViewMode?.("coupon_edit");
           }}
+          canManage={canManageCoupon}
+          canDelete={canDeleteCoupon}
         />
       );
+    }
+
+    if (!canViewProducts) {
+      return <EmptyState icon={ShoppingBag} title="Permiso requerido" description="No tienes permiso para consultar productos." />;
     }
 
     return (
@@ -593,12 +645,12 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
               >
                 <ProductCard
                   product={product}
-                  onOpen={() => handleOpen(product)}
-                  onEdit={() => handleEdit(product)}
-                  onDelete={() => handleDelete(product.id)}
-                  onToggleFeatured={() => handleToggleFeatured(product)}
-                  onTogglePublished={() => handleTogglePublished(product)}
-                  onRetryMedia={() => handleRetryMedia(product)}
+                  onOpen={canViewOrders ? () => handleOpen(product) : undefined}
+                  onEdit={canUpdateProduct ? () => handleEdit(product) : undefined}
+                  onDelete={canDeleteProduct ? () => handleDelete(product.id) : undefined}
+                  onToggleFeatured={canUpdateProduct ? () => handleToggleFeatured(product) : undefined}
+                  onTogglePublished={canUpdateProduct ? () => handleTogglePublished(product) : undefined}
+                  onRetryMedia={canUploadMedia ? () => handleRetryMedia(product) : undefined}
                   isTogglingPublished={togglingPublishedIds.has(product.id)}
                   isRetryingMedia={retryingMediaIds.has(product.id)}
                 />
@@ -618,6 +670,7 @@ export const StoreView = React.forwardRef<StoreViewRef, StoreViewProps>(
             title={emptyStateTitle}
             description={emptyStateDescription}
             action={
+              canCreateProduct &&
               !hasActiveProductFilters &&
               onSetViewMode && (
                 <NexusSectionButton

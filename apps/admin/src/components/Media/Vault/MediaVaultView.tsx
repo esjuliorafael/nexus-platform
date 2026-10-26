@@ -27,6 +27,9 @@ interface MediaVaultViewProps {
   showToast: (message: string, type?: "success" | "error") => void;
   setConfirmDialog: (dialog: any) => void;
   onValidationChange?: (isValid: boolean) => void;
+  canView: boolean;
+  canUpload: boolean;
+  canDelete: boolean;
 }
 
 export interface MediaVaultViewRef {
@@ -46,6 +49,9 @@ export const MediaVaultView = forwardRef<
       showToast,
       setConfirmDialog,
       onValidationChange,
+      canView,
+      canUpload,
+      canDelete,
     },
     ref,
   ) => {
@@ -96,8 +102,9 @@ export const MediaVaultView = forwardRef<
     }, [searchQuery]);
 
     useEffect(() => {
-      void loadItems();
-    }, [page, filter, debouncedSearchQuery]);
+      if (viewMode === "vault_list" && canView) void loadItems();
+      else setIsLoading(false);
+    }, [page, filter, debouncedSearchQuery, canView, viewMode]);
     useEffect(() => {
       setPage(1);
     }, [filter, debouncedSearchQuery]);
@@ -182,6 +189,9 @@ export const MediaVaultView = forwardRef<
     };
 
     if (viewMode === "vault_upload") {
+      if (!canUpload) {
+        return <EmptyState icon={Archive} title="Permiso requerido" description="No tienes permiso para subir archivos a la bóveda." />;
+      }
       return (
         <MediaVaultForm
           ref={formRef}
@@ -193,6 +203,10 @@ export const MediaVaultView = forwardRef<
           showToast={showToast}
         />
       );
+    }
+
+    if (!canView) {
+      return <EmptyState icon={Archive} title="Permiso requerido" description="No tienes permiso para consultar la bóveda de medios." />;
     }
 
     return (
@@ -228,7 +242,7 @@ export const MediaVaultView = forwardRef<
                 : "Sube originales para compartirlos sin compresión ni pérdida de calidad."
             }
             action={
-              filter === "ALL" && !debouncedSearchQuery.trim() ? (
+              canUpload && filter === "ALL" && !debouncedSearchQuery.trim() ? (
                 <NexusSectionButton
                   variant="brand"
                   icon={UploadCloud}
@@ -254,8 +268,8 @@ export const MediaVaultView = forwardRef<
                   <MediaVaultCard
                     item={item}
                     onDownload={() => void downloadItem(item)}
-                    onExtend={() => void extendItem(item)}
-                    onDelete={() => deleteItem(item)}
+                    onExtend={canUpload ? () => void extendItem(item) : undefined}
+                    onDelete={canDelete ? () => deleteItem(item) : undefined}
                     isBusy={busyIds.has(item.id)}
                   />
                 </div>

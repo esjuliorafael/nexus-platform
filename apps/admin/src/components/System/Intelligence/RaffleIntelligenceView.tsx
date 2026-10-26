@@ -39,6 +39,8 @@ import { RaffleAudienceModal } from './RaffleAudienceModal';
 
 interface RaffleIntelligenceViewProps {
   showToast: (message: string, type?: 'success' | 'error') => void;
+  canManageAudiences: boolean;
+  canExport: boolean;
 }
 
 const SEGMENT_LABELS: Record<RaffleParticipantSegment, string> = {
@@ -113,7 +115,7 @@ const MetricCard: React.FC<{
   </NexusAutonomousCard>
 );
 
-export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ showToast }) => {
+export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ showToast, canManageAudiences, canExport }) => {
   const [overview, setOverview] = useState<RaffleIntelligenceOverview | null>(null);
   const [segments, setSegments] = useState<RaffleIntelligenceSegment[]>([]);
   const [participants, setParticipants] = useState<RaffleParticipantIntelligence[]>([]);
@@ -288,7 +290,7 @@ export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ 
         subtitle="Define perfiles reutilizables; la promoción se ejecuta después desde una rifa"
         icon={UserRoundSearch}
         iconVariant="brand"
-        action={
+        action={canManageAudiences ? (
           <NexusSectionButton
             icon={Plus}
             onClick={() => {
@@ -298,7 +300,7 @@ export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ 
           >
             Nueva audiencia
           </NexusSectionButton>
-        }
+        ) : undefined}
       >
         {audiences.length === 0 ? (
           <EmptyState
@@ -322,7 +324,7 @@ export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ 
                     <span>{describeAudience(audience)}</span>
                   </div>
                 }
-                rightContent={
+                rightContent={canManageAudiences ? (
                   <div className="flex items-center" style={{ gap: "var(--space-sm)" }}>
                     <NexusSwitch
                       checked={audience.active}
@@ -351,7 +353,7 @@ export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ 
                       <Trash2 size={18} />
                     </button>
                   </div>
-                }
+                ) : undefined}
               />
             ))}
           </div>
@@ -363,11 +365,11 @@ export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ 
         subtitle="Grupos automaticos segun comportamiento de pago y recurrencia"
         icon={Sparkles}
         iconVariant="brand"
-        action={
+        action={canExport ? (
           <NexusSectionButton onClick={handleExport} icon={Download} isLoading={isExporting}>
             Exportar audiencia
           </NexusSectionButton>
-        }
+        ) : undefined}
       >
         <div className="flex flex-col gap-5">
           {segments.length === 0 ? (
@@ -503,14 +505,14 @@ export const RaffleIntelligenceView: React.FC<RaffleIntelligenceViewProps> = ({ 
         />
       </NexusSection>
 
-      <RaffleAudienceModal
+      {canManageAudiences && <RaffleAudienceModal
         isOpen={audienceModalOpen}
         audience={editingAudience}
         options={audienceOptions}
         onClose={() => setAudienceModalOpen(false)}
         onSaved={handleAudienceSaved}
         showToast={showToast}
-      />
+      />}
       <NexusConfirmModal
         isOpen={Boolean(audienceToDelete)}
         title="Eliminar audiencia"

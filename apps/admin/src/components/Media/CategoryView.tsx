@@ -11,9 +11,10 @@ import { NexusModal, NexusModalActions } from '../ui/NexusModal';
 
 interface CategoryViewProps {
   searchQuery: string;
-  onDelete?: (id: string) => void;
   showToast: (message: string, type?: 'success' | 'error') => void;
   setConfirmDialog: (dialog: any) => void;
+  canManage: boolean;
+  canDelete: boolean;
   openCreateDialog?: boolean;
   onCreateDialogClose?: () => void;
 }
@@ -22,6 +23,8 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
   searchQuery,
   showToast,
   setConfirmDialog,
+  canManage,
+  canDelete,
   openCreateDialog,
   onCreateDialogClose,
 }) => {
@@ -56,9 +59,10 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
 
   useEffect(() => {
     if (!openCreateDialog) return;
+    if (!canManage) return;
     setEditingCategory(null);
     setCategoryDialogMode('create');
-  }, [openCreateDialog]);
+  }, [canManage, openCreateDialog]);
 
   const handleDeleteCategory = (id: string) => {
     setConfirmDialog({
@@ -187,11 +191,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
             ?.filter(s => s.id !== idToDelete)
             .map(s => s.name) || [];
 
-          await apiCategories.update(activeManagerCat.id, {
-            name: activeManagerCat.name,
-            icon: activeManagerCat.icon,
-            subcategories: updatedSubs
-          });
+          await apiCategories.deleteSubcategory(idToDelete);
 
           const newCategories = await fetchCategories();
           const updatedCat = newCategories.find(c => c.id === activeManagerCat.id);
@@ -236,9 +236,10 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
             >
               <CategoryCard
                 category={cat}
-                onEdit={openCategoryEditor}
-                onDelete={handleDeleteCategory}
+                onEdit={canManage ? openCategoryEditor : undefined}
+                onDelete={canDelete ? handleDeleteCategory : undefined}
                 onManage={openManager}
+                canManage={canManage}
               />
             </div>
           ))}
@@ -252,7 +253,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
       )}
 
       <CategoryDialog
-        isOpen={categoryDialogMode !== null}
+        isOpen={categoryDialogMode !== null && canManage}
         initialData={categoryDialogMode === 'edit' ? editingCategory : null}
         onClose={closeCategoryDialog}
         onSave={handleCategoryDialogSave}
@@ -306,15 +307,15 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
                         </div>
                       </div>
                       <div className="flex items-center" style={{ gap: 'var(--space-xs)' }}>
-                        <NexusAutonomousButton
+                        {canManage && <NexusAutonomousButton
                           density="compact"
                           variant="ghost"
                           isIconOnly
                           icon={Edit2}
                           onClick={() => startEditSub(sub)}
                           aria-label="Editar subcategoria"
-                        />
-                        <NexusAutonomousButton
+                        />}
+                        {canDelete && <NexusAutonomousButton
                           density="compact"
                           variant="ghost"
                           isIconOnly
@@ -322,7 +323,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
                           onClick={() => handleDeleteSub(sub.id)}
                           className="hover:text-rose-500 hover:bg-rose-50"
                           aria-label="Eliminar subcategoria"
-                        />
+                        />}
                       </div>
                     </div>
                   ))
@@ -383,7 +384,7 @@ export const CategoryView: React.FC<CategoryViewProps> = ({
             )}
           </div>
 
-          {managerView === 'list' && (
+            {managerView === 'list' && canManage && (
             <div style={{ paddingTop: 'var(--space-lg)' }}>
               <NexusAutonomousButton
                 variant="brand"

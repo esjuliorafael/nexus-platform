@@ -17,10 +17,11 @@ interface IdentityViewProps {
   setStatus: (status: 'empty' | 'preview' | 'editing') => void;
   onTempLogoChange: (hasTemp: boolean) => void;
   showToast: (message: string, type?: 'success' | 'error') => void;
+  canManage: boolean;
 }
 
 export const IdentityView = forwardRef<IdentityViewRef, IdentityViewProps>(
-  ({ status, setStatus, onTempLogoChange, showToast }, ref) => {
+  ({ status, setStatus, onTempLogoChange, showToast, canManage }, ref) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isUploading, setIsUploading] = useState(false);
     
@@ -156,7 +157,7 @@ export const IdentityView = forwardRef<IdentityViewRef, IdentityViewProps>(
           subtitle="Logo principal del sistema"
           icon={ImageIcon}
           delay="200ms"
-          action={(status === 'preview' || status === 'empty' || (status === 'editing' && !!tempFile)) ? (
+          action={canManage && (status === 'preview' || status === 'empty' || (status === 'editing' && !!tempFile)) ? (
             <NexusSectionButton 
               onClick={handleTriggerFile} 
               icon={status === 'empty' ? PlusCircle : RefreshCw} 
@@ -199,20 +200,20 @@ export const IdentityView = forwardRef<IdentityViewRef, IdentityViewProps>(
                 icon={ImageIcon} 
                 title="Sin identidad visual"
                 description="Haz clic debajo para cargar el logotipo oficial de tu rancho y personalizar tu panel." 
-                action={
+                action={canManage ? (
                   <NexusSectionButton onClick={handleTriggerFile} icon={PlusCircle}>
                     Subir logo
                   </NexusSectionButton>
-                }
+                ) : undefined}
               />
             )}
 
             {status === 'preview' && currentLogo && (
               <div className="flex flex-col items-center justify-center w-full animate-in fade-in slide-in-from-bottom-4 duration-500">
                 <div 
-                  className="group/logo-stage bg-bg-muted py-16 px-8 w-full flex items-center justify-center mb-10 border border-border-main/50 relative cursor-pointer overflow-hidden transition-colors hover:bg-bg-muted/80"
+                  className={`group/logo-stage bg-bg-muted py-16 px-8 w-full flex items-center justify-center mb-10 border border-border-main/50 relative overflow-hidden transition-colors ${canManage ? "cursor-pointer hover:bg-bg-muted/80" : ""}`}
                   style={{ borderRadius: 'var(--radius-inner-visual)' }}
-                  onClick={handleTriggerFile}
+                  onClick={canManage ? handleTriggerFile : undefined}
                 >
                   <img 
                     src={currentLogo} 

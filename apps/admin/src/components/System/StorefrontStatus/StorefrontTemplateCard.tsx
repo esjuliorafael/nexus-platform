@@ -9,7 +9,7 @@ import {
 
 interface StorefrontTemplateCardProps {
   template: StorefrontTemplateConfig;
-  onEdit: () => void;
+  onEdit?: () => void;
 }
 
 export const StorefrontTemplateCard: React.FC<StorefrontTemplateCardProps> = ({
@@ -27,7 +27,7 @@ export const StorefrontTemplateCard: React.FC<StorefrontTemplateCardProps> = ({
       iconVariant={meta.iconVariant}
       title={meta.label}
       subtitle={template.title}
-      actions={
+      actions={onEdit ? (
         <NexusCardButton
           type="button"
           variant="secondary"
@@ -36,7 +36,7 @@ export const StorefrontTemplateCard: React.FC<StorefrontTemplateCardProps> = ({
         >
           Editar
         </NexusCardButton>
-      }
+      ) : undefined}
       rightContent={
         <div className="flex flex-col items-start md:items-end" style={{ gap: "var(--space-xs)" }}>
           <span className="text-label uppercase tracking-[0.15em] text-text-muted">

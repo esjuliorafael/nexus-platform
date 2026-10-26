@@ -4,13 +4,25 @@ import { createUserSchema, updateUserSchema } from "./user.schema";
 import { updateContactProfileSchema } from "../profile/profile.schema";
 import { profileService } from "../profile/profile.service";
 
-function rejectUnlessUsersManager(request: any, reply: any) {
+function rejectUnlessPermission(request: any, reply: any, permission: string) {
   const permissions = request.user?.permissions || [];
-  if (!permissions.includes("users.manage")) {
-    reply.status(403).send({ message: "No tienes permiso para administrar usuarios." });
+  if (!permissions.includes(permission)) {
+    reply.status(403).send({ message: "No tienes permiso para realizar esta acción." });
     return true;
   }
   return false;
+}
+
+function isSuperadmin(request: any) {
+  return request.user?.role === "SUPERADMIN";
+}
+
+function containsSuperadminOnlyPermissions(permissions: string[]) {
+  return permissions.some((permission) => [
+    "platform.settings.view",
+    "platform.settings.manage",
+    "users.roles.manage",
+  ].includes(permission));
 }
 
 function canAssignPermissions(actorPermissions: string[], requestedPermissions: string[]) {
@@ -33,15 +45,23 @@ export async function userRoutes(server: FastifyInstance) {
   server.addHook("preHandler", server.authenticate);
 
   server.get("/", async (request, reply) => {
-    if (rejectUnlessUsersManager(request, reply)) return;
+    if (rejectUnlessPermission(request, reply, "users.view")) return;
     return userService.getAll();
   });
 
   server.post("/", async (request, reply) => {
-    if (rejectUnlessUsersManager(request, reply)) return;
+    if (rejectUnlessPermission(request, reply, "users.create")) return;
     try {
       const validated = createUserSchema.parse(request.body);
       const actorPermissions = (request.user as any).permissions || [];
+      if (rejectUnlessPermission(request, reply, "users.permissions.manage")) return;
+      if (validated.role !== "STAFF" && (!isSuperadmin(request) || rejectUnlessPermission(request, reply, "users.roles.manage"))) {
+        if (!reply.sent) return reply.status(403).send({ message: "Solo Superadmin puede asignar roles privilegiados." });
+        return;
+      }
+      if (containsSuperadminOnlyPermissions(validated.permissions) && (validated.role !== "SUPERADMIN" || !isSuperadmin(request))) {
+        return reply.status(403).send({ message: "Los permisos de plataforma y roles solo pueden asignarse a cuentas Superadmin." });
+      }
       if (!canAssignPermissions(actorPermissions, validated.permissions)) {
         return reply.status(403).send({ message: "No puedes asignar permisos que no tienes." });
       }
@@ -52,7 +72,7 @@ export async function userRoutes(server: FastifyInstance) {
   });
 
   server.put("/:id", async (request, reply) => {
-    if (rejectUnlessUsersManager(request, reply)) return;
+    if (rejectUnlessPermission(request, reply, "users.update")) return;
     try {
       const { id } = request.params as { id: string };
       const target = await userService.getById(parseInt(id));
@@ -61,7 +81,21 @@ export async function userRoutes(server: FastifyInstance) {
       if (target.id === Number((request.user as any).id)) {
         return reply.status(409).send({ message: "Administra tu cuenta desde mi perfil." });
       }
+      if (target.role === "SUPERADMIN" && !isSuperadmin(request)) {
+        return reply.status(403).send({ message: "Solo Superadmin puede modificar otra cuenta Superadmin." });
+      }
       const actorPermissions = (request.user as any).permissions || [];
+      if (validated.permissions && rejectUnlessPermission(request, reply, "users.permissions.manage")) return;
+      if (validated.role !== undefined && validated.role !== target.role) {
+        if (!isSuperadmin(request)) {
+          return reply.status(403).send({ message: "Solo Superadmin puede cambiar roles." });
+        }
+        if (rejectUnlessPermission(request, reply, "users.roles.manage")) return;
+      }
+      if (validated.permissions && containsSuperadminOnlyPermissions(validated.permissions) &&
+        (target.role !== "SUPERADMIN" || !isSuperadmin(request))) {
+        return reply.status(403).send({ message: "Los permisos de plataforma y roles solo pueden asignarse a cuentas Superadmin." });
+      }
       const newlyGranted = validated.permissions?.filter(
         (permission) => !target.permissions.includes(permission),
       ) || [];
@@ -75,11 +109,14 @@ export async function userRoutes(server: FastifyInstance) {
   });
 
   server.put("/:id/contact", async (request, reply) => {
-    if (rejectUnlessUsersManager(request, reply)) return;
+    if (rejectUnlessPermission(request, reply, "users.update")) return;
     try {
       const { id } = request.params as { id: string };
       const target = await userService.getById(parseInt(id));
       if (!target) return reply.status(404).send({ message: "Usuario no encontrado." });
+      if (target.role === "SUPERADMIN" && !isSuperadmin(request)) {
+        return reply.status(403).send({ message: "Solo Superadmin puede modificar otra cuenta Superadmin." });
+      }
       const validated = updateContactProfileSchema.parse(request.body);
       return await profileService.updateContactProfile(parseInt(id), validated, true);
     } catch (error) {
@@ -88,7 +125,7 @@ export async function userRoutes(server: FastifyInstance) {
   });
 
   server.delete("/:id", async (request, reply) => {
-    if (rejectUnlessUsersManager(request, reply)) return;
+    if (rejectUnlessPermission(request, reply, "users.delete")) return;
     const { id } = request.params as { id: string };
     const targetId = parseInt(id);
     if (targetId === Number((request.user as any).id)) {
@@ -96,6 +133,9 @@ export async function userRoutes(server: FastifyInstance) {
     }
     const target = await userService.getById(targetId);
     if (!target) return reply.status(404).send({ message: "Usuario no encontrado." });
+    if (target.role === "SUPERADMIN" && !isSuperadmin(request)) {
+      return reply.status(403).send({ message: "Solo Superadmin puede eliminar otra cuenta Superadmin." });
+    }
     return userService.delete(targetId);
   });
 }

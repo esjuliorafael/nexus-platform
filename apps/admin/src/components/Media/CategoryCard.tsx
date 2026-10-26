@@ -8,9 +8,10 @@ import { NexusAutonomousBadge } from '../ui/NexusBadge';
 
 interface CategoryCardProps {
   category: Category;
-  onEdit: (category: Category) => void;
-  onDelete: (id: string) => void;
+  onEdit?: (category: Category) => void;
+  onDelete?: (id: string) => void;
   onManage: (category: Category, startWithForm: boolean) => void;
+  canManage: boolean;
   style?: React.CSSProperties;
 }
 
@@ -19,13 +20,14 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
   onEdit, 
   onDelete, 
   onManage, 
-  style 
+  style,
+  canManage,
 }) => {
   return (
     <NexusAutonomousCard
-      onEdit={() => onEdit(category)}
-      onDelete={() => onDelete(category.id)}
-      swipeable
+      onEdit={onEdit ? () => onEdit(category) : undefined}
+      onDelete={onDelete ? () => onDelete(category.id) : undefined}
+      swipeable={Boolean(onEdit || onDelete)}
       innerClassName="flex flex-col justify-between"
       style={style}
     >
@@ -39,16 +41,16 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
             className="group-hover/card:bg-brand-500 group-hover/card:text-white"
           />
           
-          <div className="hidden sm:flex items-center opacity-0 group-hover/card:opacity-100 transition-opacity duration-300" style={{ gap: 'var(--space-sm)' }}>
-            <NexusAutonomousButton 
+          {(onEdit || onDelete) && <div className="hidden sm:flex items-center opacity-0 group-hover/card:opacity-100 transition-opacity duration-300" style={{ gap: 'var(--space-sm)' }}>
+            {onEdit && <NexusAutonomousButton
               density="compact"
               variant="secondary"
               isIconOnly
               onClick={() => onEdit(category)}
               icon={Edit2}
               title="Editar categoría"
-            />
-            <NexusAutonomousButton 
+            />}
+            {onDelete && <NexusAutonomousButton
               density="compact"
               variant="secondary"
               isIconOnly
@@ -56,8 +58,8 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
               icon={Trash2}
               className="hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100"
               title="Eliminar categoría"
-            />
-          </div>
+            />}
+          </div>}
         </div>
 
         {/* Título y Contadores */}
@@ -84,8 +86,8 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
       </div>
 
       {/* Botones de Acción (Gestión de Subcategorías) */}
-      <div className="grid grid-cols-2" style={{ gap: 'var(--space-sm)', marginTop: 'var(--space-lg)' }}>
-        <NexusAutonomousButton 
+      <div className={`grid ${canManage ? "grid-cols-2" : "grid-cols-1"}`} style={{ gap: 'var(--space-sm)', marginTop: 'var(--space-lg)' }}>
+        <NexusAutonomousButton
           density="compact"
           variant="secondary"
           onClick={() => onManage(category, false)}
@@ -94,7 +96,7 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
         >
           Ver subs
         </NexusAutonomousButton>
-        <NexusAutonomousButton 
+        {canManage && <NexusAutonomousButton
           density="compact"
           variant="brand"
           onClick={() => onManage(category, true)}
@@ -102,7 +104,7 @@ export const CategoryCard: React.FC<CategoryCardProps> = ({
           className="w-full truncate bg-brand-50 text-brand-600 border-brand-200 hover:bg-brand-100 shadow-none"
         >
           Nueva sub
-        </NexusAutonomousButton>
+        </NexusAutonomousButton>}
       </div>
     </NexusAutonomousCard>
   );

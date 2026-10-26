@@ -2,10 +2,8 @@ import React, { useEffect, useState } from "react";
 import { BadgePercent, CalendarClock, Settings2 } from "lucide-react";
 import {
   apiRaffleCoupons,
-  apiRaffles,
   type RaffleCouponRecord,
 } from "../../../api";
-import type { Raffle } from "../../../types";
 import { NexusInput, NexusSelect } from "../../ui/NexusInputs";
 import { NexusSection } from "../../ui/NexusSection";
 
@@ -32,7 +30,7 @@ export const RaffleCouponForm: React.FC<RaffleCouponFormProps> = ({
   showToast,
   onValidationChange,
 }) => {
-  const [raffles, setRaffles] = useState<Raffle[]>([]);
+  const [raffles, setRaffles] = useState<Array<{ id: string; title: string }>>([]);
   const [code, setCode] = useState(initialData?.code || "");
   const [name, setName] = useState(initialData?.name || "");
   const [discountType, setDiscountType] = useState<"PERCENTAGE" | "FIXED">(
@@ -60,8 +58,8 @@ export const RaffleCouponForm: React.FC<RaffleCouponFormProps> = ({
 
   useEffect(() => {
     let cancelled = false;
-    apiRaffles
-      .getAll()
+    apiRaffleCoupons
+      .getRaffleOptions()
       .then((data) => {
         if (!cancelled) setRaffles(data);
       })

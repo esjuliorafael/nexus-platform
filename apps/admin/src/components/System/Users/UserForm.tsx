@@ -6,7 +6,7 @@ import React, {
   useState,
 } from "react";
 import { KeyRound, Mail, Phone, Shield, ShieldCheck, User as UserIcon } from "lucide-react";
-import { PERMISSIONS, PERMISSION_GROUPS, type PermissionId } from "@nexus/types";
+import { normalizePermissionIds, PERMISSIONS, PERMISSION_GROUPS, type PermissionId } from "@nexus/types";
 import { apiUsers } from "../../../api";
 import type { User } from "../../../types";
 import { NexusCheckboxControl } from "../../ui/NexusCheckboxControl";
@@ -20,6 +20,8 @@ export interface UserFormRef {
 interface UserFormProps {
   user?: User | null;
   currentUserPermissions: PermissionId[];
+  canManagePermissions: boolean;
+  canManageRoles: boolean;
   showToast: (message: string, type?: "success" | "error") => void;
   onSavingChange: (isSaving: boolean) => void;
   onValidationChange: (isValid: boolean) => void;
@@ -36,10 +38,36 @@ type UserFormData = {
   permissions: PermissionId[];
 };
 
+const permissionResourceLabel = (id: PermissionId) => {
+  if (id.startsWith("raffles.coupons.")) return "Cupones de rifas";
+  if (id.startsWith("raffles.participations.")) return "Participaciones";
+  if (id.startsWith("raffles.intelligence.")) return "Audiencias e inteligencia";
+  if (id.startsWith("raffles.settings.")) return "Configuración de rifas";
+  if (id.startsWith("raffles.results.")) return "Resultados";
+  if (id.startsWith("raffles.")) return "Rifas";
+  if (id.startsWith("storefront.heroes.")) return "Héroes de tienda";
+  if (id.startsWith("storefront.slides.")) return "Slider de inicio";
+  if (id.startsWith("storefront.announcements.")) return "Avisos del Storefront";
+  if (id.startsWith("storefront.status.")) return "Estado del Storefront";
+  if (id.startsWith("storefront.branding.")) return "Identidad visual";
+  if (id.startsWith("payment-links.")) return "Enlaces de pago";
+  if (id.startsWith("orders.")) return "Pedidos";
+  if (id.startsWith("products.")) return "Productos";
+  if (id.startsWith("inventory.")) return "Inventario e integridad";
+  if (id.startsWith("categories.")) return "Categorías y subcategorías";
+  if (id.startsWith("media.vault.")) return "Bóveda de medios";
+  if (id === "media.upload") return "Carga de archivos";
+  if (id.startsWith("media.")) return "Galería de medios";
+  if (id.startsWith("coupons.")) return "Cupones de tienda";
+  if (id.startsWith("messaging.")) return "Comunicaciones";
+  return "Otras acciones";
+};
+
 export const UserForm = forwardRef<UserFormRef, UserFormProps>(
-  ({ user, currentUserPermissions, showToast, onSavingChange, onValidationChange, onSaved }, ref) => {
+  ({ user, currentUserPermissions, canManagePermissions, canManageRoles, showToast, onSavingChange, onValidationChange, onSaved }, ref) => {
     const formRef = useRef<HTMLFormElement>(null);
     const [isSaving, setIsSaving] = useState(false);
+    const normalizedInitialPermissions = normalizePermissionIds(user?.permissions || []);
     const [formData, setFormData] = useState<UserFormData>(() => ({
       name: user?.name || "",
       email: user?.email || "",
@@ -47,7 +75,7 @@ export const UserForm = forwardRef<UserFormRef, UserFormProps>(
       username: user?.username || "",
       password: "",
       role: user?.role || "staff",
-      permissions: user?.permissions || [],
+      permissions: normalizedInitialPermissions,
     }));
     const isEditing = Boolean(user);
     const normalizedPhone = formData.phone.trim().replace(/[\s()-]/g, "");
@@ -61,7 +89,7 @@ export const UserForm = forwardRef<UserFormRef, UserFormProps>(
           return {
             id: group.id,
             selectedCount: permissions.filter((permission) =>
-              user?.permissions?.includes(permission.id),
+              normalizedInitialPermissions.includes(permission.id),
             ).length,
             totalCount: permissions.length,
           };
@@ -80,6 +108,15 @@ export const UserForm = forwardRef<UserFormRef, UserFormProps>(
     const activeGroupPermissions = PERMISSIONS.filter(
       (permission) => permission.group === activePermissionGroup.id,
     );
+    const activePermissionSections = activeGroupPermissions.reduce<
+      Array<{ label: string; permissions: typeof activeGroupPermissions }>
+    >((sections, permission) => {
+      const label = permissionResourceLabel(permission.id);
+      const section = sections.find((item) => item.label === label);
+      if (section) section.permissions.push(permission);
+      else sections.push({ label, permissions: [permission] });
+      return sections;
+    }, []);
     const getGroupSelectionCount = (groupId: string) => {
       const groupPermissions = PERMISSIONS.filter(
         (permission) => permission.group === groupId,
@@ -130,15 +167,15 @@ export const UserForm = forwardRef<UserFormRef, UserFormProps>(
 
       setIsSaving(true);
       onSavingChange(true);
-      const payload = {
+      const payload: Record<string, unknown> = {
         name: formData.name.trim(),
         email: formData.email.trim() || null,
         phone: normalizedPhone || null,
         username: formData.username.trim(),
-        role: formData.role.toUpperCase(),
-        permissions: formData.permissions,
         ...(formData.password ? { password: formData.password } : {}),
       };
+      if (canManageRoles) payload.role = formData.role.toUpperCase();
+      if (canManagePermissions) payload.permissions = formData.permissions;
 
       try {
         if (user) {
@@ -227,6 +264,7 @@ export const UserForm = forwardRef<UserFormRef, UserFormProps>(
               value={formData.role}
               onChange={(event) => updateField("role", event.target.value as User["role"])}
               icon={Shield}
+              disabled={!canManageRoles}
               required
             >
               <option value="superadmin">Super administrador</option>
@@ -247,7 +285,9 @@ export const UserForm = forwardRef<UserFormRef, UserFormProps>(
             />
           </div>
           <p className="mt-[var(--space-md)] text-secondary text-text-muted">
-            El rol no concede permisos automáticamente. El acceso se configura de forma individual abajo.
+            {canManageRoles
+              ? "El rol no concede permisos automáticamente. El acceso se configura de forma individual abajo."
+              : "El rol de la cuenta está reservado a Superadmin. Los permisos determinan el acceso operativo."}
           </p>
         </NexusSection>
 
@@ -321,9 +361,19 @@ export const UserForm = forwardRef<UserFormRef, UserFormProps>(
                   </span>
                 </div>
 
-                <div className="divide-y divide-border-main">
-                  {activeGroupPermissions.map((permission) => {
-                    const canDelegate = currentUserPermissions.includes(permission.id);
+                <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+                  {activePermissionSections.map((section) => (
+                    <section key={section.label}>
+                      {activePermissionSections.length > 1 && (
+                        <h4 className="pb-[var(--space-xs)] text-secondary font-semibold text-text-muted">
+                          {section.label}
+                        </h4>
+                      )}
+                      <div className="divide-y divide-border-main">
+                        {section.permissions.map((permission) => {
+                    const isSuperadminOnlyPermission = permission.id === "users.roles.manage" || permission.id.startsWith("platform.settings.");
+                    const canDelegate = canManagePermissions && currentUserPermissions.includes(permission.id) &&
+                      (!isSuperadminOnlyPermission || formData.role === "superadmin");
                     const checked = formData.permissions.includes(permission.id);
                     const needsMilestoneView =
                       permission.id === "dashboard.milestones.acknowledge" &&
@@ -351,7 +401,7 @@ export const UserForm = forwardRef<UserFormRef, UserFormProps>(
                         </span>
                         <NexusCheckboxControl
                           checked={checked}
-                          disabled={(!canDelegate && !checked) || needsMilestoneView}
+                          disabled={!canManagePermissions || (!canDelegate && !checked) || needsMilestoneView}
                           onChange={() => {
                             const nextPermissions = checked
                               ? formData.permissions.filter(
@@ -375,13 +425,18 @@ export const UserForm = forwardRef<UserFormRef, UserFormProps>(
                         />
                       </label>
                     );
-                  })}
+                        })}
+                      </div>
+                    </section>
+                  ))}
                 </div>
               </div>
             </div>
 
             <p className="text-secondary text-text-muted">
-              Los permisos que no puedes conceder se conservan al editar, pero puedes retirarlos.
+              {canManagePermissions
+                ? "Solo puedes conceder permisos que ya tienes; los permisos ajenos se conservan y puedes retirarlos."
+                : "No tienes permiso para modificar el acceso asignado a este usuario."}
             </p>
           </div>
         </NexusSection>

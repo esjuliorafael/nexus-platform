@@ -68,7 +68,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     return (
       <PublicContactView
         profile={profile}
-        canPublish={profile.permissions.includes("users.manage")}
+        canPublish={profile.permissions.includes("users.update")}
         showToast={showToast}
         saveContact={apiAuth.updateContact}
         onSaved={(result) => handleUpdated(result as OwnProfile)}

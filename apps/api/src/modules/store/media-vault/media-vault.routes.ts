@@ -5,10 +5,12 @@ import {
   mediaVaultUploadSchema,
 } from "./media-vault.schema";
 import { mediaVaultService } from "./media-vault.service";
+import { actorHasPermission } from "../../../utils/user-permissions";
+import type { PermissionId } from "@nexus/types";
 
-function rejectUnlessAdmin(request: any, reply: any) {
-  if (!request.user?.permissions?.includes("media.vault.manage")) {
-    reply.status(403).send({ message: "No tienes permiso para administrar la bóveda." });
+function rejectUnlessAdmin(request: any, reply: any, permission: PermissionId) {
+  if (!actorHasPermission(request, permission)) {
+    reply.status(403).send({ message: "No tienes permiso para realizar esta acción en la bóveda." });
     return true;
   }
   return false;
@@ -27,7 +29,7 @@ export async function mediaVaultRoutes(server: FastifyInstance) {
   server.addHook("preHandler", server.authenticate);
 
   server.get("/", async (request, reply) => {
-    if (rejectUnlessAdmin(request, reply)) return;
+    if (rejectUnlessAdmin(request, reply, "media.vault.view")) return;
     try {
       return await mediaVaultService.list(mediaVaultListSchema.parse(request.query));
     } catch (error) {
@@ -36,7 +38,7 @@ export async function mediaVaultRoutes(server: FastifyInstance) {
   });
 
   server.post("/uploads", async (request, reply) => {
-    if (rejectUnlessAdmin(request, reply)) return;
+    if (rejectUnlessAdmin(request, reply, "media.vault.upload")) return;
     try {
       const body = mediaVaultUploadSchema.parse(request.body);
       const userId = Number((request.user as any).id);
@@ -52,7 +54,7 @@ export async function mediaVaultRoutes(server: FastifyInstance) {
   });
 
   server.post("/:id/complete", async (request, reply) => {
-    if (rejectUnlessAdmin(request, reply)) return;
+    if (rejectUnlessAdmin(request, reply, "media.vault.upload")) return;
     try {
       const { id } = mediaVaultIdSchema.parse(request.params);
       return await mediaVaultService.completeUpload(id);
@@ -62,7 +64,7 @@ export async function mediaVaultRoutes(server: FastifyInstance) {
   });
 
   server.post("/:id/download", async (request, reply) => {
-    if (rejectUnlessAdmin(request, reply)) return;
+    if (rejectUnlessAdmin(request, reply, "media.vault.view")) return;
     try {
       const { id } = mediaVaultIdSchema.parse(request.params);
       return await mediaVaultService.createDownload(id);
@@ -72,7 +74,7 @@ export async function mediaVaultRoutes(server: FastifyInstance) {
   });
 
   server.post("/:id/extend", async (request, reply) => {
-    if (rejectUnlessAdmin(request, reply)) return;
+    if (rejectUnlessAdmin(request, reply, "media.vault.upload")) return;
     try {
       const { id } = mediaVaultIdSchema.parse(request.params);
       return await mediaVaultService.extend(id);
@@ -82,7 +84,7 @@ export async function mediaVaultRoutes(server: FastifyInstance) {
   });
 
   server.delete("/:id", async (request, reply) => {
-    if (rejectUnlessAdmin(request, reply)) return;
+    if (rejectUnlessAdmin(request, reply, "media.vault.delete")) return;
     try {
       const { id } = mediaVaultIdSchema.parse(request.params);
       return await mediaVaultService.delete(id);

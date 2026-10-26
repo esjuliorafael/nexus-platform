@@ -13,6 +13,8 @@ interface StoreHeroViewProps {
   setConfirmDialog: (dialog: any) => void;
   onCreate: () => void;
   onEdit: (hero: StoreHero) => void;
+  canManage: boolean;
+  canDelete: boolean;
 }
 
 const SCOPE_LABELS: Record<StoreHeroScope, string> = {
@@ -29,6 +31,8 @@ export const StoreHeroView: React.FC<StoreHeroViewProps> = ({
   setConfirmDialog,
   onCreate,
   onEdit,
+  canManage,
+  canDelete,
 }) => {
   const [heroes, setHeroes] = useState<StoreHero[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -187,11 +191,11 @@ export const StoreHeroView: React.FC<StoreHeroViewProps> = ({
           icon={MonitorPlay}
           title="Sin heroes de tienda"
           description="Crea un hero para todo, aves o artículos."
-          action={
+          action={canManage ? (
             <NexusSectionButton icon={Plus} onClick={onCreate}>
               Crear hero
             </NexusSectionButton>
-          }
+          ) : undefined}
         />
       ) : (
         <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
@@ -203,13 +207,13 @@ export const StoreHeroView: React.FC<StoreHeroViewProps> = ({
               <StoreHeroCard
                 key={hero.id}
                 hero={hero}
-                onEdit={() => onEdit(hero)}
-                onDelete={() => handleDelete(hero)}
-                onToggleActive={() => handleToggleActive(hero)}
-                onMoveUp={() => void handleMoveHero(hero, -1)}
-                onMoveDown={() => void handleMoveHero(hero, 1)}
-                canMoveUp={!isReordering && scopeIndex > 0}
-                canMoveDown={!isReordering && scopeIndex < scopeHeroes.length - 1}
+                onEdit={canManage ? () => onEdit(hero) : undefined}
+                onDelete={canDelete ? () => handleDelete(hero) : undefined}
+                onToggleActive={canManage ? () => handleToggleActive(hero) : undefined}
+                onMoveUp={canManage ? () => void handleMoveHero(hero, -1) : undefined}
+                onMoveDown={canManage ? () => void handleMoveHero(hero, 1) : undefined}
+                canMoveUp={canManage && !isReordering && scopeIndex > 0}
+                canMoveDown={canManage && !isReordering && scopeIndex < scopeHeroes.length - 1}
                 isToggling={togglingHeroIds.has(hero.id)}
               />
             );

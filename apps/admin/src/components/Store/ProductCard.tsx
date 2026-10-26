@@ -23,9 +23,9 @@ import { ASSET_BASE_URL } from "../../api";
 
 interface ProductCardProps {
   product: Product;
-  onEdit: () => void;
-  onDelete: () => void;
-  onOpen: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onOpen?: () => void;
   onToggleFeatured?: () => void;
   onTogglePublished?: () => void;
   onRetryMedia?: () => void;
@@ -163,7 +163,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
       onEdit={onEdit}
       onDelete={onDelete}
       onClick={onOpen}
-      swipeable
+      swipeable={Boolean(onEdit || onDelete)}
       isMuted={statusConfig.isMuted || !isPublished}
       innerClassName={`hover:shadow-xl hover:shadow-stone-200/40 active:scale-[0.995] transition-all duration-700 ${
         isPublished ? statusConfig.innerStyles : "border-border-main/70"
@@ -593,7 +593,7 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                   }
                 />
               )}
-              <NexusAutonomousButton
+              {onEdit && <NexusAutonomousButton
                 density="compact"
                 variant="secondary"
                 isIconOnly
@@ -602,9 +602,10 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                   onEdit();
                 }}
                 icon={Edit2}
+                aria-label="Editar producto"
                 className="hover:bg-brand-50 hover:text-brand-600 hover:border-brand-100"
-              />
-              <NexusAutonomousButton
+              />}
+              {onDelete && <NexusAutonomousButton
                 density="compact"
                 variant="secondary"
                 isIconOnly
@@ -613,8 +614,9 @@ export const ProductCard: React.FC<ProductCardProps> = ({
                   onDelete();
                 }}
                 icon={Trash2}
+                aria-label="Eliminar producto"
                 className="hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100"
-              />
+              />}
             </div>
           </div>
         </div>

@@ -14,6 +14,7 @@ import { NexusSegmentedControl } from '../../ui/NexusSegmentedControl';
 
 interface ShippingViewProps {
   showToast: (message: string, type?: 'success' | 'error') => void;
+  canManage: boolean;
   subView: 'config' | 'zones';
   setSubView: (view: 'config' | 'zones') => void;
   setConfirmDialog: (config: any) => void;
@@ -28,7 +29,7 @@ const sortStateZones = (zones: StateZone[]) =>
   [...zones].sort((a, b) => stateNameCollator.compare(a.name, b.name));
 
 export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSaveZones: () => void }, ShippingViewProps>(
-  ({ showToast, subView, setSubView, setConfirmDialog }, ref) => {
+  ({ showToast, canManage, subView, setSubView, setConfirmDialog }, ref) => {
     
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
@@ -81,7 +82,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
 
     // GUARDAR CONFIGURACIÓN (Costos)
     const handleSaveConfig = async () => {
-      if (isSaving) return;
+      if (!canManage || isSaving) return;
       setIsSaving(true);
       try {
         await apiSystem.updateConfig({
@@ -101,7 +102,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
 
     // GUARDAR ZONAS (Los 32 estados)
     const handleSaveZones = async () => {
-      if (isSaving) return;
+      if (!canManage || isSaving) return;
       setIsSaving(true);
       try {
         await apiSystem.updateShippingZones(localStates);
@@ -141,6 +142,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
     const allAreStandard = localStates.every(s => s.zone === 'STANDARD');
 
     const handleMassiveAction = () => {
+      if (!canManage) return;
       const targetZone = allAreStandard ? 'EXTENDED' : 'STANDARD';
       const zoneLabel = targetZone === 'STANDARD' ? 'Normal' : 'Extendida';
 
@@ -198,9 +200,9 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
             delay="200ms"
             action={
               <div className="flex" style={{ gap: 'var(--space-sm)' }}>
-                <NexusSectionButton onClick={handleMassiveAction} variant="secondary" className="hidden sm:flex">
+                {canManage && <NexusSectionButton onClick={handleMassiveAction} variant="secondary" className="hidden sm:flex">
                   {allAreStandard ? 'Todos a Extendida' : 'Todos a Normal'}
-                </NexusSectionButton>
+                </NexusSectionButton>}
                 <NexusSectionButton onClick={() => setSubView('config')} variant="brand">
                   Volver
                 </NexusSectionButton>
@@ -223,6 +225,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                           value={state.zone}
                           ariaLabel={`Tipo de cobertura para ${state.name}`}
                           onChange={(zone) => toggleStateZone(state.id, zone)}
+                          disabled={!canManage}
                           options={[
                             { value: 'STANDARD', label: 'Normal', activeClassName: 'bg-white text-emerald-600 shadow-sm' },
                             { value: 'EXTENDED', label: 'Extra', activeClassName: 'bg-white text-orange-600 shadow-sm' },
@@ -236,6 +239,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                       <NexusSwitch
                         checked={state.active}
                         onChange={() => toggleStateActive(state.id)}
+                        disabled={!canManage}
                         activeClassName="bg-emerald-500 shadow-sm shadow-emerald-500/30"
                         aria-label={state.active ? `Desactivar cobertura para ${state.name}` : `Activar cobertura para ${state.name}`}
                       />
@@ -276,7 +280,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                   label="Costo base envío artículos"
                   type="number"
                   value={config.baseCostArticles.toString()}
-                  disabled={config.freeShippingArticles}
+                  disabled={!canManage || config.freeShippingArticles}
                   onChange={(e) => setConfig({ ...config, baseCostArticles: Number(e.target.value) })}
                   icon={DollarSign}
                   helperText="Costo fijo por envío de artículos."
@@ -308,6 +312,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                         <NexusSwitch
                           checked={config.freeShippingArticles}
                           onChange={() => setConfig({ ...config, freeShippingArticles: !config.freeShippingArticles })}
+                          disabled={!canManage}
                           activeClassName="bg-brand-500 shadow-sm shadow-brand-500/30"
                           aria-label={config.freeShippingArticles ? 'Desactivar envio gratis de articulos' : 'Activar envio gratis de articulos'}
                         />
@@ -336,7 +341,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                   label="Costo zona normal"
                   type="number"
                   value={config.costNormalZone.toString()}
-                  disabled={config.freeShippingBirds}
+                  disabled={!canManage || config.freeShippingBirds}
                   onChange={(e) => setConfig({ ...config, costNormalZone: Number(e.target.value) })}
                   icon={DollarSign}
                   helperText="Costo base para cobertura estándar."
@@ -345,7 +350,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                   label="Costo zona extendida"
                   type="number"
                   value={config.costExtendedZone.toString()}
-                  disabled={config.freeShippingBirds}
+                  disabled={!canManage || config.freeShippingBirds}
                   onChange={(e) => setConfig({ ...config, costExtendedZone: Number(e.target.value) })}
                   icon={DollarSign}
                   helperText="Costo extra para zonas remotas."
@@ -377,6 +382,7 @@ export const ShippingView = forwardRef<{ handleSaveConfig: () => void; handleSav
                         <NexusSwitch
                           checked={config.freeShippingBirds}
                           onChange={() => setConfig({ ...config, freeShippingBirds: !config.freeShippingBirds })}
+                          disabled={!canManage}
                           activeClassName="bg-blue-500 shadow-sm shadow-blue-500/30"
                           aria-label={config.freeShippingBirds ? 'Desactivar envio gratis de aves' : 'Activar envio gratis de aves'}
                         />

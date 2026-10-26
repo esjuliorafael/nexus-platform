@@ -42,7 +42,9 @@ test("dashboard stats expose only enabled sections and permitted source alerts",
 });
 
 test("commercial overview filters history and removes unassigned financial sections", () => {
-  const access = getDashboardAccess(makeRequest(["orders.view"]));
+  const access = getDashboardAccess(
+    makeRequest(["dashboard.history.view", "orders.view"]),
+  );
   const result = projectDashboardCommercialOverview(
     {
       period: "7D",
@@ -65,6 +67,26 @@ test("commercial overview filters history and removes unassigned financial secti
   assert.equal("pulse" in result, false);
   assert.equal("messagingCost" in result, false);
   assert.deepEqual(result.history, [{ kind: "ORDER", id: "52" }]);
+});
+
+test("transaction read permissions do not implicitly enable dashboard history", () => {
+  const access = getDashboardAccess(makeRequest(["orders.view"]));
+  const result = projectDashboardCommercialOverview(
+    {
+      period: "7D",
+      source: "ALL",
+      paymentMethod: "ALL",
+      granularity: "DAY",
+      range: { from: null, to: "2026-10-25" },
+      salesBySource: { total: { store: 100, raffles: 200 } },
+      pulse: { confirmed: { count: 3, amount: 300 } },
+      history: [{ kind: "ORDER", id: "52" }],
+      messagingCost: { estimatedMxn: 90 },
+    },
+    access,
+  );
+
+  assert.deepEqual(result.history, []);
 });
 
 test("commercial indicators do not grant access to transaction history", () => {

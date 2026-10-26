@@ -22,6 +22,9 @@ interface HomeSliderViewProps {
   showToast: (message: string, type?: "success" | "error") => void;
   setConfirmDialog: (dialog: any) => void;
   onValidationChange?: (isValid: boolean) => void;
+  canManage: boolean;
+  canDelete: boolean;
+  canView: boolean;
 }
 
 export interface HomeSliderViewRef {
@@ -39,6 +42,9 @@ export const HomeSliderView = forwardRef<
       showToast,
       setConfirmDialog,
       onValidationChange,
+      canManage,
+      canDelete,
+      canView,
     },
     ref,
   ) => {
@@ -71,10 +77,12 @@ export const HomeSliderView = forwardRef<
     };
 
     useEffect(() => {
-      loadSlides();
-    }, []);
+      if (canView) void loadSlides();
+      else setIsLoading(false);
+    }, [canView]);
 
     useEffect(() => {
+      if (!canView) return;
       const handleMediaUploadChange = () => {
         void loadSlides();
       };
@@ -84,7 +92,7 @@ export const HomeSliderView = forwardRef<
         window.removeEventListener("nexus:media-upload-complete", handleMediaUploadChange);
         window.removeEventListener("nexus:media-upload-failed", handleMediaUploadChange);
       };
-    }, []);
+    }, [canView]);
 
     useEffect(() => {
       if (viewMode === "slide_create") setEditingSlide(null);
@@ -211,6 +219,9 @@ export const HomeSliderView = forwardRef<
     };
 
     if (viewMode === "slide_create" || viewMode === "slide_edit") {
+      if (!canManage) {
+        return <EmptyState icon={MonitorPlay} title="Permiso requerido" description="No tienes permiso para crear o editar slides." />;
+      }
       return (
         <HomeSlideForm
           ref={formRef}
@@ -223,6 +234,10 @@ export const HomeSliderView = forwardRef<
           onValidationChange={onValidationChange}
         />
       );
+    }
+
+    if (!canView) {
+      return <EmptyState icon={MonitorPlay} title="Permiso requerido" description="No tienes permiso para consultar el slider de inicio." />;
     }
 
     if (isLoading) {
@@ -248,7 +263,7 @@ export const HomeSliderView = forwardRef<
           icon={MonitorPlay}
           title="Sin slides configurados"
           description="Crea el primer slide para reemplazar el contenido estatico del inicio."
-          action={
+          action={canManage ? (
             <NexusSectionButton
               variant="brand"
               icon={ImageIcon}
@@ -256,7 +271,7 @@ export const HomeSliderView = forwardRef<
             >
               Crear slide
             </NexusSectionButton>
-          }
+          ) : undefined}
         />
       );
     }
@@ -274,16 +289,16 @@ export const HomeSliderView = forwardRef<
           >
             <HomeSlideCard
               slide={slide}
-              onEdit={() => {
+              onEdit={canManage ? () => {
                 setEditingSlide(slide);
                 onSetViewMode("slide_edit");
-              }}
-              onDelete={() => handleDelete(slide)}
-              onToggleActive={() => handleToggleActive(slide)}
-              onMoveUp={() => handleMoveSlide(slide.id, -1)}
-              onMoveDown={() => handleMoveSlide(slide.id, 1)}
-              canMoveUp={!isReordering && index > 0}
-              canMoveDown={!isReordering && index < orderedSlides.length - 1}
+              } : undefined}
+              onDelete={canDelete ? () => handleDelete(slide) : undefined}
+              onToggleActive={canManage ? () => handleToggleActive(slide) : undefined}
+              onMoveUp={canManage ? () => handleMoveSlide(slide.id, -1) : undefined}
+              onMoveDown={canManage ? () => handleMoveSlide(slide.id, 1) : undefined}
+              canMoveUp={canManage && !isReordering && index > 0}
+              canMoveDown={canManage && !isReordering && index < orderedSlides.length - 1}
               isToggling={togglingSlideIds.has(slide.id)}
             />
           </div>

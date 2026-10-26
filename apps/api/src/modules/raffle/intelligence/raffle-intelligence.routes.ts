@@ -41,14 +41,17 @@ const audienceParamsSchema = z.object({
   id: z.string().uuid(),
 });
 
-async function requireSuperadmin(server: FastifyInstance, request: any, reply: any) {
+async function requireIntelligencePermission(server: FastifyInstance, request: any, reply: any) {
   await server.authenticate(request, reply);
-  const permission = request.method === "GET"
-    ? "raffles.intelligence.view"
-    : "raffles.intelligence.manage";
+  const permission = request.url.split("?")[0].endsWith("/export")
+    ? "raffles.intelligence.export"
+    : request.method === "GET"
+      ? "raffles.intelligence.view"
+      : "raffles.intelligence.manage";
   if (reply.sent) return;
-  if (!request.user?.permissions?.includes(permission)) {
-    return reply.status(403).send({ message: "No tienes permiso para consultar esta información." });
+  const permissions = request.user?.permissions || [];
+  if (!permissions.includes(permission) && !(permission === "raffles.intelligence.export" && permissions.includes("raffles.intelligence.manage"))) {
+    return reply.status(403).send({ message: "No tienes permiso para esta acción de inteligencia de rifas." });
   }
 }
 
@@ -60,7 +63,7 @@ export async function raffleIntelligenceRoutes(server: FastifyInstance) {
     return server.rafflePrisma;
   };
 
-  server.get("/overview", { preHandler: [(request, reply) => requireSuperadmin(server, request, reply)] }, async (request, reply) => {
+  server.get("/overview", { preHandler: [(request, reply) => requireIntelligencePermission(server, request, reply)] }, async (request, reply) => {
     try {
       const filters = parseFilters(request.query);
       return raffleIntelligenceService.getOverview(getPrisma(), filters);
@@ -70,7 +73,7 @@ export async function raffleIntelligenceRoutes(server: FastifyInstance) {
     }
   });
 
-  server.get("/segments", { preHandler: [(request, reply) => requireSuperadmin(server, request, reply)] }, async (request, reply) => {
+  server.get("/segments", { preHandler: [(request, reply) => requireIntelligencePermission(server, request, reply)] }, async (request, reply) => {
     try {
       const filters = parseFilters(request.query);
       return raffleIntelligenceService.getSegments(getPrisma(), filters);
@@ -80,7 +83,7 @@ export async function raffleIntelligenceRoutes(server: FastifyInstance) {
     }
   });
 
-  server.get("/participants", { preHandler: [(request, reply) => requireSuperadmin(server, request, reply)] }, async (request, reply) => {
+  server.get("/participants", { preHandler: [(request, reply) => requireIntelligencePermission(server, request, reply)] }, async (request, reply) => {
     try {
       const filters = parseFilters(request.query);
       return raffleIntelligenceService.getParticipants(getPrisma(), filters);
@@ -90,7 +93,7 @@ export async function raffleIntelligenceRoutes(server: FastifyInstance) {
     }
   });
 
-  server.get("/export", { preHandler: [(request, reply) => requireSuperadmin(server, request, reply)] }, async (request, reply) => {
+  server.get("/export", { preHandler: [(request, reply) => requireIntelligencePermission(server, request, reply)] }, async (request, reply) => {
     try {
       const filters = parseFilters(request.query);
       const csv = await raffleIntelligenceService.exportParticipantsCsv(getPrisma(), filters);
@@ -104,13 +107,13 @@ export async function raffleIntelligenceRoutes(server: FastifyInstance) {
     }
   });
 
-  server.get("/audiences", { preHandler: [(request, reply) => requireSuperadmin(server, request, reply)] }, async (_request, reply) => {
+  server.get("/audiences", { preHandler: [(request, reply) => requireIntelligencePermission(server, request, reply)] }, async (_request, reply) => {
     return getPrisma().raffleAudience.findMany({
       orderBy: [{ active: "desc" }, { updatedAt: "desc" }],
     });
   });
 
-  server.get("/audiences/options", { preHandler: [(request, reply) => requireSuperadmin(server, request, reply)] }, async (_request, reply) => {
+  server.get("/audiences/options", { preHandler: [(request, reply) => requireIntelligencePermission(server, request, reply)] }, async (_request, reply) => {
     const prisma = getPrisma();
     const [raffles, states] = await Promise.all([
       prisma.raffle.findMany({
@@ -130,7 +133,7 @@ export async function raffleIntelligenceRoutes(server: FastifyInstance) {
     };
   });
 
-  server.post("/audiences/preview", { preHandler: [(request, reply) => requireSuperadmin(server, request, reply)] }, async (request, reply) => {
+  server.post("/audiences/preview", { preHandler: [(request, reply) => requireIntelligencePermission(server, request, reply)] }, async (request, reply) => {
     try {
       const input = raffleAudiencePreviewSchema.parse(request.body);
       let rules = input.rules;
@@ -153,7 +156,7 @@ export async function raffleIntelligenceRoutes(server: FastifyInstance) {
     }
   });
 
-  server.post("/audiences", { preHandler: [(request, reply) => requireSuperadmin(server, request, reply)] }, async (request, reply) => {
+  server.post("/audiences", { preHandler: [(request, reply) => requireIntelligencePermission(server, request, reply)] }, async (request, reply) => {
     try {
       const input = raffleAudienceInputSchema.parse(request.body);
       const user = request.user as any;
@@ -175,7 +178,7 @@ export async function raffleIntelligenceRoutes(server: FastifyInstance) {
     }
   });
 
-  server.patch("/audiences/:id", { preHandler: [(request, reply) => requireSuperadmin(server, request, reply)] }, async (request, reply) => {
+  server.patch("/audiences/:id", { preHandler: [(request, reply) => requireIntelligencePermission(server, request, reply)] }, async (request, reply) => {
     try {
       const { id } = audienceParamsSchema.parse(request.params);
       const input = raffleAudienceInputSchema.partial().parse(request.body);
@@ -196,7 +199,7 @@ export async function raffleIntelligenceRoutes(server: FastifyInstance) {
     }
   });
 
-  server.delete("/audiences/:id", { preHandler: [(request, reply) => requireSuperadmin(server, request, reply)] }, async (request, reply) => {
+  server.delete("/audiences/:id", { preHandler: [(request, reply) => requireIntelligencePermission(server, request, reply)] }, async (request, reply) => {
     try {
       const { id } = audienceParamsSchema.parse(request.params);
       const result = await getPrisma().raffleAudience.deleteMany({ where: { id } });

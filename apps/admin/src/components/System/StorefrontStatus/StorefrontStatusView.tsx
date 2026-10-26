@@ -28,6 +28,7 @@ export interface StorefrontStatusViewRef {
 
 interface StorefrontStatusViewProps {
   showToast: (message: string, type?: "success" | "error") => void;
+  canManage: boolean;
 }
 
 const statusCopy: Record<
@@ -76,7 +77,7 @@ const statusOptions: Array<{
 export const StorefrontStatusView = forwardRef<
   StorefrontStatusViewRef,
   StorefrontStatusViewProps
->(({ showToast }, ref) => {
+>(({ showToast, canManage }, ref) => {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [editingTemplate, setEditingTemplate] =
@@ -120,7 +121,7 @@ export const StorefrontStatusView = forwardRef<
   }, [showToast]);
 
   const handleSave = async () => {
-    if (isSaving) return;
+    if (isSaving || !canManage) return;
     setIsSaving(true);
     try {
       await apiSystem.updateConfig({
@@ -168,7 +169,7 @@ export const StorefrontStatusView = forwardRef<
     );
   }
 
-  if (editingTemplate) {
+  if (editingTemplate && canManage) {
     return (
       <StorefrontTemplateForm
         ref={templateFormRef}
@@ -214,14 +215,16 @@ export const StorefrontStatusView = forwardRef<
               iconVariant={isUnavailable ? "orange" : "emerald"}
               title={selectedStatus.title}
               subtitle={selectedStatus.description}
-              rightContent={
+              rightContent={canManage ? (
                 <NexusSegmentedControl
                   value={config.status}
                   ariaLabel="Modo de disponibilidad del Storefront"
                   options={statusOptions}
                   onChange={(status) => setConfig({ ...config, status })}
                 />
-              }
+              ) : (
+                <span className="text-secondary font-medium text-text-muted">{selectedStatus.label}</span>
+              )}
             />
           </div>
         </NexusSection>
@@ -235,11 +238,11 @@ export const StorefrontStatusView = forwardRef<
           <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
             <StorefrontTemplateCard
               template={templates.maintenance}
-              onEdit={() => setEditingTemplate("maintenance")}
+              onEdit={canManage ? () => setEditingTemplate("maintenance") : undefined}
             />
             <StorefrontTemplateCard
               template={templates.comingSoon}
-              onEdit={() => setEditingTemplate("comingSoon")}
+              onEdit={canManage ? () => setEditingTemplate("comingSoon") : undefined}
             />
           </div>
         </NexusSection>

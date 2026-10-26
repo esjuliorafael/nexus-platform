@@ -232,11 +232,11 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                 </div>
               </div>
 
-              <div
+              {(onEdit || onDelete) && <div
                 className="flex items-center"
                 style={{ gap: "var(--space-sm)" }}
               >
-                <NexusAutonomousButton
+                {onEdit && <NexusAutonomousButton
                   density="compact"
                   variant="ghost"
                   isIconOnly
@@ -247,8 +247,8 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                   }}
                   className="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white border border-white/20"
                   title="Editar"
-                />
-                <NexusAutonomousButton
+                />}
+                {onDelete && <NexusAutonomousButton
                   density="compact"
                   variant="ghost"
                   isIconOnly
@@ -259,8 +259,8 @@ export const MediaCard: React.FC<MediaCardProps> = ({
                   }}
                   className="bg-white/10 hover:bg-rose-500/80 backdrop-blur-md text-white border border-white/20 hover:border-rose-500"
                   title="Eliminar"
-                />
-              </div>
+                />}
+              </div>}
             </div>
           </div>
         </div>

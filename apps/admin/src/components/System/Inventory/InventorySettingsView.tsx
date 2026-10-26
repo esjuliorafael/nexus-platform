@@ -16,6 +16,12 @@ export interface InventorySettingsViewRef {
 
 interface InventorySettingsViewProps {
   showToast: (message: string, type?: "success" | "error") => void;
+  canViewInventoryPolicies: boolean;
+  canManageInventoryPolicies: boolean;
+  canViewRaffleSettings: boolean;
+  canManageRaffleSettings: boolean;
+  canAuditInventory: boolean;
+  canReleaseReservations: boolean;
 }
 
 interface InventoryConfig {
@@ -53,14 +59,16 @@ const SwitchState = ({
   onChange,
   label,
   stateLabel,
+  disabled = false,
 }: {
   checked: boolean;
   onChange: (checked: boolean) => void;
   label: string;
   stateLabel?: string;
+  disabled?: boolean;
 }) => (
   <div className="flex flex-col items-center" style={{ gap: "var(--space-xs)" }}>
-    <NexusSwitch checked={checked} onChange={onChange} aria-label={label} />
+    <NexusSwitch checked={checked} onChange={onChange} disabled={disabled} aria-label={label} />
     <span className="text-caption text-text-muted uppercase">
       {stateLabel || (checked ? "Activo" : "Inactivo")}
     </span>
@@ -68,7 +76,7 @@ const SwitchState = ({
 );
 
 export const InventorySettingsView = forwardRef<InventorySettingsViewRef, InventorySettingsViewProps>(
-  ({ showToast }, ref) => {
+  ({ showToast, canViewInventoryPolicies, canManageInventoryPolicies, canViewRaffleSettings, canManageRaffleSettings, canAuditInventory, canReleaseReservations }, ref) => {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [config, setConfig] = useState<InventoryConfig>(DEFAULT_CONFIG);
@@ -79,6 +87,7 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
     const [isReleasing, setIsReleasing] = useState(false);
 
     const refreshIntegrity = useCallback(async (showFeedback = false) => {
+      if (!canAuditInventory && !canReleaseReservations) return;
       setIsIntegrityLoading(true);
       setIntegrityAuditFailed(false);
       try {
@@ -99,10 +108,14 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
       } finally {
         setIsIntegrityLoading(false);
       }
-    }, [showToast]);
+    }, [showToast, canAuditInventory, canReleaseReservations]);
 
     useEffect(() => {
       const loadConfig = async () => {
+        if (!canViewInventoryPolicies && !canManageInventoryPolicies && !canViewRaffleSettings && !canManageRaffleSettings) {
+          setIsLoading(false);
+          return;
+        }
         setIsLoading(true);
         try {
           const data = await apiSystem.getConfig();
@@ -131,11 +144,11 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
       };
 
       void loadConfig();
-    }, [showToast]);
+    }, [showToast, canViewInventoryPolicies, canManageInventoryPolicies, canViewRaffleSettings, canManageRaffleSettings]);
 
     useEffect(() => {
-      void refreshIntegrity();
-    }, [refreshIntegrity]);
+      if (canAuditInventory || canReleaseReservations) void refreshIntegrity();
+    }, [refreshIntegrity, canAuditInventory, canReleaseReservations]);
 
     const releaseOrphanReservation = async () => {
       if (!issueToRelease || isReleasing) return;
@@ -157,29 +170,29 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
 
     useImperativeHandle(ref, () => ({
       handleSave: async () => {
-        if (config.storeActive && (!config.storeHours || config.storeHours <= 0)) {
+        if (canManageInventoryPolicies && config.storeActive && (!config.storeHours || config.storeHours <= 0)) {
           showToast("Ingresa un número de horas válido para la tienda.", "error");
           return;
         }
-        if (config.raffleActive && (!config.raffleHours || config.raffleHours <= 0)) {
+        if (canManageRaffleSettings && config.raffleActive && (!config.raffleHours || config.raffleHours <= 0)) {
           showToast("Ingresa un número de horas válido para las rifas.", "error");
           return;
         }
         if (
-          config.storeReminderActive &&
+          canManageInventoryPolicies && config.storeReminderActive &&
           (!config.storeReminderHoursBefore || config.storeReminderHoursBefore <= 0 || config.storeReminderHoursBefore >= config.storeHours)
         ) {
           showToast("El recordatorio de tienda debe ser menor al tiempo límite.", "error");
           return;
         }
         if (
-          config.raffleReminderActive &&
+          canManageRaffleSettings && config.raffleReminderActive &&
           (!config.raffleReminderHoursBefore || config.raffleReminderHoursBefore <= 0 || config.raffleReminderHoursBefore >= config.raffleHours)
         ) {
           showToast("El recordatorio de rifas debe ser menor al tiempo límite.", "error");
           return;
         }
-        if (!Number.isInteger(config.cardHoldMinutes) || config.cardHoldMinutes < 5 || config.cardHoldMinutes > 60) {
+        if (canManageInventoryPolicies && (!Number.isInteger(config.cardHoldMinutes) || config.cardHoldMinutes < 5 || config.cardHoldMinutes > 60)) {
           showToast("La retención para pagos con tarjeta debe estar entre 5 y 60 minutos.", "error");
           return;
         }
@@ -187,18 +200,23 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
 
         setIsSaving(true);
         try {
-          await apiSystem.updateConfig({
+          const payload: Record<string, string | number> = {};
+          if (canManageInventoryPolicies) Object.assign(payload, {
             inventory_release_active: config.storeActive ? "1" : "0",
             inventory_release_hours: config.storeHours,
             inventory_reminder_active: config.storeReminderActive ? "1" : "0",
             inventory_reminder_hours_before: config.storeReminderHoursBefore,
+            mp_payment_hold_minutes: config.cardHoldMinutes,
+            payment_recovery_enabled: config.paymentRecoveryEnabled ? "1" : "0",
+          });
+          if (canManageRaffleSettings) Object.assign(payload, {
             raffle_release_active: config.raffleActive ? "1" : "0",
             raffle_release_hours: config.raffleHours,
             raffle_reminder_active: config.raffleReminderActive ? "1" : "0",
             raffle_reminder_hours_before: config.raffleReminderHoursBefore,
-            mp_payment_hold_minutes: config.cardHoldMinutes,
-            payment_recovery_enabled: config.paymentRecoveryEnabled ? "1" : "0",
           });
+          if (!Object.keys(payload).length) return;
+          await apiSystem.updateConfig(payload);
           showToast("Configuración de inventario guardada correctamente", "success");
         } catch (error) {
           console.error("Error guardando configuración de inventario", error);
@@ -223,13 +241,13 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
 
     return (
       <div className="flex flex-col animate-in fade-in duration-700" style={{ gap: "var(--space-xl)" }}>
-        <NexusInlineNotice title="Liberación automática" variant="info" context="section">
+        {(canViewInventoryPolicies || canViewRaffleSettings || canManageInventoryPolicies || canManageRaffleSettings) && <NexusInlineNotice title="Liberación automática" variant="info" context="section">
           Las órdenes por depósito o transferencia utilizan el plazo comercial de cada módulo. Los pagos con tarjeta
           emplean una retención breve e independiente mientras Mercado Pago resuelve el cobro.
-        </NexusInlineNotice>
+        </NexusInlineNotice>}
 
         <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "var(--space-xl)" }}>
-          <NexusSection
+          {(canViewInventoryPolicies || canManageInventoryPolicies) && <NexusSection
             title="Órdenes de tienda"
             subtitle="Apartados por depósito o transferencia"
             icon={RotateCcw}
@@ -238,6 +256,7 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
                 checked={config.storeActive}
                 onChange={(storeActive) => setConfig((current) => ({ ...current, storeActive }))}
                 label="Liberación automática de órdenes"
+                disabled={!canManageInventoryPolicies}
               />
             )}
           >
@@ -255,6 +274,7 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
                   icon={Timer}
                   suffix="Horas"
                   helperText="Después de este plazo, la orden se cancela y el inventario se libera."
+                  disabled={!canManageInventoryPolicies}
                 />
               </div>
 
@@ -266,6 +286,7 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
                     checked={config.storeReminderActive}
                     onChange={(storeReminderActive) => setConfig((current) => ({ ...current, storeReminderActive }))}
                     label="Recordatorio de pago de tienda"
+                    disabled={!canManageInventoryPolicies}
                   />
                 )}
               />
@@ -280,12 +301,13 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
                   icon={Timer}
                   suffix="Horas"
                   helperText="Debe ser menor al tiempo límite de pago."
+                  disabled={!canManageInventoryPolicies}
                 />
               </div>
             </div>
-          </NexusSection>
+          </NexusSection>}
 
-          <NexusSection
+          {(canViewRaffleSettings || canManageRaffleSettings) && <NexusSection
             title="Apartados de rifas"
             subtitle="Reservas por depósito o transferencia"
             icon={RotateCcw}
@@ -294,6 +316,7 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
                 checked={config.raffleActive}
                 onChange={(raffleActive) => setConfig((current) => ({ ...current, raffleActive }))}
                 label="Liberación automática de boletos"
+                disabled={!canManageRaffleSettings}
               />
             )}
           >
@@ -311,6 +334,7 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
                   icon={Timer}
                   suffix="Horas"
                   helperText="Después de este plazo, los boletos se liberan automáticamente."
+                  disabled={!canManageRaffleSettings}
                 />
               </div>
 
@@ -322,6 +346,7 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
                     checked={config.raffleReminderActive}
                     onChange={(raffleReminderActive) => setConfig((current) => ({ ...current, raffleReminderActive }))}
                     label="Recordatorio de pago de rifas"
+                    disabled={!canManageRaffleSettings}
                   />
                 )}
               />
@@ -336,13 +361,14 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
                   icon={Timer}
                   suffix="Horas"
                   helperText="Debe ser menor al tiempo límite de apartado."
+                  disabled={!canManageRaffleSettings}
                 />
               </div>
             </div>
-          </NexusSection>
+          </NexusSection>}
         </div>
 
-        <NexusSection
+        {(canViewInventoryPolicies || canManageInventoryPolicies) && <NexusSection
           title="Pagos con tarjeta"
           subtitle="Retención temporal de productos y boletos"
           icon={CreditCard}
@@ -354,6 +380,7 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
                 setConfig((current) => ({ ...current, paymentRecoveryEnabled }))
               }
               label="Recuperación de pagos no concretados"
+              disabled={!canManageInventoryPolicies}
               stateLabel={
                 config.paymentRecoveryEnabled &&
                 (!config.paymentRecoveryServerEnabled ||
@@ -377,6 +404,7 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
                 icon={Timer}
                 suffix="Minutos"
                 helperText="Ventana disponible para completar el pago o intentar con otra tarjeta."
+                disabled={!canManageInventoryPolicies}
               />
             </div>
 
@@ -408,14 +436,14 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
             Si Mercado Pago mantiene el cobro en proceso, Nexus conserva la retención y consulta el estado cada 10 minutos.
             Después de 2 horas inicia la cancelación segura; el inventario solo se libera al confirmar un estado definitivo.
           </NexusInlineNotice>
-        </NexusSection>
+        </NexusSection>}
 
-        <NexusSection
+        {(canAuditInventory || canReleaseReservations) && <NexusSection
           title="Salud del inventario"
           subtitle="Auditoría de reservas y retenciones de aves"
           icon={ShieldCheck}
           iconVariant={integrityIssues.length ? "rose" : "emerald"}
-          action={(
+          action={canAuditInventory ? (
             <NexusSectionButton
               type="button"
               variant="secondary"
@@ -426,7 +454,7 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
               onClick={() => void refreshIntegrity(true)}
               isLoading={isIntegrityLoading}
             />
-          )}
+          ) : undefined}
         >
           <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
             {isIntegrityLoading && integrityIssues.length === 0 ? (
@@ -454,7 +482,7 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
                       {issue.canRelease ? "Reserva huérfana" : "Revisión requerida"}
                     </NexusSectionBadge>
                   )}
-                  actions={issue.canRelease ? (
+                  actions={issue.canRelease && canReleaseReservations ? (
                     <NexusSectionButton
                       type="button"
                       variant="warning"
@@ -468,9 +496,9 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
               ))
             )}
           </div>
-        </NexusSection>
+        </NexusSection>}
 
-        <NexusConfirmModal
+        {canReleaseReservations && <NexusConfirmModal
           isOpen={Boolean(issueToRelease)}
           title="¿Liberar reserva huérfana?"
           message={issueToRelease
@@ -481,7 +509,7 @@ export const InventorySettingsView = forwardRef<InventorySettingsViewRef, Invent
           icon={Unlock}
           onCancel={() => setIssueToRelease(null)}
           onConfirm={() => void releaseOrphanReservation()}
-        />
+        />}
       </div>
     );
   },

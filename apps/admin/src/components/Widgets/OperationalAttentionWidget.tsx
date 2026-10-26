@@ -112,8 +112,6 @@ export const OperationalAttentionWidget = ({
     },
   ].filter((context) => isLoading || context.status.count > 0);
 
-  if (!isLoading && contexts.length === 0) return null;
-
   return (
     <NexusAutonomousCard className={isLoading ? 'animate-pulse' : ''}>
       <div
@@ -144,7 +142,14 @@ export const OperationalAttentionWidget = ({
           borderRadius: 'var(--radius-card-inner)',
         }}
       >
-        {contexts.map((context) => {
+        {!isLoading && contexts.length === 0 ? (
+          <p
+            className="col-span-full text-center text-secondary text-text-muted"
+            style={{ paddingBlock: 'var(--space-lg)' }}
+          >
+            No hay pendientes operativos.
+          </p>
+        ) : contexts.map((context) => {
           const ContextIcon = context.icon;
           const hasAmount = context.status.amount > 0;
           const amountTone =

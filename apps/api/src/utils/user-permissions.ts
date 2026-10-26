@@ -7,21 +7,63 @@ const readImpliedPermissions: Partial<Record<PermissionId, PermissionId[]>> = {
   "orders.view": [
     "orders.manage", "orders.financial.manage", "orders.refund", "orders.restore",
   ],
-  "products.view": ["products.manage", "payment-links.manage", "coupons.manage"],
+  "products.view": ["products.create", "products.update", "products.delete"],
+  "categories.view": ["categories.manage", "categories.delete"],
+  "storefront.heroes.view": ["storefront.heroes.manage", "storefront.heroes.delete"],
+  "storefront.slides.view": ["storefront.slides.manage", "storefront.slides.delete"],
+  "storefront.announcements.view": ["storefront.announcements.manage", "storefront.announcements.delete"],
+  "coupons.view": ["coupons.manage", "coupons.delete"],
+  "payment-links.view": ["payment-links.generate", "payment-links.revoke"],
+  "media.view": ["media.manage", "media.delete"],
+  "media.vault.view": ["media.vault.upload", "media.vault.delete"],
   "shipping.view": ["shipping.manage"],
-  "settings.view": ["settings.manage"],
   "billing.view": ["billing.manage"],
   "channels.view": ["channels.manage"],
+  "payments.config.view": ["payments.config.manage"],
+  "storefront.status.view": ["storefront.status.manage"],
+  "storefront.branding.view": ["storefront.branding.manage"],
+  "inventory.policies.view": ["inventory.policies.manage"],
+  "inventory.audit": ["inventory.reservations.release"],
+  "raffles.settings.view": ["raffles.settings.manage"],
+  "platform.settings.view": ["platform.settings.manage"],
+  "users.view": ["users.create", "users.update", "users.delete", "users.permissions.manage", "users.roles.manage"],
   "messaging.view": ["messaging.manage", "messaging.send"],
   "raffles.view": [
     "raffles.manage", "raffles.results.manage", "raffles.participations.manage",
-    "raffles.financial.manage", "raffles.coupons.manage", "raffles.settings.manage",
+    "raffles.financial.manage", "raffles.settings.manage",
     "raffles.intelligence.view", "raffles.intelligence.manage",
   ],
   "raffles.participations.view": [
     "raffles.participations.manage", "raffles.financial.manage",
   ],
-  "raffles.intelligence.view": ["raffles.intelligence.manage"],
+  "raffles.coupons.view": ["raffles.coupons.manage", "raffles.coupons.delete"],
+  "raffles.intelligence.view": ["raffles.intelligence.manage", "raffles.intelligence.export"],
+  "raffles.intelligence.export": ["raffles.intelligence.manage"],
+};
+
+const legacyPermissionGrants: Record<string, PermissionId[]> = {
+  "users.manage": ["users.view", "users.create", "users.update", "users.delete", "users.permissions.manage"],
+  "settings.view": [
+    "storefront.status.view", "storefront.branding.view", "storefront.heroes.view",
+    "storefront.slides.view", "storefront.announcements.view", "inventory.policies.view",
+    "raffles.settings.view", "payments.config.view", "shipping.view", "messaging.view",
+  ],
+  "settings.manage": [
+    "storefront.status.manage", "storefront.branding.manage", "inventory.policies.manage",
+    "shipping.manage", "payments.config.manage", "messaging.manage",
+  ],
+  "products.manage": ["products.view", "products.create", "products.update", "products.delete"],
+  "payment-links.manage": ["payment-links.view", "payment-links.generate", "payment-links.revoke"],
+  "storefront.content.view": [
+    "storefront.heroes.view", "storefront.slides.view", "storefront.announcements.view",
+  ],
+  "storefront.content.manage": [
+    "storefront.heroes.view", "storefront.heroes.manage", "storefront.heroes.delete",
+    "storefront.slides.view", "storefront.slides.manage", "storefront.slides.delete",
+    "storefront.announcements.view", "storefront.announcements.manage", "storefront.announcements.delete",
+    "storefront.branding.view", "storefront.branding.manage",
+  ],
+  "media.vault.manage": ["media.vault.view", "media.vault.upload", "media.vault.delete"],
 };
 
 const pathOf = (request: FastifyRequest) => request.url.split("?")[0];
@@ -29,14 +71,80 @@ const methodOf = (request: FastifyRequest) => request.method.toUpperCase() as Me
 const starts = (path: string, prefix: string) => path === prefix || path.startsWith(`${prefix}/`);
 const isWrite = (method: Method) => method !== "GET";
 
-function isRaffleSettingsWrite(request: FastifyRequest, path: string) {
-  if (!isWrite(methodOf(request))) return false;
+function settingPermissionForKey(key: string, write: boolean): PermissionId {
+  const normalized = key.toLowerCase();
+  if (
+    normalized.startsWith("storage_r2_") ||
+    normalized.startsWith("whatsapp_evolution_") ||
+    normalized.startsWith("mp_app_") ||
+    normalized.startsWith("kapso_")
+  ) {
+    return write ? "platform.settings.manage" : "platform.settings.view";
+  }
+  if (normalized.startsWith("branding_") || normalized === "brand_name") {
+    return write ? "storefront.branding.manage" : "storefront.branding.view";
+  }
+  if (normalized.startsWith("storefront_")) {
+    return write ? "storefront.status.manage" : "storefront.status.view";
+  }
+  if (normalized.startsWith("shipping_")) return write ? "shipping.manage" : "shipping.view";
+  if (normalized.startsWith("raffle_")) return write ? "raffles.settings.manage" : "raffles.settings.view";
+  if (normalized.startsWith("inventory_") || normalized === "mp_payment_hold_minutes" || normalized.startsWith("payment_recovery_")) {
+    return write ? "inventory.policies.manage" : "inventory.policies.view";
+  }
+  if (normalized.startsWith("bank_main_") || normalized.startsWith("mp_")) {
+    return write ? "payments.config.manage" : "payments.config.view";
+  }
+  if (normalized.startsWith("whatsapp_")) return write ? "messaging.manage" : "messaging.view";
+  if (normalized.startsWith("payment_") || normalized.startsWith("mercadopago_")) {
+    return write ? "payments.config.manage" : "payments.config.view";
+  }
+  return write ? "platform.settings.manage" : "platform.settings.view";
+}
+
+function settingKeysForRequest(request: FastifyRequest, path: string): string[] {
   const keyMatch = path.match(/^\/api\/v1\/admin\/settings\/([^/]+)$/);
-  if (keyMatch) return decodeURIComponent(keyMatch[1]).startsWith("raffle_");
-  if (path !== "/api/v1/admin/settings") return false;
+  if (keyMatch) return [decodeURIComponent(keyMatch[1])];
+  if (path !== "/api/v1/admin/settings") return [];
   const settings = (request.body as { settings?: Array<{ key?: string }> } | undefined)?.settings;
-  return Array.isArray(settings) && settings.length > 0 &&
-    settings.every((setting) => typeof setting.key === "string" && setting.key.startsWith("raffle_"));
+  return Array.isArray(settings)
+    ? settings.map((setting) => setting.key).filter((key): key is string => typeof key === "string")
+    : [];
+}
+
+const settingReadPermissions: PermissionId[] = [
+  "storefront.status.view", "storefront.branding.view",
+  "storefront.heroes.view", "storefront.slides.view", "storefront.announcements.view",
+  "shipping.view", "inventory.policies.view",
+  "payments.config.view", "messaging.view", "raffles.settings.view",
+  "platform.settings.view",
+];
+
+function hasPermission(request: FastifyRequest, permission: PermissionId) {
+  const permissions = expandedRequestPermissions(request);
+  return [permission, ...(readImpliedPermissions[permission] ?? [])].some((id) => permissions.has(id));
+}
+
+function expandedRequestPermissions(request: FastifyRequest) {
+  const assigned = (request.user as { permissions?: string[] } | undefined)?.permissions ?? [];
+  const expanded = new Set(assigned);
+  assigned.forEach((permission) => legacyPermissionGrants[permission]?.forEach((grant) => expanded.add(grant)));
+  return expanded;
+}
+
+export function canReadSettingKey(request: FastifyRequest, key: string) {
+  const permission = settingPermissionForKey(key, false);
+  if (!hasPermission(request, permission)) return false;
+  if (permission === "platform.settings.view" && (request.user as any)?.role !== "SUPERADMIN") return false;
+  return true;
+}
+
+export function redactSettingValueForReader(request: FastifyRequest, key: string) {
+  const permissions = expandedRequestPermissions(request);
+  const sensitive = /(secret|token|api_key|access_key|private_key|client_id|evolution_key|password|kapso_customer)/i.test(key);
+  const permission = settingPermissionForKey(key, true);
+  const canManage = permissions.has(permission);
+  return sensitive && !canManage;
 }
 
 export function requiredPermissionForRequest(request: FastifyRequest): PermissionId | null {
@@ -52,31 +160,76 @@ export function requiredPermissionForRequest(request: FastifyRequest): Permissio
     if (path === "/api/v1/admin/dashboard/sales-overview") return "orders.view";
     return null;
   }
-  if (starts(path, "/api/v1/admin/users")) return "users.manage";
+  if (starts(path, "/api/v1/admin/users")) {
+    if (path.endsWith("/contact")) return "users.update";
+    if (method === "POST") return "users.create";
+    if (method === "DELETE") return "users.delete";
+    if (method === "PUT") return "users.update";
+    return "users.view";
+  }
   if (starts(path, "/api/v1/admin/billing")) return isWrite(method) ? "billing.manage" : "billing.view";
-  if (starts(path, "/api/v1/admin/products")) return isWrite(method) ? "products.manage" : "products.view";
-  if (starts(path, "/api/v1/admin/home-slides") || starts(path, "/api/v1/admin/store-heroes") || starts(path, "/api/v1/admin/storefront-announcements")) return "storefront.content.manage";
-  if (starts(path, "/api/v1/admin/categories") || starts(path, "/api/v1/admin/subcategories")) return "categories.manage";
-  if (starts(path, "/api/v1/admin/media-vault")) return "media.vault.manage";
-  if (starts(path, "/api/v1/admin/media")) return isWrite(method) ? "media.manage" : "media.manage";
+  if (starts(path, "/api/v1/admin/products")) {
+    if (path === "/api/v1/admin/products/assisted-checkout-options") return "payment-links.generate";
+    if (method === "GET") return "products.view";
+    if (method === "POST") return "products.create";
+    return method === "DELETE" ? "products.delete" : "products.update";
+  }
+  if (starts(path, "/api/v1/admin/home-slides")) {
+    if (method === "GET") return "storefront.slides.view";
+    return method === "DELETE" ? "storefront.slides.delete" : "storefront.slides.manage";
+  }
+  if (starts(path, "/api/v1/admin/store-heroes")) {
+    if (method === "GET") return "storefront.heroes.view";
+    return method === "DELETE" ? "storefront.heroes.delete" : "storefront.heroes.manage";
+  }
+  if (starts(path, "/api/v1/admin/storefront-announcements")) {
+    if (method === "GET") return "storefront.announcements.view";
+    return method === "DELETE" ? "storefront.announcements.delete" : "storefront.announcements.manage";
+  }
+  if (starts(path, "/api/v1/admin/categories") || starts(path, "/api/v1/admin/subcategories")) {
+    if (method === "GET") return "categories.view";
+    return method === "DELETE" ? "categories.delete" : "categories.manage";
+  }
+  if (starts(path, "/api/v1/admin/media-vault")) {
+    if (method === "GET" || path.endsWith("/download")) return "media.vault.view";
+    return method === "DELETE" ? "media.vault.delete" : "media.vault.upload";
+  }
+  if (starts(path, "/api/v1/admin/media")) {
+    if (method === "GET") return "media.view";
+    return method === "DELETE" ? "media.delete" : "media.manage";
+  }
   if (starts(path, "/api/v1/admin/uploads")) return "media.upload";
   if (starts(path, "/api/v1/admin/settings")) {
-    if (path === "/api/v1/admin/settings/logo") return "storefront.content.manage";
-    if (isRaffleSettingsWrite(request, path)) return "raffles.settings.manage";
-    return isWrite(method) ? "settings.manage" : "settings.view";
+    if (path === "/api/v1/admin/settings/logo") return "storefront.branding.manage";
+    const keys = settingKeysForRequest(request, path);
+    if (keys.length) return settingPermissionForKey(keys[0], isWrite(method));
+    return isWrite(method) ? "platform.settings.manage" : "platform.settings.view";
   }
-  if (starts(path, "/api/v1/admin/payment-channels")) return "payments.config.manage";
+  if (starts(path, "/api/v1/admin/payment-channels")) return isWrite(method) ? "payments.config.manage" : "payments.config.view";
   if (starts(path, "/api/v1/admin/whatsapp-channels")) return isWrite(method) ? "messaging.manage" : "messaging.view";
   if (starts(path, "/api/v1/admin/whatsapp")) return isWrite(method) ? "messaging.manage" : "messaging.view";
   if (starts(path, "/api/v1/admin/shipping-zones")) return path.endsWith("/public") ? null : isWrite(method) ? "shipping.manage" : "shipping.view";
   if (starts(path, "/api/v1/admin/channels")) return isWrite(method) ? "channels.manage" : "channels.view";
-  if (starts(path, "/api/v1/admin/coupons")) return "coupons.manage";
-  if (starts(path, "/api/v1/admin/inventory-integrity")) return "inventory.audit";
-  if (starts(path, "/api/v1/admin/raffle-intelligence")) return isWrite(method) ? "raffles.intelligence.manage" : "raffles.intelligence.view";
-  if (starts(path, "/api/v1/admin/raffle-coupons")) return "raffles.coupons.manage";
+  if (starts(path, "/api/v1/admin/coupons")) {
+    if (method === "GET") return "coupons.view";
+    return method === "DELETE" ? "coupons.delete" : "coupons.manage";
+  }
+  if (starts(path, "/api/v1/admin/inventory-integrity")) return path.endsWith("/release") ? "inventory.reservations.release" : "inventory.audit";
+  if (starts(path, "/api/v1/admin/raffle-intelligence")) {
+    if (path.endsWith("/export")) return "raffles.intelligence.export";
+    return isWrite(method) ? "raffles.intelligence.manage" : "raffles.intelligence.view";
+  }
+  if (starts(path, "/api/v1/admin/raffle-coupons")) {
+    if (path.endsWith("/raffle-options")) return "raffles.coupons.manage";
+    if (method === "GET") return "raffles.coupons.view";
+    return method === "DELETE" ? "raffles.coupons.delete" : "raffles.coupons.manage";
+  }
 
   if (starts(path, "/api/v1/store/orders/admin")) {
-    if (starts(path, "/api/v1/store/orders/admin/assisted-checkout-links")) return "payment-links.manage";
+    if (starts(path, "/api/v1/store/orders/admin/assisted-checkout-links")) {
+      if (path.endsWith("/revoke")) return "payment-links.revoke";
+      return method === "GET" ? "payment-links.view" : "payment-links.generate";
+    }
     if (path.endsWith("/refund")) return "orders.refund";
     if (path.endsWith("/restore")) return "orders.restore";
     if (method === "DELETE") return "orders.manage";
@@ -117,8 +270,11 @@ export function requiredPermissionForRequest(request: FastifyRequest): Permissio
     if (path.endsWith("/restore") || method === "DELETE") return "raffles.participations.manage";
     return isWrite(method) ? "raffles.participations.manage" : "raffles.participations.view";
   }
-  if (starts(path, "/api/v1/raffle-coupons/admin")) return "raffles.coupons.manage";
-  if (starts(path, "/api/v1/raffle-coupons")) return method === "GET" ? "raffles.coupons.manage" : null;
+  if (starts(path, "/api/v1/raffle-coupons/admin")) {
+    if (method === "GET") return "raffles.coupons.view";
+    return method === "DELETE" ? "raffles.coupons.delete" : "raffles.coupons.manage";
+  }
+  if (starts(path, "/api/v1/raffle-coupons")) return method === "GET" ? "raffles.coupons.view" : null;
 
   return null;
 }
@@ -132,6 +288,13 @@ function permissionRequirementGroupsForRequest(
   request: FastifyRequest,
 ): PermissionId[][] {
   const path = pathOf(request);
+  if (
+    methodOf(request) === "GET" &&
+    starts(path, "/api/v1/admin/products") &&
+    path.endsWith("/overview")
+  ) {
+    return [["products.view"], ["orders.view"]];
+  }
   if (starts(path, "/api/v1/admin/dashboard")) {
     if (/^\/api\/v1\/admin\/dashboard\/milestones\/[^/]+\/acknowledge$/.test(path)) {
       return [["dashboard.milestones.acknowledge"], ["dashboard.milestones.view"]];
@@ -142,12 +305,38 @@ function permissionRequirementGroupsForRequest(
     if (path.endsWith("/commercial-overview")) {
       return [[
         "dashboard.sales.view",
+        "dashboard.history.view",
         "messaging.cost.view",
         "orders.view",
         "raffles.participations.view",
       ]];
     }
     if (path.endsWith("/sales-overview")) return [["orders.view"]];
+  }
+
+  if (path === "/api/v1/admin/settings" && methodOf(request) === "GET") {
+    return [settingReadPermissions];
+  }
+  if (starts(path, "/api/v1/admin/channels") && isWrite(methodOf(request))) {
+    return [["channels.manage"], ["payments.config.manage"], ["messaging.manage"]];
+  }
+  if (starts(path, "/api/v1/admin/settings") && isWrite(methodOf(request))) {
+    const keys = settingKeysForRequest(request, path);
+    if (keys.length) return keys.map((key) => [settingPermissionForKey(key, true)]);
+  }
+  if (starts(path, "/api/v1/admin/users") && methodOf(request) !== "GET") {
+    const body = request.body as { permissions?: unknown; role?: unknown } | undefined;
+    const groups: PermissionId[][] = [];
+    if (methodOf(request) === "POST" || Array.isArray(body?.permissions)) {
+      groups.push(["users.permissions.manage"]);
+    }
+    if (typeof body?.role === "string" && body.role.toUpperCase() !== "STAFF") {
+      groups.push(["users.roles.manage"]);
+    }
+    return [[requiredPermissionForRequest(request)!], ...groups];
+  }
+  if (starts(path, "/api/v1/store/orders/admin/assisted-checkout-links/") && path.endsWith("/regenerate")) {
+    return [["payment-links.generate"], ["payment-links.revoke"]];
   }
 
   const required = requiredPermissionForRequest(request);
@@ -158,9 +347,9 @@ export function actorHasReadPermission(
   request: FastifyRequest,
   required: PermissionId,
 ) {
-  const permissions = (request.user as { permissions?: string[] } | undefined)?.permissions ?? [];
+  const permissions = expandedRequestPermissions(request);
   return [required, ...(readImpliedPermissions[required] ?? [])].some((permission) =>
-    permissions.includes(permission),
+    permissions.has(permission),
   );
 }
 
@@ -191,12 +380,22 @@ export async function authorizeAdminRequest(
   if (reply.sent) return;
 
   const permission = requiredPermissionForRequest(request);
-  const permissions = (request.user as { permissions?: string[] } | undefined)?.permissions ?? [];
+  const permissions = expandedRequestPermissions(request);
   const requirementGroups = permissionRequirementGroupsForRequest(request);
+  const requiresPlatformRole = requirementGroups.some((group) =>
+    group.length === 1 && (group[0] === "platform.settings.view" || group[0] === "platform.settings.manage"),
+  );
+  if (requiresPlatformRole && (request.user as any)?.role !== "SUPERADMIN") {
+    return reply.status(403).send({
+      message: "Esta configuración está reservada al Superadmin.",
+      code: "SUPERADMIN_REQUIRED",
+      permission,
+    });
+  }
   const hasPermissionForEveryGroup = requirementGroups.every((group) =>
     group.some((required) =>
       permissionsAllowedForRequest(request, required).some((allowed) =>
-        permissions.includes(allowed),
+        permissions.has(allowed),
       ),
     ),
   );
@@ -214,5 +413,5 @@ export async function authorizeAdminRequest(
 }
 
 export function actorHasPermission(request: FastifyRequest, permission: PermissionId) {
-  return ((request.user as { permissions?: string[] } | undefined)?.permissions ?? []).includes(permission);
+  return expandedRequestPermissions(request).has(permission);
 }

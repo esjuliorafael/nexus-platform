@@ -20,6 +20,12 @@ interface GalleryViewProps {
   showToast: (message: string, type?: 'success' | 'error') => void;
   setConfirmDialog: (dialog: any) => void;
   onValidationChange?: (isValid: boolean) => void;
+  canViewMedia: boolean;
+  canManageMedia: boolean;
+  canDeleteMedia: boolean;
+  canViewCategories: boolean;
+  canManageCategories: boolean;
+  canDeleteCategories: boolean;
 }
 
 const ITEMS_PER_PAGE = 12;
@@ -37,6 +43,12 @@ export const GalleryView = React.forwardRef<GalleryViewRef, GalleryViewProps>(
     showToast,
     setConfirmDialog,
     onValidationChange,
+    canViewMedia,
+    canManageMedia,
+    canDeleteMedia,
+    canViewCategories,
+    canManageCategories,
+    canDeleteCategories,
   }, ref) => {
     const [mediaItems, setMediaItems] = useState<Media[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -45,6 +57,7 @@ export const GalleryView = React.forwardRef<GalleryViewRef, GalleryViewProps>(
     const [editingMedia, setEditingMedia] = useState<Media | null>(null);
     const galleryTopRef = useRef<HTMLDivElement>(null);
     const mediaFormRef = useRef<{ handleSave: () => void }>(null);
+    const hasCategoryAccess = canViewCategories;
 
     useImperativeHandle(ref, () => ({
       handleSave: () => {
@@ -68,10 +81,12 @@ export const GalleryView = React.forwardRef<GalleryViewRef, GalleryViewProps>(
     };
 
     useEffect(() => {
-      loadMedia();
-    }, []);
+      if (viewMode === "list" && canViewMedia) void loadMedia();
+      else setIsLoading(false);
+    }, [viewMode, canViewMedia]);
 
     useEffect(() => {
+      if (!canViewMedia) return;
       const handleMediaUploadChange = () => {
         void loadMedia();
       };
@@ -81,7 +96,7 @@ export const GalleryView = React.forwardRef<GalleryViewRef, GalleryViewProps>(
         window.removeEventListener('nexus:media-upload-complete', handleMediaUploadChange);
         window.removeEventListener('nexus:media-upload-failed', handleMediaUploadChange);
       };
-    }, []);
+    }, [canViewMedia]);
 
     useEffect(() => {
       if (viewMode === 'create') {
@@ -190,14 +205,17 @@ export const GalleryView = React.forwardRef<GalleryViewRef, GalleryViewProps>(
           <MediaCard 
             media={item} 
             isTall={isTall} 
-            onEdit={() => handleEditMedia(item)}
-            onDelete={() => handleDeleteMedia(item.id)}
+            onEdit={canManageMedia ? () => handleEditMedia(item) : undefined}
+            onDelete={canDeleteMedia ? () => handleDeleteMedia(item.id) : undefined}
           />
         </div>
       );
     };
 
     if (viewMode === 'create' || viewMode === 'media_edit') {
+      if (!canManageMedia) {
+        return <EmptyState icon={Search} title="Permiso requerido" description="No tienes permiso para crear o editar medios." />;
+      }
       return (
         <MediaForm 
           ref={mediaFormRef}
@@ -215,15 +233,22 @@ export const GalleryView = React.forwardRef<GalleryViewRef, GalleryViewProps>(
     }
 
     if (viewMode === 'categories_list' || viewMode === 'category_create' || viewMode === 'category_edit') {
+      if (!hasCategoryAccess) return <EmptyState icon={Search} title="Permiso requerido" description="No tienes permiso para consultar categorías." />;
       return (
         <CategoryView 
           searchQuery={searchQuery}
           showToast={showToast}
           setConfirmDialog={setConfirmDialog}
+          canManage={canManageCategories}
+          canDelete={canDeleteCategories}
           openCreateDialog={viewMode === 'category_create'}
           onCreateDialogClose={() => onSetViewMode?.('categories_list')}
         />
       );
+    }
+
+    if (!canViewMedia) {
+      return <EmptyState icon={Search} title="Permiso requerido" description="No tienes permiso para consultar medios." />;
     }
 
     return (

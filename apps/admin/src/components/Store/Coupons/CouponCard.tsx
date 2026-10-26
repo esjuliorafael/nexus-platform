@@ -15,9 +15,9 @@ import { NexusSwitch } from "../../ui/NexusSwitch";
 
 interface CouponCardProps {
   coupon: Coupon;
-  onEdit: () => void;
-  onDelete: () => void;
-  onToggleActive: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onToggleActive?: () => void;
   isToggling?: boolean;
 }
 
@@ -126,11 +126,11 @@ export const CouponCard: React.FC<CouponCardProps> = ({
           )}
         </div>
 
-        <div
+          {(onToggleActive || onEdit || onDelete) && <div
           className="flex items-center justify-between border-t border-border-main pt-[var(--space-md)] lg:justify-end lg:border-l lg:border-t-0 lg:pl-[var(--space-md)] lg:pt-0"
           style={{ gap: "var(--space-md)" }}
         >
-          <div
+          {onToggleActive && <div
             className="flex flex-col items-center"
             style={{ gap: "var(--space-xs)" }}
           >
@@ -143,21 +143,21 @@ export const CouponCard: React.FC<CouponCardProps> = ({
             <span className="text-label uppercase tracking-[0.15em] text-text-muted">
               {coupon.active ? "Activo" : "Inactivo"}
             </span>
-          </div>
+          </div>}
 
           <div
             className="flex shrink-0 items-center"
             style={{ gap: "var(--space-sm)" }}
           >
-            <NexusAutonomousButton
+              {onEdit && <NexusAutonomousButton
               density="compact"
               variant="secondary"
               isIconOnly
               icon={Pencil}
               onClick={onEdit}
               aria-label="Editar cupón"
-            />
-            <NexusAutonomousButton
+              />}
+            {onDelete && <NexusAutonomousButton
               density="compact"
               variant="secondary"
               isIconOnly
@@ -165,9 +165,9 @@ export const CouponCard: React.FC<CouponCardProps> = ({
               onClick={onDelete}
               aria-label="Eliminar cupón"
               className="hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100"
-            />
+            />}
           </div>
-        </div>
+        </div>}
       </div>
     </NexusAutonomousCard>
   );

@@ -1,5 +1,4 @@
 import React, { useState, useEffect } from 'react';
-import type { PermissionId } from '@nexus/types';
 import { ArrowLeft, User as UserIcon, Users, UserPlus, MessageCircle, Edit2, Trash2 } from 'lucide-react';
 import { User } from '../../../types';
 import { apiUsers } from '../../../api';
@@ -18,9 +17,13 @@ interface UsersViewProps {
   setConfirmDialog: (dialog: any) => void;
   onCreateUser: () => void;
   onEditUser: (user: User) => void;
+  canCreate: boolean;
+  canUpdate: boolean;
+  canDelete: boolean;
+  isSuperadmin: boolean;
 }
 
-export const UsersView: React.FC<UsersViewProps> = ({ showToast, setConfirmDialog, onCreateUser, onEditUser }) => {
+export const UsersView: React.FC<UsersViewProps> = ({ showToast, setConfirmDialog, onCreateUser, onEditUser, canCreate, canUpdate, canDelete, isSuperadmin }) => {
   const [users, setUsers] = useState<User[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
@@ -28,8 +31,6 @@ export const UsersView: React.FC<UsersViewProps> = ({ showToast, setConfirmDialo
 
   const currentUserString = localStorage.getItem('admin_session');
   const currentUser = currentUserString ? JSON.parse(currentUserString) : null;
-  const currentUserPermissions = (currentUser?.permissions || []) as PermissionId[];
-  const canManageUsers = currentUserPermissions.includes('users.manage');
   const normalizeRole = (role: unknown): 'superadmin' | 'admin' | 'staff' => {
     const normalized = String(role || 'staff').toLowerCase();
     if (normalized === 'superadmin' || normalized === 'admin') return normalized;
@@ -103,11 +104,11 @@ export const UsersView: React.FC<UsersViewProps> = ({ showToast, setConfirmDialo
   };
 
   const canManageUser = (user: User) => {
-    return canManageUsers && !isCurrentUser(user);
+    return canUpdate && !isCurrentUser(user) && (isSuperadmin || normalizeRole(user.role) !== 'superadmin');
   };
 
   const canEditPublicContact = (user: User) => {
-    return canManageUsers && !isCurrentUser(user);
+    return canManageUser(user);
   };
 
   const isCurrentUser = (user: User) => user.id === String(currentUser?.id);
@@ -146,7 +147,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ showToast, setConfirmDialo
         </div>
         <PublicContactView
           profile={toContactProfileOwner(contactUser)}
-          canPublish={canManageUsers}
+          canPublish={canUpdate}
           showToast={showToast}
           saveLabel="Guardar y volver"
           successMessage="Contacto publico actualizado"
@@ -177,7 +178,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ showToast, setConfirmDialo
         subtitle="Administradores y staff con acceso al sistema"
         icon={Users}
         delay="300ms"
-        action={canManageUsers && (
+        action={canCreate && (
           <NexusSectionButton
             onClick={onCreateUser}
             icon={UserPlus}
@@ -240,7 +241,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ showToast, setConfirmDialo
                       <NexusSwitch
                         checked={user.isActive}
                         onChange={() => toggleStatus(user.id)}
-                        disabled={!canManageUser(user) || isCurrentUser(user)}
+                        disabled={!canUpdate || !canManageUser(user) || isCurrentUser(user)}
                         aria-label={user.isActive ? `Desactivar ${user.name}` : `Activar ${user.name}`}
                       />
                       <span className={`text-label uppercase tracking-[0.15em] transition-colors duration-500 ${user.isActive ? 'text-text-muted' : 'text-text-muted/40'}`}>
@@ -271,7 +272,7 @@ export const UsersView: React.FC<UsersViewProps> = ({ showToast, setConfirmDialo
                         />
                       )}
 
-                      {canManageUser(user) && !isCurrentUser(user) && (
+                      {canDelete && canManageUser(user) && (
                         <NexusCardButton
                           variant="secondary"
                           isIconOnly

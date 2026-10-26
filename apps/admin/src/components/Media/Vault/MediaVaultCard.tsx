@@ -9,8 +9,8 @@ import { NexusMediaViewer } from "../../ui/NexusMediaViewer";
 interface MediaVaultCardProps {
   item: MediaVaultItem;
   onDownload: () => void;
-  onExtend: () => void;
-  onDelete: () => void;
+  onExtend?: () => void;
+  onDelete?: () => void;
   isBusy?: boolean;
 }
 
@@ -35,7 +35,7 @@ export const MediaVaultCard: React.FC<MediaVaultCardProps> = ({
 
   return (
     <>
-      <NexusAutonomousCard swipeable onDelete={onDelete} isMuted={item.status !== "READY"}>
+      <NexusAutonomousCard swipeable={Boolean(onDelete)} onDelete={onDelete} isMuted={item.status !== "READY"}>
         <div className="flex h-full flex-col" style={{ gap: "var(--space-md)" }}>
           <button
             type="button"
@@ -84,8 +84,8 @@ export const MediaVaultCard: React.FC<MediaVaultCardProps> = ({
               Descargar
             </NexusAutonomousButton>
             <div className="flex items-center" style={{ gap: "var(--space-sm)" }}>
-              <NexusAutonomousButton density="compact" variant="secondary" isIconOnly icon={RefreshCw} onClick={onExtend} disabled={isBusy} aria-label="Extender 30 días" />
-              <NexusAutonomousButton density="compact" variant="secondary" isIconOnly icon={Trash2} onClick={onDelete} disabled={isBusy} aria-label="Eliminar archivo" className="hidden sm:inline-flex hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600" />
+              {onExtend && <NexusAutonomousButton density="compact" variant="secondary" isIconOnly icon={RefreshCw} onClick={onExtend} disabled={isBusy} aria-label="Extender 30 días" />}
+              {onDelete && <NexusAutonomousButton density="compact" variant="secondary" isIconOnly icon={Trash2} onClick={onDelete} disabled={isBusy} aria-label="Eliminar archivo" className="hidden sm:inline-flex hover:border-rose-200 hover:bg-rose-50 hover:text-rose-600" />}
             </div>
           </div>
         </div>

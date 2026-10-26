@@ -12,6 +12,8 @@ interface RaffleCouponsViewProps {
   setConfirmDialog: (dialog: any) => void;
   onCreate: () => void;
   onEdit: (coupon: RaffleCouponRecord) => void;
+  canManage: boolean;
+  canDelete: boolean;
 }
 
 const ITEMS_PER_PAGE = 8;
@@ -21,6 +23,8 @@ export const RaffleCouponsView: React.FC<RaffleCouponsViewProps> = ({
   setConfirmDialog,
   onCreate,
   onEdit,
+  canManage,
+  canDelete,
 }) => {
   const [coupons, setCoupons] = useState<RaffleCouponRecord[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -122,11 +126,11 @@ export const RaffleCouponsView: React.FC<RaffleCouponsViewProps> = ({
           icon={BadgePercent}
           title="Sin cupones"
           description="Crea códigos de descuento para las participaciones en rifas."
-          action={
+          action={canManage ? (
             <NexusSectionButton icon={Plus} onClick={onCreate}>
               Crear cupón
             </NexusSectionButton>
-          }
+          ) : undefined}
         />
       ) : (
         <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
@@ -134,9 +138,9 @@ export const RaffleCouponsView: React.FC<RaffleCouponsViewProps> = ({
             <RaffleCouponCard
               key={coupon.id}
               coupon={coupon}
-              onEdit={() => onEdit(coupon)}
-              onDelete={() => handleDelete(coupon)}
-              onToggleActive={() => void handleToggleActive(coupon)}
+              onEdit={canManage ? () => onEdit(coupon) : undefined}
+              onDelete={canDelete ? () => handleDelete(coupon) : undefined}
+              onToggleActive={canManage ? () => void handleToggleActive(coupon) : undefined}
               isToggling={togglingIds.has(coupon.id)}
             />
           ))}

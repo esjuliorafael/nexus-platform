@@ -10,9 +10,9 @@ import { NexusSwitch } from "../../ui/NexusSwitch";
 
 interface HomeSlideCardProps {
   slide: HomeSlide;
-  onEdit: () => void;
-  onDelete: () => void;
-  onToggleActive: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onToggleActive?: () => void;
   onMoveUp?: () => void;
   onMoveDown?: () => void;
   canMoveUp?: boolean;
@@ -69,7 +69,7 @@ export const HomeSlideCard: React.FC<HomeSlideCardProps> = ({
   return (
     <>
       <NexusAutonomousCard
-        swipeable
+        swipeable={Boolean(onEdit || onDelete)}
         onEdit={onEdit}
         onDelete={onDelete}
         isMuted={!slide.active}
@@ -217,19 +217,19 @@ export const HomeSlideCard: React.FC<HomeSlideCardProps> = ({
               className="flex flex-col items-center"
               style={{ gap: "var(--space-xs)" }}
             >
-              <NexusSwitch
+              {onToggleActive && <NexusSwitch
                 checked={slide.active}
-                onChange={() => onToggleActive()}
+                onChange={onToggleActive}
                 disabled={isToggling}
                 aria-label={slide.active ? "Pausar slide" : "Publicar slide"}
-              />
+              />}
               <span className="text-label uppercase tracking-[0.15em] text-text-muted">
                 {slide.active ? "Publicado" : "Pausado"}
               </span>
             </div>
 
             <div className="flex shrink-0 items-center" style={{ gap: "var(--space-sm)" }}>
-              <NexusAutonomousButton
+              {onMoveUp && <NexusAutonomousButton
                 density="compact"
                 variant="secondary"
                 isIconOnly
@@ -237,8 +237,8 @@ export const HomeSlideCard: React.FC<HomeSlideCardProps> = ({
                 onClick={onMoveUp}
                 disabled={!canMoveUp}
                 aria-label="Subir slide"
-              />
-              <NexusAutonomousButton
+              />}
+              {onMoveDown && <NexusAutonomousButton
                 density="compact"
                 variant="secondary"
                 isIconOnly
@@ -246,17 +246,17 @@ export const HomeSlideCard: React.FC<HomeSlideCardProps> = ({
                 onClick={onMoveDown}
                 disabled={!canMoveDown}
                 aria-label="Bajar slide"
-              />
-              <div className="hidden items-center sm:flex" style={{ gap: "var(--space-sm)" }}>
-                <NexusAutonomousButton
+              />}
+              {(onEdit || onDelete) && <div className="hidden items-center sm:flex" style={{ gap: "var(--space-sm)" }}>
+                {onEdit && <NexusAutonomousButton
                   density="compact"
                   variant="secondary"
                   isIconOnly
                   icon={Edit2}
                   onClick={onEdit}
                   aria-label="Editar slide"
-                />
-                <NexusAutonomousButton
+                />}
+                {onDelete && <NexusAutonomousButton
                   density="compact"
                   variant="secondary"
                   isIconOnly
@@ -264,8 +264,8 @@ export const HomeSlideCard: React.FC<HomeSlideCardProps> = ({
                   onClick={onDelete}
                   aria-label="Eliminar slide"
                   className="hover:border-rose-200 hover:bg-rose-50 hover:text-rose-500"
-                />
-              </div>
+                />}
+              </div>}
             </div>
           </div>
         </div>

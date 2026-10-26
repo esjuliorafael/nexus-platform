@@ -50,7 +50,7 @@ export async function ownProfileRoutes(server: FastifyInstance) {
       return await profileService.updateContactProfile(
         Number((request.user as any).id),
         data,
-        (request.user as any).permissions?.includes("users.manage") || false,
+        (request.user as any).permissions?.includes("users.update") || false,
       );
     } catch (error) {
       return sendRouteError(error, reply);

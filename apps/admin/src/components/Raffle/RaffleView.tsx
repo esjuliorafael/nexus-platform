@@ -26,8 +26,11 @@ const ITEMS_PER_PAGE = 8;
 
 interface RaffleViewProps {
   searchQuery: string;
+  canViewRaffles: boolean;
   canManageRaffles: boolean;
   canManageRaffleCoupons: boolean;
+  canViewRaffleCoupons: boolean;
+  canDeleteRaffleCoupons: boolean;
   canManageResults: boolean;
   canManageParticipations: boolean;
   canViewMessages: boolean;
@@ -70,8 +73,11 @@ interface RaffleViewProps {
 
 export const RaffleView: React.FC<RaffleViewProps> = ({
   searchQuery,
+  canViewRaffles,
   canManageRaffles,
   canManageRaffleCoupons,
+  canViewRaffleCoupons,
+  canDeleteRaffleCoupons,
   canManageResults,
   canManageParticipations,
   canViewMessages,
@@ -116,8 +122,10 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
   }, [showToast]);
 
   useEffect(() => {
-    void loadRaffles();
-  }, [loadRaffles]);
+    if (["coupon_list", "coupon_create", "coupon_edit"].includes(viewMode)) return;
+    if (canViewRaffles) void loadRaffles();
+    else setIsLoading(false);
+  }, [canViewRaffles, loadRaffles, viewMode]);
 
   useEffect(() => {
     if (viewMode === "create") setSelectedRaffle(null);
@@ -500,7 +508,7 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
   }
 
   if (viewMode === "coupon_list") {
-    if (!canManageRaffleCoupons) {
+    if (!canViewRaffleCoupons) {
       return <EmptyState icon={Ticket} title="Permiso requerido" description="Tu cuenta no tiene permiso para consultar cupones de rifas." />;
     }
     return (
@@ -515,6 +523,8 @@ export const RaffleView: React.FC<RaffleViewProps> = ({
           setSelectedCoupon(coupon);
           onSetViewMode?.("coupon_edit");
         }}
+        canManage={canManageRaffleCoupons}
+        canDelete={canDeleteRaffleCoupons}
       />
     );
   }

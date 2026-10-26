@@ -9,11 +9,11 @@ import { NexusSwitch } from "../../ui/NexusSwitch";
 
 interface StoreHeroCardProps {
   hero: StoreHero;
-  onEdit: () => void;
-  onDelete: () => void;
-  onToggleActive: () => void;
-  onMoveUp: () => void;
-  onMoveDown: () => void;
+  onEdit?: () => void;
+  onDelete?: () => void;
+  onToggleActive?: () => void;
+  onMoveUp?: () => void;
+  onMoveDown?: () => void;
   canMoveUp: boolean;
   canMoveDown: boolean;
   isToggling?: boolean;
@@ -48,7 +48,7 @@ export const StoreHeroCard: React.FC<StoreHeroCardProps> = ({
 
   return (
     <NexusAutonomousCard
-      swipeable
+      swipeable={Boolean(onEdit || onDelete)}
       onEdit={onEdit}
       onDelete={onDelete}
       innerClassName="transition-all duration-500"
@@ -101,19 +101,19 @@ export const StoreHeroCard: React.FC<StoreHeroCardProps> = ({
           style={{ gap: "var(--space-md)" }}
         >
           <div className="flex flex-col items-center" style={{ gap: "var(--space-xs)" }}>
-            <NexusSwitch
+            {onToggleActive && <NexusSwitch
               checked={hero.active}
               onChange={onToggleActive}
               disabled={isToggling}
               aria-label={hero.active ? "Pausar hero" : "Publicar hero"}
-            />
+            />}
             <span className="text-label uppercase tracking-[0.15em] text-text-muted">
               {hero.active ? "Publicado" : "Pausado"}
             </span>
           </div>
 
           <div className="flex shrink-0 items-center" style={{ gap: "var(--space-sm)" }}>
-            <NexusAutonomousButton
+            {onMoveUp && <NexusAutonomousButton
               density="compact"
               variant="secondary"
               isIconOnly
@@ -121,8 +121,8 @@ export const StoreHeroCard: React.FC<StoreHeroCardProps> = ({
               onClick={onMoveUp}
               disabled={!canMoveUp}
               aria-label="Subir hero"
-            />
-            <NexusAutonomousButton
+            />}
+            {onMoveDown && <NexusAutonomousButton
               density="compact"
               variant="secondary"
               isIconOnly
@@ -130,17 +130,17 @@ export const StoreHeroCard: React.FC<StoreHeroCardProps> = ({
               onClick={onMoveDown}
               disabled={!canMoveDown}
               aria-label="Bajar hero"
-            />
-            <div className="hidden items-center sm:flex" style={{ gap: "var(--space-sm)" }}>
-              <NexusAutonomousButton
+            />}
+            {(onEdit || onDelete) && <div className="hidden items-center sm:flex" style={{ gap: "var(--space-sm)" }}>
+              {onEdit && <NexusAutonomousButton
                 density="compact"
                 variant="secondary"
                 isIconOnly
                 icon={Pencil}
                 onClick={onEdit}
                 aria-label="Editar hero"
-              />
-              <NexusAutonomousButton
+              />}
+              {onDelete && <NexusAutonomousButton
                 density="compact"
                 variant="secondary"
                 isIconOnly
@@ -148,8 +148,8 @@ export const StoreHeroCard: React.FC<StoreHeroCardProps> = ({
                 onClick={onDelete}
                 aria-label="Eliminar hero"
                 className="hover:bg-rose-50 hover:text-rose-600 hover:border-rose-100"
-              />
-            </div>
+              />}
+            </div>}
           </div>
         </div>
       </div>

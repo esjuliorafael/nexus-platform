@@ -29,6 +29,8 @@ interface ChannelsHubProps {
   onCreateChannel: () => void;
   showToast: (message: string, type?: 'success' | 'error') => void;
   setConfirmDialog: (dialog: any) => void;
+  canManageSpecialized: boolean;
+  canManagePrincipal: boolean;
 }
 
 const StatusPill: React.FC<{ ready: boolean; label: string }> = ({ ready, label }) => (
@@ -68,6 +70,8 @@ export const ChannelsHub: React.FC<ChannelsHubProps> = ({
   onCreateChannel,
   showToast,
   setConfirmDialog,
+  canManageSpecialized,
+  canManagePrincipal,
 }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [overview, setOverview] = useState<ChannelsOverview | null>(null);
@@ -164,11 +168,11 @@ export const ChannelsHub: React.FC<ChannelsHubProps> = ({
         subtitle="Fallback para tienda general, pedidos mixtos y flujos sin canal especializado"
         icon={ShieldCheck}
         iconVariant={readyCount === 4 ? 'emerald' : 'brand'}
-        action={
+        action={canManagePrincipal ? (
           <NexusSectionButton onClick={onEditPrincipal} icon={ArrowRight}>
             Administrar
           </NexusSectionButton>
-        }
+        ) : undefined}
       >
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4" style={{ gap: 'var(--space-md)' }}>
           <HealthTile
@@ -203,22 +207,22 @@ export const ChannelsHub: React.FC<ChannelsHubProps> = ({
         subtitle="Sobrescriben el canal principal cuando el flujo coincide con su proposito"
         icon={Activity}
         iconVariant="brand"
-        action={
+        action={canManageSpecialized ? (
           <NexusSectionButton onClick={onCreateChannel} icon={PlusCircle} variant="brand">
             Nuevo canal
           </NexusSectionButton>
-        }
+        ) : undefined}
       >
         {overview.specialized.length === 0 ? (
           <EmptyState
             icon={Briefcase}
             title="Sin canales especializados"
             description="El sistema usara el canal principal para todos los cobros y mensajes hasta que crees un canal por proposito."
-            action={
+            action={canManageSpecialized ? (
               <NexusSectionButton onClick={onCreateChannel} icon={PlusCircle}>
                 Crear canal
               </NexusSectionButton>
-            }
+            ) : undefined}
           />
         ) : (
           <div className="grid grid-cols-1 gap-5">
@@ -236,7 +240,7 @@ export const ChannelsHub: React.FC<ChannelsHubProps> = ({
                       <span className="text-label text-brand-500">{channel.usesPrincipalFallback ? 'Usa principal donde falte configuracion' : 'Ruta especializada completa'}</span>
                     </span>
                   }
-                  actions={
+                  actions={canManageSpecialized ? (
                     <div className="flex w-full justify-end sm:hidden" style={{ gap: 'var(--space-sm)' }}>
                       <NexusCardButton
                         onClick={(event) => {
@@ -260,11 +264,11 @@ export const ChannelsHub: React.FC<ChannelsHubProps> = ({
                         aria-label="Eliminar canal"
                       />
                     </div>
-                  }
-                  onEdit={() => onEditChannel(channel.id)}
-                  onDelete={() => handleDeleteChannel(channel.purpose, channel.name)}
-                  showActionsAlways
-                  swipeable
+                  ) : undefined}
+                  onEdit={canManageSpecialized ? () => onEditChannel(channel.id) : undefined}
+                  onDelete={canManageSpecialized ? () => handleDeleteChannel(channel.purpose, channel.name) : undefined}
+                  showActionsAlways={canManageSpecialized}
+                  swipeable={canManageSpecialized}
                 />
               );
             })}

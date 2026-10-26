@@ -49,6 +49,28 @@ export async function productAdminRoutes(server: FastifyInstance) {
     });
   });
 
+  server.get("/assisted-checkout-options", async () => {
+    const products = await productService.getAll({
+      onlyActive: true,
+      onlyPublished: true,
+      status: SaleStatus.AVAILABLE,
+    });
+    return products
+      .filter((product) => product.type === ProductType.BIRD || product.stock > 0)
+      .map((product) => ({
+        id: product.id,
+        name: product.name,
+        ringNumber: product.ringNumber,
+        type: product.type,
+        price: Number(product.price),
+        saleStatus: product.saleStatus,
+        stock: product.stock,
+        thumbnail: product.thumbnail,
+        active: product.active,
+        published: product.published,
+      }));
+  });
+
   server.get("/:id/overview", async (request, reply) => {
     const { id } = request.params as { id: string };
     const productId = Number(id);

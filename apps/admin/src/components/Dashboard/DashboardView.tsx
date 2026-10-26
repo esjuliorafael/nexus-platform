@@ -47,6 +47,7 @@ interface DashboardViewProps {
   stats: DashboardStats | null;
   commercialOverview: DashboardCommercialOverview | null;
   canViewOperations: boolean;
+  canViewHistory: boolean;
   canViewSales: boolean;
   canViewMilestones: boolean;
   canAcknowledgeMilestones: boolean;
@@ -94,6 +95,7 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
   stats,
   commercialOverview,
   canViewOperations,
+  canViewHistory,
   canViewSales,
   canViewMilestones,
   canAcknowledgeMilestones,
@@ -197,21 +199,33 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         ? `Conversión de las rifas durante ${commercialPeriodLabel}.`
         : `Conversión de tienda y rifas durante ${commercialPeriodLabel}.`;
   const commercialHistory = commercialOverview?.history ?? [];
-  const canViewAnyHistory = canViewOrderHistory || canViewParticipationHistory;
   const historyTitle =
-    commercialSource === 'STORE' ||
-    (commercialSource === 'ALL' && canViewOrderHistory && !canViewParticipationHistory)
-      ? 'Historial de Órdenes'
-      : commercialSource === 'RAFFLES' ||
-          (commercialSource === 'ALL' && canViewParticipationHistory && !canViewOrderHistory)
-        ? 'Historial de Participaciones'
-        : 'Historial Comercial';
-  const historySubtitle =
-    historyTitle === 'Historial de Órdenes'
-      ? `Últimas órdenes de ${commercialPeriodLabel}.`
-      : historyTitle === 'Historial de Participaciones'
-        ? `Últimas participaciones de ${commercialPeriodLabel}.`
-        : `Últimos movimientos de tienda y rifas durante ${commercialPeriodLabel}.`;
+    canViewOrderHistory && canViewParticipationHistory
+      ? 'Historial de operaciones'
+      : canViewOrderHistory
+        ? 'Historial de órdenes'
+        : 'Historial de participaciones';
+  const hasVisibleOrderHistory =
+    canViewOrderHistory && commercialSource !== 'RAFFLES';
+  const hasVisibleParticipationHistory =
+    canViewParticipationHistory && commercialSource !== 'STORE';
+  const historyScope =
+    hasVisibleOrderHistory && hasVisibleParticipationHistory
+      ? 'pedidos y participaciones'
+      : hasVisibleOrderHistory
+        ? 'órdenes'
+        : hasVisibleParticipationHistory
+          ? 'participaciones'
+          : null;
+  const historyActivityLabel =
+    historyScope === 'órdenes'
+      ? 'Órdenes'
+      : historyScope === 'participaciones'
+        ? 'Participaciones'
+        : 'Pedidos y participaciones';
+  const historySubtitle = historyScope
+    ? `${historyActivityLabel} recientes de ${commercialPeriodLabel}.`
+    : `Actividad disponible según tus permisos de ${commercialPeriodLabel}.`;
 
   return (
     <>
@@ -344,8 +358,8 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
         </section>
       )}
 
-      {/* NIVEL E: HISTORIAL COMERCIAL */}
-      {canViewAnyHistory && <NexusSection
+      {/* NIVEL E: HISTORIAL DE OPERACIONES */}
+      {canViewHistory && <NexusSection
         title={historyTitle}
         subtitle={historySubtitle}
         icon={History}

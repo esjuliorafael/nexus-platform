@@ -45,6 +45,13 @@ export async function raffleCouponPublicRoutes(server: FastifyInstance) {
 export async function raffleCouponAdminRoutes(server: FastifyInstance) {
   server.get("/", { preHandler: [server.authenticate] }, async () => raffleCouponService.getAll(server.rafflePrisma));
 
+  server.get("/raffle-options", { preHandler: [server.authenticate] }, async () =>
+    server.rafflePrisma.raffle.findMany({
+      select: { id: true, title: true },
+      orderBy: { createdAt: "desc" },
+    }),
+  );
+
   server.post("/", { preHandler: [server.authenticate] }, async (request, reply) => {
     let body;
     try { body = raffleCouponCreateSchema.parse(request.body); } catch (error: any) {

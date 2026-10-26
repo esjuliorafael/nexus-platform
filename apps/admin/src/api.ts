@@ -370,6 +370,10 @@ export const apiProducts = {
     const res = await api.get("/admin/products");
     return res.data.map(mapApiProduct);
   },
+  getAssistedCheckoutOptions: async (): Promise<Product[]> => {
+    const res = await api.get("/admin/products/assisted-checkout-options");
+    return res.data.map(mapApiProduct);
+  },
   getById: async (id: string): Promise<Product> => {
     const res = await api.get(`/admin/products/${id}`);
     return mapApiProduct(res.data);
@@ -761,6 +765,11 @@ const mapRaffleCoupon = (item: any): RaffleCouponRecord => ({
 });
 
 export const apiRaffleCoupons = {
+  getRaffleOptions: async (): Promise<Array<{ id: string; title: string }>> =>
+    (await api.get("/admin/raffle-coupons/raffle-options")).data.map((item: any) => ({
+      id: String(item.id),
+      title: item.title,
+    })),
   getAll: async (): Promise<RaffleCouponRecord[]> =>
     (await api.get("/admin/raffle-coupons")).data.map(mapRaffleCoupon),
   create: async (data: Partial<RaffleCouponRecord>) =>
@@ -803,6 +812,7 @@ export const apiCategories = {
   update: async (id: string, data: any) =>
     api.put(`/admin/categories/${id}`, data),
   delete: async (id: string) => api.delete(`/admin/categories/${id}`),
+  deleteSubcategory: async (id: string) => api.delete(`/admin/subcategories/${id}`),
 };
 
 export const apiOrders = {

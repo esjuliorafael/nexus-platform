@@ -8,6 +8,7 @@ const hasRead = (request: FastifyRequest, permission: PermissionId) =>
 export function getDashboardAccess(request: FastifyRequest) {
   return {
     operations: actorHasPermission(request, "dashboard.operations.view"),
+    history: actorHasPermission(request, "dashboard.history.view"),
     sales: actorHasPermission(request, "dashboard.sales.view"),
     milestones: actorHasPermission(request, "dashboard.milestones.view"),
     messagingCost: actorHasPermission(request, "messaging.cost.view"),
@@ -113,11 +114,13 @@ export function projectDashboardCommercialOverview<T extends CommercialOverviewD
     ...(access.sales
       ? { salesBySource: overview.salesBySource, pulse: overview.pulse }
       : {}),
-    history: overview.history.filter(
-      ({ kind }) =>
-        (kind === "ORDER" && access.orders) ||
-        (kind === "PARTICIPATION" && access.raffleParticipations),
-    ),
+    history: access.history
+      ? overview.history.filter(
+          ({ kind }) =>
+            (kind === "ORDER" && access.orders) ||
+            (kind === "PARTICIPATION" && access.raffleParticipations),
+        )
+      : [],
     ...(access.messagingCost ? { messagingCost: overview.messagingCost } : {}),
   };
 }

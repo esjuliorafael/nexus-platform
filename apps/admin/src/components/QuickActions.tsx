@@ -27,12 +27,14 @@ import {
   ChartNoAxesCombined,
   Link2,
 } from "lucide-react";
-import type { PermissionId } from "@nexus/types";
+import { userHasPermission, type PermissionId } from "@nexus/types";
 
 type ActionItem = {
   icon: React.ReactNode;
   label: string;
   permission?: PermissionId | PermissionId[];
+  requiredPermissions?: PermissionId[];
+  superadminOnly?: boolean;
 };
 
 interface QuickActionsProps {
@@ -41,6 +43,7 @@ interface QuickActionsProps {
   onAction?: (label: string) => void;
   isDetail?: boolean;
   raffleEnabled?: boolean;
+  isSuperadmin?: boolean;
   permissions: string[];
   detailActions?: Array<{ icon: React.ReactNode; label: string }>;
 }
@@ -51,32 +54,33 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
   onAction,
   isDetail,
   raffleEnabled = false,
+  isSuperadmin = false,
   permissions,
   detailActions = [],
 }) => {
   const can = (permission?: PermissionId | PermissionId[]) =>
     !permission || (Array.isArray(permission)
-      ? permission.some((item) => permissions.includes(item))
-      : permissions.includes(permission));
+      ? permission.some((item) => userHasPermission(permissions, item))
+      : userHasPermission(permissions, permission));
 
   const allActions: { group: string; items: ActionItem[] }[] = [
     {
       group: "Medios",
       items: [
-        { icon: <Image size={20} />, label: "Ver medios", permission: "media.manage" },
-        { icon: <Tags size={20} />, label: "Ver categorías", permission: "categories.manage" },
-        { icon: <MonitorPlay size={20} />, label: "Slider inicio", permission: "storefront.content.manage" },
-        { icon: <Archive size={20} />, label: "Bóveda de medios", permission: "media.vault.manage" },
+        { icon: <Image size={20} />, label: "Ver medios", permission: "media.view" },
+        { icon: <Tags size={20} />, label: "Ver categorías", permission: "categories.view" },
+        { icon: <MonitorPlay size={20} />, label: "Slider inicio", permission: "storefront.slides.view" },
+        { icon: <Archive size={20} />, label: "Bóveda de medios", permission: "media.vault.view" },
       ] satisfies ActionItem[],
     },
     {
       group: "Tienda",
       items: [
         { icon: <ShoppingBag size={20} />, label: "Ver productos", permission: "products.view" },
-        { icon: <PackagePlus size={20} />, label: "Nuevo producto", permission: "products.manage" },
-        { icon: <MonitorPlay size={20} />, label: "Héroes tienda", permission: "storefront.content.manage" },
-        { icon: <BadgePercent size={20} />, label: "Cupones", permission: "coupons.manage" },
-        { icon: <Link2 size={20} />, label: "Enlaces de pago", permission: "payment-links.manage" },
+        { icon: <PackagePlus size={20} />, label: "Nuevo producto", permission: "products.create" },
+        { icon: <MonitorPlay size={20} />, label: "Héroes tienda", permission: "storefront.heroes.view" },
+        { icon: <BadgePercent size={20} />, label: "Cupones", permission: "coupons.view" },
+        { icon: <Link2 size={20} />, label: "Enlaces de pago", permission: "payment-links.view" },
         {
           icon: isDetail ? (
             <ArrowLeft size={20} />
@@ -107,7 +111,7 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
       group: "Rifas",
       items: [
         { icon: <Ticket size={20} />, label: "Ver rifas", permission: "raffles.view" },
-        { icon: <BadgePercent size={20} />, label: "Cupones de rifas", permission: "raffles.coupons.manage" },
+        { icon: <BadgePercent size={20} />, label: "Cupones de rifas", permission: "raffles.coupons.view" },
         {
           icon: <ClipboardList size={20} />,
           label: "Gestión de participaciones",
@@ -119,16 +123,16 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
       group: "Sistema",
       items: [
         { icon: <Receipt size={20} />, label: "Estado de cuenta", permission: "billing.view" },
-        { icon: <Store size={20} />, label: "Estado Storefront", permission: "settings.view" },
-        { icon: <Megaphone size={20} />, label: "Avisos Storefront", permission: "storefront.content.manage" },
-        { icon: <Settings size={20} />, label: "Plataforma", permission: "settings.manage" },
-        { icon: <Users size={20} />, label: "Usuarios", permission: "users.manage" },
-        { icon: <LayoutGrid size={20} />, label: "Departamentos", permission: "categories.manage" },
-        { icon: <Truck size={20} />, label: "Configurar envíos", permission: "shipping.manage" },
-        { icon: <Ticket size={20} />, label: "Activar rifas", permission: "raffles.settings.manage" },
-        { icon: <Brain size={20} />, label: "Audiencias", permission: "raffles.intelligence.view" },
-        { icon: <Timer size={20} />, label: "Lib. Inventario", permission: "inventory.audit" },
-        { icon: <PenTool size={20} />, label: "Añadir logo", permission: "storefront.content.manage" },
+        { icon: <Store size={20} />, label: "Estado Storefront", permission: ["storefront.status.view", "storefront.status.manage"] },
+        { icon: <Megaphone size={20} />, label: "Avisos Storefront", permission: "storefront.announcements.view" },
+        { icon: <Settings size={20} />, label: "Plataforma", permission: ["platform.settings.view", "platform.settings.manage"], superadminOnly: true },
+        { icon: <Users size={20} />, label: "Usuarios", permission: ["users.view", "users.create", "users.update", "users.delete", "users.permissions.manage", "users.roles.manage"] },
+        { icon: <LayoutGrid size={20} />, label: "Canales operativos", permission: ["channels.view", "channels.manage"] },
+        { icon: <Truck size={20} />, label: "Configurar envíos", permission: ["shipping.view", "shipping.manage"] },
+        { icon: <Ticket size={20} />, label: "Configuración de rifas", permission: ["raffles.settings.view", "raffles.settings.manage"] },
+        { icon: <Brain size={20} />, label: "Audiencias", permission: ["raffles.intelligence.view", "raffles.intelligence.manage", "raffles.intelligence.export"] },
+        { icon: <Timer size={20} />, label: "Lib. Inventario", permission: ["inventory.audit", "inventory.reservations.release", "inventory.policies.view", "inventory.policies.manage"] },
+        { icon: <PenTool size={20} />, label: "Añadir logo", permission: "storefront.branding.manage", requiredPermissions: ["media.upload"] },
       ] satisfies ActionItem[],
     },
     {
@@ -150,7 +154,9 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
   filteredActions = filteredActions
     .map((group) => ({
       ...group,
-      items: group.items.filter((item) => can(item.permission)),
+      items: group.items.filter((item) => can(item.permission) &&
+        (item.requiredPermissions ?? []).every((permission) => permissions.includes(permission)) &&
+        (!item.superadminOnly || isSuperadmin)),
     }))
     .filter((group) => group.items.length > 0);
 

@@ -41,6 +41,8 @@ interface PaymentLinksViewProps {
   setConfirmDialog: (dialog: any) => void;
   isGeneratorOpen: boolean;
   onCloseGenerator: () => void;
+  canGenerate: boolean;
+  canRevoke: boolean;
 }
 
 const statusMeta: Record<
@@ -207,6 +209,8 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
   setConfirmDialog,
   isGeneratorOpen,
   onCloseGenerator,
+  canGenerate,
+  canRevoke,
 }) => {
   const [links, setLinks] = useState<AssistedCheckoutLink[]>([]);
   const [products, setProducts] = useState<Product[]>([]);
@@ -235,7 +239,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
           status: statusFilter === "ALL" ? undefined : statusFilter,
           search: search.trim() || undefined,
         }),
-        apiProducts.getAll(),
+        canGenerate ? apiProducts.getAssistedCheckoutOptions() : Promise.resolve([]),
       ]);
 
       if (linkResult.status === "fulfilled") {
@@ -260,7 +264,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
 
   useEffect(() => {
     void loadData();
-  }, [statusFilter, search]);
+  }, [statusFilter, search, canGenerate]);
 
   useEffect(() => {
     if (!isGeneratorOpen) return;
@@ -308,7 +312,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
   }, 0);
 
   const handleGenerate = async () => {
-    if (!isDraftValid || isGenerating) return;
+    if (!canGenerate || !isDraftValid || isGenerating) return;
     setIsGenerating(true);
     try {
       const result = await apiStorePaymentAssistance.createLink(
@@ -363,6 +367,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
   };
 
   const handleRevoke = (link: AssistedCheckoutLink) => {
+    if (!canRevoke) return;
     setConfirmDialog({
       isOpen: true,
       title: "¿Revocar enlace?",
@@ -386,6 +391,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
   };
 
   const handleRegenerate = async (link: AssistedCheckoutLink) => {
+    if (!canGenerate || !canRevoke) return;
     setBusyLinkId(link.id);
     try {
       const result = await apiStorePaymentAssistance.regenerate(link.id);
@@ -440,7 +446,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
       )}
 
       <NexusModal
-        isOpen={isGeneratorOpen}
+        isOpen={isGeneratorOpen && canGenerate}
         title="Generación asistida"
         eyebrow="ENLACES DE PAGO"
         icon={Link2}
@@ -694,8 +700,8 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
               {filteredLinks.map((link) => {
                 const meta = statusMeta[link.status];
                 const isBusy = busyLinkId === link.id;
-                const canRevoke = link.status === "ACTIVE" || link.status === "EXPIRED";
-                const canRegenerate = link.status === "ACTIVE" || link.status === "EXPIRED" || link.status === "REVOKED";
+                const canRevokeLink = link.status === "ACTIVE" || link.status === "EXPIRED";
+                const canRegenerateLink = link.status === "ACTIVE" || link.status === "EXPIRED" || link.status === "REVOKED";
                 const linkItems = link.items?.length ? link.items : [{ ...link.product, quantity: link.quantity }];
                 const firstItem = linkItems[0];
                 return (
@@ -741,7 +747,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
                     </div>
 
                     <div className="flex flex-wrap items-center justify-start gap-[var(--space-sm)] lg:justify-end">
-                      {canRegenerate && (
+                      {canRegenerateLink && canGenerate && canRevoke && (
                         <NexusButton
                           type="button"
                           context="card"
@@ -754,7 +760,7 @@ export const PaymentLinksView: React.FC<PaymentLinksViewProps> = ({
                           Regenerar
                         </NexusButton>
                       )}
-                      {canRevoke && (
+                      {canRevokeLink && canRevoke && (
                         <NexusButton
                           type="button"
                           context="card"

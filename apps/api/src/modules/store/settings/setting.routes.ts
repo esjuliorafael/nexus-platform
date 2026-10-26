@@ -1,21 +1,39 @@
 import { FastifyInstance } from "fastify";
 import { settingService } from "./setting.service";
 import { updateSettingSchema, bulkUpdateSettingsSchema } from "./setting.schema";
+import { canReadSettingKey, redactSettingValueForReader } from "../../../utils/user-permissions";
+
+function filterSettingsForRequest(request: any, grouped: Record<string, Record<string, string | null>>) {
+  return Object.fromEntries(
+    Object.entries(grouped).flatMap(([group, values]) => {
+      const visible = Object.fromEntries(
+        Object.entries(values).filter(([key]) => canReadSettingKey(request, key)),
+      );
+      return Object.keys(visible).length ? [[group, visible]] : [];
+    }),
+  );
+}
 
 export async function settingRoutes(server: FastifyInstance) {
   server.get("/", { preHandler: [server.authenticate] }, async (request) => {
-    const canReadSecrets = (request.user as any)?.permissions?.includes("settings.manage");
-    return canReadSecrets
-      ? settingService.getAllGrouped()
-      : settingService.getPublicGrouped();
+    const grouped = await settingService.getAllGrouped();
+    const filtered = filterSettingsForRequest(request, grouped);
+    for (const values of Object.values(filtered)) {
+      for (const key of Object.keys(values)) {
+        if (redactSettingValueForReader(request, key)) values[key] = null;
+      }
+    }
+    return filtered;
   });
 
   server.get("/:key", { preHandler: [server.authenticate] }, async (request, reply) => {
     const { key } = request.params as { key: string };
     const setting = await settingService.getByKey(key);
     if (!setting) return reply.status(404).send({ message: "Setting not found" });
-    const canReadSecrets = (request.user as any)?.permissions?.includes("settings.manage");
-    if (!canReadSecrets && /(secret|token|api_key|access_key|private_key|client_id|evolution_key|password|kapso_customer)/i.test(key)) {
+    if (!canReadSettingKey(request, key)) {
+      return reply.status(403).send({ message: "No tienes permiso para consultar esta configuración." });
+    }
+    if (redactSettingValueForReader(request, key)) {
       return { ...setting, value: null };
     }
     return setting;
