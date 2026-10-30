@@ -13,10 +13,13 @@ import {
   Pause,
   Play,
   MapPin,
+  RotateCcw,
+  RotateCw,
   Video,
   Volume2,
   VolumeX,
   X,
+  type LucideIcon,
 } from "lucide-react";
 import { Media } from "../../types";
 import { getAssetUrl } from "../../utils/formatters";
@@ -53,132 +56,235 @@ const formatVideoTime = (value: number) => {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 };
 
-function MediaViewerLayeredVideoControls({
-  isPlaying,
-  isMuted,
-  isWaiting,
-  isVisible,
+const VIDEO_SEEK_INTERVAL_SECONDS = 10;
+const MEDIA_VIEWER_IDLE_DELAY_MS = 2500;
+
+function MediaViewerChromeAction({
+  icon,
+  label,
+  onClick,
+  pressed,
+}: {
+  icon: LucideIcon;
+  label: string;
+  onClick: () => void;
+  pressed?: boolean;
+}) {
+  return (
+    <div
+      className="pointer-events-auto flex shrink-0 items-center justify-center border border-white/20 bg-white/10 text-white shadow-[0_18px_48px_rgba(0,0,0,0.22)] backdrop-blur-md"
+      style={{
+        width: "var(--sf-h-mobile-chrome-rail)",
+        height: "var(--sf-h-mobile-chrome-rail)",
+        borderRadius: "var(--sf-radius-mobile-chrome-rail)",
+        padding: "var(--sf-space-sm)",
+      }}
+    >
+      <Button
+        type="button"
+        variant="ghost"
+        context="autonomous"
+        size="icon"
+        icon={icon}
+        isIconOnly
+        onClick={onClick}
+        className="border-transparent bg-transparent text-white hover:border-white/10 hover:bg-white/10 hover:text-white"
+        style={
+          {
+            width: "var(--sf-size-mobile-chrome-action)",
+            height: "var(--sf-size-mobile-chrome-action)",
+            borderRadius: "var(--sf-radius-mobile-chrome-action)",
+            "--sf-button-icon-size": "var(--sf-size-mobile-chrome-icon)",
+          } as CSSProperties
+        }
+        aria-label={label}
+        aria-pressed={pressed}
+        title={label}
+      />
+    </div>
+  );
+}
+
+function MediaViewerVideoTimeline({
   currentTime,
   duration,
-  onPlayPause,
-  onMuteToggle,
   onSeek,
+  showTime = false,
 }: {
-  isPlaying: boolean;
-  isMuted: boolean;
-  isWaiting: boolean;
-  isVisible: boolean;
   currentTime: number;
   duration: number;
-  onPlayPause: () => void;
-  onMuteToggle: () => void;
   onSeek: (value: number) => void;
+  showTime?: boolean;
 }) {
   const progress =
     duration > 0 ? Math.min(100, (currentTime / duration) * 100) : 0;
 
   return (
     <div
-      className={`absolute inset-0 z-20 transition-opacity duration-300 ${
-        isVisible ? "opacity-100" : "pointer-events-none opacity-0"
-      }`}
-      style={{ transitionTimingFunction: "var(--sf-ease)" }}
+      className="flex min-w-0 flex-1 items-center"
+      style={{ gap: "var(--sf-space-sm)" }}
     >
-      <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
-        <button
-          type="button"
-          onClick={onPlayPause}
-          className="pointer-events-auto flex items-center justify-center border border-white/20 bg-white/20 text-white shadow-[0_12px_32px_rgba(0,0,0,0.18)] transition-colors hover:bg-white/25 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/15"
-          style={{
-            width: "var(--sf-h-mobile-chrome-rail)",
-            height: "var(--sf-h-mobile-chrome-rail)",
-            borderRadius: "var(--sf-radius-mobile-chrome-rail)",
-          }}
-          aria-label={isPlaying ? "Pausar video" : "Reproducir video"}
-        >
-          {isWaiting ? (
-            <span
-              className="block animate-spin rounded-full border-2 border-white/25 border-t-white"
-              style={{
-                width: "var(--sf-size-mobile-chrome-icon)",
-                height: "var(--sf-size-mobile-chrome-icon)",
-              }}
-            />
-          ) : isPlaying ? (
-            <Pause
-              style={{
-                width: "var(--sf-size-mobile-chrome-icon)",
-                height: "var(--sf-size-mobile-chrome-icon)",
-              }}
-            />
-          ) : (
-            <Play
-              style={{
-                width: "var(--sf-size-mobile-chrome-icon)",
-                height: "var(--sf-size-mobile-chrome-icon)",
-              }}
-              fill="currentColor"
-            />
-          )}
-        </button>
-      </div>
-
-      <button
-        type="button"
-        onClick={onMuteToggle}
-        className="pointer-events-auto absolute right-[var(--sf-space-sm)] top-[var(--sf-space-sm)] z-20 flex items-center justify-center border border-white/20 bg-white/20 text-white shadow-[0_12px_32px_rgba(0,0,0,0.18)] transition-colors hover:bg-white/25 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/15 md:right-[var(--sf-padding-inner)] md:top-[var(--sf-padding-inner)]"
-        style={{
-          width: "var(--sf-h-button-card)",
-          height: "var(--sf-h-button-card)",
-          borderRadius: "var(--sf-radius-card-nested-compact)",
-        }}
-        aria-label={isMuted ? "Activar sonido" : "Silenciar video"}
-      >
-        {isMuted ? (
-          <VolumeX
-            style={{
-              width: "var(--sf-size-inner-icon-card)",
-              height: "var(--sf-size-inner-icon-card)",
-            }}
-          />
-        ) : (
-          <Volume2
-            style={{
-              width: "var(--sf-size-inner-icon-card)",
-              height: "var(--sf-size-inner-icon-card)",
-            }}
-          />
-        )}
-      </button>
-
-      <div
-        className="pointer-events-auto absolute inset-x-0 bottom-0 z-20 flex items-center"
-        style={{
-          gap: "var(--sf-space-sm)",
-          paddingInline: "var(--sf-media-viewer-control-inset)",
-          paddingBottom: "var(--sf-media-viewer-control-inset)",
-        }}
-      >
-        <span className="sf-text-caption hidden shrink-0 tabular-nums text-stone-300 md:block">
+      {showTime && (
+        <span className="sf-text-caption shrink-0 tabular-nums text-stone-300">
           {formatVideoTime(currentTime)}
         </span>
-        <input
-          type="range"
-          min={0}
-          max={duration || 0}
-          step={0.1}
-          value={duration ? currentTime : 0}
-          onChange={(event) => onSeek(Number(event.currentTarget.value))}
-          className="sf-media-viewer-range min-w-0 flex-1"
-          style={
-            { "--sf-media-viewer-progress": `${progress}%` } as CSSProperties
-          }
-          aria-label="Progreso del video"
-          disabled={!duration}
-        />
-        <span className="sf-text-caption hidden shrink-0 tabular-nums text-stone-300 md:block">
+      )}
+      <input
+        type="range"
+        min={0}
+        max={duration || 0}
+        step={0.1}
+        value={duration ? currentTime : 0}
+        onChange={(event) => onSeek(Number(event.currentTarget.value))}
+        className="sf-media-viewer-range min-w-0 flex-1"
+        style={
+          { "--sf-media-viewer-progress": `${progress}%` } as CSSProperties
+        }
+        aria-label="Progreso del video"
+        disabled={!duration}
+      />
+      {showTime && (
+        <span className="sf-text-caption shrink-0 tabular-nums text-stone-300">
           {formatVideoTime(duration)}
         </span>
+      )}
+    </div>
+  );
+}
+
+function MediaViewerSkipButton({
+  direction,
+  disabled,
+  isVisible,
+  onClick,
+}: {
+  direction: "backward" | "forward";
+  disabled: boolean;
+  isVisible: boolean;
+  onClick: () => void;
+}) {
+  const Icon = direction === "backward" ? RotateCcw : RotateCw;
+  const action = direction === "backward" ? "Retroceder" : "Avanzar";
+
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      tabIndex={isVisible ? 0 : -1}
+      className={`${
+        isVisible ? "pointer-events-auto" : "pointer-events-none"
+      } relative flex shrink-0 items-center justify-center rounded-full border border-white/20 bg-white/10 text-white shadow-[0_12px_32px_rgba(0,0,0,0.18)] transition-colors hover:bg-white/20 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/15 disabled:cursor-not-allowed disabled:opacity-50`}
+      style={{
+        width: "var(--sf-h-button-section)",
+        height: "var(--sf-h-button-section)",
+      }}
+      aria-label={`${action} ${VIDEO_SEEK_INTERVAL_SECONDS} segundos`}
+      title={`${action} ${VIDEO_SEEK_INTERVAL_SECONDS} segundos`}
+    >
+      <Icon
+        aria-hidden="true"
+        style={{
+          width: "var(--sf-size-video-skip-icon)",
+          height: "var(--sf-size-video-skip-icon)",
+        }}
+        strokeWidth={1.75}
+      />
+      <span
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center font-bold leading-none tabular-nums"
+        style={{ fontSize: "var(--sf-text-video-skip-count)" }}
+      >
+        {VIDEO_SEEK_INTERVAL_SECONDS}
+      </span>
+    </button>
+  );
+}
+
+function MediaViewerLayeredVideoControls({
+  isPlaying,
+  isWaiting,
+  isVisible,
+  duration,
+  onPlayPause,
+  onSkipBackward,
+  onSkipForward,
+}: {
+  isPlaying: boolean;
+  isWaiting: boolean;
+  isVisible: boolean;
+  duration: number;
+  onPlayPause: () => void;
+  onSkipBackward: () => void;
+  onSkipForward: () => void;
+}) {
+  return (
+    <div
+      className={`pointer-events-none absolute inset-0 z-20 transition-opacity duration-300 motion-reduce:transition-none ${
+        isVisible ? "opacity-100" : "opacity-0"
+      }`}
+      style={{ transitionTimingFunction: "var(--sf-ease)" }}
+      aria-hidden={!isVisible}
+    >
+      <div className="pointer-events-none absolute inset-0 z-20 flex items-center justify-center">
+        <div
+          className="pointer-events-none flex items-center"
+          style={{ gap: "var(--sf-space-md)" }}
+        >
+          <MediaViewerSkipButton
+            direction="backward"
+            disabled={!duration}
+            isVisible={isVisible}
+            onClick={onSkipBackward}
+          />
+
+          <button
+            type="button"
+            onClick={onPlayPause}
+            className={`flex items-center justify-center border border-white/20 bg-white/20 text-white shadow-[0_12px_32px_rgba(0,0,0,0.18)] transition-colors hover:bg-white/25 focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-white/15 ${
+              isVisible ? "pointer-events-auto" : "pointer-events-none"
+            }`}
+            style={{
+              width: "var(--sf-h-mobile-chrome-rail)",
+              height: "var(--sf-h-mobile-chrome-rail)",
+              borderRadius: "var(--sf-radius-mobile-chrome-rail)",
+            }}
+            aria-label={isPlaying ? "Pausar video" : "Reproducir video"}
+            tabIndex={isVisible ? 0 : -1}
+          >
+            {isWaiting ? (
+              <span
+                className="block animate-spin rounded-full border-2 border-white/25 border-t-white"
+                style={{
+                  width: "var(--sf-size-mobile-chrome-icon)",
+                  height: "var(--sf-size-mobile-chrome-icon)",
+                }}
+              />
+            ) : isPlaying ? (
+              <Pause
+                style={{
+                  width: "var(--sf-size-mobile-chrome-icon)",
+                  height: "var(--sf-size-mobile-chrome-icon)",
+                }}
+              />
+            ) : (
+              <Play
+                style={{
+                  width: "var(--sf-size-mobile-chrome-icon)",
+                  height: "var(--sf-size-mobile-chrome-icon)",
+                }}
+                fill="currentColor"
+              />
+            )}
+          </button>
+
+          <MediaViewerSkipButton
+            direction="forward"
+            disabled={!duration}
+            isVisible={isVisible}
+            onClick={onSkipForward}
+          />
+        </div>
       </div>
     </div>
   );
@@ -277,7 +383,7 @@ export function MediaViewer({
   const viewerRef = useRef<HTMLDivElement>(null);
   const mediaStageRef = useRef<HTMLDivElement>(null);
   const videoRef = useRef<HTMLVideoElement>(null);
-  const controlsTimeoutRef = useRef<number | null>(null);
+  const mediaOverlaysTimeoutRef = useRef<number | null>(null);
   const touchStartRef = useRef<{ x: number; y: number } | null>(null);
   const onPreviousRef = useRef(onPrevious);
   const onNextRef = useRef(onNext);
@@ -290,7 +396,7 @@ export function MediaViewer({
     key: string;
     aspectRatio: number;
   } | null>(null);
-  const [areVideoControlsVisible, setAreVideoControlsVisible] = useState(true);
+  const [areMediaOverlaysVisible, setAreMediaOverlaysVisible] = useState(true);
 
   onPreviousRef.current = onPrevious;
   onNextRef.current = onNext;
@@ -322,7 +428,7 @@ export function MediaViewer({
       if (event.key !== "Tab" || !viewerRef.current) return;
       const focusable = Array.from(
         viewerRef.current.querySelectorAll<HTMLElement>(
-          'button:not([disabled]), input:not([disabled]), [href], [tabindex]:not([tabindex="-1"])',
+          'button:not([disabled]):not([tabindex="-1"]), input:not([disabled]):not([tabindex="-1"]), [href], [tabindex]:not([tabindex="-1"])',
         ),
       );
       if (focusable.length === 0) return;
@@ -359,7 +465,7 @@ export function MediaViewer({
     setIsVideoMuted(true);
     setVideoCurrentTime(0);
     setVideoDuration(0);
-    setAreVideoControlsVisible(true);
+    setAreMediaOverlaysVisible(true);
   }, [isOpen, media?.assetStatus, media?.mediaUrl, media?.filePath]);
 
   useEffect(() => {
@@ -381,28 +487,44 @@ export function MediaViewer({
   }, [isOpen, media]);
 
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen || !media) return;
 
-    if (controlsTimeoutRef.current) {
-      window.clearTimeout(controlsTimeoutRef.current);
-      controlsTimeoutRef.current = null;
+    if (mediaOverlaysTimeoutRef.current) {
+      window.clearTimeout(mediaOverlaysTimeoutRef.current);
+      mediaOverlaysTimeoutRef.current = null;
     }
 
-    if (isVideoPlaying) {
-      controlsTimeoutRef.current = window.setTimeout(() => {
-        setAreVideoControlsVisible(false);
-      }, 1400);
-    } else {
-      setAreVideoControlsVisible(true);
+    const isPlayableVideo =
+      media.mediaType === "VIDEO" &&
+      (!media.assetStatus || media.assetStatus === "READY");
+    const shouldKeepOverlaysVisible =
+      isPlayableVideo && (!isVideoPlaying || isVideoWaiting);
+
+    if (shouldKeepOverlaysVisible) {
+      setAreMediaOverlaysVisible(true);
+      return;
     }
+
+    mediaOverlaysTimeoutRef.current = window.setTimeout(() => {
+      setAreMediaOverlaysVisible(false);
+      mediaOverlaysTimeoutRef.current = null;
+    }, MEDIA_VIEWER_IDLE_DELAY_MS);
 
     return () => {
-      if (controlsTimeoutRef.current) {
-        window.clearTimeout(controlsTimeoutRef.current);
-        controlsTimeoutRef.current = null;
+      if (mediaOverlaysTimeoutRef.current) {
+        window.clearTimeout(mediaOverlaysTimeoutRef.current);
+        mediaOverlaysTimeoutRef.current = null;
       }
     };
-  }, [isOpen, isVideoPlaying]);
+  }, [
+    isOpen,
+    isVideoPlaying,
+    isVideoWaiting,
+    media?.assetStatus,
+    media?.mediaType,
+    media?.mediaUrl,
+    media?.filePath,
+  ]);
 
   if (!isOpen || !media) return null;
 
@@ -416,6 +538,12 @@ export function MediaViewer({
     mediaGeometry?.key === mediaUrl ? mediaGeometry.aspectRatio : null;
   const isMediaReady = activeAspectRatio !== null;
   const isCompactMedia = activeAspectRatio !== null && activeAspectRatio >= 0.7;
+  const hasMobileVideoRail = isVideo && isVideoPlayable && isMediaReady;
+  const areVisibleVideoOverlays =
+    !isVideoPlaying || isVideoWaiting || areMediaOverlaysVisible;
+  const areMediaInfoOverlaysVisible = isVideo
+    ? !isVideoPlayable || areVisibleVideoOverlays
+    : areMediaOverlaysVisible;
 
   const handleVideoPlayPause = () => {
     const video = videoRef.current;
@@ -435,8 +563,8 @@ export function MediaViewer({
   };
 
   const handleVideoTap = () => {
-    if (isVideoPlaying && !areVideoControlsVisible) {
-      revealVideoControls();
+    if (isVideoPlaying && !areMediaOverlaysVisible) {
+      revealMediaOverlays();
       return;
     }
 
@@ -459,18 +587,35 @@ export function MediaViewer({
     setVideoCurrentTime(value);
   };
 
-  const revealVideoControls = () => {
-    setAreVideoControlsVisible(true);
-
-    if (controlsTimeoutRef.current) {
-      window.clearTimeout(controlsTimeoutRef.current);
-      controlsTimeoutRef.current = null;
+  const handleVideoSkip = (offset: number) => {
+    const video = videoRef.current;
+    if (!video || !Number.isFinite(video.duration) || video.duration <= 0) {
+      return;
     }
 
-    if (isVideoPlaying) {
-      controlsTimeoutRef.current = window.setTimeout(() => {
-        setAreVideoControlsVisible(false);
-      }, 1400);
+    handleVideoSeek(
+      Math.max(0, Math.min(video.duration, video.currentTime + offset)),
+    );
+  };
+
+  const revealMediaOverlays = () => {
+    setAreMediaOverlaysVisible(true);
+
+    if (mediaOverlaysTimeoutRef.current) {
+      window.clearTimeout(mediaOverlaysTimeoutRef.current);
+      mediaOverlaysTimeoutRef.current = null;
+    }
+
+    const isPlayableVideo =
+      isVideo && (!media.assetStatus || media.assetStatus === "READY");
+    const shouldAutoHide =
+      !isPlayableVideo || (isVideoPlaying && !isVideoWaiting);
+
+    if (isOpen && shouldAutoHide) {
+      mediaOverlaysTimeoutRef.current = window.setTimeout(() => {
+        setAreMediaOverlaysVisible(false);
+        mediaOverlaysTimeoutRef.current = null;
+      }, MEDIA_VIEWER_IDLE_DELAY_MS);
     }
   };
 
@@ -524,45 +669,37 @@ export function MediaViewer({
       aria-label={media.title}
       tabIndex={-1}
       className="fixed inset-0 z-[200] overflow-hidden bg-stone-950 text-white outline-none"
+      onPointerDown={(event) => {
+        const firstTapOnPlayingVideo =
+          isVideo &&
+          event.target === videoRef.current &&
+          isVideoPlaying &&
+          !areMediaOverlaysVisible;
+        if (!firstTapOnPlayingVideo) revealMediaOverlays();
+      }}
+      onMouseMove={revealMediaOverlays}
+      onFocusCapture={revealMediaOverlays}
     >
       <div
-        className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start"
+        className="pointer-events-none absolute inset-x-0 top-0 z-30 flex items-start justify-between"
         style={{
           paddingInline: "var(--sf-inset-mobile-chrome)",
           paddingBlock: "var(--sf-inset-mobile-chrome-block)",
         }}
       >
-        <div
-          className="pointer-events-auto flex shrink-0 items-center justify-center border border-white/20 bg-white/10 text-white shadow-[0_18px_48px_rgba(0,0,0,0.22)] backdrop-blur-md"
-          style={
-            {
-              width: "var(--sf-h-mobile-chrome-rail)",
-              height: "var(--sf-h-mobile-chrome-rail)",
-              borderRadius: "var(--sf-radius-mobile-chrome-rail)",
-              padding: "var(--sf-space-sm)",
-            } as CSSProperties
-          }
-        >
-          <Button
-            type="button"
-            variant="ghost"
-            context="autonomous"
-            size="icon"
-            icon={X}
-            isIconOnly
-            onClick={onClose}
-            className="border-transparent bg-transparent text-white hover:border-white/10 hover:bg-white/10 hover:text-white"
-            style={
-              {
-                width: "var(--sf-size-mobile-chrome-action)",
-                height: "var(--sf-size-mobile-chrome-action)",
-                borderRadius: "var(--sf-radius-mobile-chrome-action)",
-                "--sf-button-icon-size": "var(--sf-size-mobile-chrome-icon)",
-              } as CSSProperties
-            }
-            aria-label="Cerrar visor"
+        <MediaViewerChromeAction
+          icon={X}
+          label="Cerrar visor"
+          onClick={onClose}
+        />
+        {isVideo && isVideoPlayable && (
+          <MediaViewerChromeAction
+            icon={isVideoMuted ? VolumeX : Volume2}
+            label={isVideoMuted ? "Activar sonido" : "Silenciar video"}
+            onClick={handleVideoMuteToggle}
+            pressed={!isVideoMuted}
           />
-        </div>
+        )}
       </div>
 
       {canNavigate && (
@@ -602,189 +739,267 @@ export function MediaViewer({
           touchStartRef.current = null;
         }}
       >
-        <div
-          ref={mediaStageRef}
-          className={`sf-media-viewer-stage relative w-fit max-w-full overflow-hidden transition-opacity duration-200 ${
-            isMediaReady ? "opacity-100" : "pointer-events-none opacity-0"
-          }`}
-          style={{
-            borderRadius: "var(--sf-radius-card-inner)",
-            transitionTimingFunction: "var(--sf-ease)",
-          }}
-          onMouseEnter={isVideo ? revealVideoControls : undefined}
-          onMouseMove={isVideo ? revealVideoControls : undefined}
-          onFocusCapture={isVideo ? revealVideoControls : undefined}
-          onPointerDown={isVideo ? revealVideoControls : undefined}
-        >
-          {isVideo && !isVideoPlayable ? (
-            <div
-              className="relative flex w-[min(80vw,44rem)] items-center justify-center overflow-hidden bg-stone-900"
-              style={{ aspectRatio: activeAspectRatio || 1 }}
-            >
-              {posterUrl ? (
-                <img
-                  src={posterUrl}
-                  alt={media.title}
-                  className="h-full w-full object-contain"
-                  onLoad={(event) => {
-                    const image = event.currentTarget;
-                    if (image.naturalWidth > 0 && image.naturalHeight > 0) {
-                      setMediaGeometry({
-                        key: mediaUrl,
-                        aspectRatio: image.naturalWidth / image.naturalHeight,
-                      });
-                    }
-                  }}
-                  onError={() => {
-                    setMediaGeometry({ key: mediaUrl, aspectRatio: 1 });
-                  }}
-                />
-              ) : (
-                <Film
-                  className="text-stone-500"
-                  style={{
-                    width: "var(--sf-size-stage-icon-compact)",
-                    height: "var(--sf-size-stage-icon-compact)",
-                  }}
-                  strokeWidth={1.5}
-                />
-              )}
-              <div className="absolute inset-0 flex items-center justify-center bg-stone-950/25">
-                <span
-                  className="sf-text-label inline-flex items-center border border-white/20 bg-stone-950/60 text-white backdrop-blur-md"
-                  style={{
-                    gap: "var(--sf-space-xs)",
-                    minHeight: "var(--sf-h-button-card)",
-                    paddingInline: "var(--sf-space-md)",
-                    borderRadius: "var(--sf-radius-card-inner)",
-                  }}
-                >
-                  {media.assetStatus === "FAILED" ? (
-                    <CircleAlert
-                      style={{
-                        width: "var(--sf-size-inner-icon-card)",
-                        height: "var(--sf-size-inner-icon-card)",
-                      }}
-                    />
-                  ) : (
-                    <Loader2
-                      className="animate-spin"
-                      style={{
-                        width: "var(--sf-size-inner-icon-card)",
-                        height: "var(--sf-size-inner-icon-card)",
-                      }}
-                    />
-                  )}
-                  {media.assetStatus === "FAILED"
-                    ? "Video no disponible"
-                    : "Preparando video"}
-                </span>
-              </div>
-            </div>
-          ) : isVideo ? (
-            <video
-              ref={videoRef}
-              src={mediaUrl}
-              poster={posterUrl}
-              autoPlay
-              playsInline
-              muted={isVideoMuted}
-              onClick={handleVideoTap}
-              onPlay={() => setIsVideoPlaying(true)}
-              onPause={() => setIsVideoPlaying(false)}
-              onWaiting={() => setIsVideoWaiting(true)}
-              onPlaying={() => setIsVideoWaiting(false)}
-              onLoadedMetadata={(event) => {
-                const video = event.currentTarget;
-                setVideoDuration(video.duration || 0);
-                setIsVideoMuted(video.muted);
-                if (video.videoWidth > 0 && video.videoHeight > 0) {
-                  setMediaGeometry({
-                    key: mediaUrl,
-                    aspectRatio: video.videoWidth / video.videoHeight,
-                  });
-                }
-              }}
-              onError={() => {
-                setMediaGeometry({ key: mediaUrl, aspectRatio: 1 });
-              }}
-              onTimeUpdate={(event) => {
-                setVideoCurrentTime(event.currentTarget.currentTime || 0);
-              }}
-              onEnded={() => setIsVideoPlaying(false)}
-              className="sf-media-viewer-asset sf-media-viewer-asset--video block h-auto w-full max-w-full cursor-pointer object-contain"
-            />
-          ) : (
-            <img
-              src={mediaUrl}
-              alt={media.title}
-              onLoad={(event) => {
-                const image = event.currentTarget;
-                if (image.naturalWidth > 0 && image.naturalHeight > 0) {
-                  setMediaGeometry({
-                    key: mediaUrl,
-                    aspectRatio: image.naturalWidth / image.naturalHeight,
-                  });
-                }
-              }}
-              onError={() => {
-                setMediaGeometry({ key: mediaUrl, aspectRatio: 1 });
-              }}
-              className="sf-media-viewer-asset block h-auto w-full max-w-full object-contain"
-            />
-          )}
-
-          {isVideo && isVideoPlayable && (
-            <MediaViewerLayeredVideoControls
-              isPlaying={isVideoPlaying}
-              isMuted={isVideoMuted}
-              isWaiting={isVideoWaiting}
-              isVisible={
-                !isVideoPlaying || isVideoWaiting || areVideoControlsVisible
-              }
-              currentTime={videoCurrentTime}
-              duration={videoDuration}
-              onPlayPause={handleVideoPlayPause}
-              onMuteToggle={handleVideoMuteToggle}
-              onSeek={handleVideoSeek}
-            />
-          )}
-
+        <div className="sf-media-viewer-stage-group flex w-full max-w-full flex-col md:w-fit">
           <div
-            className={`pointer-events-none absolute inset-x-0 bottom-0 hidden md:block ${
-              showDetails
-                ? "bg-gradient-to-t from-stone-950 via-stone-950/85 to-transparent pt-[var(--sf-space-xl)]"
-                : ""
+            ref={mediaStageRef}
+            className={`sf-media-viewer-stage relative w-fit max-w-full overflow-hidden transition-opacity duration-200 ${
+              isMediaReady ? "opacity-100" : "pointer-events-none opacity-0"
             }`}
+            style={{
+              borderRadius: "var(--sf-radius-card-inner)",
+              transitionTimingFunction: "var(--sf-ease)",
+            }}
           >
-            <div
-              className="flex w-full flex-col"
-              style={{
-                paddingTop: showDetails ? "var(--sf-space-lg)" : 0,
-                paddingInline: "var(--sf-padding-inner)",
-                paddingBottom: isVideo
-                  ? "calc(var(--sf-padding-inner) + var(--sf-h-button-card))"
-                  : "var(--sf-padding-inner)",
-              }}
-            >
-              <MediaViewerInfo
-                media={media}
-                isVideo={isVideo}
-                formattedDate={formattedDate}
-                showDetails={showDetails}
+            {isVideo && !isVideoPlayable ? (
+              <div
+                className="relative flex w-[min(80vw,44rem)] items-center justify-center overflow-hidden bg-stone-900"
+                style={{ aspectRatio: activeAspectRatio || 1 }}
+              >
+                {posterUrl ? (
+                  <img
+                    src={posterUrl}
+                    alt={media.title}
+                    className="h-full w-full object-contain"
+                    onLoad={(event) => {
+                      const image = event.currentTarget;
+                      if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+                        setMediaGeometry({
+                          key: mediaUrl,
+                          aspectRatio: image.naturalWidth / image.naturalHeight,
+                        });
+                      }
+                    }}
+                    onError={() => {
+                      setMediaGeometry({ key: mediaUrl, aspectRatio: 1 });
+                    }}
+                  />
+                ) : (
+                  <Film
+                    className="text-stone-500"
+                    style={{
+                      width: "var(--sf-size-stage-icon-compact)",
+                      height: "var(--sf-size-stage-icon-compact)",
+                    }}
+                    strokeWidth={1.5}
+                  />
+                )}
+                <div className="absolute inset-0 flex items-center justify-center bg-stone-950/25">
+                  <span
+                    className="sf-text-label inline-flex items-center border border-white/20 bg-stone-950/60 text-white backdrop-blur-md"
+                    style={{
+                      gap: "var(--sf-space-xs)",
+                      minHeight: "var(--sf-h-button-card)",
+                      paddingInline: "var(--sf-space-md)",
+                      borderRadius: "var(--sf-radius-card-inner)",
+                    }}
+                  >
+                    {media.assetStatus === "FAILED" ? (
+                      <CircleAlert
+                        style={{
+                          width: "var(--sf-size-inner-icon-card)",
+                          height: "var(--sf-size-inner-icon-card)",
+                        }}
+                      />
+                    ) : (
+                      <Loader2
+                        className="animate-spin"
+                        style={{
+                          width: "var(--sf-size-inner-icon-card)",
+                          height: "var(--sf-size-inner-icon-card)",
+                        }}
+                      />
+                    )}
+                    {media.assetStatus === "FAILED"
+                      ? "Video no disponible"
+                      : "Preparando video"}
+                  </span>
+                </div>
+              </div>
+            ) : isVideo ? (
+              <video
+                ref={videoRef}
+                src={mediaUrl}
+                poster={posterUrl}
+                autoPlay
+                playsInline
+                muted={isVideoMuted}
+                onClick={handleVideoTap}
+                onPlay={() => setIsVideoPlaying(true)}
+                onPause={() => setIsVideoPlaying(false)}
+                onWaiting={() => setIsVideoWaiting(true)}
+                onPlaying={() => setIsVideoWaiting(false)}
+                onLoadedMetadata={(event) => {
+                  const video = event.currentTarget;
+                  setVideoDuration(video.duration || 0);
+                  setIsVideoMuted(video.muted);
+                  if (video.videoWidth > 0 && video.videoHeight > 0) {
+                    setMediaGeometry({
+                      key: mediaUrl,
+                      aspectRatio: video.videoWidth / video.videoHeight,
+                    });
+                  }
+                }}
+                onError={() => {
+                  setMediaGeometry({ key: mediaUrl, aspectRatio: 1 });
+                }}
+                onTimeUpdate={(event) => {
+                  setVideoCurrentTime(event.currentTarget.currentTime || 0);
+                }}
+                onEnded={() => setIsVideoPlaying(false)}
+                className="sf-media-viewer-asset sf-media-viewer-asset--video block h-auto w-full max-w-full cursor-pointer object-contain"
               />
+            ) : (
+              <img
+                src={mediaUrl}
+                alt={media.title}
+                onLoad={(event) => {
+                  const image = event.currentTarget;
+                  if (image.naturalWidth > 0 && image.naturalHeight > 0) {
+                    setMediaGeometry({
+                      key: mediaUrl,
+                      aspectRatio: image.naturalWidth / image.naturalHeight,
+                    });
+                  }
+                }}
+                onError={() => {
+                  setMediaGeometry({ key: mediaUrl, aspectRatio: 1 });
+                }}
+                className="sf-media-viewer-asset block h-auto w-full max-w-full object-contain"
+              />
+            )}
+
+            {isVideo && isVideoPlayable && (
+              <MediaViewerLayeredVideoControls
+                isPlaying={isVideoPlaying}
+                isWaiting={isVideoWaiting}
+                isVisible={areVisibleVideoOverlays}
+                duration={videoDuration}
+                onPlayPause={handleVideoPlayPause}
+                onSkipBackward={() =>
+                  handleVideoSkip(-VIDEO_SEEK_INTERVAL_SECONDS)
+                }
+                onSkipForward={() =>
+                  handleVideoSkip(VIDEO_SEEK_INTERVAL_SECONDS)
+                }
+              />
+            )}
+
+            {isVideo && isVideoPlayable && (
+              <div
+                className="pointer-events-none absolute inset-x-0 bottom-0 z-30 hidden items-center md:flex"
+                style={{
+                  paddingInline: "var(--sf-media-viewer-control-inset)",
+                  paddingBottom: "var(--sf-media-viewer-control-inset)",
+                }}
+              >
+                <div className="pointer-events-auto flex w-full items-center">
+                  <MediaViewerVideoTimeline
+                    currentTime={videoCurrentTime}
+                    duration={videoDuration}
+                    onSeek={handleVideoSeek}
+                    showTime
+                  />
+                </div>
+              </div>
+            )}
+
+            <div
+              className={`pointer-events-none absolute inset-x-0 bottom-0 hidden transition-opacity duration-300 motion-reduce:transition-none md:block ${
+                areMediaInfoOverlaysVisible ? "opacity-100" : "opacity-0"
+              } ${
+                showDetails
+                  ? "bg-gradient-to-t from-stone-950 via-stone-950/85 to-transparent pt-[var(--sf-space-xl)]"
+                  : ""
+              }`}
+              style={{ transitionTimingFunction: "var(--sf-ease)" }}
+              aria-hidden={!areMediaInfoOverlaysVisible}
+            >
+              <div
+                className="flex w-full flex-col"
+                style={{
+                  paddingTop: showDetails ? "var(--sf-space-lg)" : 0,
+                  paddingInline: "var(--sf-padding-inner)",
+                  paddingBottom: isVideo
+                    ? "calc(var(--sf-padding-inner) + var(--sf-h-button-card))"
+                    : "var(--sf-padding-inner)",
+                }}
+              >
+                <MediaViewerInfo
+                  media={media}
+                  isVideo={isVideo}
+                  formattedDate={formattedDate}
+                  showDetails={showDetails}
+                />
+              </div>
             </div>
           </div>
         </div>
 
-        <MediaViewerInfo
-          media={media}
-          isVideo={isVideo}
-          formattedDate={formattedDate}
-          showDetails={showDetails}
-          className="w-full md:hidden"
-        />
+        {!hasMobileVideoRail && (
+          <div
+            className={`w-full transition-opacity duration-300 motion-reduce:transition-none ${
+              areMediaInfoOverlaysVisible
+                ? "opacity-100"
+                : "pointer-events-none opacity-0"
+            }`}
+            style={{ transitionTimingFunction: "var(--sf-ease)" }}
+            aria-hidden={!areMediaInfoOverlaysVisible}
+          >
+            <MediaViewerInfo
+              media={media}
+              isVideo={isVideo}
+              formattedDate={formattedDate}
+              showDetails={showDetails}
+              className="w-full md:hidden"
+            />
+          </div>
+        )}
       </div>
+
+      {hasMobileVideoRail && (
+        <div
+          className="pointer-events-none absolute inset-x-0 bottom-0 z-30 bg-gradient-to-t from-stone-950/75 to-transparent md:hidden"
+          style={{
+            paddingInline: "var(--sf-inset-mobile-chrome)",
+            paddingBottom: "var(--sf-inset-mobile-chrome-block)",
+          }}
+          role="group"
+          aria-label="Progreso del video"
+        >
+          <div className="pointer-events-auto">
+            <MediaViewerVideoTimeline
+              currentTime={videoCurrentTime}
+              duration={videoDuration}
+              onSeek={handleVideoSeek}
+            />
+          </div>
+        </div>
+      )}
+
+      {hasMobileVideoRail && (
+        <div
+          className={`pointer-events-none absolute inset-x-0 z-30 bg-gradient-to-t from-stone-950/90 via-stone-950/55 to-transparent pt-[var(--sf-space-lg)] transition-opacity duration-300 motion-reduce:transition-none md:hidden ${
+            areMediaInfoOverlaysVisible ? "opacity-100" : "opacity-0"
+          }`}
+          style={{
+            bottom:
+              "calc(var(--sf-inset-mobile-chrome-block) + var(--sf-space-base) + var(--sf-space-md))",
+            paddingInline: "var(--sf-inset-mobile-chrome)",
+            transitionTimingFunction: "var(--sf-ease)",
+          }}
+          aria-hidden={!areMediaInfoOverlaysVisible}
+        >
+          <div className="flex w-full flex-col">
+            <MediaViewerInfo
+              media={media}
+              isVideo={isVideo}
+              formattedDate={formattedDate}
+              showDetails={showDetails}
+              className="w-full"
+            />
+          </div>
+        </div>
+      )}
     </div>,
     document.body,
   );
