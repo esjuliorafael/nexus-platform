@@ -31,6 +31,9 @@ jobs:
       - name: Install API dependencies
         run: pnpm install --frozen-lockfile --filter "@nexus/api..."
 
+      - name: Generate Prisma clients
+        run: pnpm db:generate
+
       - name: Test BullMQ media job IDs
         run: pnpm --filter @nexus/api test:media-queue
 
