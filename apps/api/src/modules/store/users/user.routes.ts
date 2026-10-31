@@ -4,7 +4,7 @@ import { createUserSchema, updateUserSchema } from "./user.schema";
 import { updateContactProfileSchema } from "../profile/profile.schema";
 import { profileService } from "../profile/profile.service";
 import type { PermissionId } from "@nexus/types";
-import { actorHasPermission, actorPermissionIds } from "../../../utils/user-permissions";
+import { actorHasPermission } from "../../../utils/user-permissions";
 
 function rejectUnlessPermission(request: any, reply: any, permission: PermissionId) {
   if (!actorHasPermission(request, permission)) {
@@ -54,7 +54,7 @@ export async function userRoutes(server: FastifyInstance) {
     if (rejectUnlessPermission(request, reply, "users.create")) return;
     try {
       const validated = createUserSchema.parse(request.body);
-      const actorPermissions = actorPermissionIds(request);
+      const actorPermissions = (request.user as any).permissions || [];
       if (rejectUnlessPermission(request, reply, "users.permissions.manage")) return;
       if (validated.role !== "STAFF" && (!isSuperadmin(request) || rejectUnlessPermission(request, reply, "users.roles.manage"))) {
         if (!reply.sent) return reply.status(403).send({ message: "Solo Superadmin puede asignar roles privilegiados." });
@@ -63,7 +63,7 @@ export async function userRoutes(server: FastifyInstance) {
       if (containsSuperadminOnlyPermissions(validated.permissions) && (validated.role !== "SUPERADMIN" || !isSuperadmin(request))) {
         return reply.status(403).send({ message: "Los permisos de plataforma y roles solo pueden asignarse a cuentas Superadmin." });
       }
-      if (!canAssignPermissions(actorPermissions, validated.permissions)) {
+      if (!isSuperadmin(request) && !canAssignPermissions(actorPermissions, validated.permissions)) {
         return reply.status(403).send({ message: "No puedes asignar permisos que no tienes." });
       }
       return await userService.create(validated);
@@ -85,7 +85,7 @@ export async function userRoutes(server: FastifyInstance) {
       if (target.role === "SUPERADMIN" && !isSuperadmin(request)) {
         return reply.status(403).send({ message: "Solo Superadmin puede modificar otra cuenta Superadmin." });
       }
-      const actorPermissions = actorPermissionIds(request);
+      const actorPermissions = (request.user as any).permissions || [];
       if (validated.permissions && rejectUnlessPermission(request, reply, "users.permissions.manage")) return;
       if (validated.role !== undefined && validated.role !== target.role) {
         if (!isSuperadmin(request)) {
@@ -100,7 +100,7 @@ export async function userRoutes(server: FastifyInstance) {
       const newlyGranted = validated.permissions?.filter(
         (permission) => !target.permissions.includes(permission),
       ) || [];
-      if (!canAssignPermissions(actorPermissions, newlyGranted)) {
+      if (!isSuperadmin(request) && !canAssignPermissions(actorPermissions, newlyGranted)) {
         return reply.status(403).send({ message: "No puedes asignar permisos que no tienes." });
       }
       return await userService.update(parseInt(id), validated);

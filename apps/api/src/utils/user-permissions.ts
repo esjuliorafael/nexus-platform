@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import { effectivePermissionIdsForRole, type PermissionId } from "@nexus/types";
+import type { PermissionId } from "@nexus/types";
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -121,23 +121,20 @@ const settingReadPermissions: PermissionId[] = [
 ];
 
 function hasPermission(request: FastifyRequest, permission: PermissionId) {
+  if (isSuperadminRequest(request)) return true;
   const permissions = expandedRequestPermissions(request);
   return [permission, ...(readImpliedPermissions[permission] ?? [])].some((id) => permissions.has(id));
 }
 
+function isSuperadminRequest(request: FastifyRequest) {
+  return String((request.user as { role?: string } | undefined)?.role || "").toUpperCase() === "SUPERADMIN";
+}
+
 function expandedRequestPermissions(request: FastifyRequest) {
-  const user = request.user as { permissions?: string[]; role?: string } | undefined;
-  if (user && String(user.role || "").toUpperCase() === "SUPERADMIN") {
-    return new Set<string>(effectivePermissionIdsForRole(user.role, user.permissions ?? []));
-  }
-  const assigned = user?.permissions ?? [];
+  const assigned = (request.user as { permissions?: string[] } | undefined)?.permissions ?? [];
   const expanded = new Set(assigned);
   assigned.forEach((permission) => legacyPermissionGrants[permission]?.forEach((grant) => expanded.add(grant)));
   return expanded;
-}
-
-export function actorPermissionIds(request: FastifyRequest): PermissionId[] {
-  return Array.from(expandedRequestPermissions(request)) as PermissionId[];
 }
 
 export function canReadSettingKey(request: FastifyRequest, key: string) {
@@ -151,7 +148,7 @@ export function redactSettingValueForReader(request: FastifyRequest, key: string
   const permissions = expandedRequestPermissions(request);
   const sensitive = /(secret|token|api_key|access_key|private_key|client_id|evolution_key|password|kapso_customer)/i.test(key);
   const permission = settingPermissionForKey(key, true);
-  const canManage = permissions.has(permission);
+  const canManage = isSuperadminRequest(request) || permissions.has(permission);
   return sensitive && !canManage;
 }
 
@@ -415,7 +412,7 @@ export async function authorizeAdminRequest(
     });
   }
   const hasPermissionForEveryGroup = requirementGroups.every((group) =>
-    group.some((required) =>
+    group.some((required) => isSuperadminRequest(request) ||
       permissionsAllowedForRequest(request, required).some((allowed) =>
         permissions.has(allowed),
       ),
@@ -435,5 +432,5 @@ export async function authorizeAdminRequest(
 }
 
 export function actorHasPermission(request: FastifyRequest, permission: PermissionId) {
-  return expandedRequestPermissions(request).has(permission);
+  return isSuperadminRequest(request) || expandedRequestPermissions(request).has(permission);
 }

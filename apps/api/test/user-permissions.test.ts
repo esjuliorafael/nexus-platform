@@ -3,7 +3,6 @@ import test from "node:test";
 import {
   authorizeAdminRequest,
   actorHasPermission,
-  actorPermissionIds,
   canReadSettingKey,
   isAdminManagedRequest,
   redactSettingValueForReader,
@@ -98,7 +97,6 @@ test("Superadmin receives every catalog permission regardless of stored assignme
   assert.equal(actorHasPermission(superadmin, "raffles.participations.link.share"), true);
   assert.equal(actorHasPermission(superadmin, "platform.settings.manage"), true);
   assert.equal(actorHasPermission(staff, "raffles.participations.link.share"), false);
-  assert.ok(actorPermissionIds(superadmin).includes("raffles.participations.link.share"));
   assert.ok(effectivePermissionIdsForRole("SUPERADMIN", []).includes("raffles.participations.link.share"));
   assert.equal(effectivePermissionIdsForRole("STAFF", []).includes("raffles.participations.link.share"), false);
 });
