@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import { storePrisma } from "@nexus/db/store";
-import { kapsoClient } from "../kapso/kapso.client";
+import {
+  invalidateKapsoTemplateCatalogCache,
+  kapsoClient,
+} from "../kapso/kapso.client";
 import type {
   KapsoConfig,
   KapsoTemplateDefinition,
@@ -968,6 +971,7 @@ export async function syncCloudTemplateCatalog(params: {
   channelName?: string | null;
   channelPurpose?: string | null;
 }) {
+  invalidateKapsoTemplateCatalogCache(params.config);
   const languageCode = params.languageCode || "es_MX";
   const ownerKey = getCloudTemplateOwnerKey(params.owner);
   const results: Array<Record<string, unknown>> = [];

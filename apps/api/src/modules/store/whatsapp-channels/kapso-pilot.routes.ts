@@ -10,7 +10,10 @@ import {
   requireKapsoConfig,
   requireKapsoPlatformConfig,
 } from "../../../services/kapso/kapso.config";
-import { kapsoClient } from "../../../services/kapso/kapso.client";
+import {
+  kapsoClient,
+  listKapsoTemplateCatalogCached,
+} from "../../../services/kapso/kapso.client";
 import {
   getKapsoWebhookError,
   getKapsoInboundMessage,
@@ -766,7 +769,7 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
       let remoteChecked = false;
       if (target.config?.businessAccountId) {
         try {
-          const remote = await kapsoClient.listTemplates(target.config);
+          const remote = await listKapsoTemplateCatalogCached(target.config);
           remoteTemplates = remote.data || [];
           remoteChecked = true;
         } catch (error) {

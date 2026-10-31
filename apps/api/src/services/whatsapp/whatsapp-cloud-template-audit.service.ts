@@ -5,7 +5,7 @@ import type {
   WhatsappCloudTemplateScope,
 } from "@prisma/client-store";
 import { getKapsoConfigForChannel } from "../kapso/kapso.config";
-import { kapsoClient } from "../kapso/kapso.client";
+import { listKapsoTemplateCatalogCached } from "../kapso/kapso.client";
 
 type AuditClient = Pick<typeof storePrisma, "whatsappCloudTemplateEvent">;
 
@@ -264,21 +264,21 @@ export async function reconcileWhatsappCloudTemplateStatuses() {
       );
     }
 
+    let remoteTemplates: Array<Record<string, unknown>>;
+    try {
+      const response = await listKapsoTemplateCatalogCached(config);
+      remoteTemplates = response.data || [];
+    } catch {
+      failed += uniqueTemplates.size;
+      continue;
+    }
+
     for (const record of Array.from(uniqueTemplates.values())) {
-      let remote: Record<string, unknown> | undefined;
-      try {
-        const response = await kapsoClient.listTemplates(config, {
-          name: record.templateName,
-        });
-        remote = findRemoteCloudTemplateForAudit(
-          response.data || [],
-          record.templateName,
-          record.languageCode,
-        );
-      } catch {
-        failed += 1;
-        continue;
-      }
+      const remote = findRemoteCloudTemplateForAudit(
+        remoteTemplates,
+        record.templateName,
+        record.languageCode,
+      );
 
       checked += 1;
       const nextStatus = remote

@@ -18,6 +18,10 @@ import {
   getCloudTemplateStatusEventType,
   getCloudTemplateStatusTransition,
 } from "../src/services/whatsapp/whatsapp-cloud-template-audit.service";
+import {
+  invalidateKapsoTemplateCatalogCache,
+  listKapsoTemplateCatalogCached,
+} from "../src/services/kapso/kapso.client";
 
 test("does not consider a Cloud template healthy when Kapso was not checked", () => {
   assert.equal(
@@ -412,4 +416,68 @@ test("reconciles Kapso locale aliases without matching another language", () => 
     findRemoteCloudTemplateForAudit(catalog, "other_template", "es_MX"),
     undefined,
   );
+});
+
+test("reuses one Kapso catalog request and invalidates it after a sync", async () => {
+  const config = {
+    apiKey: "test-key",
+    apiBaseUrl: "https://kapso.test",
+    phoneNumberId: "phone-1",
+    businessAccountId: `waba-${Date.now()}`,
+  };
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    await new Promise((resolve) => setTimeout(resolve, 5));
+    return new Response(JSON.stringify({ data: [{ name: "approved_template" }] }), {
+      status: 200,
+      headers: { "Content-Type": "application/json" },
+    });
+  };
+
+  try {
+    const [first, concurrent] = await Promise.all([
+      listKapsoTemplateCatalogCached(config),
+      listKapsoTemplateCatalogCached(config),
+    ]);
+    assert.equal(calls, 1);
+    assert.deepEqual(first, concurrent);
+    await listKapsoTemplateCatalogCached(config);
+    assert.equal(calls, 1);
+
+    invalidateKapsoTemplateCatalogCache(config);
+    await listKapsoTemplateCatalogCached(config);
+    assert.equal(calls, 2);
+  } finally {
+    globalThis.fetch = originalFetch;
+    invalidateKapsoTemplateCatalogCache(config);
+  }
+});
+
+test("backs off Kapso template catalog retries after rate limiting", async () => {
+  const config = {
+    apiKey: "test-key",
+    apiBaseUrl: "https://kapso.test",
+    phoneNumberId: "phone-1",
+    businessAccountId: `limited-waba-${Date.now()}`,
+  };
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return new Response(
+      JSON.stringify({ error: { code: 80008, message: "Too many calls" } }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  };
+
+  try {
+    await assert.rejects(listKapsoTemplateCatalogCached(config));
+    await assert.rejects(listKapsoTemplateCatalogCached(config));
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    invalidateKapsoTemplateCatalogCache(config);
+  }
 });

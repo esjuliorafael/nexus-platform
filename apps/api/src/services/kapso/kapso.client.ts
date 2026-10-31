@@ -213,7 +213,10 @@ export const kapsoClient = {
       "POST",
       `/meta/whatsapp/v24.0/${encodeURIComponent(config.businessAccountId)}/message_templates`,
       definition,
-    );
+    ).then((result) => {
+      invalidateKapsoTemplateCatalogCache(config);
+      return result;
+    });
   },
 
   listMessages(
@@ -362,3 +365,72 @@ export const kapsoClient = {
     );
   },
 };
+
+const templateCatalogCacheTtlMs = 5 * 60_000;
+type KapsoTemplateCatalog = { data: Array<Record<string, unknown>> };
+const templateCatalogCache = new Map<
+  string,
+  { expiresAt: number; response: KapsoTemplateCatalog }
+>();
+const templateCatalogRequests = new Map<string, Promise<KapsoTemplateCatalog>>();
+const templateCatalogCacheGenerations = new Map<string, number>();
+const templateCatalogFailures = new Map<
+  string,
+  { retryAt: number; error: unknown }
+>();
+
+function templateCatalogCacheKey(config: KapsoConfig) {
+  return `${config.apiBaseUrl}|${config.businessAccountId || ""}|${config.apiKey}`;
+}
+
+export function invalidateKapsoTemplateCatalogCache(config: KapsoConfig) {
+  const key = templateCatalogCacheKey(config);
+  templateCatalogCache.delete(key);
+  templateCatalogRequests.delete(key);
+  templateCatalogFailures.delete(key);
+  templateCatalogCacheGenerations.set(
+    key,
+    (templateCatalogCacheGenerations.get(key) || 0) + 1,
+  );
+}
+
+export async function listKapsoTemplateCatalogCached(config: KapsoConfig) {
+  const key = templateCatalogCacheKey(config);
+  const cached = templateCatalogCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.response;
+  const failure = templateCatalogFailures.get(key);
+  if (failure && failure.retryAt > Date.now()) throw failure.error;
+
+  const pending = templateCatalogRequests.get(key);
+  if (pending) return pending;
+
+  const generation = templateCatalogCacheGenerations.get(key) || 0;
+  const request = kapsoClient.listTemplates(config);
+  templateCatalogRequests.set(key, request);
+  try {
+    const response = await request;
+    if ((templateCatalogCacheGenerations.get(key) || 0) === generation) {
+      templateCatalogFailures.delete(key);
+      templateCatalogCache.set(key, {
+        expiresAt: Date.now() + templateCatalogCacheTtlMs,
+        response,
+      });
+    }
+    return response;
+  } catch (error: any) {
+    const rateLimited =
+      Number(error?.statusCode) === 429 ||
+      Number(error?.responseBody?.error?.code) === 80008;
+    if ((templateCatalogCacheGenerations.get(key) || 0) === generation) {
+      templateCatalogFailures.set(key, {
+        retryAt: Date.now() + (rateLimited ? 2 * 60_000 : 30_000),
+        error,
+      });
+    }
+    throw error;
+  } finally {
+    if (templateCatalogRequests.get(key) === request) {
+      templateCatalogRequests.delete(key);
+    }
+  }
+}

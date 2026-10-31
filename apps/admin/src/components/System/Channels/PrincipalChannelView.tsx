@@ -1042,6 +1042,12 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                           <p className="text-label text-text-muted">
                             {isActive
                               ? "Versión activa en este canal"
+                              : status?.activeVersion === editingTemplate.version &&
+                                  status?.activeContentHash &&
+                                  status.activeContentHash !== status.contentHash
+                                ? "La versión aprobada anterior sigue activa; esta versión aún no está sincronizada"
+                                : status?.status === "UNKNOWN" || status?.activeHealth === "UNKNOWN"
+                                  ? "Estado remoto sin verificar"
                               : status?.status === "APPROVED" && status?.current
                                 ? "Aprobada y lista para activar"
                                 : status?.status === "PENDING"
