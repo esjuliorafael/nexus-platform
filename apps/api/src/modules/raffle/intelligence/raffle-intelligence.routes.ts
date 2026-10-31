@@ -7,6 +7,7 @@ import {
   raffleAudienceRulesSchema,
 } from "./raffle-audience.schema";
 import { raffleAudienceService } from "./raffle-audience.service";
+import { actorHasPermission } from "../../../utils/user-permissions";
 
 const segmentSchema = z.enum([
   "VIP_PAYERS",
@@ -49,8 +50,7 @@ async function requireIntelligencePermission(server: FastifyInstance, request: a
       ? "raffles.intelligence.view"
       : "raffles.intelligence.manage";
   if (reply.sent) return;
-  const permissions = request.user?.permissions || [];
-  if (!permissions.includes(permission) && !(permission === "raffles.intelligence.export" && permissions.includes("raffles.intelligence.manage"))) {
+  if (!actorHasPermission(request, permission) && !(permission === "raffles.intelligence.export" && actorHasPermission(request, "raffles.intelligence.manage"))) {
     return reply.status(403).send({ message: "No tienes permiso para esta acción de inteligencia de rifas." });
   }
 }

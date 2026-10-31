@@ -6,6 +6,7 @@ import {
   updateOwnProfileSchema,
 } from "./profile.schema";
 import { profileService } from "./profile.service";
+import { actorHasPermission } from "../../../utils/user-permissions";
 
 function sendRouteError(error: any, reply: any) {
   if (error?.issues) {
@@ -50,7 +51,7 @@ export async function ownProfileRoutes(server: FastifyInstance) {
       return await profileService.updateContactProfile(
         Number((request.user as any).id),
         data,
-        (request.user as any).permissions?.includes("users.update") || false,
+        actorHasPermission(request, "users.update"),
       );
     } catch (error) {
       return sendRouteError(error, reply);

@@ -2,12 +2,15 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   authorizeAdminRequest,
+  actorHasPermission,
+  actorPermissionIds,
   canReadSettingKey,
   isAdminManagedRequest,
   redactSettingValueForReader,
   requiredPermissionForRequest,
 } from "../src/utils/user-permissions";
 import { createUserSchema } from "../src/modules/store/users/user.schema";
+import { effectivePermissionIdsForRole } from "@nexus/types";
 
 function makeRequest(url: string, method = "GET", permissions: string[] = [], body?: unknown, role = "STAFF") {
   return { url, method, user: { permissions, role }, body } as any;
@@ -88,6 +91,18 @@ test("maps high-impact admin operations to explicit permissions", () => {
   );
 });
 
+test("Superadmin receives every catalog permission regardless of stored assignments", () => {
+  const superadmin = makeRequest("/api/v1/ticket-sales/admin/participations/8/private-link", "POST", [], undefined, "SUPERADMIN");
+  const staff = makeRequest("/api/v1/ticket-sales/admin/participations/8/private-link", "POST", []);
+
+  assert.equal(actorHasPermission(superadmin, "raffles.participations.link.share"), true);
+  assert.equal(actorHasPermission(superadmin, "platform.settings.manage"), true);
+  assert.equal(actorHasPermission(staff, "raffles.participations.link.share"), false);
+  assert.ok(actorPermissionIds(superadmin).includes("raffles.participations.link.share"));
+  assert.ok(effectivePermissionIdsForRole("SUPERADMIN", []).includes("raffles.participations.link.share"));
+  assert.equal(effectivePermissionIdsForRole("STAFF", []).includes("raffles.participations.link.share"), false);
+});
+
 test("private participation links require both participation access and the dedicated share permission", async () => {
   const makeReply = () => ({
     sent: false,
@@ -95,11 +110,11 @@ test("private participation links require both participation access and the dedi
     status(code: number) { this.statusCode = code; return this; },
     send(body: unknown) { this.sent = true; this.body = body; return body; },
   });
-  const authorize = async (permissions: string[]) => {
+  const authorize = async (permissions: string[], role = "STAFF") => {
     const reply: any = makeReply();
     await authorizeAdminRequest(
       { authenticate: async () => undefined } as any,
-      makeRequest("/api/v1/ticket-sales/admin/participations/8/private-link/send", "POST", permissions),
+      makeRequest("/api/v1/ticket-sales/admin/participations/8/private-link/send", "POST", permissions, undefined, role),
       reply,
     );
     return reply;
@@ -121,6 +136,7 @@ test("private participation links require both participation access and the dedi
     (await authorize(["raffles.participations.manage", "raffles.participations.link.share"])).sent,
     false,
   );
+  assert.equal((await authorize([], "SUPERADMIN")).sent, false);
 });
 
 test("scopes settings reads by key and reserves platform values for Superadmin", () => {
@@ -139,7 +155,7 @@ test("scopes settings reads by key and reserves platform values for Superadmin",
   );
   assert.equal(
     redactSettingValueForReader(makeRequest("/api/v1/admin/settings", "GET", ["platform.settings.view"], undefined, "SUPERADMIN"), "storage_r2_secret_key"),
-    true,
+    false,
   );
 });
 

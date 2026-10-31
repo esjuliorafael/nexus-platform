@@ -145,7 +145,7 @@ import {
   RaffleParticipation,
   User,
 } from "./types";
-import { normalizePermissionIds, userHasPermission, type PermissionId } from "@nexus/types";
+import { effectivePermissionIdsForRole, userHasPermission, type PermissionId } from "@nexus/types";
 import {
   apiOrders,
   apiDashboard,
@@ -514,7 +514,8 @@ function App() {
 
   const [userPermissions, setUserPermissions] = useState<string[]>(() => {
     try {
-      return normalizePermissionIds(JSON.parse(localStorage.getItem("admin_session") || "{}").permissions || []);
+      const session = JSON.parse(localStorage.getItem("admin_session") || "{}");
+      return effectivePermissionIdsForRole(session.role, session.permissions || []);
     } catch {
       return [];
     }
@@ -528,14 +529,15 @@ function App() {
     let active = true;
     apiAuth.me().then((user) => {
       if (!active) return;
-      const permissions = normalizePermissionIds(Array.isArray(user.permissions) ? user.permissions : []);
-      setUserPermissions(permissions);
-      setUserRole(String(user.role || "staff").toLowerCase());
+      const role = String(user.role || "staff").toLowerCase();
+      const assignedPermissions = Array.isArray(user.permissions) ? user.permissions : [];
+      setUserPermissions(effectivePermissionIdsForRole(role, assignedPermissions));
+      setUserRole(role);
       const sessionValue = localStorage.getItem("admin_session");
       if (sessionValue) {
         const session = JSON.parse(sessionValue);
-        session.permissions = permissions;
-        session.role = String(user.role || "staff").toLowerCase();
+        session.permissions = assignedPermissions;
+        session.role = role;
         localStorage.setItem("admin_session", JSON.stringify(session));
       }
     }).catch((error) => {
@@ -1132,7 +1134,7 @@ function App() {
     setPendingOrderIds(new Set());
     setUserName(userData.name.split(" ")[0]);
     setUserRole(normalizedRole);
-    setUserPermissions(userData.permissions || []);
+    setUserPermissions(effectivePermissionIdsForRole(normalizedRole, userData.permissions || []));
     setToken(jwtToken);
     setMustChangePassword(userData.mustChangePassword);
     setIsAuthenticated(true);

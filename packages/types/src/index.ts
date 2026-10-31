@@ -359,6 +359,14 @@ export function normalizePermissionIds(permissions: readonly string[]): Permissi
   return Array.from(normalized);
 }
 
+export function effectivePermissionIdsForRole(
+  role: string | null | undefined,
+  permissions: readonly string[],
+): PermissionId[] {
+  if (String(role || "").toUpperCase() === "SUPERADMIN") return [...PERMISSION_IDS];
+  return normalizePermissionIds(permissions);
+}
+
 const permissionReadGrants: Partial<Record<PermissionId, PermissionId[]>> = {
   "orders.view": ["orders.manage", "orders.financial.manage", "orders.refund", "orders.restore"],
   "products.view": ["products.create", "products.update", "products.delete"],

@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyReply, FastifyRequest } from "fastify";
-import type { PermissionId } from "@nexus/types";
+import { effectivePermissionIdsForRole, type PermissionId } from "@nexus/types";
 
 type Method = "GET" | "POST" | "PUT" | "PATCH" | "DELETE";
 
@@ -126,10 +126,18 @@ function hasPermission(request: FastifyRequest, permission: PermissionId) {
 }
 
 function expandedRequestPermissions(request: FastifyRequest) {
-  const assigned = (request.user as { permissions?: string[] } | undefined)?.permissions ?? [];
+  const user = request.user as { permissions?: string[]; role?: string } | undefined;
+  if (user && String(user.role || "").toUpperCase() === "SUPERADMIN") {
+    return new Set<string>(effectivePermissionIdsForRole(user.role, user.permissions ?? []));
+  }
+  const assigned = user?.permissions ?? [];
   const expanded = new Set(assigned);
   assigned.forEach((permission) => legacyPermissionGrants[permission]?.forEach((grant) => expanded.add(grant)));
   return expanded;
+}
+
+export function actorPermissionIds(request: FastifyRequest): PermissionId[] {
+  return Array.from(expandedRequestPermissions(request)) as PermissionId[];
 }
 
 export function canReadSettingKey(request: FastifyRequest, key: string) {

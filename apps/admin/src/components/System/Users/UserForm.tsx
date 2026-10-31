@@ -78,6 +78,7 @@ export const UserForm = forwardRef<UserFormRef, UserFormProps>(
       permissions: normalizedInitialPermissions,
     }));
     const isEditing = Boolean(user);
+    const isSuperadminTarget = formData.role === "superadmin";
     const normalizedPhone = formData.phone.trim().replace(/[\s()-]/g, "");
     const isPhoneValid = !normalizedPhone || /^\+[1-9]\d{7,14}$/.test(normalizedPhone);
     const [activePermissionGroupId, setActivePermissionGroupId] = useState<string>(
@@ -88,9 +89,11 @@ export const UserForm = forwardRef<UserFormRef, UserFormProps>(
           );
           return {
             id: group.id,
-            selectedCount: permissions.filter((permission) =>
-              normalizedInitialPermissions.includes(permission.id),
-            ).length,
+            selectedCount: isSuperadminTarget
+              ? permissions.length
+              : permissions.filter((permission) =>
+                  normalizedInitialPermissions.includes(permission.id),
+                ).length,
             totalCount: permissions.length,
           };
         });
@@ -122,9 +125,11 @@ export const UserForm = forwardRef<UserFormRef, UserFormProps>(
         (permission) => permission.group === groupId,
       );
       return {
-        selected: groupPermissions.filter((permission) =>
-          formData.permissions.includes(permission.id),
-        ).length,
+        selected: isSuperadminTarget
+          ? groupPermissions.length
+          : groupPermissions.filter((permission) =>
+              formData.permissions.includes(permission.id),
+            ).length,
         total: groupPermissions.length,
       };
     };
@@ -285,9 +290,11 @@ export const UserForm = forwardRef<UserFormRef, UserFormProps>(
             />
           </div>
           <p className="mt-[var(--space-md)] text-secondary text-text-muted">
-            {canManageRoles
-              ? "El rol no concede permisos automáticamente. El acceso se configura de forma individual abajo."
-              : "El rol de la cuenta está reservado a Superadmin. Los permisos determinan el acceso operativo."}
+            {isSuperadminTarget
+              ? "Superadmin tiene acceso a todas las funciones del sistema."
+              : canManageRoles
+                ? "Admin y Staff reciben únicamente las acciones seleccionadas abajo."
+                : "El rol de la cuenta está reservado a Superadmin. Los permisos determinan el acceso operativo."}
           </p>
         </NexusSection>
 
@@ -300,10 +307,14 @@ export const UserForm = forwardRef<UserFormRef, UserFormProps>(
           <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
             <div className="flex flex-wrap items-baseline justify-between" style={{ gap: "var(--space-xs) var(--space-md)" }}>
               <p className="text-secondary text-text-muted" aria-live="polite">
-                {formData.permissions.length} de {PERMISSIONS.length} acciones asignadas
+                {isSuperadminTarget
+                  ? `${PERMISSIONS.length} de ${PERMISSIONS.length} acciones disponibles por el rol Superadmin`
+                  : `${formData.permissions.length} de ${PERMISSIONS.length} acciones asignadas`}
               </p>
               <p className="text-secondary text-text-muted">
-                Solo puedes conceder permisos que ya tienes.
+                {isSuperadminTarget
+                  ? "El acceso total de Superadmin no se modifica con permisos individuales."
+                  : "Solo puedes conceder permisos que ya tienes."}
               </p>
             </div>
 
@@ -372,10 +383,11 @@ export const UserForm = forwardRef<UserFormRef, UserFormProps>(
                       <div className="divide-y divide-border-main">
                         {section.permissions.map((permission) => {
                     const isSuperadminOnlyPermission = permission.id === "users.roles.manage" || permission.id.startsWith("platform.settings.");
-                    const canDelegate = canManagePermissions && currentUserPermissions.includes(permission.id) &&
+                    const canDelegate = !isSuperadminTarget && canManagePermissions && currentUserPermissions.includes(permission.id) &&
                       (!isSuperadminOnlyPermission || formData.role === "superadmin");
-                    const checked = formData.permissions.includes(permission.id);
+                    const checked = isSuperadminTarget || formData.permissions.includes(permission.id);
                     const needsMilestoneView =
+                      !isSuperadminTarget &&
                       permission.id === "dashboard.milestones.acknowledge" &&
                       !formData.permissions.includes("dashboard.milestones.view") &&
                       !currentUserPermissions.includes("dashboard.milestones.view");
@@ -401,8 +413,9 @@ export const UserForm = forwardRef<UserFormRef, UserFormProps>(
                         </span>
                         <NexusCheckboxControl
                           checked={checked}
-                          disabled={!canManagePermissions || (!canDelegate && !checked) || needsMilestoneView}
+                          disabled={isSuperadminTarget || !canManagePermissions || (!canDelegate && !checked) || needsMilestoneView}
                           onChange={() => {
+                            if (isSuperadminTarget) return;
                             const nextPermissions = checked
                               ? formData.permissions.filter(
                                   (item) =>

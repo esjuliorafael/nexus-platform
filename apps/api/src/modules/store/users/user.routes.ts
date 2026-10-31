@@ -3,10 +3,11 @@ import { userService } from "./user.service";
 import { createUserSchema, updateUserSchema } from "./user.schema";
 import { updateContactProfileSchema } from "../profile/profile.schema";
 import { profileService } from "../profile/profile.service";
+import type { PermissionId } from "@nexus/types";
+import { actorHasPermission, actorPermissionIds } from "../../../utils/user-permissions";
 
-function rejectUnlessPermission(request: any, reply: any, permission: string) {
-  const permissions = request.user?.permissions || [];
-  if (!permissions.includes(permission)) {
+function rejectUnlessPermission(request: any, reply: any, permission: PermissionId) {
+  if (!actorHasPermission(request, permission)) {
     reply.status(403).send({ message: "No tienes permiso para realizar esta acción." });
     return true;
   }
@@ -53,7 +54,7 @@ export async function userRoutes(server: FastifyInstance) {
     if (rejectUnlessPermission(request, reply, "users.create")) return;
     try {
       const validated = createUserSchema.parse(request.body);
-      const actorPermissions = (request.user as any).permissions || [];
+      const actorPermissions = actorPermissionIds(request);
       if (rejectUnlessPermission(request, reply, "users.permissions.manage")) return;
       if (validated.role !== "STAFF" && (!isSuperadmin(request) || rejectUnlessPermission(request, reply, "users.roles.manage"))) {
         if (!reply.sent) return reply.status(403).send({ message: "Solo Superadmin puede asignar roles privilegiados." });
@@ -84,7 +85,7 @@ export async function userRoutes(server: FastifyInstance) {
       if (target.role === "SUPERADMIN" && !isSuperadmin(request)) {
         return reply.status(403).send({ message: "Solo Superadmin puede modificar otra cuenta Superadmin." });
       }
-      const actorPermissions = (request.user as any).permissions || [];
+      const actorPermissions = actorPermissionIds(request);
       if (validated.permissions && rejectUnlessPermission(request, reply, "users.permissions.manage")) return;
       if (validated.role !== undefined && validated.role !== target.role) {
         if (!isSuperadmin(request)) {

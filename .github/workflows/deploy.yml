@@ -37,6 +37,9 @@ jobs:
       - name: Test BullMQ media job IDs
         run: pnpm --filter @nexus/api test:media-queue
 
+      - name: Test admin user permissions
+        run: pnpm --filter @nexus/api test:user-permissions
+
       - name: Test WhatsApp Cloud template readiness
         run: pnpm --filter @nexus/api test:whatsapp-cloud-templates
 
