@@ -66,6 +66,7 @@ const PERMISSION_IDS = [
   "raffles.results.manage",
   "raffles.participations.view",
   "raffles.participations.manage",
+  "raffles.participations.link.share",
   "raffles.financial.manage",
   "raffles.coupons.view",
   "raffles.coupons.manage",

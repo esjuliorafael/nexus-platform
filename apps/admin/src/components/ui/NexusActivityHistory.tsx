@@ -1,10 +1,12 @@
 import React, { useMemo, useState } from "react";
 import {
+  AlertTriangle,
   CheckCircle2,
   CircleX,
   Clock3,
   CreditCard,
   History,
+  Link2,
   MessageCircle,
   RotateCcw,
   ShoppingBag,
@@ -41,6 +43,9 @@ const EVENT_PRESENTATION: Record<string, EventPresentation> = {
   CUSTOMER_UPDATED: { label: "Cliente actualizado", icon: UserRoundCog, variant: "info" },
   PARTICIPANT_UPDATED: { label: "Participante actualizado", icon: UserRoundCog, variant: "info" },
   WHATSAPP_RESENT: { label: "WhatsApp reenviado", icon: MessageCircle, variant: "success" },
+  PRIVATE_LINK_GENERATED: { label: "Enlace privado generado", icon: Link2, variant: "info" },
+  PRIVATE_LINK_SENT: { label: "Enlace privado enviado", icon: MessageCircle, variant: "success" },
+  PRIVATE_LINK_SEND_FAILED: { label: "Falló el envío del enlace", icon: AlertTriangle, variant: "warning" },
   TICKET_SALE_DELETED: { label: "Registro eliminado", icon: CircleX, variant: "danger" },
   RESULT_PUBLISHED: { label: "Resultado publicado", icon: CheckCircle2, variant: "success" },
   DATE_CHANGE_QUEUED: { label: "Cambio de fecha preparado", icon: Clock3, variant: "info" },

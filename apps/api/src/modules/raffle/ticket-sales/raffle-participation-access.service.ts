@@ -50,6 +50,16 @@ export async function createRaffleParticipationAccess(params: {
   };
 }
 
+export async function revokeRaffleParticipationAccess(
+  rafflePrisma: RafflePrismaClient,
+  token: string,
+) {
+  await rafflePrisma.raffleParticipationAccessToken.updateMany({
+    where: { tokenHash: hash(token), revokedAt: null },
+    data: { revokedAt: new Date() },
+  });
+}
+
 const paymentStatusLabel = (status: TicketStatus) => {
   if (status === TicketStatus.PAID) return "Pago confirmado";
   if (status === TicketStatus.CANCELLED) return "Participaci\u00f3n cancelada";

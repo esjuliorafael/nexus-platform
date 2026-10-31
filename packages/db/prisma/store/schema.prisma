@@ -749,6 +749,44 @@ model WhatsappCloudTemplateCandidate {
   @@map("whatsapp_cloud_template_candidates")
 }
 
+model WhatsappCloudTemplateEvent {
+  id                        String                     @id @default(uuid())
+  ownerKey                  String                     @map("owner_key")
+  channelId                 Int?                       @map("channel_id")
+  channelName               String?                    @map("channel_name")
+  channelPurpose            String?                    @map("channel_purpose")
+  scope                     WhatsappCloudTemplateScope
+  type                      TemplateType
+  variant                   String                     @default("LEGACY")
+  eventType                 String                     @map("event_type")
+  templateName              String?                    @map("template_name")
+  templateId                String?                    @map("template_id")
+  category                  String?
+  languageCode              String?                    @map("language_code")
+  contentHash               String?                    @map("content_hash")
+  previousContentHash       String?                    @map("previous_content_hash")
+  nextContentHash           String?                    @map("next_content_hash")
+  previousStatus            String?                    @map("previous_status")
+  nextStatus                String?                    @map("next_status")
+  definitionSnapshot        Json?                      @map("definition_snapshot")
+  metadata                  Json?
+  actorType                 String?                    @map("actor_type")
+  actorId                   String?                    @map("actor_id")
+  actorName                 String?                    @map("actor_name")
+  actorRole                 String?                    @map("actor_role")
+  origin                    String
+  requestId                 String?                    @map("request_id")
+  ipAddress                 String?                    @map("ip_address")
+  userAgent                 String?                    @map("user_agent")
+  observedAt                DateTime                   @default(now()) @map("observed_at")
+  createdAt                 DateTime                   @default(now()) @map("created_at")
+
+  @@index([ownerKey, scope, type, variant, createdAt])
+  @@index([templateName, createdAt])
+  @@index([eventType, createdAt])
+  @@map("whatsapp_cloud_template_events")
+}
+
 model ShippingZone {
   id       Int          @id @default(autoincrement())
   name     String       @map("state")
@@ -1040,6 +1078,7 @@ enum TemplateType {
   RESULT_WINNER             @map("result_winner")
   RESULT_PARTICIPANTS       @map("result_participants")
   PARTICIPATION_LOOKUP_CODE @map("participation_lookup_code")
+  PARTICIPATION_LINK_MANUAL @map("participation_link_manual")
 }
 
 enum ShippingType {

@@ -31,6 +31,7 @@ import { mediaVaultService } from "./modules/store/media-vault/media-vault.servi
 import { reconcileRecoverableWhatsappJobs } from "./services/whatsapp-recovery.service";
 import { inventoryIntegrityService } from "./modules/store/inventory/inventory-integrity.service";
 import { raffleDrawReminderService } from "./modules/raffle/raffles/raffle-draw-reminder.service";
+import { reconcileWhatsappCloudTemplateStatuses } from "./services/whatsapp/whatsapp-cloud-template-audit.service";
 
 const server = fastify({
   logger: true,
@@ -221,6 +222,28 @@ async function bootstrap() {
     await auditInventoryIntegrity();
     const inventoryIntegrityTimer = setInterval(auditInventoryIntegrity, 15 * 60 * 1000);
     inventoryIntegrityTimer.unref?.();
+
+    const reconcileCloudTemplateStatuses = async () => {
+      try {
+        const result = await reconcileWhatsappCloudTemplateStatuses();
+        if (result.checked > 0 || result.failed > 0) {
+          server.log.info(
+            `WhatsApp template audit: ${result.checked} checked, ${result.transitions} status change(s), ${result.failed} lookup failure(s).`,
+          );
+        }
+      } catch (error: any) {
+        server.log.error(
+          `WhatsApp template audit reconciliation failed: ${error.message}`,
+        );
+      }
+    };
+
+    await reconcileCloudTemplateStatuses();
+    const cloudTemplateAuditTimer = setInterval(
+      reconcileCloudTemplateStatuses,
+      15 * 60 * 1000,
+    );
+    cloudTemplateAuditTimer.unref?.();
 
     const reconcileOrderReminders = async () => {
       try {

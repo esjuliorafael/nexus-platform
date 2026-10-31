@@ -651,6 +651,7 @@ function App() {
   const canDeleteRaffleCoupons = userPermissions.includes("raffles.coupons.delete");
   const canViewRaffleCoupons = hasPermission("raffles.coupons.view");
   const canManageParticipation = userPermissions.includes("raffles.participations.manage");
+  const canShareParticipationLinks = hasPermission("raffles.participations.link.share");
   const canManageRaffleFinancial = userPermissions.includes("raffles.financial.manage");
   const canCreateProducts = userPermissions.includes("products.create");
   const canUpdateProducts = userPermissions.includes("products.update");
@@ -3063,6 +3064,7 @@ function App() {
                       canManageParticipation={canManageParticipation}
                       canManageRaffleFinancial={canManageRaffleFinancial}
                       canSendMessages={canSendMessages}
+                      canShareParticipationLinks={canShareParticipationLinks}
                       onLoaded={setSelectedRaffleParticipation}
                       showToast={showToast}
                     />

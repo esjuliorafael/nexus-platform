@@ -3,13 +3,43 @@ name: CI/CD Nexus Platform
 on:
   push:
     branches: [ "master" ]
+  pull_request:
+    branches: [ "master" ]
   workflow_dispatch:
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
+  test-media-processing-job-id:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9.0.0
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install API dependencies
+        run: pnpm install --frozen-lockfile --filter "@nexus/api..."
+
+      - name: Test BullMQ media job IDs
+        run: pnpm --filter @nexus/api test:media-queue
+
+      - name: Test WhatsApp Cloud template readiness
+        run: pnpm --filter @nexus/api test:whatsapp-cloud-templates
+
   build-and-push:
+    needs: test-media-processing-job-id
+    if: github.event_name != 'pull_request'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code

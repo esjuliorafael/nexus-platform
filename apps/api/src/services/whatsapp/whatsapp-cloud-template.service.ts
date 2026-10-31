@@ -6,6 +6,12 @@ import type {
   KapsoTemplateDefinition,
   KapsoTemplateMessage,
 } from "../kapso/kapso.types";
+import {
+  buildCloudTemplateDefinitionSnapshot,
+  recordCloudTemplateAuditEvent,
+  recordCloudTemplateStatusTransition,
+  type CloudTemplateAuditContext,
+} from "./whatsapp-cloud-template-audit.service";
 
 export type CloudTemplateScope = "STORE" | "RAFFLES";
 export type CloudTemplateType =
@@ -24,7 +30,8 @@ export type CloudTemplateType =
   | "PARTICIPANT_COUPON"
   | "RESULT_WINNER"
   | "RESULT_PARTICIPANTS"
-  | "PARTICIPATION_LOOKUP_CODE";
+  | "PARTICIPATION_LOOKUP_CODE"
+  | "PARTICIPATION_LINK_MANUAL";
 
 export type CloudTemplateSource = {
   scope: CloudTemplateScope;
@@ -131,6 +138,11 @@ export const CLOUD_TEMPLATE_SETTING_KEYS: Array<{
     type: "PARTICIPATION_LOOKUP_CODE",
     key: "whatsapp_global_raffle_participation_lookup",
   },
+  {
+    scope: "RAFFLES",
+    type: "PARTICIPATION_LINK_MANUAL",
+    key: "whatsapp_global_raffle_participation_link_manual",
+  },
 ];
 
 const SIMPLIFIED_DATE_CHANGE_CONTENT =
@@ -203,6 +215,8 @@ Válido hasta {{coupon_expires_at}}.
     '¡Felicidades, {{customer_name}}! 🏆\n\nEl resultado de tu participación en "{{raffle_name}}" ya está disponible.\n\nTu participación resultó ganadora. ✅\n\n🔎 Consulta el lugar, el premio y el número ganador en el botón Ver participación:\n\n{{participation_url}}',
   PARTICIPATION_LOOKUP_CODE:
     "\u{1F50E} Recibimos tu solicitud para consultar tus participaciones.\n\nConsulta tus boletos y su estado desde el bot\u00f3n Ver participaci\u00f3n:\n\n{{participation_url}}",
+  PARTICIPATION_LINK_MANUAL:
+    'Hola, {{customer_name}}. Te compartimos el enlace privado para consultar tu participación en la rifa "{{raffle_name}}".\n\nRevisa tus boletos y su estado desde el botón Ver participación:\n\n{{participation_url}}',
 };
 
 export function getCanonicalCloudTemplateSettingKey(
@@ -280,40 +294,54 @@ export async function getActiveCloudTemplateVariant(params: {
   return setting?.value === "SIMPLIFIED" ? "SIMPLIFIED" : "LEGACY";
 }
 
-type CloudTemplateMapping = NonNullable<
-  Awaited<ReturnType<typeof storePrisma.whatsappCloudTemplate.findUnique>>
->;
-type CloudTemplateCandidate = NonNullable<
-  Awaited<
-    ReturnType<typeof storePrisma.whatsappCloudTemplateCandidate.findUnique>
-  >
->;
+export type CloudTemplateRemoteHealth =
+  | "UNKNOWN"
+  | "MAPPING_MISSING"
+  | "TEMPLATE_MISSING"
+  | "NOT_APPROVED"
+  | "HEALTHY";
 
-export async function promoteApprovedCloudTemplateCandidate(
-  mapping: CloudTemplateMapping,
-  candidate: CloudTemplateCandidate,
+export function findCloudTemplateInCatalog(
+  templates: Array<Record<string, unknown>>,
+  templateName: string,
+  languageCode?: string | null,
 ) {
-  const promoted = await storePrisma.whatsappCloudTemplate.update({
-    where: { id: mapping.id },
-    data: {
-      channelId: candidate.channelId,
-      templateName: candidate.templateName,
-      templateId: candidate.templateId,
-      category: candidate.category,
-      languageCode: candidate.languageCode,
-      status: candidate.status,
-      parameterNames: Array.isArray(candidate.parameterNames)
-        ? candidate.parameterNames.map(String)
-        : [],
-      contentHash: candidate.contentHash,
-      lastError: null,
-      lastSyncedAt: candidate.lastSyncedAt || new Date(),
-    },
-  });
-  await storePrisma.whatsappCloudTemplateCandidate.delete({
-    where: { id: candidate.id },
-  });
-  return promoted;
+  const namedTemplates = templates.filter(
+    (template) => String(template.name || "").trim() === templateName,
+  );
+  if (!languageCode) return namedTemplates[0];
+
+  const normalizeLanguage = (value: unknown) =>
+    String(value || "")
+      .trim()
+      .replace(/-/g, "_")
+      .toLowerCase();
+  const expectedLanguage = normalizeLanguage(languageCode);
+  const exactMatch = namedTemplates.find(
+    (template) => normalizeLanguage(template.language) === expectedLanguage,
+  );
+  if (exactMatch) return exactMatch;
+
+  const expectedBaseLanguage = expectedLanguage.split("_")[0];
+  return namedTemplates.find(
+    (template) =>
+      normalizeLanguage(template.language).split("_")[0] ===
+      expectedBaseLanguage,
+  );
+}
+
+export function getCloudTemplateRemoteHealth(params: {
+  remoteChecked: boolean;
+  mappingFound: boolean;
+  templateFound: boolean;
+  remoteStatus?: string | null;
+}): CloudTemplateRemoteHealth {
+  if (!params.remoteChecked) return "UNKNOWN";
+  if (!params.mappingFound) return "MAPPING_MISSING";
+  if (!params.templateFound) return "TEMPLATE_MISSING";
+  return String(params.remoteStatus || "").toUpperCase() === "APPROVED"
+    ? "HEALTHY"
+    : "NOT_APPROVED";
 }
 
 export function buildCanonicalCloudTemplateSources(
@@ -343,7 +371,9 @@ export function buildCanonicalCloudTemplateSources(
     .filter(
       (item) =>
         item.content.trim() ||
-        (variant === "LEGACY" && item.type !== "PARTICIPATION_LOOKUP_CODE"),
+        (variant === "LEGACY" &&
+          item.type !== "PARTICIPATION_LOOKUP_CODE" &&
+          item.type !== "PARTICIPATION_LINK_MANUAL"),
     );
 
   return sources;
@@ -934,6 +964,9 @@ export async function syncCloudTemplateCatalog(params: {
   sources: CloudTemplateSource[];
   languageCode?: string;
   resolveRichInvitationHeaderHandle?: () => Promise<string | null>;
+  auditContext?: CloudTemplateAuditContext;
+  channelName?: string | null;
+  channelPurpose?: string | null;
 }) {
   const languageCode = params.languageCode || "es_MX";
   const ownerKey = getCloudTemplateOwnerKey(params.owner);
@@ -978,6 +1011,7 @@ export async function syncCloudTemplateCatalog(params: {
       category?: string | null;
       status: string;
       lastError?: string | null;
+      remoteCreated?: boolean;
     }) => {
       const values = {
         channelId,
@@ -996,33 +1030,131 @@ export async function syncCloudTemplateCatalog(params: {
         lastSyncedAt: new Date(),
       };
 
-      if (isReplacement) {
-        return storePrisma.whatsappCloudTemplateCandidate.upsert({
-          where: {
-            ownerKey_scope_type_variant_contentHash: {
-              ownerKey,
-              scope: source.scope,
-              type: source.type,
-              variant,
-              contentHash,
-            },
-          },
-          create: values,
-          update: values,
-        });
-      }
+      const context = params.auditContext || {
+        actorType: "SYSTEM",
+        actorName: "Sincronización de plantillas",
+        origin: "template_catalog_sync",
+      };
+      const subject = {
+        channelId,
+        channelName: params.channelName,
+        channelPurpose: params.channelPurpose,
+        ownerKey,
+        scope: source.scope,
+        type: source.type,
+        variant,
+        templateName,
+        templateId: values.templateId,
+        category: values.category,
+        languageCode,
+        contentHash,
+      };
+      const definitionSnapshot = buildCloudTemplateDefinitionSnapshot(
+        source.content,
+        parameterNames,
+      );
 
-      return storePrisma.whatsappCloudTemplate.upsert({
-        where: {
-          ownerKey_scope_type_variant: {
-            ownerKey,
-            scope: source.scope,
-            type: source.type,
-            variant,
-          },
-        },
-        create: values,
-        update: values,
+      return storePrisma.$transaction(async (tx) => {
+        const previous = isReplacement
+          ? await tx.whatsappCloudTemplateCandidate.findUnique({
+              where: {
+                ownerKey_scope_type_variant_contentHash: {
+                  ownerKey,
+                  scope: source.scope,
+                  type: source.type,
+                  variant,
+                  contentHash,
+                },
+              },
+            })
+          : await tx.whatsappCloudTemplate.findUnique({
+              where: {
+                ownerKey_scope_type_variant: {
+                  ownerKey,
+                  scope: source.scope,
+                  type: source.type,
+                  variant,
+                },
+              },
+            });
+        const current = isReplacement
+          ? await tx.whatsappCloudTemplateCandidate.upsert({
+              where: {
+                ownerKey_scope_type_variant_contentHash: {
+                  ownerKey,
+                  scope: source.scope,
+                  type: source.type,
+                  variant,
+                  contentHash,
+                },
+              },
+              create: values,
+              update: values,
+            })
+          : await tx.whatsappCloudTemplate.upsert({
+              where: {
+                ownerKey_scope_type_variant: {
+                  ownerKey,
+                  scope: source.scope,
+                  type: source.type,
+                  variant,
+                },
+              },
+              create: values,
+              update: values,
+            });
+
+        if (data.remoteCreated) {
+          await recordCloudTemplateAuditEvent(tx, subject, {
+            eventType: "TEMPLATE_SUBMITTED",
+            context,
+            previousContentHash: activeMapping?.contentHash || null,
+            nextStatus: data.status,
+            nextContentHash: contentHash,
+            definitionSnapshot,
+            metadata: {
+              remoteCreated: true,
+              replacesContentHash: activeMapping?.contentHash || null,
+            },
+          });
+        } else if (!previous && data.status !== "ERROR") {
+          await recordCloudTemplateAuditEvent(tx, subject, {
+            eventType: "VERSION_DISCOVERED",
+            context,
+            previousContentHash: activeMapping?.contentHash || null,
+            nextStatus: data.status,
+            nextContentHash: contentHash,
+            definitionSnapshot,
+            metadata: {
+              remoteCreated: false,
+              replacesContentHash: activeMapping?.contentHash || null,
+            },
+          });
+        }
+
+        await recordCloudTemplateStatusTransition(
+          tx,
+          subject,
+          previous?.status,
+          data.status,
+          context,
+          { source: "manual_sync" },
+        );
+
+        if (data.status === "ERROR") {
+          await recordCloudTemplateAuditEvent(tx, subject, {
+            eventType: "SYNC_FAILED",
+            context,
+            previousStatus: previous?.status,
+            nextStatus: data.status,
+            nextContentHash: contentHash,
+            definitionSnapshot,
+            metadata: {
+              message: (data.lastError || "No se pudo sincronizar.").slice(0, 500),
+            },
+          });
+        }
+        return current;
       });
     };
 
@@ -1122,50 +1254,12 @@ export async function syncCloudTemplateCatalog(params: {
         normalizeRemoteCategory(existing?.category || created?.category) ||
         getCloudTemplateCategory(source.type);
 
-      await persist({ templateId, category, status });
-
-      // If this variant is already selected for the owner, an approved
-      // replacement is safe to promote immediately. Without this, the old
-      // mapping remains stale until the next real message is sent.
-      if (
-        isReplacement &&
-        status === "APPROVED" &&
-        activeMapping &&
-        source.type !== "RAFFLE_INVITATION"
-      ) {
-        const activeVersionKey = getTemplateActiveVersionSettingKey(
-          source.scope,
-          source.type,
-          "CLOUD",
-          params.owner,
-        );
-        const activeVersionSetting = activeVersionKey
-          ? await storePrisma.setting.findUnique({
-              where: { key: activeVersionKey },
-              select: { value: true },
-            })
-          : null;
-        if ((activeVersionSetting?.value || "LEGACY") === variant) {
-          const approvedCandidate =
-            await storePrisma.whatsappCloudTemplateCandidate.findUnique({
-              where: {
-                ownerKey_scope_type_variant_contentHash: {
-                  ownerKey,
-                  scope: source.scope,
-                  type: source.type,
-                  variant,
-                  contentHash,
-                },
-              },
-            });
-          if (approvedCandidate?.status === "APPROVED") {
-            await promoteApprovedCloudTemplateCandidate(
-              activeMapping,
-              approvedCandidate,
-            );
-          }
-        }
-      }
+      await persist({
+        templateId,
+        category,
+        status,
+        remoteCreated: Boolean(created),
+      });
 
       results.push({
         scope: source.scope,
@@ -1223,10 +1317,8 @@ export async function getApprovedCloudTemplate(params: {
     content: params.sourceContent,
     variant,
   });
-  let usesApprovedInvitationCandidate = false;
-
-  // A pending replacement must never interrupt an approved operational
-  // template. Promote it only after Meta has approved the exact definition.
+  // Keep the active mapping stable until an administrator explicitly
+  // activates an approved replacement.
   if (mapping && mapping.contentHash !== desiredContentHash) {
     let candidate = await storePrisma.whatsappCloudTemplateCandidate.findUnique(
       {
@@ -1260,36 +1352,49 @@ export async function getApprovedCloudTemplate(params: {
             String(item.language) === candidate!.languageCode,
         );
         if (template) {
-          candidate = await storePrisma.whatsappCloudTemplateCandidate.update({
-            where: { id: candidate.id },
-            data: {
-              templateId: String(template.id || "") || candidate.templateId,
-              category:
-                normalizeRemoteCategory(template.category) ||
-                candidate.category,
-              status: normalizeRemoteStatus(template.status),
-              lastError: null,
-              lastSyncedAt: new Date(),
-            },
+          const nextStatus = normalizeRemoteStatus(template.status);
+          const auditSubject = {
+            ownerKey: candidate.ownerKey,
+            channelId: candidate.channelId,
+            scope: candidate.scope,
+            type: candidate.type,
+            variant: candidate.variant,
+            templateName: candidate.templateName,
+            templateId: String(template.id || "") || candidate.templateId,
+            category:
+              normalizeRemoteCategory(template.category) ||
+              candidate.category,
+            languageCode: candidate.languageCode,
+            contentHash: candidate.contentHash,
+          };
+          candidate = await storePrisma.$transaction(async (tx) => {
+            const updated = await tx.whatsappCloudTemplateCandidate.update({
+              where: { id: candidate!.id },
+              data: {
+                templateId: auditSubject.templateId,
+                category: auditSubject.category,
+                status: nextStatus,
+                lastError: null,
+                lastSyncedAt: new Date(),
+              },
+            });
+            await recordCloudTemplateStatusTransition(
+              tx,
+              auditSubject,
+              candidate!.status,
+              nextStatus,
+              {
+                actorType: "SYSTEM",
+                actorName: "Consulta de estado Kapso",
+                origin: "runtime_lookup",
+              },
+              { remoteStatus: String(template.status || "") },
+            );
+            return updated;
           });
         }
       } catch {
         // Keep the approved active mapping available during a transient lookup failure.
-      }
-    }
-
-    if (candidate?.status === "APPROVED") {
-      if (
-        params.type === "RAFFLE_INVITATION" &&
-        /\{\{raffle_extra\}\}/i.test(params.sourceContent)
-      ) {
-        // Invitations support an optional information line. Keep the approved
-        // base mapping available for invitations without additional info and
-        // use the approved replacement only when that line is present.
-        mapping = { ...mapping, ...candidate };
-        usesApprovedInvitationCandidate = true;
-      } else {
-        mapping = await promoteApprovedCloudTemplateCandidate(mapping, candidate);
       }
     }
 
@@ -1304,9 +1409,6 @@ export async function getApprovedCloudTemplate(params: {
   }
   const shouldRefresh =
     mapping &&
-    !usesApprovedInvitationCandidate &&
-    (mapping.status !== "APPROVED" ||
-      !normalizeRemoteCategory(mapping.category)) &&
     params.config &&
     (!mapping.lastSyncedAt ||
       Date.now() - mapping.lastSyncedAt.getTime() >= 5 * 60_000);
@@ -1314,24 +1416,91 @@ export async function getApprovedCloudTemplate(params: {
     try {
       const remote = await kapsoClient.listTemplates(params.config!, {
         name: mapping.templateName,
-        language: mapping.languageCode,
       });
-      const template = remote.data.find(
-        (item) =>
-          String(item.name) === mapping!.templateName &&
-          String(item.language) === mapping!.languageCode,
+      const template = findCloudTemplateInCatalog(
+        remote.data,
+        mapping.templateName,
+        mapping.languageCode,
       );
       if (template) {
-        mapping = await storePrisma.whatsappCloudTemplate.update({
-          where: { id: mapping.id },
-          data: {
-            templateId: String(template.id || "") || mapping.templateId,
-            category:
-              normalizeRemoteCategory(template.category) || mapping.category,
-            status: normalizeRemoteStatus(template.status),
-            lastError: null,
-            lastSyncedAt: new Date(),
-          },
+        const status = normalizeRemoteStatus(template.status);
+        const auditSubject = {
+          ownerKey: mapping.ownerKey,
+          channelId: mapping.channelId,
+          scope: mapping.scope,
+          type: mapping.type,
+          variant: mapping.variant,
+          templateName: mapping.templateName,
+          templateId: String(template.id || "") || mapping.templateId,
+          category:
+            normalizeRemoteCategory(template.category) || mapping.category,
+          languageCode: mapping.languageCode,
+          contentHash: mapping.contentHash,
+        };
+        mapping = await storePrisma.$transaction(async (tx) => {
+          const updated = await tx.whatsappCloudTemplate.update({
+            where: { id: mapping!.id },
+            data: {
+              templateId: auditSubject.templateId,
+              category: auditSubject.category,
+              status,
+              lastError: null,
+              lastSyncedAt: new Date(),
+            },
+          });
+          await recordCloudTemplateStatusTransition(
+            tx,
+            auditSubject,
+            mapping!.status,
+            status,
+            {
+              actorType: "SYSTEM",
+              actorName: "Consulta de estado Kapso",
+              origin: "runtime_lookup",
+            },
+            { remoteStatus: String(template.status || "") },
+          );
+          return updated;
+        });
+      } else {
+        const missingError =
+          "La plantilla activa ya no aparece en el catálogo de Kapso.";
+        mapping = await storePrisma.$transaction(async (tx) => {
+          const updated = await tx.whatsappCloudTemplate.update({
+            where: { id: mapping!.id },
+            data: {
+              status: "MISSING",
+              lastError: missingError,
+              lastSyncedAt: new Date(),
+            },
+          });
+          await recordCloudTemplateStatusTransition(
+            tx,
+            {
+              ownerKey: mapping!.ownerKey,
+              channelId: mapping!.channelId,
+              scope: mapping!.scope,
+              type: mapping!.type,
+              variant: mapping!.variant,
+              templateName: mapping!.templateName,
+              templateId: mapping!.templateId,
+              category: mapping!.category,
+              languageCode: mapping!.languageCode,
+              contentHash: mapping!.contentHash,
+            },
+            mapping!.status,
+            "MISSING",
+            {
+              actorType: "SYSTEM",
+              actorName: "Consulta de estado Kapso",
+              origin: "runtime_lookup",
+            },
+            {
+              lookup: "exact_name_and_language_family",
+              message: missingError,
+            },
+          );
+          return updated;
         });
       }
     } catch {
@@ -1359,7 +1528,6 @@ export async function getApprovedCloudTemplate(params: {
   const fallbackValues =
     params.type === "RAFFLE_INVITATION" &&
     variant === "SIMPLIFIED" &&
-    !usesApprovedInvitationCandidate &&
     /\{\{raffle_extra\}\}/i.test(params.sourceContent) &&
     mapping.contentHash !== desiredContentHash &&
     String(params.values.raffle_extra || "").trim()

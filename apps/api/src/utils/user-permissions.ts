@@ -260,6 +260,7 @@ export function requiredPermissionForRequest(request: FastifyRequest): Permissio
     return "raffles.manage";
   }
   if (starts(path, "/api/v1/ticket-sales/admin")) {
+    if (path.endsWith("/private-link") || path.endsWith("/private-link/send")) return "raffles.participations.link.share";
     if (path.endsWith("/status")) {
       return (request.body as { paymentStatus?: string } | undefined)?.paymentStatus === "PAID"
         ? "raffles.financial.manage"
@@ -288,6 +289,19 @@ function permissionRequirementGroupsForRequest(
   request: FastifyRequest,
 ): PermissionId[][] {
   const path = pathOf(request);
+  if (
+    starts(path, "/api/v1/ticket-sales/admin/participations") &&
+    (path.endsWith("/private-link") || path.endsWith("/private-link/send"))
+  ) {
+    return [
+      ["raffles.participations.link.share"],
+      [
+        "raffles.participations.view",
+        "raffles.participations.manage",
+        "raffles.financial.manage",
+      ],
+    ];
+  }
   if (
     methodOf(request) === "GET" &&
     starts(path, "/api/v1/admin/products") &&

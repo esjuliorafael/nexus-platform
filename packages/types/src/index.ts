@@ -269,6 +269,12 @@ export const PERMISSIONS = [
     description: "Modifica datos o apartados; no confirma pagos ni procesa devoluciones.",
   },
   {
+    id: "raffles.participations.link.share",
+    group: "raffles",
+    label: "Generar y compartir enlaces privados",
+    description: "Emite enlaces de consulta para copiarlos o enviarlos por WhatsApp desde el detalle de una participación.",
+  },
+  {
     id: "raffles.financial.manage",
     group: "raffles",
     label: "Confirmar pagos y reembolsar participaciones",

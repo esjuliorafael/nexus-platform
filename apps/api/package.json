@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
+    "test:media-queue": "tsx --test test/media-asset-job-id.test.ts",
+    "test:whatsapp-cloud-templates": "tsx --test test/whatsapp-cloud-template.test.ts",
     "start": "node dist/server.js",
     "start:payments-gateway": "node dist/payments-gateway.js"
   },

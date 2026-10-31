@@ -1564,6 +1564,22 @@ export const apiRaffleParticipations = {
       `/ticket-sales/admin/participations/${encodeURIComponent(id)}/resend-whatsapp`,
     );
   },
+  generatePrivateLink: async (
+    id: string,
+  ): Promise<{ url: string; expiresAt: string }> => {
+    const response = await api.post(
+      `/ticket-sales/admin/participations/${encodeURIComponent(id)}/private-link`,
+    );
+    return response.data;
+  },
+  sendPrivateLink: async (
+    id: string,
+  ): Promise<{ success: boolean; expiresAt: string }> => {
+    const response = await api.post(
+      `/ticket-sales/admin/participations/${encodeURIComponent(id)}/private-link/send`,
+    );
+    return response.data;
+  },
   refundMercadoPago: async (id: string): Promise<RaffleParticipation> => {
     const response = await api.post(
       `/ticket-sales/admin/participations/${encodeURIComponent(id)}/refund`,

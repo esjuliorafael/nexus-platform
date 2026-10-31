@@ -17,6 +17,7 @@ export type ChannelTemplateType =
   | "RESULT_WINNER"
   | "RESULT_PARTICIPANTS"
   | "PARTICIPATION_LOOKUP_CODE"
+  | "PARTICIPATION_LINK_MANUAL"
   | "MARKETING_SUBSCRIBED"
   | "MARKETING_UNSUBSCRIBED";
 
@@ -365,6 +366,14 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
         variables: ["{{participation_url}}"],
         simplifiedOnly: true,
         defaultContent: `\u{1F50E} Recibimos tu solicitud para consultar tus participaciones.\n\nConsulta tus boletos y su estado desde el botón Ver participación:\n\n{{participation_url}}`,
+      },
+      {
+        type: "PARTICIPATION_LINK_MANUAL",
+        key: "whatsapp_global_raffle_participation_link_manual",
+        label: "Enlace privado de participación",
+        variables: ["{{customer_name}}", "{{raffle_name}}", "{{participation_url}}"],
+        simplifiedOnly: true,
+        defaultContent: `Hola, {{customer_name}}. Te compartimos el enlace privado para consultar tu participación en la rifa "{{raffle_name}}".\n\nRevisa tus boletos y su estado desde el botón Ver participación:\n\n{{participation_url}}`,
       },
     ],
   },
@@ -819,6 +828,11 @@ Válido hasta {{coupon_expires_at}}.
 Consulta tus boletos y su estado desde el bot\u00f3n Ver participaci\u00f3n:
 
 {{participation_url}}`,
+  PARTICIPATION_LINK_MANUAL: `Hola, {{customer_name}}. Te compartimos el enlace privado para consultar tu participación en la rifa "{{raffle_name}}".
+
+Revisa tus boletos y su estado desde el botón Ver participación:
+
+{{participation_url}}`,
   RESERVATION: `\u00a1Hola, {{customer_name}}! \u{1F39F}\u{FE0F}
 
 Tu participaci\u00f3n qued\u00f3 apartada correctamente. \u2705
@@ -957,6 +971,7 @@ const SIMPLIFIED_TEMPLATE_VARIABLES: Partial<
   Record<ChannelTemplateType, string[]>
 > = {
   PARTICIPATION_LOOKUP_CODE: ["{{participation_url}}"],
+  PARTICIPATION_LINK_MANUAL: ["{{customer_name}}", "{{raffle_name}}", "{{participation_url}}"],
   RESERVATION: [
     "{{customer_name}}",
     "{{amount}}",
@@ -1120,7 +1135,7 @@ const TEMPLATE_ORDER_BY_GROUP: Record<string, ChannelTemplateType[]> = {
     "PAYMENT_REFUNDED",
   ],
   "raffle-results": ["DRAW_REMINDER", "RESULT_WINNER", "RESULT_PARTICIPANTS"],
-  "raffle-verification": ["PARTICIPATION_LOOKUP_CODE"],
+  "raffle-verification": ["PARTICIPATION_LOOKUP_CODE", "PARTICIPATION_LINK_MANUAL"],
   "raffle-preferences": ["MARKETING_SUBSCRIBED", "MARKETING_UNSUBSCRIBED"],
   "raffle-promotion": ["RAFFLE_INVITATION", "PARTICIPANT_COUPON"],
 };

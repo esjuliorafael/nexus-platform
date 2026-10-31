@@ -36,6 +36,7 @@ import { NexusCheckboxRow } from "../../ui/NexusCheckboxRow";
 import { NexusSwitch } from "../../ui/NexusSwitch";
 import { NexusConfirmModal } from "../../ui/NexusConfirmModal";
 import { NexusSegmentedControl } from "../../ui/NexusSegmentedControl";
+import { NexusInlineNotice } from "../../ui/NexusInlineNotice";
 import {
   WhatsAppPairingData,
   WhatsAppPairingMethod,
@@ -73,6 +74,25 @@ interface PrincipalChannelViewProps {
 }
 
 type ModalType = "bank" | "mercadopago" | "whatsapp" | null;
+
+const getCloudTemplateStatusLabel = (status?: string | null) => {
+  switch (status) {
+    case "APPROVED":
+      return "Aprobada";
+    case "PENDING":
+      return "En revisión de Meta";
+    case "REJECTED":
+      return "Rechazada";
+    case "MISSING":
+      return "No aparece en Kapso";
+    case "NOT_SYNCED":
+      return "Aún no sincronizada";
+    case "UNKNOWN":
+      return "Estado sin verificar";
+    default:
+      return status || "Estado desconocido";
+  }
+};
 
 const previewMessage = (content: string) => {
   const ticketList =
@@ -646,6 +666,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       return;
     }
     let cancelled = false;
+    let isRefreshing = false;
     setIsLoadingCloudTemplateStatus(true);
     const findMatch = (data: any) =>
       (data?.templates || []).find(
@@ -654,11 +675,14 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
           item.type === editingTemplate.type &&
           (item.variant || "LEGACY") === editingTemplate.version,
       ) || null;
-    void Promise.all([
-      apiWhatsApp.getKapsoTemplateReadiness(undefined, editingTemplate.version),
-      apiWhatsApp.getAll(),
-    ])
-      .then(async ([principalResponse, channels]) => {
+    const refreshStatus = async () => {
+      if (isRefreshing) return;
+      isRefreshing = true;
+      try {
+        const [principalResponse, channels] = await Promise.all([
+          apiWhatsApp.getKapsoTemplateReadiness(undefined, editingTemplate.version),
+          apiWhatsApp.getAll(),
+        ]);
         const linked = channels.filter(
           (channel: any) =>
             channel.provider === "KAPSO" &&
@@ -694,16 +718,28 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
         setCloudTemplateStatuses(statuses);
         setCloudTemplateStatus(statuses.principal || null);
         setIsLoadingCloudTemplateStatus(false);
-      })
-      .catch(() => {
+      } catch {
         if (!cancelled) {
           setCloudTemplateStatus(null);
           setCloudTemplateStatuses({});
           setIsLoadingCloudTemplateStatus(false);
         }
-      });
+      } finally {
+        isRefreshing = false;
+      }
+    };
+    void refreshStatus();
+    const interval = window.setInterval(() => {
+      if (document.visibilityState === "visible") void refreshStatus();
+    }, 60_000);
+    const onVisibilityChange = () => {
+      if (document.visibilityState === "visible") void refreshStatus();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
     return () => {
       cancelled = true;
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisibilityChange);
     };
   }, [editingTemplate?.key, editingTemplate?.type, editingTemplate?.scope, templateProvider, cloudTemplateStatusRefreshToken]);
 
@@ -719,19 +755,19 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       templateProvider,
       "principal",
     );
-    const isActive =
-      templateProvider === "CLOUD" &&
-      cloudTemplateStatus?.contentHash &&
-      cloudTemplateStatus?.activeContentHash
-        ? cloudTemplateStatus.contentHash === cloudTemplateStatus.activeContentHash
-        : (config[activeVersionKey] || config[legacyActiveVersionKey] || "LEGACY") ===
-          editingTemplate.version;
+    const isActive = templateProvider === "CLOUD"
+      ? cloudTemplateStatus?.activeVersion === editingTemplate.version &&
+        cloudTemplateStatus?.contentHash &&
+        cloudTemplateStatus?.activeContentHash === cloudTemplateStatus.contentHash &&
+        cloudTemplateStatus?.activeHealth === "HEALTHY"
+      : (config[activeVersionKey] || config[legacyActiveVersionKey] || "LEGACY") ===
+        editingTemplate.version;
     const canActivate =
       !isTemplateDirty &&
       Boolean(editorContent.trim()) &&
       (templateProvider === "EVOLUTION" ||
-        (editingTemplate.version === "LEGACY" ||
-          (cloudTemplateStatus?.status === "APPROVED" && cloudTemplateStatus?.current)));
+        (cloudTemplateStatus?.current &&
+          cloudTemplateStatus?.activationRecordAvailable));
     const activate = () => {
       if (!canActivate || isActive) return;
       setConfirmDialog({
@@ -850,16 +886,16 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
     const hasPendingCloudSync =
       isTemplateDirty || hasCloudReplacement || hasUnsyncedCloudVersion;
     const activateCloudOwner = (ownerKey: string, label: string, status: any) => {
-      const scopedKey = getTemplateActiveVersionKey(editingTemplate, "CLOUD", ownerKey);
       const isActive =
-        status?.contentHash && status?.activeContentHash
-          ? status.contentHash === status.activeContentHash
-          : (config[scopedKey] || "LEGACY") === editingTemplate.version;
+        status?.activeVersion === editingTemplate.version &&
+        status?.contentHash &&
+        status?.activeContentHash === status.contentHash &&
+        status?.activeHealth === "HEALTHY";
       const canActivate =
         !isTemplateDirty &&
         Boolean(editorContent.trim()) &&
-        (editingTemplate.version === "LEGACY" ||
-          (status?.status === "APPROVED" && status?.current));
+        status?.current &&
+        status?.activationRecordAvailable;
       if (!canActivate || isActive) return;
       setConfirmDialog({
         isOpen: true,
@@ -955,19 +991,50 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                   ? "La versión aprobada anterior permanece activa mientras esta versión se revisa."
                   : "Guardar aquí solo actualiza Nexus. Sincronizar con Kapso/Meta es un paso separado."}
                 </p>
+              {!isLoadingCloudTemplateStatus && !cloudTemplateStatus && (
+                <NexusInlineNotice
+                  title="No se pudo consultar el estado de Cloud API"
+                  variant="warning"
+                  context="card"
+                >
+                  La consulta se reintentará automáticamente. El estado activo no se considera verificado mientras tanto.
+                </NexusInlineNotice>
+              )}
               <div className="flex flex-col" style={{ gap: "var(--space-sm)", marginTop: "var(--space-sm)" }}>
                 {(Object.entries(cloudTemplateStatuses) as Array<[string, any]>)
                   .map(([ownerKey, status]) => {
-                    const scopedKey = getTemplateActiveVersionKey(editingTemplate, "CLOUD", ownerKey);
                     const isActive =
-                      status?.contentHash && status?.activeContentHash
-                        ? status.contentHash === status.activeContentHash
-                        : (config[scopedKey] || "LEGACY") === editingTemplate.version;
+                      status?.activeVersion === editingTemplate.version &&
+                      status?.contentHash &&
+                      status?.activeContentHash === status.contentHash &&
+                      status?.activeHealth === "HEALTHY";
                     const canActivate =
                       !isTemplateDirty &&
                       Boolean(editorContent.trim()) &&
-                      (editingTemplate.version === "LEGACY" ||
-                        (status?.status === "APPROVED" && status?.current));
+                      status?.current &&
+                      status?.activationRecordAvailable;
+                    const activeWarning = {
+                      UNKNOWN: {
+                        title: "No se pudo verificar en Kapso",
+                        body: "La conexión o el catálogo no respondió. El estado activo queda sin confirmar.",
+                        variant: "warning" as const,
+                      },
+                      MAPPING_MISSING: {
+                        title: "No hay mapeo activo en Nexus",
+                        body: "La versión seleccionada no tiene un registro activo asociado en Nexus.",
+                        variant: "warning" as const,
+                      },
+                      TEMPLATE_MISSING: {
+                        title: "La plantilla activa no aparece en Kapso",
+                        body: `Kapso no encuentra ${status?.activeTemplateName || "la plantilla registrada"}. Sincroniza una versión aprobada y actívala para corregir el mapeo.`,
+                        variant: "danger" as const,
+                      },
+                      NOT_APPROVED: {
+                        title: "La plantilla activa no está aprobada",
+                        body: `Kapso reporta el estado ${status?.activeTemplateStatus || "desconocido"}. No se activará hasta confirmar su aprobación.`,
+                        variant: "danger" as const,
+                      },
+                    }[status?.activeHealth as "UNKNOWN" | "MAPPING_MISSING" | "TEMPLATE_MISSING" | "NOT_APPROVED"];
                     return (
                       <div key={ownerKey} className="flex flex-wrap items-center justify-between border-t border-border-main" style={{ gap: "var(--space-sm)", paddingTop: "var(--space-sm)" }}>
                         <div className="min-w-0">
@@ -981,19 +1048,54 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                                   ? "En revisión de Meta"
                                   : status?.status === "REJECTED"
                                     ? "Rechazada por Meta"
+                                    : status?.status === "MISSING"
+                                      ? "No aparece en Kapso"
+                                      : status?.status === "UNKNOWN"
+                                        ? "Estado remoto sin verificar"
                                   : "No aprobada en este canal"}
                           </p>
+                          {activeWarning && (
+                            <NexusInlineNotice
+                              title={activeWarning.title}
+                              variant={activeWarning.variant}
+                              context="card"
+                              style={{ marginTop: "var(--space-sm)" }}
+                            >
+                              {activeWarning.body}
+                            </NexusInlineNotice>
+                          )}
+                          {status?.current && !status?.activationRecordAvailable && (
+                            <p className="text-label text-text-muted" style={{ marginTop: "var(--space-xs)" }}>
+                              Aprobada en Kapso; sincroniza en Nexus para habilitar la activación.
+                            </p>
+                          )}
                           <div className="flex flex-wrap items-center" style={{ gap: "var(--space-xs)", marginTop: "var(--space-xs)" }}>
                             {status?.contentHash && (
                               <span className="text-label text-text-muted" title={status.contentHash}>
-                                Hash de esta version: {String(status.contentHash).slice(0, 8)}
+                                Hash del contenido actual: {String(status.contentHash).slice(0, 8)}
                               </span>
                             )}
                             {status?.activeContentHash && (
                               <span className="text-label text-text-muted" title={status.activeContentHash}>
-                                Hash activo: {String(status.activeContentHash).slice(0, 8)}
+                                Hash del contenido activo: {String(status.activeContentHash).slice(0, 8)}
                               </span>
                             )}
+                            <span
+                              className="text-label text-text-muted max-w-full break-all"
+                              title={status?.templateName || ""}
+                            >
+                              Nombre esperado para esta versión: {status?.templateName || "Sin nombre"}
+                              {status?.status && ` · ${getCloudTemplateStatusLabel(status.status)}`}
+                            </span>
+                            <span
+                              className="text-label text-text-muted max-w-full break-all"
+                              title={status?.activeTemplateName || ""}
+                            >
+                              Plantilla activa en Kapso: {status?.activeTemplateName || "Sin mapeo"}
+                              {status?.activeTemplateFound === false && " · No encontrada"}
+                              {status?.activeTemplateFound === true && ` · ${getCloudTemplateStatusLabel(status.activeTemplateStatus)}`}
+                              {status?.activeTemplateFound == null && " · Sin verificar"}
+                            </span>
                           </div>
                         </div>
                         <NexusSectionButton

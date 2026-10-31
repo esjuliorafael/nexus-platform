@@ -2,6 +2,8 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildCanonicalCloudTemplateSources,
+  findCloudTemplateInCatalog,
+  getCloudTemplateRemoteHealth,
   getCloudTemplateBodyContent,
   getCloudTemplateDefinitionHash,
   normalizeCloudTemplateParameterValue,
@@ -10,6 +12,85 @@ import {
   resolveCloudTemplateOwner,
 } from "../src/services/whatsapp/whatsapp-cloud-template.service";
 import { getInitialWhatsappLogStatus } from "../src/services/whatsapp/whatsapp-send.service";
+import {
+  buildCloudTemplateDefinitionSnapshot,
+  findRemoteCloudTemplateForAudit,
+  getCloudTemplateStatusEventType,
+  getCloudTemplateStatusTransition,
+} from "../src/services/whatsapp/whatsapp-cloud-template-audit.service";
+
+test("does not consider a Cloud template healthy when Kapso was not checked", () => {
+  assert.equal(
+    getCloudTemplateRemoteHealth({
+      remoteChecked: false,
+      mappingFound: true,
+      templateFound: true,
+      remoteStatus: "APPROVED",
+    }),
+    "UNKNOWN",
+  );
+});
+
+test("reports a missing local active mapping separately", () => {
+  assert.equal(
+    getCloudTemplateRemoteHealth({
+      remoteChecked: true,
+      mappingFound: false,
+      templateFound: false,
+    }),
+    "MAPPING_MISSING",
+  );
+});
+
+test("detects when the active template mapping is absent from Kapso", () => {
+  assert.equal(
+    getCloudTemplateRemoteHealth({
+      remoteChecked: true,
+      mappingFound: true,
+      templateFound: false,
+    }),
+    "TEMPLATE_MISSING",
+  );
+});
+
+test("does not treat an unapproved active template as healthy", () => {
+  assert.equal(
+    getCloudTemplateRemoteHealth({
+      remoteChecked: true,
+      mappingFound: true,
+      templateFound: true,
+      remoteStatus: "PENDING",
+    }),
+    "NOT_APPROVED",
+  );
+});
+
+test("considers the active template healthy only when Kapso approves it", () => {
+  assert.equal(
+    getCloudTemplateRemoteHealth({
+      remoteChecked: true,
+      mappingFound: true,
+      templateFound: true,
+      remoteStatus: "APPROVED",
+    }),
+    "HEALTHY",
+  );
+});
+
+test("matches Kapso locale variants without crossing languages", () => {
+  const catalog = [
+    { name: "order_update", language: "en_US", status: "REJECTED" },
+    { name: "order_update", language: "es", status: "APPROVED" },
+  ];
+  assert.equal(
+    findCloudTemplateInCatalog(catalog, "order_update", "es_MX")?.status,
+    "APPROVED",
+  );
+  assert.equal(
+    findCloudTemplateInCatalog(catalog, "order_update", "fr_FR"),
+    undefined,
+  );
+});
 
 test("normalizes multiline Cloud API template parameters", () => {
   assert.equal(
@@ -111,6 +192,34 @@ test("provides payment instructions with the order URL as a Cloud API button", (
   assert.match(
     getCloudTemplateBodyContent(source),
     /Consulta tu orden en el botón Ver orden/,
+  );
+});
+
+test("provides a separate neutral manual participation-link template", () => {
+  const sources = buildCanonicalCloudTemplateSources(
+    {},
+    ["RAFFLES"],
+    "SIMPLIFIED",
+  );
+  const source = sources.find(
+    (candidate) => candidate.type === "PARTICIPATION_LINK_MANUAL",
+  );
+
+  assert.ok(source);
+  assert.match(source.content, /Te compartimos el enlace privado/);
+  assert.match(source.content, /\{\{customer_name\}\}/);
+  assert.match(source.content, /\{\{raffle_name\}\}/);
+  assert.match(source.content, /\{\{participation_url\}\}/);
+  assert.doesNotMatch(getCloudTemplateBodyContent(source), /\{\{participation_url\}\}/);
+  assert.notEqual(
+    getCloudTemplateDefinitionHash(source),
+    getCloudTemplateDefinitionHash({ ...source, type: "PARTICIPATION_LOOKUP_CODE" }),
+  );
+  assert.equal(
+    buildCanonicalCloudTemplateSources({}, ["RAFFLES"], "LEGACY").some(
+      (candidate) => candidate.type === "PARTICIPATION_LINK_MANUAL",
+    ),
+    false,
   );
 });
 
@@ -253,5 +362,54 @@ test("does not share a catalog when either WABA identifier is missing", () => {
       principalBusinessAccountId: "",
     }),
     { kind: "channel", channelId: 7, purpose: "RAFFLES" },
+  );
+});
+
+test("records only actual Cloud template status transitions", () => {
+  assert.deepEqual(getCloudTemplateStatusTransition("pending", "APPROVED"), {
+    previousStatus: "PENDING",
+    nextStatus: "APPROVED",
+  });
+  assert.equal(getCloudTemplateStatusTransition("approved", "APPROVED"), null);
+  assert.equal(getCloudTemplateStatusTransition("PENDING", null), null);
+  assert.equal(getCloudTemplateStatusEventType("APPROVED"), "APPROVAL_OBSERVED");
+  assert.equal(getCloudTemplateStatusEventType("REJECTED"), "REJECTION_OBSERVED");
+  assert.equal(
+    getCloudTemplateStatusEventType("MISSING"),
+    "REMOTE_ABSENCE_OBSERVED",
+  );
+});
+
+test("snapshots the reusable template definition and parameter names", () => {
+  const parameterNames = ["customer_name", "order_id"];
+  const snapshot = buildCloudTemplateDefinitionSnapshot(
+    "Hola {{customer_name}}, tu orden es {{order_id}}.",
+    parameterNames,
+  );
+
+  parameterNames.push("runtime_customer_value");
+  assert.deepEqual(snapshot, {
+    content: "Hola {{customer_name}}, tu orden es {{order_id}}.",
+    parameterNames: ["customer_name", "order_id"],
+  });
+});
+
+test("reconciles Kapso locale aliases without matching another language", () => {
+  const catalog = [
+    { name: "order_update", language: "en_US", status: "APPROVED" },
+    { name: "order_update", language: "es", status: "APPROVED" },
+  ];
+
+  assert.equal(
+    findRemoteCloudTemplateForAudit(catalog, "order_update", "es_MX")?.status,
+    "APPROVED",
+  );
+  assert.equal(
+    findRemoteCloudTemplateForAudit(catalog, "order_update", "fr_FR"),
+    undefined,
+  );
+  assert.equal(
+    findRemoteCloudTemplateForAudit(catalog, "other_template", "es_MX"),
+    undefined,
   );
 });

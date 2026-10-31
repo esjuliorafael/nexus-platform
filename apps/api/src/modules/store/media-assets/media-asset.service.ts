@@ -6,6 +6,7 @@ import sharp from "sharp";
 import { storePrisma } from "@nexus/db/store";
 import type { MediaAsset } from "@prisma/client-store";
 import { mediaProcessingQueue } from "../../../queues/media-processing.queue";
+import { createMediaProcessingJobId } from "./media-asset.job-id";
 import { storageService } from "../../../services/storage.service";
 import {
   createStorageKey,
@@ -100,7 +101,7 @@ async function enqueueVideoProcessing(assetId: string) {
     "optimize-video",
     { assetId, revision },
     {
-      jobId: `${assetId}-${revision}`,
+      jobId: createMediaProcessingJobId(assetId, revision),
       attempts: 3,
       backoff: { type: "exponential", delay: 5000 },
       removeOnComplete: 100,

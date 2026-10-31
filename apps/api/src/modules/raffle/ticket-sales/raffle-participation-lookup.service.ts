@@ -15,7 +15,34 @@ async function sendLookupNotification(params: {
   storePrisma: StorePrismaClient;
   recipientPhone: string;
   participationUrl: string;
+  kind?: "LOOKUP" | "MANUAL";
+  customerName?: string;
+  raffleName?: string;
+  ticketSaleId?: number;
 }) {
+  const isManual = params.kind === "MANUAL";
+  const templateType = isManual
+    ? "PARTICIPATION_LINK_MANUAL"
+    : "PARTICIPATION_LOOKUP_CODE";
+  const templateName = isManual
+    ? "participation_link_manual"
+    : "participation_lookup";
+  const templateSettingKey = isManual
+    ? "whatsapp_global_raffle_participation_link_manual_simplified"
+    : "whatsapp_global_raffle_participation_lookup_simplified";
+  const defaultContent = isManual
+    ? 'Hola, {{customer_name}}. Te compartimos el enlace privado para consultar tu participación en la rifa "{{raffle_name}}".\n\nRevisa tus boletos y su estado desde el botón Ver participación:\n\n{{participation_url}}'
+    : "🔎 Recibimos tu solicitud para consultar tus participaciones.\n\nConsulta tus boletos y su estado desde el botón Ver participación:\n\n{{participation_url}}";
+  const values: Record<string, string> = isManual
+    ? {
+        participation_url: params.participationUrl,
+        customer_name: params.customerName || "participante",
+        raffle_name: params.raffleName || "la rifa",
+      }
+    : { participation_url: params.participationUrl };
+  const fallbackMessage = isManual
+    ? `Hola, ${params.customerName || "participante"}. Te compartimos el enlace privado para consultar tu participación en la rifa "${params.raffleName || "la rifa"}": ${params.participationUrl}`
+    : `Consulta tus participaciones aquí: ${params.participationUrl}`;
   const evolution = await getEvolutionConfigFromSettings();
   const principalInstance = await params.storePrisma.setting.findUnique({
     where: { key: "whatsapp_evolution_instance" },
@@ -45,10 +72,10 @@ async function sendLookupNotification(params: {
 
   const lookupContent =
     (await params.storePrisma.setting.findUnique({
-      where: { key: "whatsapp_global_raffle_participation_lookup_simplified" },
+      where: { key: templateSettingKey },
       select: { value: true },
     }))?.value?.trim() ||
-    "🔎 Recibimos tu solicitud para consultar tus participaciones.\n\nConsulta tus boletos y su estado desde el botón Ver participación:\n\n{{participation_url}}";
+    defaultContent;
 
   const sendWithKapso = async (
     owner: { kind: "principal" } | { kind: "channel"; channelId: number; purpose: string },
@@ -62,9 +89,9 @@ async function sendLookupNotification(params: {
       owner,
       config,
       scope: "RAFFLES",
-      type: "PARTICIPATION_LOOKUP_CODE",
+      type: templateType,
       sourceContent: lookupContent,
-      values: { participation_url: params.participationUrl },
+      values,
       variant: "SIMPLIFIED",
     });
     if (!approved) return false;
@@ -72,10 +99,11 @@ async function sendLookupNotification(params: {
       transport: { provider: "KAPSO", config },
       recipientPhone: params.recipientPhone,
       message: {
-        text: `Consulta tus participaciones aquí: ${params.participationUrl}`,
+        text: fallbackMessage,
         cloudTemplate: approved.message,
       },
-      templateName: "participation_lookup",
+      templateName,
+      ticketSaleId: params.ticketSaleId,
       routing: {
         route: owner.kind === "channel" ? "DIRECT" : "PRINCIPAL_FALLBACK",
         preferredInstanceName:
@@ -156,9 +184,10 @@ async function sendLookupNotification(params: {
     transport: { provider: "EVOLUTION", instance },
     recipientPhone: params.recipientPhone,
     message: {
-      text: `Consulta tus participaciones aquí: ${params.participationUrl}`,
+      text: fallbackMessage,
     },
-    templateName: "participation_lookup",
+    templateName,
+    ticketSaleId: params.ticketSaleId,
     routing: {
       route: "DIRECT",
       preferredInstanceName: instance.instanceName,
@@ -166,6 +195,17 @@ async function sendLookupNotification(params: {
       providerPriority: ["EVOLUTION"],
     },
   });
+}
+
+export async function sendManualParticipationLinkNotification(params: {
+  storePrisma: StorePrismaClient;
+  recipientPhone: string;
+  participationUrl: string;
+  customerName: string;
+  raffleName: string;
+  ticketSaleId: number;
+}) {
+  return sendLookupNotification({ ...params, kind: "MANUAL" });
 }
 
 export async function requestParticipationLookup(params: {

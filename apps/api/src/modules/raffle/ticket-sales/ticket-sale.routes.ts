@@ -14,6 +14,10 @@ import { customerPhoneSchema } from "../../../utils/customer-phone";
 import { requireAdminActor } from "../../../utils/admin-authorization";
 import { RaffleCouponError } from "../coupons/raffle-coupon.service";
 import { getRaffleMetaMessagingCostOverview } from "./raffle-meta-messaging-cost.service";
+import {
+  generateParticipationPrivateLink,
+  sendParticipationPrivateLink,
+} from "./raffle-participation-private-link.service";
 
 export async function ticketSaleRoutes(server: FastifyInstance) {
   const rafflePrisma = server.rafflePrisma;
@@ -407,6 +411,43 @@ export async function ticketSaleRoutes(server: FastifyInstance) {
         participationId,
         actor,
       );
+    } catch (error: any) {
+      if (error?.statusCode) {
+        return reply.status(error.statusCode).send({ message: error.message });
+      }
+      throw error;
+    }
+  });
+
+  server.post("/admin/participations/:participationId/private-link", { preHandler: [server.authenticate] }, async (request, reply) => {
+    try {
+      const actor = await requireAdminActor(server, request, reply);
+      if (!actor) return;
+      const { participationId } = request.params as { participationId: string };
+      return await generateParticipationPrivateLink({
+        rafflePrisma,
+        participationId,
+        actor,
+      });
+    } catch (error: any) {
+      if (error?.statusCode) {
+        return reply.status(error.statusCode).send({ message: error.message });
+      }
+      throw error;
+    }
+  });
+
+  server.post("/admin/participations/:participationId/private-link/send", { preHandler: [server.authenticate] }, async (request, reply) => {
+    try {
+      const actor = await requireAdminActor(server, request, reply);
+      if (!actor) return;
+      const { participationId } = request.params as { participationId: string };
+      return await sendParticipationPrivateLink({
+        rafflePrisma,
+        storePrisma,
+        participationId,
+        actor,
+      });
     } catch (error: any) {
       if (error?.statusCode) {
         return reply.status(error.statusCode).send({ message: error.message });

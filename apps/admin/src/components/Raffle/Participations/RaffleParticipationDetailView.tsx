@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { AlertTriangle, Calendar, CheckCircle2, CircleX, Clock, CreditCard, Edit2, Hash, History, MapPin, MessageCircle, Phone, RotateCcw, Save, ShieldCheck, Sparkles, Ticket, UserRound, UsersRound, Waypoints } from "lucide-react";
+import { AlertTriangle, Calendar, CheckCircle2, CircleX, Clock, Copy, CreditCard, Edit2, Hash, History, Link2, MapPin, MessageCircle, Phone, RotateCcw, Save, Send, ShieldCheck, Sparkles, Ticket, UserRound, UsersRound, Waypoints } from "lucide-react";
 import { apiRaffleParticipations } from "../../../api";
 import { MEXICO_STATES } from "../../../constants";
 import { RaffleFinancialReason, RaffleParticipation, RaffleParticipationTicket, WhatsAppMessageLog } from "../../../types";
@@ -24,7 +24,10 @@ interface RaffleParticipationDetailViewProps {
   canManageParticipation: boolean;
   canManageRaffleFinancial: boolean;
   canSendMessages: boolean;
+  canShareParticipationLinks: boolean;
 }
+
+type GeneratedParticipationLink = { url: string; expiresAt: string };
 
 const formatCurrency = (value: number) =>
   value.toLocaleString("es-MX", { style: "currency", currency: "MXN" });
@@ -108,6 +111,7 @@ const getWhatsappPurposeLabel = (template: string) => {
   if (template === "reservation-cancelled") return "Liberación de boletos";
   if (template === "raffle-winner") return "Ganador de la rifa";
   if (template === "raffle-results") return "Resultados de la rifa";
+  if (template === "participation_link_manual") return "Enlace privado de participación";
   return template;
 };
 
@@ -123,7 +127,7 @@ const financialReasonOptions: Array<{ value: RaffleFinancialReason; label: strin
 const financialReasonLabel = (value?: string | null) =>
   financialReasonOptions.find((option) => option.value === value)?.label || value || "Sin motivo";
 
-export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailViewProps> = ({ participation, onLoaded, showToast, canManageParticipation, canManageRaffleFinancial, canSendMessages }) => {
+export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailViewProps> = ({ participation, onLoaded, showToast, canManageParticipation, canManageRaffleFinancial, canSendMessages, canShareParticipationLinks }) => {
   const [detail, setDetail] = useState<RaffleParticipation>(participation);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefundModalOpen, setIsRefundModalOpen] = useState(false);
@@ -133,6 +137,10 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
   const [isFinancialDispositionModalOpen, setIsFinancialDispositionModalOpen] = useState(false);
   const [isSavingFinancialDisposition, setIsSavingFinancialDisposition] = useState(false);
   const [isResendingWhatsApp, setIsResendingWhatsApp] = useState(false);
+  const [privateLink, setPrivateLink] = useState<GeneratedParticipationLink | null>(null);
+  const [isGeneratingPrivateLink, setIsGeneratingPrivateLink] = useState(false);
+  const [isPrivateLinkSendConfirmOpen, setIsPrivateLinkSendConfirmOpen] = useState(false);
+  const [isSendingPrivateLink, setIsSendingPrivateLink] = useState(false);
   const [selectedWhatsappLog, setSelectedWhatsappLog] = useState<WhatsAppMessageLog | null>(null);
   const [participantForm, setParticipantForm] = useState({
     customerName: participation.customerName || "",
@@ -155,6 +163,10 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
   useEffect(() => {
     setDetail(participation);
   }, [participation]);
+
+  useEffect(() => {
+    setPrivateLink(null);
+  }, [participation.id]);
 
   useEffect(() => {
     setIsLoading(true);
@@ -368,6 +380,60 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
     }
   };
 
+  const handleGeneratePrivateLink = async () => {
+    if (isGeneratingPrivateLink) return;
+    setIsGeneratingPrivateLink(true);
+    try {
+      const generated = await apiRaffleParticipations.generatePrivateLink(detail.id);
+      setPrivateLink(generated);
+      showToast("Enlace privado generado.", "success");
+      void apiRaffleParticipations.getById(detail.id).then((updated) => {
+        setDetail(updated);
+        onLoaded(updated);
+      });
+    } catch (error: any) {
+      showToast(
+        error?.response?.data?.message || "No se pudo generar el enlace privado.",
+        "error",
+      );
+    } finally {
+      setIsGeneratingPrivateLink(false);
+    }
+  };
+
+  const handleCopyPrivateLink = async () => {
+    if (!privateLink) return;
+    try {
+      await navigator.clipboard.writeText(privateLink.url);
+      showToast("Enlace copiado.", "success");
+    } catch {
+      showToast("No se pudo copiar el enlace desde este navegador.", "error");
+    }
+  };
+
+  const handleSendPrivateLink = async () => {
+    if (isSendingPrivateLink) return;
+    setIsSendingPrivateLink(true);
+    try {
+      await apiRaffleParticipations.sendPrivateLink(detail.id);
+      setIsPrivateLinkSendConfirmOpen(false);
+      showToast("Enlace enviado por WhatsApp.", "success");
+      window.setTimeout(() => {
+        void apiRaffleParticipations.getById(detail.id).then((updated) => {
+          setDetail(updated);
+          onLoaded(updated);
+        });
+      }, 1200);
+    } catch (error: any) {
+      showToast(
+        error?.response?.data?.message || "No se pudo enviar el enlace por WhatsApp.",
+        "error",
+      );
+    } finally {
+      setIsSendingPrivateLink(false);
+    }
+  };
+
   return (
     <div className="grid grid-cols-1 items-start lg:grid-cols-3" style={{ gap: "var(--space-lg)" }}>
       <div className="flex flex-col lg:col-span-2" style={{ gap: "var(--space-lg)" }}>
@@ -430,6 +496,61 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
             {detail.couponCode && <Field label="Cupón" value={detail.couponCode} />}
           </div>
         </NexusSection>
+
+        {!isPaymentHold && detail.origin === "PARTICIPANT" && canShareParticipationLinks && (
+          <NexusSection
+            title="Enlace privado"
+            subtitle="Acceso a la participación"
+            icon={Link2}
+            iconVariant="brand"
+          >
+            <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+              <p className="text-secondary text-text-muted">
+                Genera un enlace nuevo para copiarlo o compartirlo por WhatsApp. Cada enlace vence a los 180 días; los anteriores siguen activos hasta vencer.
+              </p>
+              {privateLink && (
+                <div className="flex min-w-0 flex-col" style={{ gap: "var(--space-xs)" }}>
+                  <label htmlFor="raffle-participation-private-link" className="text-metadata-label text-text-muted">
+                    Enlace generado
+                  </label>
+                  <input
+                    id="raffle-participation-private-link"
+                    type="text"
+                    readOnly
+                    value={privateLink.url}
+                    className="min-h-[var(--h-input)] w-full min-w-0 border border-border-main bg-bg-muted px-[var(--space-md)] text-secondary text-text-main"
+                    style={{ borderRadius: "var(--radius-inner-visual)" }}
+                  />
+                  <p className="text-secondary text-text-muted">
+                    Vence el {formatDateTime(privateLink.expiresAt)}.
+                  </p>
+                </div>
+              )}
+              <div className="flex flex-wrap items-center" style={{ gap: "var(--space-sm)" }}>
+                <NexusSectionButton
+                  onClick={handleGeneratePrivateLink}
+                  isLoading={isGeneratingPrivateLink}
+                  icon={Link2}
+                >
+                  {privateLink ? "Generar otro enlace" : "Generar enlace"}
+                </NexusSectionButton>
+                {privateLink && (
+                  <NexusSectionButton onClick={handleCopyPrivateLink} icon={Copy} variant="secondary">
+                    Copiar enlace
+                  </NexusSectionButton>
+                )}
+                <NexusSectionButton
+                  onClick={() => setIsPrivateLinkSendConfirmOpen(true)}
+                  isLoading={isSendingPrivateLink}
+                  icon={Send}
+                  variant="secondary"
+                >
+                  Enviar por WhatsApp
+                </NexusSectionButton>
+              </div>
+            </div>
+          </NexusSection>
+        )}
 
         <NexusModal
           isOpen={isFinancialDispositionModalOpen}
@@ -993,6 +1114,18 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
           tone="danger"
           icon={RotateCcw}
           zIndex={270}
+        />
+        <NexusConfirmModal
+          isOpen={isPrivateLinkSendConfirmOpen}
+          onCancel={() => setIsPrivateLinkSendConfirmOpen(false)}
+          onConfirm={handleSendPrivateLink}
+          title="¿Enviar el enlace privado?"
+          message={`Se generará un enlace nuevo y se enviará por WhatsApp a ${detail.customerPhone || "el teléfono registrado"}. Los enlaces anteriores seguirán activos.`}
+          confirmLabel={isSendingPrivateLink ? "Enviando..." : "Enviar enlace"}
+          tone="brand"
+          icon={Send}
+          zIndex={270}
+          isLoading={isSendingPrivateLink}
         />
       </div>
     </div>

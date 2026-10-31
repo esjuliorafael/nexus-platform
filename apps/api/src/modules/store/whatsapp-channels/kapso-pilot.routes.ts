@@ -23,18 +23,22 @@ import {
   buildCanonicalCloudTemplateSources,
   CLOUD_TEMPLATE_SETTING_KEYS,
   getCloudTemplateDefinitionHash,
+  findCloudTemplateInCatalog,
   buildTemplateName,
-  extractCloudTemplateVariables,
-  getCloudTemplateBodyContent,
   getCloudTemplateOwnerKey,
   getCloudTemplateScopesForPurpose,
   getTemplateActiveVersionSettingKey,
-  promoteApprovedCloudTemplateCandidate,
+  getCloudTemplateRemoteHealth,
   resolveCloudTemplateOwner,
   syncCloudTemplateCatalog,
   type CloudTemplateSource,
   type CloudTemplateType,
 } from "../../../services/whatsapp/whatsapp-cloud-template.service";
+import {
+  buildCloudTemplateDefinitionSnapshot,
+  recordCloudTemplateAuditEvent,
+  recordCloudTemplateStatusTransition,
+} from "../../../services/whatsapp/whatsapp-cloud-template-audit.service";
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
 import {
   getWhatsappMarketingOptInKeyword,
@@ -104,6 +108,20 @@ function normalizeKapsoTemplateStatus(value: unknown) {
   return ["APPROVED", "PENDING", "REJECTED"].includes(normalized)
     ? normalized
     : "PENDING";
+}
+
+function getCloudTemplateAuditContext(request: any, origin: string) {
+  const actor = request.user || {};
+  return {
+    actorType: "USER",
+    actorId: actor.id == null ? null : String(actor.id),
+    actorName: actor.name || actor.username || null,
+    actorRole: actor.role || null,
+    origin,
+    requestId: request.id || null,
+    ipAddress: request.ip || null,
+    userAgent: String(request.headers?.["user-agent"] || "") || null,
+  };
 }
 
 export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
@@ -209,6 +227,7 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
     const channelOwner = {
       kind: "channel" as const,
       channelId: channel.id,
+      name: channel.name,
       purpose: channel.purpose,
     };
     const owner = resolveCloudTemplateOwner({
@@ -224,6 +243,7 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
       channelOwner: {
         kind: "channel" as const,
         channelId: channel.id,
+        name: channel.name,
         purpose: channel.purpose,
       },
       config: getKapsoConfigForChannel({
@@ -332,6 +352,9 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
         owner: target.owner,
         config: target.config,
         sources: target.sources,
+        auditContext: getCloudTemplateAuditContext(request, "admin_sync"),
+        channelName: target.channelOwner?.name || null,
+        channelPurpose: target.channelOwner?.purpose || null,
         resolveRichInvitationHeaderHandle: () =>
           resolveRaffleInvitationHeaderHandle(target.config!),
       });
@@ -411,7 +434,7 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
       const ownerKey = getCloudTemplateOwnerKey(target.owner);
       const contentHash = getCloudTemplateDefinitionHash(source);
       const variant = source.variant || body.variant;
-      const mapping = await server.storePrisma.whatsappCloudTemplate.findUnique({
+      let mapping = await server.storePrisma.whatsappCloudTemplate.findUnique({
         where: {
           ownerKey_scope_type_variant: {
             ownerKey,
@@ -422,35 +445,159 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
         },
       });
 
-      if (!mapping) {
+      let candidate = await server.storePrisma.whatsappCloudTemplateCandidate.findUnique({
+        where: {
+          ownerKey_scope_type_variant_contentHash: {
+            ownerKey,
+            scope: source.scope,
+            type: source.type,
+            variant,
+            contentHash,
+          },
+        },
+      });
+
+      if (!mapping && !candidate) {
         return reply.status(409).send({
           message: "Sincroniza primero la versión aprobada de esta plantilla.",
         });
       }
 
-      if (mapping.contentHash !== contentHash) {
-        const candidate =
-          await server.storePrisma.whatsappCloudTemplateCandidate.findUnique({
-            where: {
-              ownerKey_scope_type_variant_contentHash: {
-                ownerKey,
-                scope: source.scope,
-                type: source.type,
-                variant,
-                contentHash,
-              },
-            },
-          });
-
-        if (!candidate || candidate.status !== "APPROVED") {
-          return reply.status(409).send({
-            message: "La nueva versión todavía no está aprobada por Meta.",
-          });
-        }
-
-        await promoteApprovedCloudTemplateCandidate(mapping, candidate);
+      const hasReplacement = !mapping || mapping.contentHash !== contentHash;
+      if (hasReplacement && !candidate) {
+        return reply.status(409).send({
+          message: "Sincroniza primero esta versión para registrar su candidata.",
+        });
       }
 
+      const targetTemplate = hasReplacement ? candidate! : mapping!;
+      const auditContext = getCloudTemplateAuditContext(
+        request,
+        "admin_activation",
+      );
+      const auditSubject = {
+        ownerKey,
+        channelId: targetTemplate.channelId,
+        channelName: target.channelOwner?.name || null,
+        channelPurpose: target.channelOwner?.purpose || null,
+        scope: source.scope,
+        type: source.type,
+        variant,
+        templateName: targetTemplate.templateName,
+        templateId: targetTemplate.templateId,
+        category: targetTemplate.category,
+        languageCode: targetTemplate.languageCode,
+        contentHash: targetTemplate.contentHash,
+      };
+      let remoteTemplate: Record<string, unknown> | undefined;
+
+      const persistObservedStatus = async (
+        status: string,
+        lastError: string | null,
+      ) => {
+        const data = {
+          templateId: auditSubject.templateId,
+          languageCode: auditSubject.languageCode,
+          category: auditSubject.category,
+          status,
+          lastError,
+          lastSyncedAt: new Date(),
+        };
+        await server.storePrisma.$transaction(async (tx) => {
+          const current = hasReplacement
+            ? await tx.whatsappCloudTemplateCandidate.findUnique({
+                where: { id: candidate!.id },
+              })
+            : await tx.whatsappCloudTemplate.findUnique({
+                where: { id: mapping!.id },
+              });
+          if (!current) return;
+
+          if (hasReplacement) {
+            await tx.whatsappCloudTemplateCandidate.update({
+              where: { id: candidate!.id },
+              data,
+            });
+          } else {
+            await tx.whatsappCloudTemplate.update({
+              where: { id: mapping!.id },
+              data,
+            });
+          }
+          await recordCloudTemplateStatusTransition(
+            tx,
+            auditSubject,
+            current.status,
+            status,
+            auditContext,
+            {
+              source: "activation_verification",
+              lookup: "exact_name_and_language_family",
+              remoteStatus: remoteTemplate
+                ? String(remoteTemplate.status || "")
+                : null,
+            },
+          );
+        });
+      };
+
+      try {
+        const remote = await kapsoClient.listTemplates(target.config!, {
+          name: targetTemplate.templateName,
+        });
+        remoteTemplate = findCloudTemplateInCatalog(
+          remote.data,
+          targetTemplate.templateName,
+          targetTemplate.languageCode,
+        );
+      } catch (error) {
+        request.log.warn(
+          { error, ownerKey, templateName: targetTemplate.templateName },
+          "Could not verify Cloud API template activation in Kapso",
+        );
+        return reply.status(424).send({
+          message: "No se pudo verificar la plantilla en Kapso. Intenta de nuevo.",
+        });
+      }
+
+      if (!remoteTemplate) {
+        await persistObservedStatus(
+          "MISSING",
+          "La plantilla no apareció en una consulta por nombre a Kapso.",
+        );
+        return reply.status(409).send({
+          message: "La plantilla no aparece en el catálogo de Kapso. Sincronízala antes de activarla.",
+        });
+      }
+
+      const remoteStatus = normalizeKapsoTemplateStatus(remoteTemplate.status);
+      auditSubject.templateId =
+        String(remoteTemplate.id || "") || targetTemplate.templateId;
+      auditSubject.languageCode =
+        String(remoteTemplate.language || "") || targetTemplate.languageCode;
+      auditSubject.category =
+        String(remoteTemplate.category || targetTemplate.category || "") || null;
+      if (remoteStatus !== "APPROVED") {
+        await persistObservedStatus(
+          remoteStatus,
+          `Kapso reportó la plantilla como ${remoteStatus}.`,
+        );
+        return reply.status(409).send({
+          message: `Kapso reporta esta plantilla como ${remoteStatus}. Solo se pueden activar plantillas aprobadas.`,
+        });
+      }
+
+      const remoteTemplateData = {
+        templateId: String(remoteTemplate.id || "") || targetTemplate.templateId,
+        languageCode:
+          String(remoteTemplate.language || "") || targetTemplate.languageCode,
+        category:
+          String(remoteTemplate.category || targetTemplate.category || "") ||
+          null,
+        status: remoteStatus,
+        lastError: null,
+        lastSyncedAt: new Date(),
+      };
       const activeVersionKey = getTemplateActiveVersionSettingKey(
         source.scope,
         source.type,
@@ -463,17 +610,116 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
             }
           : { kind: "principal" },
       );
-      if (activeVersionKey) {
-        await server.storePrisma.setting.upsert({
-          where: { key: activeVersionKey },
-          update: { value: body.variant, group: "whatsapp" },
-          create: {
-            key: activeVersionKey,
-            value: body.variant,
-            group: "whatsapp",
+      const definitionSnapshot = buildCloudTemplateDefinitionSnapshot(
+        source.content,
+        Array.isArray(targetTemplate.parameterNames)
+          ? targetTemplate.parameterNames.map(String)
+          : [],
+      );
+
+      mapping = await server.storePrisma.$transaction(async (tx) => {
+        let activatedMapping;
+        if (hasReplacement && candidate) {
+          await tx.whatsappCloudTemplateCandidate.update({
+            where: { id: candidate.id },
+            data: remoteTemplateData,
+          });
+          await recordCloudTemplateStatusTransition(
+            tx,
+            auditSubject,
+            candidate.status,
+            remoteStatus,
+            auditContext,
+            { source: "activation_verification", remoteStatus },
+          );
+
+          if (mapping) {
+            activatedMapping = await tx.whatsappCloudTemplate.update({
+              where: { id: mapping.id },
+              data: {
+                channelId: candidate.channelId,
+                templateName: candidate.templateName,
+                templateId: remoteTemplateData.templateId,
+                category: remoteTemplateData.category,
+                languageCode: remoteTemplateData.languageCode,
+                status: remoteStatus,
+                parameterNames: Array.isArray(candidate.parameterNames)
+                  ? candidate.parameterNames.map(String)
+                  : [],
+                contentHash: candidate.contentHash,
+                lastError: null,
+                lastSyncedAt: remoteTemplateData.lastSyncedAt,
+              },
+            });
+          } else {
+            activatedMapping = await tx.whatsappCloudTemplate.create({
+              data: {
+                channelId: candidate.channelId,
+                ownerKey: candidate.ownerKey,
+                scope: candidate.scope,
+                type: candidate.type,
+                variant: candidate.variant,
+                templateName: candidate.templateName,
+                templateId: remoteTemplateData.templateId,
+                category: remoteTemplateData.category,
+                languageCode: remoteTemplateData.languageCode,
+                status: remoteStatus,
+                parameterNames: Array.isArray(candidate.parameterNames)
+                  ? candidate.parameterNames.map(String)
+                  : [],
+                contentHash: candidate.contentHash,
+                lastError: null,
+                lastSyncedAt: remoteTemplateData.lastSyncedAt,
+              },
+            });
+          }
+          await tx.whatsappCloudTemplateCandidate.delete({
+            where: { id: candidate.id },
+          });
+        } else {
+          activatedMapping = await tx.whatsappCloudTemplate.update({
+            where: { id: mapping!.id },
+            data: remoteTemplateData,
+          });
+          await recordCloudTemplateStatusTransition(
+            tx,
+            auditSubject,
+            mapping!.status,
+            remoteStatus,
+            auditContext,
+            { source: "activation_verification", remoteStatus },
+          );
+        }
+
+        if (activeVersionKey) {
+          await tx.setting.upsert({
+            where: { key: activeVersionKey },
+            update: { value: body.variant, group: "whatsapp" },
+            create: {
+              key: activeVersionKey,
+              value: body.variant,
+              group: "whatsapp",
+            },
+          });
+        }
+
+        await recordCloudTemplateAuditEvent(tx, auditSubject, {
+          eventType: "VERSION_ACTIVATED",
+          context: auditContext,
+          previousStatus: hasReplacement ? mapping?.status : mapping!.status,
+          nextStatus: remoteStatus,
+          previousContentHash: mapping?.contentHash || null,
+          nextContentHash: activatedMapping.contentHash,
+          definitionSnapshot,
+          metadata: {
+            previousTemplateName: mapping?.templateName || null,
+            nextTemplateName: activatedMapping.templateName,
+            candidatePromoted: Boolean(hasReplacement && candidate),
+            activeVersionSettingKey: activeVersionKey,
           },
         });
-      }
+        return activatedMapping;
+      });
 
       return {
         ok: true,
@@ -482,6 +728,8 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
         type: source.type,
         variant,
         contentHash,
+        templateName: mapping!.templateName,
+        status: remoteStatus,
       };
     },
   );
@@ -515,10 +763,12 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
           where: { ownerKey },
         });
       let remoteTemplates: Array<Record<string, unknown>> = [];
+      let remoteChecked = false;
       if (target.config?.businessAccountId) {
         try {
           const remote = await kapsoClient.listTemplates(target.config);
           remoteTemplates = remote.data || [];
+          remoteChecked = true;
         } catch (error) {
           request.log.warn(
             { error, ownerKey },
@@ -552,20 +802,17 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
           source,
           contentHash || "",
         );
-        const remoteNames = new Set(
-          [candidate?.templateName, mapping?.templateName, expectedTemplateName]
-            .map((value) => String(value || "").trim())
-            .filter(Boolean),
+        const currentRecord =
+          candidate || (mapping?.contentHash === contentHash ? mapping : null);
+        const currentTemplateName =
+          currentRecord?.templateName || expectedTemplateName;
+        const currentRemoteTemplate = findCloudTemplateInCatalog(
+          remoteTemplates,
+          currentTemplateName,
+          currentRecord?.languageCode || mapping?.languageCode || "es_MX",
         );
-        // Kapso can return the locale as `es` or `es_MX` depending on the
-        // connected WABA. The template name and remote status are the
-        // authoritative identity here; a locale spelling difference must not
-        // hide an already approved template.
-        const remoteTemplate = remoteTemplates.find((item) =>
-          remoteNames.has(String(item.name || "").trim()),
-        );
-        const remoteStatus = remoteTemplate
-          ? normalizeKapsoTemplateStatus(remoteTemplate.status)
+        const currentRemoteStatus = currentRemoteTemplate
+          ? normalizeKapsoTemplateStatus(currentRemoteTemplate.status)
           : null;
 
         const activeVersionKey = getTemplateActiveVersionSettingKey(
@@ -581,166 +828,67 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
             })
           : null;
         const activeVersion = activeVersionSetting?.value || "LEGACY";
-        let activeMapping = mappings.find(
+        const activeMapping = mappings.find(
           (item) =>
             item.scope === source.scope &&
             item.type === source.type &&
             item.variant === activeVersion,
         );
-        let activeCandidate = candidates.find(
-          (item) =>
-            item.scope === source.scope &&
-            item.type === source.type &&
-            item.variant === activeVersion &&
-            item.status === "APPROVED",
-        );
-
-        if (remoteTemplate && candidate) {
-          await server.storePrisma.whatsappCloudTemplateCandidate.update({
-            where: { id: candidate.id },
-            data: {
-              templateId:
-                String(remoteTemplate.id || "") || candidate.templateId,
-              languageCode:
-                String(remoteTemplate.language || "") || candidate.languageCode,
-              status: remoteStatus!,
-              category: String(remoteTemplate.category || candidate.category),
-              lastError: null,
-              lastSyncedAt: new Date(),
-            },
-          });
-        }
-        if (remoteTemplate && mapping) {
-          await server.storePrisma.whatsappCloudTemplate.update({
-            where: { id: mapping.id },
-            data: {
-              templateId:
-                String(remoteTemplate.id || "") || mapping.templateId,
-              languageCode:
-                String(remoteTemplate.language || "") || mapping.languageCode,
-              status: remoteStatus!,
-              category: String(remoteTemplate.category || mapping.category),
-              lastError: null,
-              lastSyncedAt: new Date(),
-            },
-          });
-        }
-
-        const candidateRemoteTemplate = candidate
-          ? remoteTemplates.find(
-              (item) =>
-                String(item.name || "").trim() === candidate.templateName &&
-                [candidate.languageCode, "es"].includes(
-                  String(item.language || "").trim(),
-                ),
+        const activeTemplateName = activeMapping?.templateName || null;
+        const activeRemoteTemplate = activeTemplateName
+          ? findCloudTemplateInCatalog(
+              remoteTemplates,
+              activeTemplateName,
+              activeMapping?.languageCode,
             )
+          : undefined;
+        const activeRemoteStatus = activeRemoteTemplate
+          ? normalizeKapsoTemplateStatus(activeRemoteTemplate.status)
           : null;
-        if (
-          activeMapping &&
-          activeCandidate &&
-          candidate?.status === "APPROVED" &&
-          candidateRemoteTemplate &&
-          normalizeKapsoTemplateStatus(candidateRemoteTemplate.status) ===
-            "APPROVED" &&
-          activeVersion === source.variant &&
-          candidate.contentHash === contentHash &&
-          activeMapping.contentHash !== contentHash &&
-          source.type !== "RAFFLE_INVITATION"
-        ) {
-          activeMapping = await promoteApprovedCloudTemplateCandidate(
-            activeMapping,
-            candidate,
-          );
-          activeCandidate = undefined;
-        }
-
-        // Recover a mapping if Kapso already contains the approved template
-        // but a previous sync did not persist it locally. This makes the
-        // activation action and the runtime sender converge on the same
-        // approved remote template.
-        if (remoteTemplate && !candidate && !mapping) {
-          await server.storePrisma.whatsappCloudTemplate.upsert({
-            where: {
-              ownerKey_scope_type_variant: {
-                ownerKey,
-                scope: source.scope,
-                type: source.type,
-                variant: source.variant || query.variant,
-              },
-            },
-            create: {
-              channelId:
-                target.owner.kind === "channel" ? target.owner.channelId : null,
-              ownerKey,
-              scope: source.scope,
-              type: source.type,
-              variant: source.variant,
-              templateName: String(remoteTemplate.name || expectedTemplateName),
-              templateId: String(remoteTemplate.id || "") || null,
-              category: String(remoteTemplate.category || "UTILITY"),
-              languageCode:
-                String(remoteTemplate.language || "") || "es_MX",
-              status: normalizeKapsoTemplateStatus(remoteTemplate.status),
-              parameterNames: extractCloudTemplateVariables(
-                getCloudTemplateBodyContent(source),
-              ),
-              contentHash: contentHash || "",
-              lastSyncedAt: new Date(),
-            },
-            update: {
-              templateName: String(remoteTemplate.name || expectedTemplateName),
-              templateId: String(remoteTemplate.id || "") || null,
-              category: String(remoteTemplate.category || "UTILITY"),
-              languageCode:
-                String(remoteTemplate.language || "") || "es_MX",
-              status: normalizeKapsoTemplateStatus(remoteTemplate.status),
-              contentHash: contentHash || "",
-              lastSyncedAt: new Date(),
-            },
-          });
-        }
-
-        const current =
-          sourceReady &&
-          (mapping?.contentHash === contentHash ||
-            candidate?.status === "APPROVED");
+        const activeHealth = getCloudTemplateRemoteHealth({
+          remoteChecked,
+          mappingFound: Boolean(activeMapping),
+          templateFound: Boolean(activeRemoteTemplate),
+          remoteStatus: activeRemoteStatus,
+        });
+        const current = sourceReady && currentRemoteStatus === "APPROVED";
+        const activationRecordAvailable = Boolean(
+          candidate || mapping?.contentHash === contentHash,
+        );
         return {
           scope: source.scope,
           type: source.type,
           variant: source.variant,
           sourceReady,
-          templateName:
-            candidate?.templateName || mapping?.templateName || remoteTemplate?.name || null,
-          status:
-            remoteStatus ||
-            candidate?.status ||
-            (current ? mapping?.status || "NOT_SYNCED" : "NOT_SYNCED"),
-          current:
-            current ||
-            Boolean(
-              remoteTemplate &&
-                normalizeKapsoTemplateStatus(remoteTemplate.status) === "APPROVED",
-            ),
+          templateName: currentTemplateName || null,
+          status: remoteChecked
+            ? currentRemoteStatus || (currentRecord ? "MISSING" : "NOT_SYNCED")
+            : currentRecord?.status || "UNKNOWN",
+          current,
           activeVersion,
-          contentHash: candidate?.contentHash || mapping?.contentHash || null,
-          // An approved candidate is ready, but it is not active until the
-          // administrator explicitly promotes it for this channel.
+          contentHash: contentHash || null,
           activeContentHash: activeMapping?.contentHash || null,
-          activeTemplateName: activeMapping?.templateName || null,
+          activeTemplateName,
+          activeTemplateFound: remoteChecked
+            ? Boolean(activeRemoteTemplate)
+            : null,
+          activeTemplateStatus: activeRemoteStatus,
+          activeHealth,
+          activationRecordAvailable,
           lastError: candidate?.lastError || mapping?.lastError || null,
           replacementPending: Boolean(
-            candidate && candidate.status !== "APPROVED",
+            candidate && currentRemoteStatus !== "APPROVED",
           ),
         };
       }));
       return {
         catalogMode: target.catalogMode || "DEDICATED",
         ownerKey,
+        remoteChecked,
         ready:
           templates.length > 0 &&
           templates.every(
-            (item) =>
-              item.sourceReady && item.current && item.status === "APPROVED",
+            (item) => item.activeHealth === "HEALTHY",
           ),
         templates,
       };

@@ -59,6 +59,14 @@ test("maps high-impact admin operations to explicit permissions", () => {
     "raffles.participations.manage",
   );
   assert.equal(
+    requiredPermissionForRequest(makeRequest("/api/v1/ticket-sales/admin/participations/8/private-link", "POST")),
+    "raffles.participations.link.share",
+  );
+  assert.equal(
+    requiredPermissionForRequest(makeRequest("/api/v1/ticket-sales/admin/participations/8/private-link/send", "POST")),
+    "raffles.participations.link.share",
+  );
+  assert.equal(
     requiredPermissionForRequest(makeRequest("/api/v1/raffles/admin/42/result/campaigns", "POST")),
     "messaging.send",
   );
@@ -77,6 +85,41 @@ test("maps high-impact admin operations to explicit permissions", () => {
   assert.equal(
     requiredPermissionForRequest(makeRequest("/api/v1/admin/settings/unknown_runtime_key", "PUT")),
     "platform.settings.manage",
+  );
+});
+
+test("private participation links require both participation access and the dedicated share permission", async () => {
+  const makeReply = () => ({
+    sent: false,
+    statusCode: 200,
+    status(code: number) { this.statusCode = code; return this; },
+    send(body: unknown) { this.sent = true; this.body = body; return body; },
+  });
+  const authorize = async (permissions: string[]) => {
+    const reply: any = makeReply();
+    await authorizeAdminRequest(
+      { authenticate: async () => undefined } as any,
+      makeRequest("/api/v1/ticket-sales/admin/participations/8/private-link/send", "POST", permissions),
+      reply,
+    );
+    return reply;
+  };
+
+  assert.equal(
+    (await authorize(["raffles.participations.link.share"])).statusCode,
+    403,
+  );
+  assert.equal(
+    (await authorize(["raffles.participations.view", "messaging.send"])).statusCode,
+    403,
+  );
+  assert.equal(
+    (await authorize(["raffles.participations.view", "raffles.participations.link.share"])).sent,
+    false,
+  );
+  assert.equal(
+    (await authorize(["raffles.participations.manage", "raffles.participations.link.share"])).sent,
+    false,
   );
 });
 
