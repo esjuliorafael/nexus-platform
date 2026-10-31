@@ -231,19 +231,29 @@ async function bootstrap() {
             `WhatsApp template audit: ${result.checked} checked, ${result.transitions} status change(s), ${result.failed} lookup failure(s).`,
           );
         }
+        return result.failed;
       } catch (error: any) {
         server.log.error(
           `WhatsApp template audit reconciliation failed: ${error.message}`,
         );
+        return 1;
       }
     };
 
-    await reconcileCloudTemplateStatuses();
-    const cloudTemplateAuditTimer = setInterval(
-      reconcileCloudTemplateStatuses,
-      15 * 60 * 1000,
+    const scheduleCloudTemplateReconciliation = (delayMs: number) => {
+      const timer = setTimeout(async () => {
+        const failed = await reconcileCloudTemplateStatuses();
+        scheduleCloudTemplateReconciliation(
+          failed > 0 ? 3 * 60 * 1000 : 15 * 60 * 1000,
+        );
+      }, delayMs);
+      timer.unref?.();
+    };
+
+    const initialTemplateAuditFailures = await reconcileCloudTemplateStatuses();
+    scheduleCloudTemplateReconciliation(
+      initialTemplateAuditFailures > 0 ? 3 * 60 * 1000 : 15 * 60 * 1000,
     );
-    cloudTemplateAuditTimer.unref?.();
 
     const reconcileOrderReminders = async () => {
       try {
