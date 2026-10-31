@@ -9,6 +9,17 @@ import { listKapsoTemplateCatalogCached } from "../kapso/kapso.client";
 
 type AuditClient = Pick<typeof storePrisma, "whatsappCloudTemplateEvent">;
 
+const cloudTemplateAuditIntervalMs = 15 * 60_000;
+const cloudTemplateAuditMaxRetryMs = 4 * 60 * 60_000;
+
+export function getCloudTemplateAuditDelayMs(consecutiveFailures: number) {
+  if (consecutiveFailures <= 0) return cloudTemplateAuditIntervalMs;
+  return Math.min(
+    cloudTemplateAuditIntervalMs * 2 ** (consecutiveFailures - 1),
+    cloudTemplateAuditMaxRetryMs,
+  );
+}
+
 export type CloudTemplateAuditContext = {
   actorType?: string;
   actorId?: string | null;

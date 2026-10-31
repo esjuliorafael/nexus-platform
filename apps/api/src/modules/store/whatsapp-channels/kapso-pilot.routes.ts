@@ -11,6 +11,7 @@ import {
   requireKapsoPlatformConfig,
 } from "../../../services/kapso/kapso.config";
 import {
+  getKapsoTemplateSyncCooldownMs,
   kapsoClient,
   listKapsoTemplateCatalogCached,
 } from "../../../services/kapso/kapso.client";
@@ -350,6 +351,15 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
           message: "La plantilla seleccionada no está disponible para este canal.",
         });
       }
+      const retryAfterMs = getKapsoTemplateSyncCooldownMs(target.config);
+      if (retryAfterMs > 0) {
+        reply.header("Retry-After", String(Math.ceil(retryAfterMs / 1000)));
+        return reply.status(429).send({
+          message:
+            "Kapso limitó las solicitudes. Nexus pausó la sincronización de este canal; espera antes de volver a intentarlo.",
+          retryAfterMs,
+        });
+      }
 
       const templates = await syncCloudTemplateCatalog({
         owner: target.owner,
@@ -365,6 +375,17 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
         (item) => item.status === "ERROR",
       );
       if (failedTemplate) {
+        const retryAfterMs = getKapsoTemplateSyncCooldownMs(target.config);
+        if (retryAfterMs > 0) {
+          reply.header("Retry-After", String(Math.ceil(retryAfterMs / 1000)));
+          return reply.status(429).send({
+            ok: false,
+            message:
+              "Kapso limitó las solicitudes. Nexus pausó la sincronización de este canal; espera antes de volver a intentarlo.",
+            retryAfterMs,
+            templates,
+          });
+        }
         const message =
           String(failedTemplate.error || failedTemplate.lastError || "").trim() ||
           "Kapso rechazÃ³ la plantilla Cloud API.";

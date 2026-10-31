@@ -207,6 +207,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
   const [isDisconnectingKapso, setIsDisconnectingKapso] = useState(false);
   const principalTemplatesScrollYRef = useRef(0);
   const principalTemplateAnchorKeyRef = useRef<string | null>(null);
+  const cloudSyncInFlightRef = useRef(false);
 
   const loadConfig = async () => {
     setIsLoading(true);
@@ -448,7 +449,10 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
     manageLoading = true,
     variant: ChannelTemplateVersion = "LEGACY",
     target?: { scope?: ChannelTemplateScope; type?: ChannelTemplateDefinition["type"] },
+    alreadyLocked = false,
   ) => {
+    if (!alreadyLocked && cloudSyncInFlightRef.current) return;
+    if (!alreadyLocked) cloudSyncInFlightRef.current = true;
     const cloudConfig = {
       whatsapp_main_phone: config.whatsapp_main_phone || "",
       whatsapp_main_provider: "KAPSO",
@@ -464,6 +468,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       !cloudConfig.whatsapp_main_kapso_business_account_id
     ) {
       showToast("Configura Phone Number ID y Business Account ID", "error");
+      if (!alreadyLocked) cloudSyncInFlightRef.current = false;
       return;
     }
 
@@ -497,6 +502,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       );
     } finally {
       if (manageLoading) setIsSyncingCloudTemplates(false);
+      if (!alreadyLocked) cloudSyncInFlightRef.current = false;
     }
   };
 
@@ -599,13 +605,15 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
   };
 
   const syncSelectedCloudTargets = async () => {
+    if (cloudSyncInFlightRef.current) return;
+    cloudSyncInFlightRef.current = true;
     setIsSyncingCloudTemplates(true);
     try {
       const target = editingTemplate
         ? { scope: editingTemplate.scope, type: editingTemplate.type }
         : undefined;
       if (selectedPrincipalChannel) {
-        await syncCloudTemplates(false, templateVersion, target);
+        await syncCloudTemplates(false, templateVersion, target, true);
       }
       for (const channelId of selectedSpecializedChannelIds) {
         await apiWhatsApp.syncKapsoTemplates(channelId, templateVersion, target);
@@ -623,6 +631,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
         "error",
       );
     } finally {
+      cloudSyncInFlightRef.current = false;
       setIsSyncingCloudTemplates(false);
     }
   };
@@ -731,7 +740,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
     void refreshStatus();
     const interval = window.setInterval(() => {
       if (document.visibilityState === "visible") void refreshStatus();
-    }, 60_000);
+    }, 5 * 60_000);
     const onVisibilityChange = () => {
       if (document.visibilityState === "visible") void refreshStatus();
     };

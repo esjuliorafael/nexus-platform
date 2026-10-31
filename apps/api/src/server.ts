@@ -31,7 +31,10 @@ import { mediaVaultService } from "./modules/store/media-vault/media-vault.servi
 import { reconcileRecoverableWhatsappJobs } from "./services/whatsapp-recovery.service";
 import { inventoryIntegrityService } from "./modules/store/inventory/inventory-integrity.service";
 import { raffleDrawReminderService } from "./modules/raffle/raffles/raffle-draw-reminder.service";
-import { reconcileWhatsappCloudTemplateStatuses } from "./services/whatsapp/whatsapp-cloud-template-audit.service";
+import {
+  getCloudTemplateAuditDelayMs,
+  reconcileWhatsappCloudTemplateStatuses,
+} from "./services/whatsapp/whatsapp-cloud-template-audit.service";
 
 const server = fastify({
   logger: true,
@@ -240,19 +243,24 @@ async function bootstrap() {
       }
     };
 
+    let consecutiveTemplateAuditFailures = 0;
     const scheduleCloudTemplateReconciliation = (delayMs: number) => {
       const timer = setTimeout(async () => {
         const failed = await reconcileCloudTemplateStatuses();
+        consecutiveTemplateAuditFailures = failed > 0
+          ? consecutiveTemplateAuditFailures + 1
+          : 0;
         scheduleCloudTemplateReconciliation(
-          failed > 0 ? 3 * 60 * 1000 : 15 * 60 * 1000,
+          getCloudTemplateAuditDelayMs(consecutiveTemplateAuditFailures),
         );
       }, delayMs);
       timer.unref?.();
     };
 
     const initialTemplateAuditFailures = await reconcileCloudTemplateStatuses();
+    consecutiveTemplateAuditFailures = initialTemplateAuditFailures > 0 ? 1 : 0;
     scheduleCloudTemplateReconciliation(
-      initialTemplateAuditFailures > 0 ? 3 * 60 * 1000 : 15 * 60 * 1000,
+      getCloudTemplateAuditDelayMs(consecutiveTemplateAuditFailures),
     );
 
     const reconcileOrderReminders = async () => {

@@ -15,11 +15,14 @@ import { getInitialWhatsappLogStatus } from "../src/services/whatsapp/whatsapp-s
 import {
   buildCloudTemplateDefinitionSnapshot,
   findRemoteCloudTemplateForAudit,
+  getCloudTemplateAuditDelayMs,
   getCloudTemplateStatusEventType,
   getCloudTemplateStatusTransition,
 } from "../src/services/whatsapp/whatsapp-cloud-template-audit.service";
 import {
+  getKapsoTemplateSyncCooldownMs,
   invalidateKapsoTemplateCatalogCache,
+  kapsoClient,
   listKapsoTemplateCatalogCached,
 } from "../src/services/kapso/kapso.client";
 
@@ -480,4 +483,50 @@ test("backs off Kapso template catalog retries after rate limiting", async () =>
     globalThis.fetch = originalFetch;
     invalidateKapsoTemplateCatalogCache(config);
   }
+});
+
+test("pauses catalog and sync requests for a WABA after Meta rate limits", async () => {
+  const config = {
+    apiKey: "test-key",
+    apiBaseUrl: "https://kapso.test",
+    phoneNumberId: "phone-1",
+    businessAccountId: `sync-limited-waba-${Date.now()}`,
+  };
+  const originalFetch = globalThis.fetch;
+  let calls = 0;
+  globalThis.fetch = async () => {
+    calls += 1;
+    return new Response(
+      JSON.stringify({ error: { code: 80008, message: "Too many calls" } }),
+      { status: 400, headers: { "Content-Type": "application/json" } },
+    );
+  };
+
+  try {
+    await assert.rejects(kapsoClient.listTemplates(config));
+    assert.ok(getKapsoTemplateSyncCooldownMs(config) > 0);
+    await assert.rejects(
+      kapsoClient.createTemplate(config, {
+        name: "test_template",
+        language: "es_MX",
+        category: "UTILITY",
+        parameter_format: "NAMED",
+        components: [{ type: "BODY", text: "Hola" }],
+      }),
+      /pausó nuevas consultas y sincronizaciones/,
+    );
+    await assert.rejects(listKapsoTemplateCatalogCached(config));
+    assert.equal(calls, 1);
+  } finally {
+    globalThis.fetch = originalFetch;
+    invalidateKapsoTemplateCatalogCache(config);
+  }
+});
+
+test("spaces scheduled template audits with capped exponential backoff", () => {
+  assert.equal(getCloudTemplateAuditDelayMs(0), 15 * 60_000);
+  assert.equal(getCloudTemplateAuditDelayMs(1), 15 * 60_000);
+  assert.equal(getCloudTemplateAuditDelayMs(2), 30 * 60_000);
+  assert.equal(getCloudTemplateAuditDelayMs(3), 60 * 60_000);
+  assert.equal(getCloudTemplateAuditDelayMs(20), 4 * 60 * 60_000);
 });

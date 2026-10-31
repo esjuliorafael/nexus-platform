@@ -64,6 +64,64 @@ function extractKapsoError(body: unknown, fallback: string) {
   return String(body || fallback || "Unknown Kapso error");
 }
 
+const templateAccountCooldownMs = 15 * 60_000;
+const templateAccountCooldowns = new Map<string, number>();
+
+function templateAccountKey(config: KapsoConfig) {
+  return `${config.apiBaseUrl}|${config.businessAccountId || ""}`;
+}
+
+export function getKapsoTemplateSyncCooldownMs(config: KapsoConfig) {
+  const key = templateAccountKey(config);
+  const retryAt = templateAccountCooldowns.get(key) || 0;
+  if (retryAt <= Date.now()) {
+    templateAccountCooldowns.delete(key);
+    return 0;
+  }
+  return retryAt - Date.now();
+}
+
+function createKapsoTemplateCooldownError(retryAfterMs: number) {
+  const minutes = Math.max(1, Math.ceil(retryAfterMs / 60_000));
+  return Object.assign(
+    new Error(
+      `Kapso limitó las solicitudes. Nexus pausó nuevas consultas y sincronizaciones durante ${minutes} minutos.`,
+    ),
+    {
+      statusCode: 429,
+      code: "KAPSO_TEMPLATE_RATE_LIMITED_COOLDOWN",
+      retryAfterMs,
+    },
+  );
+}
+
+function recordKapsoTemplateRateLimit(config: KapsoConfig, error: any) {
+  if (error?.code === "KAPSO_TEMPLATE_RATE_LIMITED_COOLDOWN") return;
+  const providerCode = Number(error?.responseBody?.error?.code);
+  if (Number(error?.statusCode) !== 429 && providerCode !== 80008) return;
+  templateAccountCooldowns.set(
+    templateAccountKey(config),
+    Date.now() + templateAccountCooldownMs,
+  );
+}
+
+async function requestKapsoTemplate<T>(
+  config: KapsoConfig,
+  request: () => Promise<T>,
+) {
+  const retryAfterMs = getKapsoTemplateSyncCooldownMs(config);
+  if (retryAfterMs > 0) throw createKapsoTemplateCooldownError(retryAfterMs);
+
+  try {
+    const result = await request();
+    templateAccountCooldowns.delete(templateAccountKey(config));
+    return result;
+  } catch (error) {
+    recordKapsoTemplateRateLimit(config, error);
+    throw error;
+  }
+}
+
 export const kapsoClient = {
   ingestResumableMedia(config: KapsoConfig, source: string) {
     return kapsoRequest<{
@@ -185,15 +243,17 @@ export const kapsoClient = {
         { statusCode: 400 },
       );
     }
-    return kapsoRequest<{ data: Array<Record<string, unknown>> }>(
-      config,
-      "GET",
-      `/meta/whatsapp/v24.0/${encodeURIComponent(config.businessAccountId)}/message_templates?${new URLSearchParams({
-        limit: "100",
-        ...(filters.name ? { name: filters.name } : {}),
-        ...(filters.status ? { status: filters.status } : {}),
-        ...(filters.language ? { language: filters.language } : {}),
-      }).toString()}`,
+    return requestKapsoTemplate(config, () =>
+      kapsoRequest<{ data: Array<Record<string, unknown>> }>(
+        config,
+        "GET",
+        `/meta/whatsapp/v24.0/${encodeURIComponent(config.businessAccountId!)}/message_templates?${new URLSearchParams({
+          limit: "100",
+          ...(filters.name ? { name: filters.name } : {}),
+          ...(filters.status ? { status: filters.status } : {}),
+          ...(filters.language ? { language: filters.language } : {}),
+        }).toString()}`,
+      ),
     );
   },
 
@@ -204,15 +264,17 @@ export const kapsoClient = {
         { statusCode: 400 },
       );
     }
-    return kapsoRequest<{
-      id: string;
-      status: "PENDING" | "APPROVED" | "REJECTED";
-      category: string;
-    }>(
-      config,
-      "POST",
-      `/meta/whatsapp/v24.0/${encodeURIComponent(config.businessAccountId)}/message_templates`,
-      definition,
+    return requestKapsoTemplate(config, () =>
+      kapsoRequest<{
+        id: string;
+        status: "PENDING" | "APPROVED" | "REJECTED";
+        category: string;
+      }>(
+        config,
+        "POST",
+        `/meta/whatsapp/v24.0/${encodeURIComponent(config.businessAccountId!)}/message_templates`,
+        definition,
+      ),
     ).then((result) => {
       invalidateKapsoTemplateCatalogCache(config);
       return result;
@@ -400,6 +462,8 @@ export async function listKapsoTemplateCatalogCached(config: KapsoConfig) {
   if (cached && cached.expiresAt > Date.now()) return cached.response;
   const failure = templateCatalogFailures.get(key);
   if (failure && failure.retryAt > Date.now()) throw failure.error;
+  const retryAfterMs = getKapsoTemplateSyncCooldownMs(config);
+  if (retryAfterMs > 0) throw createKapsoTemplateCooldownError(retryAfterMs);
 
   const pending = templateCatalogRequests.get(key);
   if (pending) return pending;
@@ -423,7 +487,7 @@ export async function listKapsoTemplateCatalogCached(config: KapsoConfig) {
       Number(error?.responseBody?.error?.code) === 80008;
     if ((templateCatalogCacheGenerations.get(key) || 0) === generation) {
       templateCatalogFailures.set(key, {
-        retryAt: Date.now() + (rateLimited ? 2 * 60_000 : 30_000),
+        retryAt: Date.now() + (rateLimited ? templateAccountCooldownMs : 30_000),
         error,
       });
     }
