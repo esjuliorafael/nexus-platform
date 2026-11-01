@@ -1039,14 +1039,25 @@ export const apiWhatsApp = {
     scope: "STORE" | "RAFFLES";
     type: string;
   }) => api.post("/admin/whatsapp/kapso/activate-template", data),
+  deleteKapsoTemplate: async (data: {
+    channelId?: number;
+    variant: "LEGACY" | "SIMPLIFIED";
+    scope: "STORE" | "RAFFLES";
+    type: string;
+    templateName: string;
+    contentHash: string;
+    confirmationName: string;
+  }) => api.post("/admin/whatsapp/kapso/delete-template", data),
   getKapsoTemplateReadiness: async (
     channelId?: string,
     variant: "LEGACY" | "SIMPLIFIED" = "LEGACY",
+    target?: { scope: "STORE" | "RAFFLES"; type: string },
   ) =>
     api.get("/admin/whatsapp/kapso/template-readiness", {
       params: {
         ...(channelId ? { channelId: Number(channelId) } : {}),
         variant,
+        ...target,
       },
     }),
   createKapsoSetupLink: async (data: {

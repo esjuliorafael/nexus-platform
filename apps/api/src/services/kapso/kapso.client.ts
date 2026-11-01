@@ -281,6 +281,25 @@ export const kapsoClient = {
     });
   },
 
+  deleteTemplate(config: KapsoConfig, templateName: string) {
+    if (!config.businessAccountId) {
+      throw Object.assign(
+        new Error("Business Account ID is required to delete templates."),
+        { statusCode: 400 },
+      );
+    }
+    return requestKapsoTemplate(config, () =>
+      kapsoRequest<{ success?: boolean }>(
+        config,
+        "DELETE",
+        `/meta/whatsapp/v24.0/${encodeURIComponent(config.businessAccountId!)}/message_templates?${new URLSearchParams({ name: templateName }).toString()}`,
+      ),
+    ).then((result) => {
+      invalidateKapsoTemplateCatalogCache(config);
+      return result;
+    });
+  },
+
   listMessages(
     config: KapsoConfig,
     options: {

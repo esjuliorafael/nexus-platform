@@ -506,6 +506,46 @@ test("reuses one Kapso catalog request and invalidates it after a sync", async (
   }
 });
 
+test("deletes a Kapso template by exact name and invalidates the cached catalog", async () => {
+  const config = {
+    apiKey: "test-key",
+    apiBaseUrl: "https://kapso.test",
+    phoneNumberId: "phone-1",
+    businessAccountId: `delete-waba-${Date.now()}`,
+  };
+  const originalFetch = globalThis.fetch;
+  const requests: Array<{ url: string; method: string | undefined; apiKey: string | null }> = [];
+  globalThis.fetch = async (input, init) => {
+    requests.push({
+      url: String(input),
+      method: init?.method,
+      apiKey: new Headers(init?.headers).get("X-API-Key"),
+    });
+    return new Response(
+      JSON.stringify(init?.method === "DELETE" ? { success: true } : { data: [] }),
+      { status: 200, headers: { "Content-Type": "application/json" } },
+    );
+  };
+
+  try {
+    await listKapsoTemplateCatalogCached(config);
+    await kapsoClient.deleteTemplate(config, "nexus_principal_raffles_payment_confirmed_ab12cd34");
+    await listKapsoTemplateCatalogCached(config);
+
+    assert.equal(requests.length, 3);
+    assert.equal(requests[1].method, "DELETE");
+    assert.equal(
+      requests[1].url,
+      `https://kapso.test/meta/whatsapp/v24.0/${config.businessAccountId}/message_templates?name=nexus_principal_raffles_payment_confirmed_ab12cd34`,
+    );
+    assert.equal(requests[1].apiKey, "test-key");
+    assert.equal(requests[2].method, "GET");
+  } finally {
+    globalThis.fetch = originalFetch;
+    invalidateKapsoTemplateCatalogCache(config);
+  }
+});
+
 test("backs off Kapso template catalog retries after rate limiting", async () => {
   const config = {
     apiKey: "test-key",

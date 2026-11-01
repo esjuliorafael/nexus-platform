@@ -87,6 +87,8 @@ const channelDiagnosticsSchema = z.object({
 const cloudTemplateTargetSchema = z.object({
   channelId: z.coerce.number().int().positive().optional(),
   variant: z.enum(["LEGACY", "SIMPLIFIED"]).default("LEGACY"),
+  scope: z.enum(["STORE", "RAFFLES"]).optional(),
+  type: z.string().trim().min(1).optional(),
 });
 
 const cloudTemplateSyncSchema = cloudTemplateTargetSchema.extend({
@@ -97,6 +99,12 @@ const cloudTemplateSyncSchema = cloudTemplateTargetSchema.extend({
 const cloudTemplateActivationSchema = cloudTemplateTargetSchema.extend({
   scope: z.enum(["STORE", "RAFFLES"]),
   type: z.string().trim().min(1),
+});
+
+const cloudTemplateDeletionSchema = cloudTemplateActivationSchema.extend({
+  templateName: z.string().trim().regex(/^[a-z0-9_]+$/),
+  contentHash: z.string().trim().min(1),
+  confirmationName: z.string().trim().min(1),
 });
 
 const KAPSO_MESSAGE_EVENTS = [
@@ -758,6 +766,311 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
     },
   );
 
+  server.post(
+    "/delete-template",
+    { preHandler: [server.authenticate] },
+    async (request, reply) => {
+      let body: z.infer<typeof cloudTemplateDeletionSchema>;
+      try {
+        body = cloudTemplateDeletionSchema.parse(request.body || {});
+      } catch (error: any) {
+        if (error?.issues) {
+          return reply
+            .status(400)
+            .send({ message: "Validation error", errors: error.issues });
+        }
+        throw error;
+      }
+
+      if (body.confirmationName !== body.templateName) {
+        return reply.status(400).send({
+          message: "Escribe el nombre exacto de la plantilla para confirmar.",
+        });
+      }
+
+      const target = await resolveCloudTemplateTarget(
+        body.channelId,
+        body.variant,
+        body.scope,
+        body.type as CloudTemplateType,
+      );
+      if (!target) {
+        return reply.status(404).send({ message: "Canal no encontrado." });
+      }
+      if (!target.config?.businessAccountId) {
+        return reply.status(409).send({
+          message: "El canal no tiene un Business Account ID de Kapso configurado.",
+        });
+      }
+
+      const source = target.sources.find(
+        (item) => item.scope === body.scope && item.type === body.type,
+      );
+      if (!source) {
+        return reply.status(404).send({
+          message: "La plantilla no corresponde a este canal y alcance.",
+        });
+      }
+
+      const ownerKey = getCloudTemplateOwnerKey(target.owner);
+      const versionEvents = await server.storePrisma.whatsappCloudTemplateEvent.findMany({
+        where: {
+          ownerKey,
+          scope: body.scope,
+          type: body.type as any,
+          variant: body.variant,
+        },
+        orderBy: { createdAt: "desc" },
+        take: 500,
+      });
+      const knownVersion = versionEvents.some((event) => {
+        if (
+          event.templateName === body.templateName &&
+          (event.contentHash === body.contentHash ||
+            event.nextContentHash === body.contentHash)
+        ) {
+          return true;
+        }
+        const metadata =
+          event.metadata && typeof event.metadata === "object" && !Array.isArray(event.metadata)
+            ? (event.metadata as Record<string, unknown>)
+            : {};
+        return (
+          metadata.previousTemplateName === body.templateName &&
+          metadata.previousContentHash === body.contentHash
+        );
+      });
+      if (!knownVersion) {
+        return reply.status(409).send({
+          message: "Nexus no tiene un registro de esta versión. Sincroniza primero su historial antes de eliminarla.",
+        });
+      }
+
+      const activeVersionKey = getTemplateActiveVersionSettingKey(
+        body.scope,
+        body.type as CloudTemplateType,
+        "CLOUD",
+        target.owner,
+      );
+      const activeVersionSetting = activeVersionKey
+        ? await server.storePrisma.setting.findUnique({
+            where: { key: activeVersionKey },
+            select: { value: true },
+          })
+        : null;
+      const activeVersion = activeVersionSetting?.value || "LEGACY";
+      const activeMapping = await server.storePrisma.whatsappCloudTemplate.findUnique({
+        where: {
+          ownerKey_scope_type_variant: {
+            ownerKey,
+            scope: body.scope,
+            type: body.type as any,
+            variant: activeVersion,
+          },
+        },
+      });
+      if (!activeMapping || activeMapping.templateName === body.templateName) {
+        return reply.status(409).send({
+          message: "No se puede eliminar la versión activa. Activa y verifica primero otra versión aprobada.",
+        });
+      }
+
+      const [activeReferences, candidateReferences] = await Promise.all([
+        server.storePrisma.whatsappCloudTemplate.findMany({
+          where: { templateName: body.templateName },
+          select: { ownerKey: true, scope: true, type: true, variant: true },
+        }),
+        server.storePrisma.whatsappCloudTemplateCandidate.findMany({
+          where: { templateName: body.templateName },
+          select: { ownerKey: true, scope: true, type: true, variant: true },
+        }),
+      ]);
+      if (activeReferences.length || candidateReferences.length) {
+        return reply.status(409).send({
+          message: "Esta plantilla todavía está referenciada por un mapeo activo o una candidata de Nexus.",
+        });
+      }
+
+      let remoteVersion: Record<string, unknown> | undefined;
+      let remoteReplacement: Record<string, unknown> | undefined;
+      try {
+        const remoteOld = await kapsoClient.listTemplates(target.config, {
+          name: body.templateName,
+        });
+        remoteVersion = (remoteOld.data || []).find(
+          (item) => String(item.name || "") === body.templateName,
+        );
+        if (!remoteVersion) {
+          return reply.status(409).send({
+            message: "La versión ya no aparece en Kapso. No se envió la solicitud de eliminación.",
+          });
+        }
+        const remoteActive = await kapsoClient.listTemplates(target.config, {
+          name: activeMapping.templateName,
+        });
+        remoteReplacement = (remoteActive.data || []).find(
+          (item) => String(item.name || "") === activeMapping.templateName,
+        );
+      } catch (error: any) {
+        request.log.warn(
+          { error, ownerKey, templateName: body.templateName },
+          "Could not verify remote WhatsApp template deletion prerequisites",
+        );
+        const statusCode = Number(error?.statusCode) === 429 ? 429 : 424;
+        return reply.status(statusCode).send({
+          message: "No se pudo verificar en Kapso la versión antigua y su reemplazo activo. No se eliminó nada.",
+        });
+      }
+
+      if (
+        !remoteReplacement ||
+        normalizeKapsoTemplateStatus(remoteReplacement.status) !== "APPROVED"
+      ) {
+        return reply.status(409).send({
+          message: "La versión de reemplazo no está aprobada y verificada en Kapso. No se eliminó nada.",
+        });
+      }
+
+      const finalActiveReferences = await server.storePrisma.whatsappCloudTemplate.findMany({
+        where: { templateName: body.templateName },
+        select: { id: true },
+      });
+      const finalCandidateReferences = await server.storePrisma.whatsappCloudTemplateCandidate.findMany({
+        where: { templateName: body.templateName },
+        select: { id: true },
+      });
+      if (finalActiveReferences.length || finalCandidateReferences.length) {
+        return reply.status(409).send({
+          message: "La plantilla volvió a quedar referenciada durante la verificación. No se eliminó nada.",
+        });
+      }
+
+      const latestActiveVersionSetting = activeVersionKey
+        ? await server.storePrisma.setting.findUnique({
+            where: { key: activeVersionKey },
+            select: { value: true },
+          })
+        : null;
+      const latestActiveVersion = latestActiveVersionSetting?.value || "LEGACY";
+      const latestActiveMapping = await server.storePrisma.whatsappCloudTemplate.findUnique({
+        where: {
+          ownerKey_scope_type_variant: {
+            ownerKey,
+            scope: body.scope,
+            type: body.type as any,
+            variant: latestActiveVersion,
+          },
+        },
+      });
+      if (
+        latestActiveVersion !== activeVersion ||
+        latestActiveMapping?.templateName !== activeMapping.templateName
+      ) {
+        return reply.status(409).send({
+          message: "La versión activa cambió mientras se verificaba la solicitud. Actualiza el estado e inténtalo de nuevo.",
+        });
+      }
+
+      const deletionAuditSubject = {
+        ownerKey,
+        channelId: target.channelOwner?.channelId ?? null,
+        channelName: target.channelOwner?.name || null,
+        channelPurpose: target.channelOwner?.purpose || null,
+        scope: body.scope,
+        type: body.type as any,
+        variant: body.variant,
+        templateName: body.templateName,
+        templateId: String(remoteVersion.id || "") || null,
+        category: String(remoteVersion.category || "") || null,
+        languageCode: String(remoteVersion.language || "") || null,
+        contentHash: body.contentHash,
+      };
+      const deletionAuditContext = getCloudTemplateAuditContext(
+        request,
+        "admin_remote_delete",
+      );
+      const deletionAuditMetadata = {
+        businessAccountId: target.config.businessAccountId,
+        replacementTemplateName: activeMapping.templateName,
+        replacementVariant: activeVersion,
+        replacementStatus: normalizeKapsoTemplateStatus(remoteReplacement.status),
+        deletionConfirmedByExactName: true,
+      };
+      await server.storePrisma.$transaction(async (tx) => {
+        await recordCloudTemplateAuditEvent(tx, deletionAuditSubject, {
+          eventType: "TEMPLATE_REMOTE_DELETE_REQUESTED",
+          context: deletionAuditContext,
+          previousStatus: normalizeKapsoTemplateStatus(remoteVersion.status),
+          nextStatus: "DELETE_REQUESTED",
+          previousContentHash: body.contentHash,
+          metadata: deletionAuditMetadata,
+        });
+      });
+
+      try {
+        await kapsoClient.deleteTemplate(target.config, body.templateName);
+      } catch (error: any) {
+        request.log.error(
+          { error, ownerKey, templateName: body.templateName },
+          "Kapso template deletion failed",
+        );
+        try {
+          await server.storePrisma.$transaction(async (tx) => {
+            await recordCloudTemplateAuditEvent(tx, deletionAuditSubject, {
+              eventType: "TEMPLATE_REMOTE_DELETE_FAILED",
+              context: deletionAuditContext,
+              previousStatus: normalizeKapsoTemplateStatus(remoteVersion?.status),
+              nextStatus: "DELETE_FAILED",
+              previousContentHash: body.contentHash,
+              metadata: {
+                ...deletionAuditMetadata,
+                providerStatusCode: Number(error?.statusCode) || 0,
+              },
+            });
+          });
+        } catch (auditError) {
+          request.log.error(
+            { auditError, ownerKey, templateName: body.templateName },
+            "Could not record failed Kapso template deletion",
+          );
+        }
+        return reply.status(Number(error?.statusCode) === 429 ? 429 : 502).send({
+          message: "Kapso no pudo eliminar la plantilla. Nexus conserva su historial y no registró el borrado como completado.",
+        });
+      }
+
+      try {
+        await server.storePrisma.$transaction(async (tx) => {
+          await recordCloudTemplateAuditEvent(tx, deletionAuditSubject, {
+            eventType: "TEMPLATE_REMOTE_DELETED",
+            context: deletionAuditContext,
+            previousStatus: normalizeKapsoTemplateStatus(remoteVersion?.status),
+            nextStatus: "DELETED",
+            previousContentHash: body.contentHash,
+            metadata: deletionAuditMetadata,
+          });
+        });
+      } catch (error) {
+        request.log.error(
+          { error, ownerKey, templateName: body.templateName },
+          "Kapso template was deleted but its completion audit event could not be recorded",
+        );
+        return reply.status(500).send({
+          message: "Kapso eliminó la plantilla, pero Nexus no pudo registrar la confirmación final. El intento previo permanece en el historial; revisa el estado antes de repetir la acción.",
+        });
+      }
+      return {
+        ok: true,
+        ownerKey,
+        scope: body.scope,
+        type: body.type,
+        variant: body.variant,
+        templateName: body.templateName,
+        replacementTemplateName: activeMapping.templateName,
+      };
+    },
+  );
+
   server.get(
     "/template-readiness",
     { preHandler: [server.authenticate] },
@@ -875,6 +1188,137 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
           templateFound: Boolean(activeRemoteTemplate),
           remoteStatus: activeRemoteStatus,
         });
+        let versions: Array<Record<string, unknown>> = [];
+        if (query.scope === source.scope && query.type === source.type) {
+          const historyEvents = await server.storePrisma.whatsappCloudTemplateEvent.findMany({
+            where: {
+              ownerKey,
+              scope: source.scope,
+              type: source.type,
+              variant: source.variant,
+            },
+            orderBy: { createdAt: "desc" },
+            take: 500,
+          });
+          const remotelyDeletedNames = new Set(
+            historyEvents
+              .filter((event) => event.eventType === "TEMPLATE_REMOTE_DELETED")
+              .map((event) => event.templateName)
+              .filter((name): name is string => Boolean(name)),
+          );
+          const knownVersions = new Map<string, {
+            templateName: string;
+            contentHash: string | null;
+            templateId: string | null;
+            languageCode: string;
+            lastSeenAt: Date;
+          }>();
+          const addKnownVersion = (version: {
+            templateName?: unknown;
+            contentHash?: unknown;
+            templateId?: unknown;
+            languageCode?: unknown;
+            observedAt: Date;
+          }) => {
+            const templateName = String(version.templateName || "").trim();
+            if (!templateName) return;
+            const contentHash = String(version.contentHash || "").trim() || null;
+            const key = `${templateName}|${contentHash || ""}`;
+            if (!knownVersions.has(key)) {
+              knownVersions.set(key, {
+                templateName,
+                contentHash,
+                templateId: String(version.templateId || "").trim() || null,
+                languageCode: String(version.languageCode || "es_MX"),
+                lastSeenAt: version.observedAt,
+              });
+            }
+          };
+          for (const event of historyEvents) {
+            addKnownVersion({
+              templateName: event.templateName,
+              contentHash: event.contentHash || event.nextContentHash,
+              templateId: event.templateId,
+              languageCode: event.languageCode,
+              observedAt: event.createdAt,
+            });
+            const metadata =
+              event.metadata && typeof event.metadata === "object" && !Array.isArray(event.metadata)
+                ? (event.metadata as Record<string, unknown>)
+                : {};
+            addKnownVersion({
+              templateName: metadata.previousTemplateName,
+              contentHash: metadata.previousContentHash,
+              observedAt: event.createdAt,
+            });
+            addKnownVersion({
+              templateName: metadata.nextTemplateName,
+              contentHash: metadata.nextContentHash,
+              observedAt: event.createdAt,
+            });
+          }
+          addKnownVersion({
+            templateName: mapping?.templateName,
+            contentHash: mapping?.contentHash,
+            templateId: mapping?.templateId,
+            languageCode: mapping?.languageCode,
+            observedAt: mapping?.updatedAt || new Date(),
+          });
+          for (const item of candidates.filter(
+            (candidateItem) =>
+              candidateItem.scope === source.scope &&
+              candidateItem.type === source.type &&
+              candidateItem.variant === source.variant,
+          )) {
+            addKnownVersion({
+              templateName: item.templateName,
+              contentHash: item.contentHash,
+              templateId: item.templateId,
+              languageCode: item.languageCode,
+              observedAt: item.updatedAt,
+            });
+          }
+          versions = Array.from(knownVersions.values())
+            .map((version) => {
+              const remoteVersion = findCloudTemplateInCatalog(
+                remoteTemplates,
+                version.templateName,
+                version.languageCode,
+              );
+              const isActive = activeMapping?.templateName === version.templateName;
+              const isCandidate = candidates.some(
+                (item) => item.templateName === version.templateName,
+              );
+              const remoteStatus = remoteVersion
+                ? normalizeKapsoTemplateStatus(remoteVersion.status)
+                : null;
+              const canDelete = Boolean(
+                remoteChecked &&
+                  remoteVersion &&
+                  version.contentHash &&
+                  !isActive &&
+                  !isCandidate &&
+                  activeHealth === "HEALTHY",
+              );
+              let deleteBlockedReason: string | null = null;
+              if (isActive) deleteBlockedReason = "Versión activa";
+              else if (isCandidate) deleteBlockedReason = "Candidata en Nexus";
+              else if (!remoteChecked) deleteBlockedReason = "Estado remoto sin verificar";
+              else if (!remoteVersion) deleteBlockedReason = "Ya no aparece en Kapso";
+              else if (activeHealth !== "HEALTHY") deleteBlockedReason = "Activa otra versión aprobada para habilitar la limpieza";
+              return {
+                ...version,
+                remoteExists: Boolean(remoteVersion),
+                remoteStatus,
+                wasDeleted: remotelyDeletedNames.has(version.templateName),
+                isActive,
+                isCandidate,
+                canDelete,
+                deleteBlockedReason,
+              };
+            })
+            .sort((a, b) => b.lastSeenAt.getTime() - a.lastSeenAt.getTime());
+        }
         const current = sourceReady && currentRemoteStatus === "APPROVED";
         const activationRecordAvailable = Boolean(
           candidate || mapping?.contentHash === contentHash,
@@ -903,6 +1347,7 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
           replacementPending: Boolean(
             candidate && currentRemoteStatus !== "APPROVED",
           ),
+          versions,
         };
       }));
       return {

@@ -41,6 +41,10 @@ test("maps high-impact admin operations to explicit permissions", () => {
     "messaging.view",
   );
   assert.equal(
+    requiredPermissionForRequest(makeRequest("/api/v1/admin/whatsapp/kapso/delete-template", "POST")),
+    "messaging.templates.delete",
+  );
+  assert.equal(
     requiredPermissionForRequest(makeRequest("/api/v1/store/orders/admin/52", "DELETE")),
     "orders.manage",
   );
@@ -230,6 +234,64 @@ test("accepts the explicit dashboard history permission", () => {
     createUserSchema.safeParse({
       ...baseUser,
       permissions: ["dashboard.history.view"],
+    }).success,
+    true,
+  );
+});
+
+test("remote WhatsApp template deletion requires its dedicated permission", async () => {
+  const authorize = async (
+    url: string,
+    method: string,
+    permissions: string[],
+    role = "STAFF",
+  ) => {
+    const reply: any = {
+      sent: false,
+      statusCode: 200,
+      status(code: number) { this.statusCode = code; return this; },
+      send(body: unknown) { this.sent = true; this.body = body; return body; },
+    };
+    await authorizeAdminRequest(
+      { authenticate: async () => undefined } as any,
+      makeRequest(
+        url,
+        method,
+        permissions,
+        {},
+        role,
+      ),
+      reply,
+    );
+    return reply;
+  };
+
+  assert.equal(
+    (await authorize("/api/v1/admin/whatsapp/kapso/delete-template", "POST", ["messaging.manage"])).statusCode,
+    403,
+  );
+  assert.equal(
+    (await authorize("/api/v1/admin/whatsapp/kapso/delete-template", "POST", ["messaging.templates.delete"])).sent,
+    false,
+  );
+  assert.equal(
+    (await authorize("/api/v1/admin/whatsapp/kapso/template-readiness", "GET", ["messaging.templates.delete"])).sent,
+    false,
+  );
+  assert.equal(
+    (await authorize("/api/v1/admin/channels", "GET", ["messaging.templates.delete"])).sent,
+    false,
+  );
+  assert.equal(
+    (await authorize("/api/v1/admin/whatsapp/kapso/delete-template", "POST", [], "SUPERADMIN")).sent,
+    false,
+  );
+
+  const baseUser = { username: "staff", password: "long-enough-password", name: "Staff" };
+  assert.equal(
+    createUserSchema.safeParse({
+      ...baseUser,
+      permissions: ["messaging.templates.delete"],
     }).success,
     true,
   );

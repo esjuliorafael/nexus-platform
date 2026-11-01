@@ -49,6 +49,7 @@ const PERMISSION_IDS = [
   "messaging.cost.view",
   "messaging.manage",
   "messaging.send",
+  "messaging.templates.delete",
   "coupons.view",
   "coupons.manage",
   "coupons.delete",

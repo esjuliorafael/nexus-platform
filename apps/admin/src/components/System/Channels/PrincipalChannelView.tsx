@@ -18,6 +18,7 @@ import {
   Save,
   ShieldCheck,
   Smartphone,
+  Trash2,
   User,
   Variable,
   WalletCards,
@@ -61,6 +62,7 @@ interface PrincipalChannelViewProps {
   showToast: (message: string, type?: "success" | "error") => void;
   setConfirmDialog: (dialog: any) => void;
   templateEditorResetToken?: number;
+  canDeleteCloudTemplates?: boolean;
   onTemplateEditorChange?: (editor: {
     label: string;
     provider: "EVOLUTION" | "CLOUD";
@@ -159,6 +161,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
   showToast,
   setConfirmDialog,
   templateEditorResetToken = 0,
+  canDeleteCloudTemplates = false,
   onTemplateEditorChange,
 }) => {
   const [config, setConfig] = useState<Record<string, string>>({});
@@ -177,6 +180,17 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
     useState(0);
   const [isLoadingCloudTemplateStatus, setIsLoadingCloudTemplateStatus] =
     useState(false);
+  const [templateDeletion, setTemplateDeletion] = useState<{
+    label: string;
+    channelId?: number;
+    version: {
+      templateName: string;
+      contentHash: string | null;
+      remoteStatus: string | null;
+    };
+  } | null>(null);
+  const [templateDeletionConfirmation, setTemplateDeletionConfirmation] = useState("");
+  const [isDeletingCloudTemplate, setIsDeletingCloudTemplate] = useState(false);
   const [specializedCloudChannels, setSpecializedCloudChannels] = useState<any[]>([]);
   const [selectedPrincipalChannel, setSelectedPrincipalChannel] = useState(true);
   const [selectedSpecializedChannelIds, setSelectedSpecializedChannelIds] = useState<string[]>([]);
@@ -658,6 +672,38 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
     setCloudTemplateStatusRefreshToken((current) => current + 1);
   };
 
+  const deleteCloudTemplateVersion = async () => {
+    if (
+      !editingTemplate ||
+      !templateDeletion ||
+      templateDeletionConfirmation !== templateDeletion.version.templateName
+    ) return;
+
+    setIsDeletingCloudTemplate(true);
+    try {
+      await apiWhatsApp.deleteKapsoTemplate({
+        ...(templateDeletion.channelId ? { channelId: templateDeletion.channelId } : {}),
+        variant: editingTemplate.version,
+        scope: editingTemplate.scope,
+        type: editingTemplate.type,
+        templateName: templateDeletion.version.templateName,
+        contentHash: templateDeletion.version.contentHash || "",
+        confirmationName: templateDeletionConfirmation,
+      });
+      showToast("Versión antigua eliminada de Kapso; el historial de Nexus se conservó.");
+      setTemplateDeletion(null);
+      setTemplateDeletionConfirmation("");
+      setCloudTemplateStatusRefreshToken((current) => current + 1);
+    } catch (error: any) {
+      showToast(
+        error?.response?.data?.message || "No se pudo eliminar la versión de Kapso.",
+        "error",
+      );
+    } finally {
+      setIsDeletingCloudTemplate(false);
+    }
+  };
+
   const editorContent = editingTemplate
     ? getChannelTemplateEditorContent(
         editingTemplate,
@@ -689,7 +735,11 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       isRefreshing = true;
       try {
         const [principalResponse, channels] = await Promise.all([
-          apiWhatsApp.getKapsoTemplateReadiness(undefined, editingTemplate.version),
+          apiWhatsApp.getKapsoTemplateReadiness(
+            undefined,
+            editingTemplate.version,
+            { scope: editingTemplate.scope, type: editingTemplate.type },
+          ),
           apiWhatsApp.getAll(),
         ]);
         const linked = channels.filter(
@@ -703,6 +753,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
             response: await apiWhatsApp.getKapsoTemplateReadiness(
               String(channel.id),
               editingTemplate.version,
+              { scope: editingTemplate.scope, type: editingTemplate.type },
             ),
           })),
         );
@@ -866,6 +917,11 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       });
     });
   }, [templateEditorResetToken]);
+
+  useEffect(() => {
+    setTemplateDeletion(null);
+    setTemplateDeletionConfirmation("");
+  }, [editingTemplate?.key]);
 
   if (isLoading) {
     return (
@@ -1127,6 +1183,81 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
               </div>
             </div>
           )}
+          {templateProvider === "CLOUD" &&
+            Object.values(cloudTemplateStatuses).some((status: any) => status?.versions?.length) && (
+              <div
+                className="flex flex-col border-t border-border-main"
+                style={{ gap: "var(--space-md)", paddingTop: "var(--space-lg)" }}
+              >
+                <div className="flex flex-col" style={{ gap: "var(--space-xs)" }}>
+                  <h3 className="text-h2 font-semibold text-text-main">Versiones de esta plantilla</h3>
+                  <p className="text-secondary text-text-muted">
+                    Activar una versión no elimina las anteriores. Puedes borrar una versión remota cuando otra esté activa y aprobada; el historial de Nexus se conserva.
+                  </p>
+                </div>
+                {(Object.entries(cloudTemplateStatuses) as Array<[string, any]>).map(([ownerKey, status]) => {
+                  const versions = Array.isArray(status?.versions) ? status.versions : [];
+                  if (!versions.length) return null;
+                  return (
+                    <div key={`versions-${ownerKey}`} className="flex flex-col" style={{ gap: "var(--space-sm)" }}>
+                      <p className="text-label font-bold text-text-main">{status?.label || ownerKey}</p>
+                      {versions.map((version: any) => (
+                        <div
+                          key={`${version.templateName}-${version.contentHash || "unknown"}`}
+                          className="flex flex-col border-t border-border-main sm:flex-row sm:items-center sm:justify-between"
+                          style={{ gap: "var(--space-sm)", paddingTop: "var(--space-sm)" }}
+                        >
+                          <div className="min-w-0">
+                            <p className="break-all text-secondary font-semibold text-text-main" title={version.templateName}>
+                              {version.templateName}
+                            </p>
+                            <div className="flex flex-wrap items-center" style={{ gap: "var(--space-xs)", marginTop: "var(--space-xs)" }}>
+                              <span className="text-label text-text-muted" title={version.contentHash || ""}>
+                                Hash: {version.contentHash ? String(version.contentHash).slice(0, 8) : "Sin registro"}
+                              </span>
+                              <span className="text-label text-text-muted">
+                                {version.remoteExists
+                                  ? getCloudTemplateStatusLabel(version.remoteStatus)
+                                  : version.wasDeleted
+                                    ? "Eliminada de Kapso"
+                                    : "Ya no aparece en Kapso"}
+                              </span>
+                              {version.isActive && <span className="text-label font-bold text-emerald-700">Activa</span>}
+                              {version.isCandidate && <span className="text-label font-bold text-amber-700">Candidata</span>}
+                            </div>
+                            {!version.canDelete && version.deleteBlockedReason && (
+                              <p className="text-label text-text-muted" style={{ marginTop: "var(--space-xs)" }}>
+                                {version.deleteBlockedReason}
+                              </p>
+                            )}
+                          </div>
+                          {canDeleteCloudTemplates && version.canDelete && version.contentHash && (
+                            <NexusSectionButton
+                              variant="danger"
+                              icon={Trash2}
+                              onClick={() => {
+                                setTemplateDeletion({
+                                  label: status?.label || ownerKey,
+                                  channelId: status?.channelId,
+                                  version: {
+                                    templateName: version.templateName,
+                                    contentHash: version.contentHash,
+                                    remoteStatus: version.remoteStatus,
+                                  },
+                                });
+                                setTemplateDeletionConfirmation("");
+                              }}
+                            >
+                              Eliminar de Kapso
+                            </NexusSectionButton>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  );
+                })}
+              </div>
+            )}
           <div
             className="grid grid-cols-1 xl:grid-cols-2"
             style={{ gap: "var(--space-lg)" }}
@@ -1310,6 +1441,69 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
               </div>
             </NexusModal>
           )}
+          <NexusModal
+            isOpen={Boolean(templateDeletion)}
+            title="Eliminar versión de Kapso"
+            icon={Trash2}
+            iconTone="danger"
+            size="compact"
+            onClose={() => {
+              if (isDeletingCloudTemplate) return;
+              setTemplateDeletion(null);
+              setTemplateDeletionConfirmation("");
+            }}
+            footer={
+              <NexusModalActions className="w-full flex-col sm:flex-row">
+                <NexusAutonomousButton
+                  type="button"
+                  variant="secondary"
+                  className="w-full sm:flex-1"
+                  disabled={isDeletingCloudTemplate}
+                  onClick={() => {
+                    setTemplateDeletion(null);
+                    setTemplateDeletionConfirmation("");
+                  }}
+                >
+                  Cancelar
+                </NexusAutonomousButton>
+                <NexusAutonomousButton
+                  type="button"
+                  variant="danger"
+                  icon={Trash2}
+                  className="w-full sm:flex-1"
+                  disabled={
+                    !templateDeletion ||
+                    templateDeletionConfirmation !== templateDeletion.version.templateName
+                  }
+                  isLoading={isDeletingCloudTemplate}
+                  onClick={deleteCloudTemplateVersion}
+                >
+                  Eliminar de Kapso
+                </NexusAutonomousButton>
+              </NexusModalActions>
+            }
+          >
+            {templateDeletion && (
+              <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+                <p className="text-secondary text-text-muted">
+                  Se eliminará esta versión de la cuenta de WhatsApp de {templateDeletion.label}. La versión activa no se toca y el registro histórico de Nexus permanece.
+                </p>
+                <NexusInlineNotice title="Acción remota irreversible" variant="danger" context="card">
+                  Nexus volverá a verificar que otra versión esté activa y aprobada antes de enviar la solicitud a Kapso.
+                </NexusInlineNotice>
+                <p className="break-all text-label font-semibold text-text-main" title={templateDeletion.version.templateName}>
+                  {templateDeletion.version.templateName}
+                </p>
+                <NexusInput
+                  label="Escribe el nombre exacto para confirmar"
+                  value={templateDeletionConfirmation}
+                  onChange={(event) => setTemplateDeletionConfirmation(event.target.value)}
+                  autoComplete="off"
+                  spellCheck={false}
+                />
+              </div>
+            )}
+          </NexusModal>
         </NexusSection>
       </div>
     );

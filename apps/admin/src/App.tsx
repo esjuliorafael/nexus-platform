@@ -684,8 +684,9 @@ function App() {
   const canViewCategories = hasPermission("categories.view");
   const canViewMediaVault = hasPermission("media.vault.view");
   const canViewMessages = userPermissions.some((permission) => [
-    "messaging.view", "messaging.manage", "messaging.send",
+    "messaging.view", "messaging.manage", "messaging.send", "messaging.templates.delete",
   ].includes(permission));
+  const canDeleteCloudTemplates = userPermissions.includes("messaging.templates.delete");
   const canViewOrders = userPermissions.some((permission) => [
     "orders.view", "orders.manage", "orders.financial.manage", "orders.refund", "orders.restore",
   ].includes(permission));
@@ -1209,7 +1210,7 @@ function App() {
       "storefront.announcements.view", "storefront.announcements.manage", "storefront.announcements.delete", "storefront.branding.view",
       "storefront.branding.manage", "platform.settings.view", "platform.settings.manage",
       "billing.view", "billing.manage", "channels.view", "channels.manage",
-      "messaging.view", "messaging.manage", "raffles.settings.view", "raffles.settings.manage",
+      "messaging.view", "messaging.manage", "messaging.templates.delete", "raffles.settings.view", "raffles.settings.manage",
       "raffles.intelligence.view", "raffles.intelligence.manage", "raffles.intelligence.export",
       "inventory.audit", "inventory.reservations.release", "users.view", "users.create",
       "users.update", "users.delete", "users.permissions.manage", "users.roles.manage",
@@ -3193,12 +3194,14 @@ function App() {
                             hasPermission("platform.settings.manage") &&
                             userRole === "superadmin"
                           }
+                          canManageTemplateVersions={canDeleteCloudTemplates}
                         />
                       ) : channelsViewMode === "principal" ? (
                         <PrincipalChannelView
                           showToast={showToast}
                           setConfirmDialog={setConfirmDialog}
                           templateEditorResetToken={principalTemplateEditorResetToken}
+                          canDeleteCloudTemplates={canDeleteCloudTemplates}
                           onTemplateEditorChange={setPrincipalTemplateEditor}
                         />
                       ) : channelsViewMode === "create" ? (

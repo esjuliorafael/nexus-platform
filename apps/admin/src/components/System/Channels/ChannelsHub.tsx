@@ -31,6 +31,7 @@ interface ChannelsHubProps {
   setConfirmDialog: (dialog: any) => void;
   canManageSpecialized: boolean;
   canManagePrincipal: boolean;
+  canManageTemplateVersions?: boolean;
 }
 
 const StatusPill: React.FC<{ ready: boolean; label: string }> = ({ ready, label }) => (
@@ -72,6 +73,7 @@ export const ChannelsHub: React.FC<ChannelsHubProps> = ({
   setConfirmDialog,
   canManageSpecialized,
   canManagePrincipal,
+  canManageTemplateVersions = false,
 }) => {
   const [isLoading, setIsLoading] = useState(true);
   const [overview, setOverview] = useState<ChannelsOverview | null>(null);
@@ -168,9 +170,9 @@ export const ChannelsHub: React.FC<ChannelsHubProps> = ({
         subtitle="Fallback para tienda general, pedidos mixtos y flujos sin canal especializado"
         icon={ShieldCheck}
         iconVariant={readyCount === 4 ? 'emerald' : 'brand'}
-        action={canManagePrincipal ? (
+        action={canManagePrincipal || canManageTemplateVersions ? (
           <NexusSectionButton onClick={onEditPrincipal} icon={ArrowRight}>
-            Administrar
+            {canManagePrincipal ? "Administrar" : "Gestionar versiones"}
           </NexusSectionButton>
         ) : undefined}
       >

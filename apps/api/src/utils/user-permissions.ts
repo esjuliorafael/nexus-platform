@@ -18,7 +18,7 @@ const readImpliedPermissions: Partial<Record<PermissionId, PermissionId[]>> = {
   "media.vault.view": ["media.vault.upload", "media.vault.delete"],
   "shipping.view": ["shipping.manage"],
   "billing.view": ["billing.manage"],
-  "channels.view": ["channels.manage"],
+  "channels.view": ["channels.manage", "messaging.templates.delete"],
   "payments.config.view": ["payments.config.manage"],
   "storefront.status.view": ["storefront.status.manage"],
   "storefront.branding.view": ["storefront.branding.manage"],
@@ -27,7 +27,7 @@ const readImpliedPermissions: Partial<Record<PermissionId, PermissionId[]>> = {
   "raffles.settings.view": ["raffles.settings.manage"],
   "platform.settings.view": ["platform.settings.manage"],
   "users.view": ["users.create", "users.update", "users.delete", "users.permissions.manage", "users.roles.manage"],
-  "messaging.view": ["messaging.manage", "messaging.send"],
+  "messaging.view": ["messaging.manage", "messaging.send", "messaging.templates.delete"],
   "raffles.view": [
     "raffles.manage", "raffles.results.manage", "raffles.participations.manage",
     "raffles.financial.manage", "raffles.settings.manage",
@@ -211,6 +211,7 @@ export function requiredPermissionForRequest(request: FastifyRequest): Permissio
     return isWrite(method) ? "platform.settings.manage" : "platform.settings.view";
   }
   if (starts(path, "/api/v1/admin/payment-channels")) return isWrite(method) ? "payments.config.manage" : "payments.config.view";
+  if (path === "/api/v1/admin/whatsapp/kapso/delete-template") return "messaging.templates.delete";
   if (starts(path, "/api/v1/admin/whatsapp-channels")) return isWrite(method) ? "messaging.manage" : "messaging.view";
   if (starts(path, "/api/v1/admin/whatsapp")) return isWrite(method) ? "messaging.manage" : "messaging.view";
   if (starts(path, "/api/v1/admin/shipping-zones")) return path.endsWith("/public") ? null : isWrite(method) ? "shipping.manage" : "shipping.view";
