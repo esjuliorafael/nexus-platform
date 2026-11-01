@@ -144,6 +144,14 @@ async function isJobStillRelevant(data: WhatsappJobData) {
     return false;
   }
 
+  if (data.kind === "raffle-participation-link-manual") {
+    const event = await rafflePrisma.raffleParticipationEvent.findUnique({
+      where: { id: data.requestEventId },
+      select: { eventType: true },
+    });
+    return event?.eventType === "PRIVATE_LINK_SEND_REQUESTED";
+  }
+
   if (
     data.kind === "store-payment-recovery" ||
     data.kind === "raffle-payment-recovery"

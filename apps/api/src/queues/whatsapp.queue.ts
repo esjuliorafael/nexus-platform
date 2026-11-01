@@ -107,6 +107,16 @@ export type WhatsappJobData = (
       participationUrl?: string;
     }
   | {
+      kind: "raffle-participation-link-manual";
+      requestEventId: number;
+      ticketSaleId: number;
+      recipientPhone: string;
+      participationUrl: string;
+      accessToken: string;
+      customerName: string;
+      raffleName: string;
+    }
+  | {
       kind: "raffle-opening";
       subscriptionId: string;
       recipientPhone: string;

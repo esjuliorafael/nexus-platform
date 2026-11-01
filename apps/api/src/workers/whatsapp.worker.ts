@@ -30,6 +30,8 @@ import {
   shouldSendRafflePaymentInstructions,
 } from "../modules/raffle/ticket-sales/raffle-payment-instructions";
 import { enqueueRafflePaymentInstructionsAfterDelivery } from "../modules/raffle/ticket-sales/raffle-payment-instructions-queue";
+import { finalizeManualParticipationLinkDelivery } from "../modules/raffle/ticket-sales/raffle-participation-private-link-delivery";
+import { getCloudTemplateDefaultContent } from "../services/whatsapp/whatsapp-cloud-template.service";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
 const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
@@ -83,6 +85,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
               "whatsapp_global_raffle_payment_recovery",
               "whatsapp_global_raffle_reminder",
               "whatsapp_global_raffle_payment_instructions_simplified",
+              "whatsapp_global_raffle_participation_link_manual",
               "whatsapp_global_raffle_opening",
               "whatsapp_global_raffle_draw_reminder",
               "whatsapp_global_raffle_invitation",
@@ -174,6 +177,46 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
     const kapsoEnabled = isKapsoTenantDeliveryEnabled(
       getSetting("whatsapp_kapso_delivery_enabled"),
     );
+
+    if (data.kind === "raffle-participation-link-manual") {
+      const raffleChannel = resolvedWhatsappChannels.find(
+        (channel) =>
+          channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
+      );
+      const template =
+        getSetting("whatsapp_global_raffle_participation_link_manual") ||
+        getCloudTemplateDefaultContent("PARTICIPATION_LINK_MANUAL");
+      const values = {
+        customer_name: data.customerName,
+        raffle_name: data.raffleName,
+        participation_url: data.participationUrl,
+      };
+      const renderedText = renderTemplate(template, values);
+      const sent = await sendBusinessWhatsappNotification({
+        preferredChannel: forcePrincipal ? null : raffleChannel,
+        principal: principalWhatsapp,
+        scope: "RAFFLES",
+        type: "PARTICIPATION_LINK_MANUAL",
+        sourceContent: template,
+        principalSourceContent: template,
+        renderedText,
+        principalRenderedText: renderedText,
+        values,
+        recipientPhone: data.recipientPhone,
+        templateName: "participation_link_manual",
+        ticketSaleId: data.ticketSaleId,
+        jobId: String(job.id ?? ""),
+        attempt: job.attemptsMade + 1,
+        forceProvider,
+        kapsoEnabled,
+      });
+      if (!sent) {
+        throw new Error(
+          "No se pudo enviar el enlace privado por ninguno de los canales configurados.",
+        );
+      }
+      return;
+    }
 
     if (
       data.kind === "store-payment-recovery" ||
@@ -1455,6 +1498,21 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
 
 whatsappWorker.on("failed", (job, err) => {
   console.error(`[WhatsApp Worker] Job ${job?.id} failed:`, err.message);
+  if (
+    job?.data.kind === "raffle-participation-link-manual" &&
+    job.attemptsMade >= Number(job.opts.attempts ?? 1)
+  ) {
+    void finalizeManualParticipationLinkDelivery({
+      rafflePrisma,
+      jobData: job.data,
+      outcome: "FAILED",
+    }).catch((error) => {
+      console.error(
+        "[Raffle participation link] Could not finalize exhausted delivery:",
+        error,
+      );
+    });
+  }
 });
 
 function renderTemplate(

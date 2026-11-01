@@ -15,6 +15,7 @@ import {
   resolveWhatsappProviderPriority,
 } from "../src/services/whatsapp/whatsapp-delivery-policy";
 import { buildWhatsappAsyncFallbackPatch } from "../src/services/whatsapp/whatsapp-async-fallback";
+import { getManualParticipationLinkJobId } from "../src/modules/raffle/ticket-sales/raffle-participation-private-link-delivery";
 import type { WhatsappJobData } from "../src/queues/whatsapp.queue";
 
 test("Evolution provider preserves the existing Mexican recipient format", async () => {
@@ -323,6 +324,33 @@ test("async fallback moves from a specialized sender to the principal sender", (
       fallbackDepth: 1,
     },
   );
+});
+
+test("manual participation-link failures can fall back to the principal channel", () => {
+  const originalJob: WhatsappJobData = {
+    kind: "raffle-participation-link-manual",
+    requestEventId: 41,
+    ticketSaleId: 536,
+    recipientPhone: "+522218626379",
+    participationUrl: "https://storefront.test/participations/token",
+    accessToken: "token",
+    customerName: "Participante",
+    raffleName: "Rifa",
+  };
+  const fallback = buildWhatsappAsyncFallbackPatch({
+    failedProvider: "KAPSO",
+    routing: { route: "DIRECT", preferredInstanceName: "Rifas" },
+    originalJob,
+    originalJobId: getManualParticipationLinkJobId(originalJob.requestEventId),
+  });
+
+  assert.deepEqual(fallback, {
+    forcePrincipal: true,
+    forceProvider: undefined,
+    forceEvolution: undefined,
+    fallbackDepth: 1,
+    sourceJobId: "raffle-private-link-41",
+  });
 });
 
 test("async fallback changes provider after a principal failure and stops cycling", () => {

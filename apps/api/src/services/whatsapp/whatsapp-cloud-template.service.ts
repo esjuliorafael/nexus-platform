@@ -231,6 +231,10 @@ Válido hasta {{coupon_expires_at}}.
     'Hola, {{customer_name}}. Te compartimos el enlace privado para consultar tu participación en la rifa "{{raffle_name}}".\n\nRevisa tus boletos y su estado desde el botón Ver participación:\n\n{{participation_url}}',
 };
 
+export function getCloudTemplateDefaultContent(type: CloudTemplateType) {
+  return CLOUD_TEMPLATE_DEFAULT_CONTENTS[type] || "";
+}
+
 export function getCanonicalCloudTemplateSettingKey(
   scope: CloudTemplateScope,
   type: CloudTemplateType,

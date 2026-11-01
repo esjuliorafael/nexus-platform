@@ -417,7 +417,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
     try {
       await apiRaffleParticipations.sendPrivateLink(detail.id);
       setIsPrivateLinkSendConfirmOpen(false);
-      showToast("Enlace enviado por WhatsApp.", "success");
+      showToast("Envío solicitado; la entrega se confirmará en el historial.", "success");
       window.setTimeout(() => {
         void apiRaffleParticipations.getById(detail.id).then((updated) => {
           setDetail(updated);

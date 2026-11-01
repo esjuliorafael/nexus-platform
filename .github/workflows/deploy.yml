@@ -46,6 +46,9 @@ jobs:
       - name: Test raffle payment instructions eligibility
         run: pnpm --filter @nexus/api test:raffle-payment-instructions
 
+      - name: Test manual raffle private-link delivery and fallback
+        run: pnpm --filter @nexus/api test:raffle-private-link
+
   build-and-push:
     needs: test-media-processing-job-id
     if: github.event_name != 'pull_request'

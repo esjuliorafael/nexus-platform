@@ -14,6 +14,7 @@ import { getWhatsappMarketingOptInKeyword, getWhatsappMarketingOptOutKeyword, wh
 import { sendMarketingConsentConfirmation } from "../../../services/whatsapp/whatsapp-marketing-consent-confirmation.service";
 import { buildWhatsappAsyncFallbackPatch } from "../../../services/whatsapp/whatsapp-async-fallback";
 import { enqueueRafflePaymentInstructionsAfterDelivery } from "../../raffle/ticket-sales/raffle-payment-instructions-queue";
+import { finalizeManualParticipationLinkDelivery } from "../../raffle/ticket-sales/raffle-participation-private-link-delivery";
 import { refreshRaffleDrawReminderCampaign } from "../../raffle/raffles/raffle-draw-reminder.service";
 import { getEvolutionConfigFromSettings } from "../../../services/evolution/evolution.config";
 import { sendWhatsappAndLog } from "../../../services/whatsapp/whatsapp-send.service";
@@ -413,15 +414,25 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
         },
       });
 
+      const shouldResolveJob =
+        shouldAdvanceStatus &&
+        (nextStatus === "delivered" ||
+          nextStatus === "read" ||
+          nextStatus === "failed");
+      const relatedJob = shouldResolveJob && existing.jobId
+        ? await whatsappQueue.getJob(existing.jobId)
+        : null;
       if (
         shouldAdvanceStatus &&
         (nextStatus === "delivered" || nextStatus === "read") &&
-        existing.jobId
+        relatedJob
       ) {
-        const deliveredJob = await whatsappQueue.getJob(existing.jobId);
-        if (deliveredJob) {
-          await enqueueRafflePaymentInstructionsAfterDelivery(deliveredJob);
-        }
+        await enqueueRafflePaymentInstructionsAfterDelivery(relatedJob);
+        await finalizeManualParticipationLinkDelivery({
+          rafflePrisma,
+          jobData: relatedJob.data,
+          outcome: "DELIVERED",
+        });
       }
 
       // Evolution may accept a send request and emit its rejection afterward.
@@ -456,7 +467,7 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
         if (String(failureCode) === "463") {
           markWhatsappInstanceProviderRejected(existing.instanceName);
         }
-        const originalJob = await whatsappQueue.getJob(existing.jobId);
+        const originalJob = relatedJob;
         const responsePayload =
           existing.responsePayload &&
           typeof existing.responsePayload === "object" &&
@@ -478,16 +489,30 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
           : null;
 
         if (originalJob && fallbackPatch) {
-          await whatsappQueue.add(
-            `${originalJob.name}-provider-fallback`,
-            {
-              ...originalJob.data,
-              ...fallbackPatch,
-              fallbackOfMessageId: String(messageId),
-            },
-            { jobId: `provider-fallback-${String(messageId)}` },
-          );
-          fallbackScheduled = true;
+          try {
+            await whatsappQueue.add(
+              `${originalJob.name}-provider-fallback`,
+              {
+                ...originalJob.data,
+                ...fallbackPatch,
+                fallbackOfMessageId: String(messageId),
+              },
+              { jobId: `provider-fallback-${String(messageId)}` },
+            );
+            fallbackScheduled = true;
+          } catch (error) {
+            console.error(
+              "[WhatsApp Evolution] Could not enqueue provider fallback:",
+              error,
+            );
+          }
+        }
+        if (originalJob && !fallbackScheduled) {
+          await finalizeManualParticipationLinkDelivery({
+            rafflePrisma,
+            jobData: originalJob.data,
+            outcome: "FAILED",
+          });
         }
       }
 

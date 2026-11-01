@@ -45,6 +45,7 @@ import {
 } from "../../../services/whatsapp/whatsapp-cloud-template-audit.service";
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
 import { enqueueRafflePaymentInstructionsAfterDelivery } from "../../raffle/ticket-sales/raffle-payment-instructions-queue";
+import { finalizeManualParticipationLinkDelivery } from "../../raffle/ticket-sales/raffle-participation-private-link-delivery";
 import {
   getWhatsappMarketingOptInKeyword,
   getWhatsappMarketingOptOutKeyword,
@@ -1820,17 +1821,26 @@ export async function kapsoWebhookRoutes(server: FastifyInstance) {
           },
         },
       });
+      const shouldResolveJob =
+        nextStatus === "delivered" ||
+        nextStatus === "read" ||
+        nextStatus === "failed";
+      const relatedJob = shouldResolveJob && existing.jobId
+        ? await whatsappQueue.getJob(existing.jobId)
+        : null;
       if (
         (nextStatus === "delivered" || nextStatus === "read") &&
-        existing.jobId
+        relatedJob
       ) {
-        const deliveredJob = await whatsappQueue.getJob(existing.jobId);
-        if (deliveredJob) {
-          await enqueueRafflePaymentInstructionsAfterDelivery(deliveredJob);
-        }
+        await enqueueRafflePaymentInstructionsAfterDelivery(relatedJob);
+        await finalizeManualParticipationLinkDelivery({
+          rafflePrisma,
+          jobData: relatedJob.data,
+          outcome: "DELIVERED",
+        });
       }
-      if (nextStatus === "failed" && existing.jobId) {
-        const originalJob = await whatsappQueue.getJob(existing.jobId);
+      if (nextStatus === "failed" && relatedJob) {
+        const originalJob = relatedJob;
         if (originalJob) {
           const routing =
             previousPayload.nexusRouting &&
@@ -1843,16 +1853,32 @@ export async function kapsoWebhookRoutes(server: FastifyInstance) {
             originalJob: originalJob.data,
             originalJobId: String(originalJob.id ?? ""),
           });
+          let fallbackScheduled = false;
           if (fallbackPatch) {
-            await whatsappQueue.add(
-              `${originalJob.name}-kapso-fallback`,
-              {
-                ...originalJob.data,
-                ...fallbackPatch,
-                fallbackOfMessageId: messageId,
-              },
-              { jobId: `kapso-fallback-${messageId}` },
-            );
+            try {
+              await whatsappQueue.add(
+                `${originalJob.name}-kapso-fallback`,
+                {
+                  ...originalJob.data,
+                  ...fallbackPatch,
+                  fallbackOfMessageId: messageId,
+                },
+                { jobId: `kapso-fallback-${messageId}` },
+              );
+              fallbackScheduled = true;
+            } catch (error) {
+              console.error(
+                "[WhatsApp Kapso] Could not enqueue provider fallback:",
+                error,
+              );
+            }
+          }
+          if (!fallbackScheduled) {
+            await finalizeManualParticipationLinkDelivery({
+              rafflePrisma,
+              jobData: originalJob.data,
+              outcome: "FAILED",
+            });
           }
         }
       }

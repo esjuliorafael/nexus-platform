@@ -1585,7 +1585,7 @@ export const apiRaffleParticipations = {
   },
   sendPrivateLink: async (
     id: string,
-  ): Promise<{ success: boolean; expiresAt: string }> => {
+  ): Promise<{ success: boolean; status: "queued"; expiresAt: string }> => {
     const response = await api.post(
       `/ticket-sales/admin/participations/${encodeURIComponent(id)}/private-link/send`,
     );

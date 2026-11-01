@@ -442,12 +442,12 @@ export async function ticketSaleRoutes(server: FastifyInstance) {
       const actor = await requireAdminActor(server, request, reply);
       if (!actor) return;
       const { participationId } = request.params as { participationId: string };
-      return await sendParticipationPrivateLink({
+      const result = await sendParticipationPrivateLink({
         rafflePrisma,
-        storePrisma,
         participationId,
         actor,
       });
+      return reply.status(202).send(result);
     } catch (error: any) {
       if (error?.statusCode) {
         return reply.status(error.statusCode).send({ message: error.message });

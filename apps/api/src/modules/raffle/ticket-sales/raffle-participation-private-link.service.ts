@@ -2,18 +2,20 @@ import {
   TicketSaleOrigin,
   type PrismaClient as RafflePrismaClient,
 } from "@prisma/client-raffle";
-import { storePrisma as defaultStorePrisma } from "@nexus/db/store";
-type StorePrismaClient = typeof defaultStorePrisma;
 import {
   auditActorData,
   type AuditActor,
 } from "../../../utils/admin-authorization";
 import { normalizeCustomerPhone } from "../../../utils/customer-phone";
-import { sendManualParticipationLinkNotification } from "./raffle-participation-lookup.service";
+import { whatsappQueue } from "../../../queues/whatsapp.queue";
 import {
   createRaffleParticipationAccess,
   revokeRaffleParticipationAccess,
 } from "./raffle-participation-access.service";
+import {
+  finalizeManualParticipationLinkDelivery,
+  getManualParticipationLinkJobId,
+} from "./raffle-participation-private-link-delivery";
 
 async function resolveParticipation(
   rafflePrisma: RafflePrismaClient,
@@ -70,7 +72,7 @@ async function recordPrivateLinkEvent(params: {
   expiresAt: Date;
   ticketNumbers: string[];
 }) {
-  await params.rafflePrisma.raffleParticipationEvent.create({
+  return params.rafflePrisma.raffleParticipationEvent.create({
     data: {
       participationId: params.participationId,
       raffleId: params.raffleId,
@@ -122,7 +124,6 @@ export async function generateParticipationPrivateLink(params: {
 
 export async function sendParticipationPrivateLink(params: {
   rafflePrisma: RafflePrismaClient;
-  storePrisma: StorePrismaClient;
   participationId: string;
   actor: AuditActor;
 }) {
@@ -137,47 +138,72 @@ export async function sendParticipationPrivateLink(params: {
     phone,
   });
 
+  let requestEvent: { id: number } | null = null;
   try {
-    await sendManualParticipationLinkNotification({
-      storePrisma: params.storePrisma,
-      recipientPhone: phone,
-      participationUrl: access.url,
-      customerName: sales[0].customerName || "participante",
-      raffleName,
-      ticketSaleId: sales[0].id,
-    });
-  } catch {
-    await revokeRaffleParticipationAccess(params.rafflePrisma, access.token).catch(
-      (error) => {
-        console.error("[Raffle participation link] Could not revoke failed delivery link:", error);
-      },
-    );
-    await recordPrivateLinkEvent({
+    requestEvent = await recordPrivateLinkEvent({
       rafflePrisma: params.rafflePrisma,
       participationId: params.participationId,
       raffleId: sales[0].raffleId,
-      eventType: "PRIVATE_LINK_SEND_FAILED",
-      message: "No se pudo enviar el enlace privado por WhatsApp.",
+      eventType: "PRIVATE_LINK_SEND_REQUESTED",
+      message: "Se solicitó el envío del enlace privado por WhatsApp.",
       actor: params.actor,
       expiresAt: access.expiresAt,
       ticketNumbers: sales.map((sale) => sale.ticketNumber),
     });
+    const jobData = {
+      kind: "raffle-participation-link-manual" as const,
+      requestEventId: requestEvent.id,
+      ticketSaleId: sales[0].id,
+      recipientPhone: phone,
+      participationUrl: access.url,
+      accessToken: access.token,
+      customerName: sales[0].customerName || "participante",
+      raffleName,
+    };
+    await whatsappQueue.add("raffle-participation-link-manual", jobData, {
+      jobId: getManualParticipationLinkJobId(requestEvent.id),
+    });
+  } catch (error) {
+    if (requestEvent) {
+      await finalizeManualParticipationLinkDelivery({
+        rafflePrisma: params.rafflePrisma,
+        jobData: {
+          kind: "raffle-participation-link-manual",
+          requestEventId: requestEvent.id,
+          ticketSaleId: sales[0].id,
+          recipientPhone: phone,
+          participationUrl: access.url,
+          accessToken: access.token,
+          customerName: sales[0].customerName || "participante",
+          raffleName,
+        },
+        outcome: "FAILED",
+      }).catch((finalizeError) => {
+        console.error(
+          "[Raffle participation link] Could not record queue failure:",
+          finalizeError,
+        );
+      });
+    } else {
+      await revokeRaffleParticipationAccess(
+        params.rafflePrisma,
+        access.token,
+      ).catch((revokeError) => {
+        console.error(
+          "[Raffle participation link] Could not revoke an unscheduled link:",
+          revokeError,
+        );
+      });
+    }
     throw Object.assign(
-      new Error("No se pudo enviar el enlace privado por WhatsApp."),
+      new Error("No se pudo programar el envío del enlace privado por WhatsApp."),
       { statusCode: 503 },
     );
   }
 
-  await recordPrivateLinkEvent({
-    rafflePrisma: params.rafflePrisma,
-    participationId: params.participationId,
-    raffleId: sales[0].raffleId,
-    eventType: "PRIVATE_LINK_SENT",
-    message: "Se envió por WhatsApp un enlace privado de participación.",
-    actor: params.actor,
-    expiresAt: access.expiresAt,
-    ticketNumbers: sales.map((sale) => sale.ticketNumber),
-  });
-
-  return { success: true, expiresAt: access.expiresAt.toISOString() };
+  return {
+    success: true,
+    status: "queued" as const,
+    expiresAt: access.expiresAt.toISOString(),
+  };
 }
