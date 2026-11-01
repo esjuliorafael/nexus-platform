@@ -215,15 +215,25 @@ test("adds a separate raffle payment-instructions template without changing Stor
 
   assert.ok(instructions);
   assert.ok(reminder);
+  assert.match(instructions.content, /\{\{raffle_name\}\}/);
+  assert.match(instructions.content, /\{\{amount\}\}/);
   assert.match(instructions.content, /\{\{bank_name\}\}/);
   assert.match(instructions.content, /\{\{bank_account\}\}/);
   assert.match(instructions.content, /\{\{time_raffle\}\}/);
   assert.match(instructions.content, /\{\{participation_url\}\}/);
-  assert.match(reminder.content, /\{\{bank_clabe\}\}/);
+  assert.doesNotMatch(
+    instructions.content,
+    /\{\{(?:customer_name|part_info|ticket_list)\}\}/,
+  );
+  assert.match(
+    getCloudTemplateBodyContent(instructions),
+    /Consulta tus boletos y el estado de tu participación en el botón Ver participación\./,
+  );
   assert.doesNotMatch(
     getCloudTemplateBodyContent(instructions),
-    /\{\{participation_url\}\}/,
+    /\{\{(?:customer_name|part_info|ticket_list|participation_url)\}\}/,
   );
+  assert.match(reminder.content, /\{\{bank_clabe\}\}/);
 
   const storeReminder = buildCanonicalCloudTemplateSources(
     {},

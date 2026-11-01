@@ -267,12 +267,9 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
         key: "whatsapp_global_raffle_payment_instructions",
         label: "Instrucciones de pago",
         variables: [
-          "{{customer_name}}",
-          "{{ticket_list}}",
           "{{raffle_name}}",
-          "{{amount}}",
-          "{{part_info}}",
           ...BANK_TEMPLATE_VARIABLES,
+          "{{amount}}",
           "{{time_raffle}}",
           "{{participation_url}}",
         ],
@@ -849,23 +846,20 @@ Consulta tus boletos y su estado desde el bot\u00f3n Ver participaci\u00f3n:
 Revisa tus boletos y su estado desde el botón Ver participación:
 
 {{participation_url}}`,
-  PAYMENT_INSTRUCTIONS: `Hola, {{customer_name}}. Estas son las instrucciones para completar tu apartado en la rifa "{{raffle_name}}":
+  PAYMENT_INSTRUCTIONS: `Te compartimos la información para completar el pago de tu participación en "{{raffle_name}}":
 
-{{part_info}}
-
-Boletos: {{ticket_list}}
-Total pendiente: \${{amount}} MXN
-
-Información para tu pago:
+🏦 Datos para el pago:
 Banco: {{bank_name}}
 Beneficiario: {{bank_beneficiary}}
 No. cuenta: {{bank_account}}
 CLABE: {{bank_clabe}}
 Tarjeta: {{bank_card}}
 
-Realiza el pago dentro de {{time_raffle}} y después envíanos el comprobante por este medio.
+💳 Total pendiente: \${{amount}} MXN
+⏳ Realiza el pago dentro de {{time_raffle}}.
 
-Consulta tu participación en el botón Ver participación:
+📎 Después de realizar el pago, envíanos tu comprobante por este medio.
+🔎 Consulta tus boletos y el estado de tu participación en el botón Ver participación.
 
 {{participation_url}}`,
   RESERVATION: `\u00a1Hola, {{customer_name}}! \u{1F39F}\u{FE0F}
@@ -1016,12 +1010,9 @@ const SIMPLIFIED_TEMPLATE_VARIABLES: Partial<
   PARTICIPATION_LOOKUP_CODE: ["{{participation_url}}"],
   PARTICIPATION_LINK_MANUAL: ["{{customer_name}}", "{{raffle_name}}", "{{participation_url}}"],
   PAYMENT_INSTRUCTIONS: [
-    "{{customer_name}}",
-    "{{ticket_list}}",
     "{{raffle_name}}",
-    "{{amount}}",
-    "{{part_info}}",
     ...BANK_TEMPLATE_VARIABLES,
+    "{{amount}}",
     "{{time_raffle}}",
     "{{participation_url}}",
   ],

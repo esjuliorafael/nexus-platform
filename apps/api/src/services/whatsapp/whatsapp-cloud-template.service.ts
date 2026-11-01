@@ -189,7 +189,7 @@ const CLOUD_TEMPLATE_DEFAULT_CONTENTS: Partial<
   Record<CloudTemplateType, string>
 > = {
   PAYMENT_INSTRUCTIONS:
-    'Hola, {{customer_name}}. Estas son las instrucciones para completar tu apartado en la rifa "{{raffle_name}}":\n\n{{part_info}}\n\nBoletos: {{ticket_list}}\nTotal pendiente: ${{amount}} MXN\n\nInformación para tu pago:\nBanco: {{bank_name}}\nBeneficiario: {{bank_beneficiary}}\nNo. cuenta: {{bank_account}}\nCLABE: {{bank_clabe}}\nTarjeta: {{bank_card}}\n\nRealiza el pago dentro de {{time_raffle}} y después envíanos el comprobante por este medio.\n\nConsulta tu participación en el botón Ver participación:\n\n{{participation_url}}',
+    'Te compartimos la información para completar el pago de tu participación en "{{raffle_name}}":\n\n🏦 Datos para el pago:\nBanco: {{bank_name}}\nBeneficiario: {{bank_beneficiary}}\nNo. cuenta: {{bank_account}}\nCLABE: {{bank_clabe}}\nTarjeta: {{bank_card}}\n\n💳 Total pendiente: ${{amount}} MXN\n⏳ Realiza el pago dentro de {{time_raffle}}.\n\n📎 Después de realizar el pago, envíanos tu comprobante por este medio.\n🔎 Consulta tus boletos y el estado de tu participación en el botón Ver participación.\n\n{{participation_url}}',
   REMINDER:
     'Hola, {{customer_name}}. Tu participación en la rifa "{{raffle_name}}" continúa apartada y pendiente de pago.\n\n{{part_info}}\n\nBoletos: {{ticket_list}}\nTotal pendiente: ${{amount}} MXN\n\nInformación para tu pago:\nBanco: {{bank_name}}\nBeneficiario: {{bank_beneficiary}}\nNo. cuenta: {{bank_account}}\nCLABE: {{bank_clabe}}\nTarjeta: {{bank_card}}\n\nTiempo restante: {{time_remaining}}\n\nConsulta tu participación en el botón Ver participación:\n\n{{participation_url}}',
   RELEASE:
