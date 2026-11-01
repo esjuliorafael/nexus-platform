@@ -9,6 +9,7 @@ import { sendBusinessWhatsappNotification } from "../services/whatsapp/whatsapp-
 import type { WhatsappJobData } from "../queues/whatsapp.queue";
 import type { OrderKind } from "../services/evolution/channel.resolver";
 import { queueName } from "../queues/queue-name";
+import { whatsappQueue } from "../queues/whatsapp.queue";
 import { formatRaffleTicketList } from "../utils/raffle-ticket-list";
 import { refreshRaffleResultCampaign } from "../modules/raffle/raffles/raffle-result-communication.service";
 import {
@@ -24,6 +25,10 @@ import { createParticipationLookupAccess } from "../modules/raffle/ticket-sales/
 import { getParticipationUnitPrice } from "../modules/raffle/ticket-sales/shared-participation";
 import { createStoreOrderAccess } from "../modules/store/orders/store-order-access.service";
 import { omitOptionalRaffleParticipationInfo } from "../services/whatsapp/whatsapp-cloud-template.service";
+import {
+  getRafflePaymentInstructionsJobId,
+  shouldSendRafflePaymentInstructions,
+} from "../modules/raffle/ticket-sales/raffle-payment-instructions";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
 const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
@@ -76,6 +81,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
               "whatsapp_global_raffle_refunded",
               "whatsapp_global_raffle_payment_recovery",
               "whatsapp_global_raffle_reminder",
+              "whatsapp_global_raffle_payment_instructions_simplified",
               "whatsapp_global_raffle_opening",
               "whatsapp_global_raffle_draw_reminder",
               "whatsapp_global_raffle_invitation",
@@ -99,6 +105,30 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
 
     const getSetting = (k: string) =>
       settings.find((s) => s.key === k)?.value ?? null;
+
+    const getRaffleBankInfo = () => {
+      const payChannel = payChannels.find(
+        (channel) => channel.purpose.toUpperCase() === "RAFFLES",
+      );
+      return resolveBankInfo(
+        payChannel
+          ? {
+              bank: payChannel.bank,
+              beneficiary: payChannel.beneficiary,
+              account: payChannel.accountNumber ?? undefined,
+              clabe: payChannel.clabe ?? undefined,
+              card: payChannel.card ?? undefined,
+            }
+          : null,
+        {
+          bank: getSetting("bank_main_name") ?? "",
+          beneficiary: getSetting("bank_main_beneficiary") ?? "",
+          account: getSetting("bank_main_account") ?? undefined,
+          clabe: getSetting("bank_main_clabe") ?? undefined,
+          card: getSetting("bank_main_card") ?? undefined,
+        },
+      );
+    };
 
     const envEvolutionConfig = await getEvolutionConfigFromSettings();
     const globalUrl =
@@ -1143,6 +1173,86 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       }
     }
 
+    if (data.kind === "raffle-payment-instructions") {
+      const raffleChannel = resolvedWhatsappChannels.find(
+        (channel) => channel.purpose.toUpperCase() === "RAFFLES" && channel.active,
+      );
+      const sales = await rafflePrisma.ticketSale.findMany({
+        where: { id: { in: data.ticketSaleIds } },
+        include: {
+          raffle: {
+            include: { extraOpportunities: true },
+          },
+        },
+        orderBy: { ticketNumber: "asc" },
+      });
+      const bankInfo = getRaffleBankInfo();
+      const bankValues = getBankTemplateValues(bankInfo);
+      if (
+        !shouldSendRafflePaymentInstructions({
+          kind: data.sourceKind,
+          sales,
+          expectedSaleCount: data.ticketSaleIds.length,
+          recipientPhone: data.recipientPhone,
+          bankValues,
+        })
+      ) {
+        return;
+      }
+
+      const template =
+        getSetting("whatsapp_global_raffle_payment_instructions_simplified") ||
+        "";
+      if (!template.trim()) return;
+
+      let participationUrl = data.participationUrl || "";
+      if (!participationUrl && sales[0]?.raffle?.id) {
+        participationUrl = (
+          await createRaffleParticipationAccess({
+            rafflePrisma,
+            raffleId: sales[0].raffle.id,
+            participationId:
+              sales[0].reservationId || `sale-${sales[0].id}`,
+            phone: sales[0].customerPhone,
+          })
+        ).url;
+      }
+
+      const notification = buildReservationNotification(
+        template,
+        sales,
+        bankInfo,
+        data.timeLimit,
+        undefined,
+        participationUrl,
+      );
+      const sent = await sendBusinessWhatsappNotification({
+        preferredChannel: forcePrincipal ? null : raffleChannel,
+        principal: principalWhatsapp,
+        scope: "RAFFLES",
+        type: "PAYMENT_INSTRUCTIONS",
+        sourceContent: template,
+        principalSourceContent: template,
+        renderedText: notification.message,
+        principalRenderedText: notification.message,
+        values: {
+          ...notification.values,
+          ticket_list: formatRaffleTicketList(sales),
+        },
+        recipientPhone: data.recipientPhone,
+        templateName: "raffle_payment_instructions",
+        ticketSaleId: sales[0].id,
+        jobId: String(job.id ?? ""),
+        attempt: job.attemptsMade + 1,
+        forceProvider,
+        kapsoEnabled,
+      });
+      if (!sent) {
+        throw new Error("No se pudo enviar la plantilla de instrucciones de pago de la rifa.");
+      }
+      return;
+    }
+
     if (
       data.kind === "reservation" ||
       data.kind === "reservation-restored" ||
@@ -1209,28 +1319,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         data.kind === "reservation-restored" ||
         data.kind === "reservation-reminder"
       ) {
-        const payChannel = payChannels.find(
-          (c) => c.purpose.toUpperCase() === "RAFFLES",
-        );
-
-        raffleBankInfo = resolveBankInfo(
-          payChannel
-            ? {
-                bank: payChannel.bank,
-                beneficiary: payChannel.beneficiary,
-                account: payChannel.accountNumber ?? undefined,
-                clabe: payChannel.clabe ?? undefined,
-                card: payChannel.card ?? undefined,
-              }
-            : null,
-          {
-            bank: getSetting("bank_main_name") ?? "",
-            beneficiary: getSetting("bank_main_beneficiary") ?? "",
-            account: getSetting("bank_main_account") ?? undefined,
-            clabe: getSetting("bank_main_clabe") ?? undefined,
-            card: getSetting("bank_main_card") ?? undefined,
-          },
-        );
+        raffleBankInfo = getRaffleBankInfo();
       }
 
       let participationUrl =
@@ -1275,7 +1364,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         Math.max(0, Number(sales[0].raffle.opportunities || 1) - 1),
       );
 
-      await sendBusinessWhatsappNotification({
+      const sent = await sendBusinessWhatsappNotification({
         preferredChannel: forcePrincipal ? null : raffleChannel,
         principal: principalWhatsapp,
         scope: "RAFFLES",
@@ -1321,6 +1410,48 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         forceProvider,
         kapsoEnabled,
       });
+
+      const instructionsTemplate =
+        getSetting("whatsapp_global_raffle_payment_instructions_simplified") ||
+        "";
+      if (
+        sent &&
+        (data.kind === "reservation" ||
+          data.kind === "reservation-restored") &&
+        instructionsTemplate.trim() &&
+        shouldSendRafflePaymentInstructions({
+          kind: data.kind,
+          sales,
+          expectedSaleCount: data.ticketSaleIds.length,
+          recipientPhone: data.recipientPhone,
+          bankValues: notification.values,
+        })
+      ) {
+        try {
+          const sourceJobId = String(
+            job.id || `${data.kind}-${data.ticketSaleIds.join("-")}`,
+          );
+          await whatsappQueue.add(
+            "raffle-payment-instructions",
+            {
+              kind: "raffle-payment-instructions",
+              sourceKind: data.kind,
+              ticketSaleIds: data.ticketSaleIds,
+              recipientPhone: data.recipientPhone,
+              timeLimit: "timeLimit" in data ? data.timeLimit : undefined,
+              participationUrl,
+              forcePrincipal,
+              forceProvider,
+            },
+            { jobId: getRafflePaymentInstructionsJobId(sourceJobId) },
+          );
+        } catch (error) {
+          console.error(
+            "[Raffle payment instructions] Could not enqueue the follow-up message:",
+            error,
+          );
+        }
+      }
     }
   },
   { connection, concurrency: 5 },

@@ -202,6 +202,44 @@ test("provides payment instructions with the order URL as a Cloud API button", (
   );
 });
 
+test("adds a separate raffle payment-instructions template without changing Store reminders", () => {
+  const raffleSources = buildCanonicalCloudTemplateSources(
+    {},
+    ["RAFFLES"],
+    "SIMPLIFIED",
+  );
+  const instructions = raffleSources.find(
+    (source) => source.type === "PAYMENT_INSTRUCTIONS",
+  );
+  const reminder = raffleSources.find((source) => source.type === "REMINDER");
+
+  assert.ok(instructions);
+  assert.ok(reminder);
+  assert.match(instructions.content, /\{\{bank_name\}\}/);
+  assert.match(instructions.content, /\{\{bank_account\}\}/);
+  assert.match(instructions.content, /\{\{time_raffle\}\}/);
+  assert.match(instructions.content, /\{\{participation_url\}\}/);
+  assert.match(reminder.content, /\{\{bank_clabe\}\}/);
+  assert.doesNotMatch(
+    getCloudTemplateBodyContent(instructions),
+    /\{\{participation_url\}\}/,
+  );
+
+  const storeReminder = buildCanonicalCloudTemplateSources(
+    {},
+    ["STORE"],
+    "SIMPLIFIED",
+  ).find((source) => source.type === "REMINDER");
+  assert.ok(storeReminder);
+  assert.doesNotMatch(storeReminder.content, /\{\{bank_account\}\}/);
+  assert.equal(
+    buildCanonicalCloudTemplateSources({}, ["RAFFLES"], "LEGACY").some(
+      (source) => source.type === "PAYMENT_INSTRUCTIONS",
+    ),
+    false,
+  );
+});
+
 test("provides a separate neutral manual participation-link template", () => {
   const sources = buildCanonicalCloudTemplateSources(
     {},

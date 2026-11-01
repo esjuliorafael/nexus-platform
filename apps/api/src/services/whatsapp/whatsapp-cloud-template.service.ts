@@ -115,6 +115,11 @@ export const CLOUD_TEMPLATE_SETTING_KEYS: Array<{
     type: "REMINDER",
     key: "whatsapp_global_raffle_reminder",
   },
+  {
+    scope: "RAFFLES",
+    type: "PAYMENT_INSTRUCTIONS",
+    key: "whatsapp_global_raffle_payment_instructions",
+  },
   { scope: "RAFFLES", type: "RELEASE", key: "whatsapp_global_raffle_rel" },
   {
     scope: "RAFFLES",
@@ -183,6 +188,10 @@ const SIMPLIFIED_STORE_TEMPLATE_ADDITIONAL_CONTENTS: Partial<
 const CLOUD_TEMPLATE_DEFAULT_CONTENTS: Partial<
   Record<CloudTemplateType, string>
 > = {
+  PAYMENT_INSTRUCTIONS:
+    'Hola, {{customer_name}}. Estas son las instrucciones para completar tu apartado en la rifa "{{raffle_name}}":\n\n{{part_info}}\n\nBoletos: {{ticket_list}}\nTotal pendiente: ${{amount}} MXN\n\nInformación para tu pago:\nBanco: {{bank_name}}\nBeneficiario: {{bank_beneficiary}}\nNo. cuenta: {{bank_account}}\nCLABE: {{bank_clabe}}\nTarjeta: {{bank_card}}\n\nRealiza el pago dentro de {{time_raffle}} y después envíanos el comprobante por este medio.\n\nConsulta tu participación en el botón Ver participación:\n\n{{participation_url}}',
+  REMINDER:
+    'Hola, {{customer_name}}. Tu participación en la rifa "{{raffle_name}}" continúa apartada y pendiente de pago.\n\n{{part_info}}\n\nBoletos: {{ticket_list}}\nTotal pendiente: ${{amount}} MXN\n\nInformación para tu pago:\nBanco: {{bank_name}}\nBeneficiario: {{bank_beneficiary}}\nNo. cuenta: {{bank_account}}\nCLABE: {{bank_clabe}}\nTarjeta: {{bank_card}}\n\nTiempo restante: {{time_remaining}}\n\nConsulta tu participación en el botón Ver participación:\n\n{{participation_url}}',
   RELEASE:
     "Hola, {{customer_name}}. ⚠️\n\nTu apartado de la orden #{{order_id}} fue liberado porque concluyó el plazo de pago.\n\nLa orden ya no está reservada.\n\nSi realizaste el pago, escríbenos por este medio para revisar tu caso.",
   DATE_CHANGE:
@@ -376,7 +385,8 @@ export function buildCanonicalCloudTemplateSources(
         item.content.trim() ||
         (variant === "LEGACY" &&
           item.type !== "PARTICIPATION_LOOKUP_CODE" &&
-          item.type !== "PARTICIPATION_LINK_MANUAL"),
+          item.type !== "PARTICIPATION_LINK_MANUAL" &&
+          !(item.scope === "RAFFLES" && item.type === "PAYMENT_INSTRUCTIONS")),
     );
 
   return sources;

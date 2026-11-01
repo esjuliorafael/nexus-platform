@@ -57,13 +57,28 @@ async function isJobStillRelevant(data: WhatsappJobData) {
     data.kind === "reservation-cancelled" ||
     data.kind === "reservation-paid" ||
     data.kind === "reservation-refunded" ||
-    data.kind === "reservation-reminder"
+    data.kind === "reservation-reminder" ||
+    data.kind === "raffle-payment-instructions"
   ) {
     const sales = await rafflePrisma.ticketSale.findMany({
       where: { id: { in: data.ticketSaleIds } },
-      select: { paymentStatus: true, mpRefundedAt: true },
+      select: {
+        paymentStatus: true,
+        paymentMethod: true,
+        origin: true,
+        mpRefundedAt: true,
+      },
     });
     if (sales.length !== data.ticketSaleIds.length) return false;
+
+    if (data.kind === "raffle-payment-instructions") {
+      return sales.every(
+        (sale) =>
+          sale.paymentStatus === "PENDING" &&
+          sale.paymentMethod === "TRANSFER" &&
+          sale.origin === "PARTICIPANT",
+      );
+    }
 
     if (data.kind === "reservation-cancelled") {
       return sales.every((sale) => sale.paymentStatus === "CANCELLED");

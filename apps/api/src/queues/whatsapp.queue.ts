@@ -98,6 +98,14 @@ export type WhatsappJobData = (
       participationUrl?: string;
     }
   | {
+      kind: "raffle-payment-instructions";
+      sourceKind: "reservation" | "reservation-restored";
+      ticketSaleIds: number[];
+      recipientPhone: string;
+      timeLimit?: string;
+      participationUrl?: string;
+    }
+  | {
       kind: "raffle-opening";
       subscriptionId: string;
       recipientPhone: string;

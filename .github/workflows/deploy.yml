@@ -43,6 +43,9 @@ jobs:
       - name: Test WhatsApp Cloud template readiness
         run: pnpm --filter @nexus/api test:whatsapp-cloud-templates
 
+      - name: Test raffle payment instructions eligibility
+        run: pnpm --filter @nexus/api test:raffle-payment-instructions
+
   build-and-push:
     needs: test-media-processing-job-id
     if: github.event_name != 'pull_request'

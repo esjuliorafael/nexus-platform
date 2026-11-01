@@ -263,6 +263,22 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
         ],
       },
       {
+        type: "PAYMENT_INSTRUCTIONS",
+        key: "whatsapp_global_raffle_payment_instructions",
+        label: "Instrucciones de pago",
+        variables: [
+          "{{customer_name}}",
+          "{{ticket_list}}",
+          "{{raffle_name}}",
+          "{{amount}}",
+          "{{part_info}}",
+          ...BANK_TEMPLATE_VARIABLES,
+          "{{time_raffle}}",
+          "{{participation_url}}",
+        ],
+        simplifiedOnly: true,
+      },
+      {
         type: "PAYMENT_RECOVERY",
         key: "whatsapp_global_raffle_payment_recovery",
         label: "Pago no concretado",
@@ -833,6 +849,25 @@ Consulta tus boletos y su estado desde el bot\u00f3n Ver participaci\u00f3n:
 Revisa tus boletos y su estado desde el botón Ver participación:
 
 {{participation_url}}`,
+  PAYMENT_INSTRUCTIONS: `Hola, {{customer_name}}. Estas son las instrucciones para completar tu apartado en la rifa "{{raffle_name}}":
+
+{{part_info}}
+
+Boletos: {{ticket_list}}
+Total pendiente: \${{amount}} MXN
+
+Información para tu pago:
+Banco: {{bank_name}}
+Beneficiario: {{bank_beneficiary}}
+No. cuenta: {{bank_account}}
+CLABE: {{bank_clabe}}
+Tarjeta: {{bank_card}}
+
+Realiza el pago dentro de {{time_raffle}} y después envíanos el comprobante por este medio.
+
+Consulta tu participación en el botón Ver participación:
+
+{{participation_url}}`,
   RESERVATION: `\u00a1Hola, {{customer_name}}! \u{1F39F}\u{FE0F}
 
 Tu participaci\u00f3n qued\u00f3 apartada correctamente. \u2705
@@ -870,6 +905,14 @@ Tu participaci\u00f3n contin\u00faa apartada y pendiente de pago.
 {{part_info}}
 
 \u{1F4B0} Total pendiente: \${{amount}} MXN
+
+\u{1F3E6} Informaci\u00f3n para tu pago:
+
+Banco: {{bank_name}}
+Beneficiario: {{bank_beneficiary}}
+No. Cuenta: {{bank_account}}
+CLABE: {{bank_clabe}}
+Tarjeta: {{bank_card}}
 
 \u23f0 Tiempo restante: {{time_remaining}}
 
@@ -972,6 +1015,16 @@ const SIMPLIFIED_TEMPLATE_VARIABLES: Partial<
 > = {
   PARTICIPATION_LOOKUP_CODE: ["{{participation_url}}"],
   PARTICIPATION_LINK_MANUAL: ["{{customer_name}}", "{{raffle_name}}", "{{participation_url}}"],
+  PAYMENT_INSTRUCTIONS: [
+    "{{customer_name}}",
+    "{{ticket_list}}",
+    "{{raffle_name}}",
+    "{{amount}}",
+    "{{part_info}}",
+    ...BANK_TEMPLATE_VARIABLES,
+    "{{time_raffle}}",
+    "{{participation_url}}",
+  ],
   RESERVATION: [
     "{{customer_name}}",
     "{{amount}}",
@@ -990,6 +1043,7 @@ const SIMPLIFIED_TEMPLATE_VARIABLES: Partial<
     "{{customer_name}}",
     "{{amount}}",
     "{{part_info}}",
+    ...BANK_TEMPLATE_VARIABLES,
     "{{time_remaining}}",
     "{{participation_url}}",
   ],

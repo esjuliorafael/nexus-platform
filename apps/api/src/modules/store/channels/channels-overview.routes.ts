@@ -120,6 +120,7 @@ const requiredTemplatesForPurpose = (purpose: string) =>
         "DATE_CHANGE",
         "RESERVATION",
         "RESTORED",
+        "PAYMENT_INSTRUCTIONS",
         "PAYMENT_CONFIRMED",
         "PAYMENT_REFUNDED",
         "PAYMENT_RECOVERY",
@@ -157,6 +158,8 @@ const PRINCIPAL_TEMPLATE_KEYS: Record<string, string> = {
   "RAFFLES:DATE_CHANGE": "whatsapp_global_raffle_date_change",
   "RAFFLES:RESERVATION": "whatsapp_global_raffle_res",
   "RAFFLES:RESTORED": "whatsapp_global_raffle_restored",
+  "RAFFLES:PAYMENT_INSTRUCTIONS":
+    "whatsapp_global_raffle_payment_instructions",
   "RAFFLES:PAYMENT_CONFIRMED": "whatsapp_global_raffle_pay",
   "RAFFLES:PAYMENT_REFUNDED": "whatsapp_global_raffle_refunded",
   "RAFFLES:PAYMENT_RECOVERY": "whatsapp_global_raffle_payment_recovery",
@@ -385,6 +388,8 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
                   "whatsapp_global_store_reminder",
                   "whatsapp_global_raffle_res",
                   "whatsapp_global_raffle_restored",
+                  "whatsapp_global_raffle_payment_instructions",
+                  "whatsapp_global_raffle_payment_instructions_simplified",
                   "whatsapp_global_raffle_rel",
                   "whatsapp_global_raffle_pay",
                   "whatsapp_global_raffle_refunded",
@@ -510,6 +515,10 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
                   getTemplateContent(settings, "whatsapp_global_store_reminder") ||
                   getTemplateContent(settings, "whatsapp_global_raffle_res") ||
                   getTemplateContent(settings, "whatsapp_global_raffle_restored") ||
+                  getTemplateContent(
+                    settings,
+                    "whatsapp_global_raffle_payment_instructions",
+                  ) ||
                   getTemplateContent(settings, "whatsapp_global_raffle_rel") ||
                   getTemplateContent(settings, "whatsapp_global_raffle_pay") ||
                   getTemplateContent(settings, "whatsapp_global_raffle_refunded") ||
@@ -544,6 +553,10 @@ export async function channelsOverviewRoutes(server: FastifyInstance) {
             raffleCount: [
               getSetting(settings, "whatsapp_global_raffle_res"),
               getSetting(settings, "whatsapp_global_raffle_restored"),
+              getTemplateContent(
+                settings,
+                "whatsapp_global_raffle_payment_instructions",
+              ),
               getSetting(settings, "whatsapp_global_raffle_rel"),
               getSetting(settings, "whatsapp_global_raffle_pay"),
               getSetting(settings, "whatsapp_global_raffle_refunded"),
