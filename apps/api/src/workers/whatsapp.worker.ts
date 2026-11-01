@@ -26,9 +26,10 @@ import { getParticipationUnitPrice } from "../modules/raffle/ticket-sales/shared
 import { createStoreOrderAccess } from "../modules/store/orders/store-order-access.service";
 import { omitOptionalRaffleParticipationInfo } from "../services/whatsapp/whatsapp-cloud-template.service";
 import {
-  getRafflePaymentInstructionsJobId,
+  isRaffleReservationNoticeDelivered,
   shouldSendRafflePaymentInstructions,
 } from "../modules/raffle/ticket-sales/raffle-payment-instructions";
+import { enqueueRafflePaymentInstructionsAfterDelivery } from "../modules/raffle/ticket-sales/raffle-payment-instructions-queue";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
 const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
@@ -1411,11 +1412,22 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         kapsoEnabled,
       });
 
+      const reservationMessageLog = sent
+        ? await storePrisma.whatsappMessageLog.findFirst({
+            where: {
+              jobId: String(job.id ?? ""),
+              ticketSaleId: sales[0].id,
+            },
+            orderBy: { id: "desc" },
+            select: { status: true },
+          })
+        : null;
+
       const instructionsTemplate =
         getSetting("whatsapp_global_raffle_payment_instructions_simplified") ||
         "";
       if (
-        sent &&
+        isRaffleReservationNoticeDelivered(reservationMessageLog?.status) &&
         (data.kind === "reservation" ||
           data.kind === "reservation-restored") &&
         instructionsTemplate.trim() &&
@@ -1428,23 +1440,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         })
       ) {
         try {
-          const sourceJobId = String(
-            job.id || `${data.kind}-${data.ticketSaleIds.join("-")}`,
-          );
-          await whatsappQueue.add(
-            "raffle-payment-instructions",
-            {
-              kind: "raffle-payment-instructions",
-              sourceKind: data.kind,
-              ticketSaleIds: data.ticketSaleIds,
-              recipientPhone: data.recipientPhone,
-              timeLimit: "timeLimit" in data ? data.timeLimit : undefined,
-              participationUrl,
-              forcePrincipal,
-              forceProvider,
-            },
-            { jobId: getRafflePaymentInstructionsJobId(sourceJobId) },
-          );
+          await enqueueRafflePaymentInstructionsAfterDelivery(job);
         } catch (error) {
           console.error(
             "[Raffle payment instructions] Could not enqueue the follow-up message:",

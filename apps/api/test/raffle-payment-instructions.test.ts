@@ -2,8 +2,10 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   getRafflePaymentInstructionsJobId,
+  isRaffleReservationNoticeDelivered,
   shouldSendRafflePaymentInstructions,
 } from "../src/modules/raffle/ticket-sales/raffle-payment-instructions";
+import { buildWhatsappAsyncFallbackPatch } from "../src/services/whatsapp/whatsapp-async-fallback";
 
 const eligibleSale = {
   customerPhone: "+52 222 123 4567",
@@ -73,4 +75,35 @@ test("creates stable BullMQ-safe follow-up job IDs", () => {
   assert.equal(first, getRafflePaymentInstructionsJobId("parent:job:123"));
   assert.match(first, /^raffle-payment-instructions-[a-f0-9]{32}$/);
   assert.doesNotMatch(first, /:/);
+});
+
+test("only schedules payment instructions after the reservation notice is delivered", () => {
+  for (const status of ["pending", "sent", "failed", null, undefined]) {
+    assert.equal(isRaffleReservationNoticeDelivered(status), false);
+  }
+  assert.equal(isRaffleReservationNoticeDelivered("delivered"), true);
+  assert.equal(isRaffleReservationNoticeDelivered("READ"), true);
+});
+
+test("async provider fallbacks keep the source reservation job ID", () => {
+  const originalJob = {
+    kind: "reservation" as const,
+    ticketSaleIds: [123],
+    recipientPhone: "+522221234567",
+  };
+  const initialFallback = buildWhatsappAsyncFallbackPatch({
+    failedProvider: "KAPSO",
+    routing: { route: "DIRECT", preferredInstanceName: "Rifas" },
+    originalJob,
+    originalJobId: "reservation-source-123",
+  });
+  assert.equal(initialFallback?.sourceJobId, "reservation-source-123");
+
+  const nextFallback = buildWhatsappAsyncFallbackPatch({
+    failedProvider: "EVOLUTION",
+    routing: { route: "PRINCIPAL_FALLBACK", preferredInstanceName: "Rifas" },
+    originalJob: { ...originalJob, ...initialFallback },
+    originalJobId: "provider-fallback-message-456",
+  });
+  assert.equal(nextFallback?.sourceJobId, "reservation-source-123");
 });

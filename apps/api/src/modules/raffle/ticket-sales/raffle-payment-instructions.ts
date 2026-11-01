@@ -62,3 +62,8 @@ export function getRafflePaymentInstructionsJobId(sourceJobId: string) {
   const digest = createHash("sha256").update(sourceJobId).digest("hex").slice(0, 32);
   return `raffle-payment-instructions-${digest}`;
 }
+
+export function isRaffleReservationNoticeDelivered(status?: string | null) {
+  const normalized = String(status || "").trim().toLowerCase();
+  return normalized === "delivered" || normalized === "read";
+}

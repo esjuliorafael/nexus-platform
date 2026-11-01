@@ -13,6 +13,7 @@ import {
 import { getWhatsappMarketingOptInKeyword, getWhatsappMarketingOptOutKeyword, whatsappMarketingConsentService } from "../../../services/whatsapp-marketing-consent.service";
 import { sendMarketingConsentConfirmation } from "../../../services/whatsapp/whatsapp-marketing-consent-confirmation.service";
 import { buildWhatsappAsyncFallbackPatch } from "../../../services/whatsapp/whatsapp-async-fallback";
+import { enqueueRafflePaymentInstructionsAfterDelivery } from "../../raffle/ticket-sales/raffle-payment-instructions-queue";
 import { refreshRaffleDrawReminderCampaign } from "../../raffle/raffles/raffle-draw-reminder.service";
 import { getEvolutionConfigFromSettings } from "../../../services/evolution/evolution.config";
 import { sendWhatsappAndLog } from "../../../services/whatsapp/whatsapp-send.service";
@@ -412,6 +413,17 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
         },
       });
 
+      if (
+        shouldAdvanceStatus &&
+        (nextStatus === "delivered" || nextStatus === "read") &&
+        existing.jobId
+      ) {
+        const deliveredJob = await whatsappQueue.getJob(existing.jobId);
+        if (deliveredJob) {
+          await enqueueRafflePaymentInstructionsAfterDelivery(deliveredJob);
+        }
+      }
+
       // Evolution may accept a send request and emit its rejection afterward.
       // Keep the raffle reminder recipient aligned with that definitive outcome.
       if (
@@ -461,6 +473,7 @@ export async function evolutionWebhookRoutes(server: FastifyInstance) {
               failedProvider: "EVOLUTION",
               routing: routing as any,
               originalJob: originalJob.data,
+              originalJobId: String(originalJob.id ?? ""),
             })
           : null;
 

@@ -15,6 +15,7 @@ import { kapsoClient } from "../../../services/kapso/kapso.client";
 import { getKapsoConfigForChannel } from "../../../services/kapso/kapso.config";
 import { getKapsoWebhookError } from "../../../services/kapso/kapso-webhook";
 import { buildWhatsappAsyncFallbackPatch } from "../../../services/whatsapp/whatsapp-async-fallback";
+import { enqueueRafflePaymentInstructionsAfterDelivery } from "../ticket-sales/raffle-payment-instructions-queue";
 import {
   auditActorData,
   type AuditActor,
@@ -111,6 +112,12 @@ async function reconcileKapsoResultLogs(
             } as any,
           },
         });
+        if ((status === "delivered" || status === "read") && log.jobId) {
+          const deliveredJob = await whatsappQueue.getJob(log.jobId);
+          if (deliveredJob) {
+            await enqueueRafflePaymentInstructionsAfterDelivery(deliveredJob);
+          }
+        }
         if (status === "failed" && log.jobId) {
           const originalJob = await whatsappQueue.getJob(log.jobId);
           const routing =
@@ -123,6 +130,7 @@ async function reconcileKapsoResultLogs(
                 failedProvider: "KAPSO",
                 routing: routing as any,
                 originalJob: originalJob.data,
+                originalJobId: String(originalJob.id ?? ""),
               })
             : null;
           if (originalJob && fallbackPatch) {

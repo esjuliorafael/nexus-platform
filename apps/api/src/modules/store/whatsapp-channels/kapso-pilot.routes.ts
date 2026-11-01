@@ -44,6 +44,7 @@ import {
   recordCloudTemplateStatusTransition,
 } from "../../../services/whatsapp/whatsapp-cloud-template-audit.service";
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
+import { enqueueRafflePaymentInstructionsAfterDelivery } from "../../raffle/ticket-sales/raffle-payment-instructions-queue";
 import {
   getWhatsappMarketingOptInKeyword,
   getWhatsappMarketingOptOutKeyword,
@@ -1819,6 +1820,15 @@ export async function kapsoWebhookRoutes(server: FastifyInstance) {
           },
         },
       });
+      if (
+        (nextStatus === "delivered" || nextStatus === "read") &&
+        existing.jobId
+      ) {
+        const deliveredJob = await whatsappQueue.getJob(existing.jobId);
+        if (deliveredJob) {
+          await enqueueRafflePaymentInstructionsAfterDelivery(deliveredJob);
+        }
+      }
       if (nextStatus === "failed" && existing.jobId) {
         const originalJob = await whatsappQueue.getJob(existing.jobId);
         if (originalJob) {
@@ -1831,6 +1841,7 @@ export async function kapsoWebhookRoutes(server: FastifyInstance) {
             failedProvider: "KAPSO",
             routing: routing as any,
             originalJob: originalJob.data,
+            originalJobId: String(originalJob.id ?? ""),
           });
           if (fallbackPatch) {
             await whatsappQueue.add(

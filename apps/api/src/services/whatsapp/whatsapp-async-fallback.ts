@@ -15,6 +15,7 @@ export function buildWhatsappAsyncFallbackPatch(params: {
   failedProvider: WhatsappProviderKind;
   routing?: WhatsappRoutingSnapshot | null;
   originalJob: WhatsappJobData;
+  originalJobId?: string;
 }): WhatsappJobRouting | null {
   const fallbackDepth = Number(params.originalJob.fallbackDepth || 0);
   if (fallbackDepth >= MAX_ASYNC_FALLBACK_DEPTH) return null;
@@ -29,19 +30,15 @@ export function buildWhatsappAsyncFallbackPatch(params: {
     !hasPreferredChannel ||
     params.originalJob.forcePrincipal === true;
 
-  if (!failedAtPrincipal) {
-    return {
-      forcePrincipal: true,
-      forceProvider: undefined,
-      forceEvolution: undefined,
-      fallbackDepth: fallbackDepth + 1,
-    };
-  }
-
-  return {
-    forcePrincipal: !hasPreferredChannel,
-    forceProvider: params.failedProvider === "KAPSO" ? "EVOLUTION" : "KAPSO",
+  const fallbackProvider =
+    params.failedProvider === "KAPSO" ? "EVOLUTION" : "KAPSO";
+  const patch: WhatsappJobRouting = {
+    forcePrincipal: failedAtPrincipal ? !hasPreferredChannel : true,
+    forceProvider: failedAtPrincipal ? fallbackProvider : undefined,
     forceEvolution: undefined,
     fallbackDepth: fallbackDepth + 1,
   };
+
+  const sourceJobId = params.originalJob.sourceJobId || params.originalJobId;
+  return sourceJobId ? { ...patch, sourceJobId: String(sourceJobId) } : patch;
 }

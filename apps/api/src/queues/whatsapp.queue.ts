@@ -11,6 +11,7 @@ export type WhatsappJobRouting = {
   forcePrincipal?: boolean;
   forceProvider?: WhatsappProviderKind;
   fallbackDepth?: number;
+  sourceJobId?: string;
   /** @deprecated Use forceProvider instead. */
   forceEvolution?: boolean;
   fallbackOfMessageId?: string;
