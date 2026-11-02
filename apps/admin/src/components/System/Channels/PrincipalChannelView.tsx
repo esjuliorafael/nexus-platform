@@ -77,6 +77,24 @@ interface PrincipalChannelViewProps {
 
 type ModalType = "bank" | "mercadopago" | "whatsapp" | null;
 
+const PARTICIPATION_TICKET_TEMPLATE_TYPES = new Set<
+  ChannelTemplateDefinition["type"]
+>(["RESERVATION", "RESTORED", "RELEASE", "PAYMENT_CONFIRMED"]);
+
+const getTemplateVersionAction = (version: ChannelTemplateVersion) => {
+  if (version === "LEGACY") return "Ver Simplificadas";
+  if (version === "SIMPLIFIED") return "Ver tickets con imagen";
+  return "Ver Legacy";
+};
+
+const getNextTemplateVersion = (
+  version: ChannelTemplateVersion,
+): ChannelTemplateVersion => {
+  if (version === "LEGACY") return "SIMPLIFIED";
+  if (version === "SIMPLIFIED") return "SIMPLIFIED_TICKET";
+  return "LEGACY";
+};
+
 const getCloudTemplateStatusLabel = (status?: string | null) => {
   switch (status) {
     case "APPROVED":
@@ -590,7 +608,9 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       version: templateVersion,
       variables: getTemplateVariantVariables(template, templateVersion, scope),
     });
-    setTemplateProvider("EVOLUTION");
+    setTemplateProvider(
+      templateVersion === "SIMPLIFIED_TICKET" ? "CLOUD" : "EVOLUTION",
+    );
     setIsTemplateDirty(false);
     setCloudTemplateStatus(null);
     setIsLoadingCloudTemplateStatus(false);
@@ -832,12 +852,25 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       if (!canActivate || isActive) return;
       setConfirmDialog({
         isOpen: true,
-        title: editingTemplate.version === "SIMPLIFIED" ? "Activar versión simplificada" : "Restaurar versión Legacy",
+        title:
+          editingTemplate.version === "LEGACY"
+            ? "Restaurar versión Legacy"
+            : editingTemplate.version === "SIMPLIFIED_TICKET"
+              ? "Activar versión con ticket"
+              : "Activar versión simplificada",
         message:
-          templateProvider === "CLOUD" && editingTemplate.version === "SIMPLIFIED"
-            ? "Solo se activará la versión simplificada si Cloud API ya la tiene aprobada. La versión anterior seguirá disponible como respaldo."
-            : "Esta versión se usará para las siguientes notificaciones de este tipo en el proveedor seleccionado.",
-        confirmLabel: editingTemplate.version === "SIMPLIFIED" ? "Activar Simplificada" : "Usar Legacy",
+          templateProvider === "CLOUD" &&
+          editingTemplate.version === "SIMPLIFIED_TICKET"
+            ? "Se activará la versión con imagen solo si Kapso/Meta ya la aprobó. La plantilla actualmente activa seguirá disponible como respaldo."
+            : templateProvider === "CLOUD" && editingTemplate.version !== "LEGACY"
+              ? "Solo se activará la versión simplificada si Cloud API ya la tiene aprobada. La versión anterior seguirá disponible como respaldo."
+              : "Esta versión se usará para las siguientes notificaciones de este tipo en el proveedor seleccionado.",
+        confirmLabel:
+          editingTemplate.version === "LEGACY"
+            ? "Usar Legacy"
+            : editingTemplate.version === "SIMPLIFIED_TICKET"
+              ? "Activar con ticket"
+              : "Activar Simplificada",
         variant: "brand",
         onConfirm: async () => {
           try {
@@ -866,9 +899,11 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       canActivate: canActivate && !isActive,
       activationLabel: isActive
         ? "Versión Activa"
-        : editingTemplate.version === "SIMPLIFIED"
-          ? "Activar Simplificada"
-          : "Usar Legacy",
+        : editingTemplate.version === "LEGACY"
+          ? "Usar Legacy"
+          : editingTemplate.version === "SIMPLIFIED_TICKET"
+            ? "Activar con ticket"
+            : "Activar Simplificada",
       onActivate: activate,
       onSave: () => {
         if (!isTemplateDirty) return;
@@ -937,6 +972,24 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
     );
   }
 
+  const visibleTemplateSections =
+    templateVersion === "SIMPLIFIED_TICKET"
+      ? CHANNEL_TEMPLATE_SECTIONS.filter(
+          (section) => section.scope === "RAFFLES",
+        )
+          .map((section) => ({
+            ...section,
+            groups: section.groups
+              .map((group) => ({
+                ...group,
+                templates: group.templates.filter((template) =>
+                  PARTICIPATION_TICKET_TEMPLATE_TYPES.has(template.type),
+                ),
+              }))
+              .filter((group) => group.templates.length > 0),
+          }))
+      : CHANNEL_TEMPLATE_SECTIONS;
+
   if (editingTemplate) {
     const hasCloudReplacement = Boolean(cloudTemplateStatus?.replacementPending);
     const currentTemplateStorageKey = getTemplateStorageKey(
@@ -945,7 +998,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
     );
     const hasUnsyncedCloudVersion =
       templateProvider === "CLOUD" &&
-      editingTemplate.version === "SIMPLIFIED" &&
+      editingTemplate.version !== "LEGACY" &&
       Boolean(config[currentTemplateStorageKey]?.trim()) &&
       !(cloudTemplateStatus?.current && cloudTemplateStatus.status === "APPROVED");
     const hasPendingCloudSync =
@@ -964,12 +1017,22 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
       if (!canActivate || isActive) return;
       setConfirmDialog({
         isOpen: true,
-        title: editingTemplate.version === "SIMPLIFIED" ? "Activar versión simplificada" : "Restaurar versión Legacy",
+        title:
+          editingTemplate.version === "LEGACY"
+            ? "Restaurar versión Legacy"
+            : editingTemplate.version === "SIMPLIFIED_TICKET"
+              ? "Activar versión con ticket"
+              : "Activar versión simplificada",
         message:
-          editingTemplate.version === "SIMPLIFIED"
+          editingTemplate.version !== "LEGACY"
             ? `Se activará únicamente en ${label}. La versión aprobada anterior permanecerá disponible como respaldo.`
             : `Esta versión se usará únicamente en ${label}.`,
-        confirmLabel: editingTemplate.version === "SIMPLIFIED" ? `Activar en ${label}` : `Usar Legacy en ${label}`,
+        confirmLabel:
+          editingTemplate.version === "LEGACY"
+            ? `Usar Legacy en ${label}`
+            : editingTemplate.version === "SIMPLIFIED_TICKET"
+              ? `Activar ticket en ${label}`
+              : `Activar en ${label}`,
         variant: "brand",
         onConfirm: async () => {
           try {
@@ -993,7 +1056,9 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
           subtitle={
             editingTemplate.isTemporaryFallback
               ? "Respaldo temporal de Cloud API mientras Meta aprueba las versiones can\u00f3nicas."
-              : "Plantilla can\u00f3nica utilizada por el Canal Principal y todos los Canales Especializados"
+              : editingTemplate.version === "SIMPLIFIED_TICKET"
+                ? "Variante Cloud API con imagen personalizada de la participación; comparte el texto simplificado."
+                : "Plantilla can\u00f3nica utilizada por el Canal Principal y todos los Canales Especializados"
           }
           icon={FileText}
           iconVariant="brand"
@@ -1011,17 +1076,19 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                     Sincronizar Cloud API
                   </NexusSectionButton>
                 )}
-                <NexusSectionButton
-                  variant="brand"
-                  icon={ArrowLeftRight}
-                  onClick={() =>
-                    setTemplateProvider((current) =>
-                      current === "CLOUD" ? "EVOLUTION" : "CLOUD",
-                    )
-                  }
-                >
-                  {templateProvider === "CLOUD" ? "Ver Evolution API" : "Ver Cloud API"}
-                </NexusSectionButton>
+                {editingTemplate.version !== "SIMPLIFIED_TICKET" && (
+                  <NexusSectionButton
+                    variant="brand"
+                    icon={ArrowLeftRight}
+                    onClick={() =>
+                      setTemplateProvider((current) =>
+                        current === "CLOUD" ? "EVOLUTION" : "CLOUD",
+                      )
+                    }
+                  >
+                    {templateProvider === "CLOUD" ? "Ver Evolution API" : "Ver Cloud API"}
+                  </NexusSectionButton>
+                )}
               </div>
           }
         >
@@ -1663,7 +1730,11 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
 
       <NexusSection
         title="Plantillas principales"
-        subtitle="Contenido canónico utilizado en tienda, rifas y canales especializados"
+        subtitle={
+          templateVersion === "SIMPLIFIED_TICKET"
+            ? "Variantes Cloud API con imagen para apartados, restauraciones, liberaciones y pagos confirmados de rifas"
+            : "Contenido canónico utilizado en tienda, rifas y canales especializados"
+        }
         icon={FileText}
         iconVariant={templateCounts > 0 ? "brand" : "muted"}
         action={
@@ -1671,18 +1742,14 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
             type="button"
             variant="brand"
             icon={ArrowLeftRight}
-            onClick={() =>
-              setTemplateVersion((version) =>
-                version === "LEGACY" ? "SIMPLIFIED" : "LEGACY",
-              )
-            }
+            onClick={() => setTemplateVersion(getNextTemplateVersion)}
           >
-            {templateVersion === "LEGACY" ? "Ver Simplificadas" : "Ver Legacy"}
+            {getTemplateVersionAction(templateVersion)}
           </NexusSectionButton>
         }
       >
         <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
-          {CHANNEL_TEMPLATE_SECTIONS.map((section) => (
+          {visibleTemplateSections.map((section) => (
             <div
               key={section.scope}
               className="flex flex-col"
@@ -1717,7 +1784,7 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                       style={{ gap: "var(--space-base)" }}
                     >
                       {group.templates.map((template) => {
-                        const isSimplified = templateVersion === "SIMPLIFIED";
+                        const isSimplified = templateVersion !== "LEGACY";
                         const storageKey = getTemplateStorageKey(template, templateVersion);
                         const simplifiedContent = getTemplateVariantContent(
                           template,
@@ -1747,7 +1814,13 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                               }
                               title={template.label}
                               subtitle={
-                                isSimplified
+                                templateVersion === "SIMPLIFIED_TICKET"
+                                  ? config[storageKey]
+                                    ? "Variante con imagen configurada en Nexus"
+                                    : isCanonical
+                                      ? "Variante con imagen lista para revisar"
+                                      : "Todavía no actualizada"
+                                  : isSimplified
                                   ? config[storageKey]
                                     ? "Versi\u00f3n simplificada configurada en Nexus"
                                     : isCanonical
@@ -1763,7 +1836,13 @@ export const PrincipalChannelView: React.FC<PrincipalChannelViewProps> = ({
                               }
                               rightContent={
                                 <p className="text-label text-text-muted">
-                                  {isSimplified
+                                  {templateVersion === "SIMPLIFIED_TICKET"
+                                    ? config[storageKey]
+                                      ? "Ticket"
+                                      : isCanonical
+                                        ? "Borrador"
+                                        : "Pendiente"
+                                    : isSimplified
                                     ? config[storageKey]
                                       ? "Configurada"
                                       : isCanonical

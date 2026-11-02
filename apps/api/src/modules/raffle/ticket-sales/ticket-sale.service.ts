@@ -649,6 +649,7 @@ export const ticketSaleService = {
         timeLimit: expectedReleaseAt
           ? formatRaffleTimeLimit(expectedReleaseAt)
           : "sin límite automático",
+        ticketExpiresAt: expectedReleaseAt?.toISOString() ?? null,
       });
     }
 
@@ -1132,6 +1133,7 @@ export const ticketSaleService = {
         timeLimit: currentExpiration
           ? formatRaffleTimeLimit(currentExpiration)
           : "sin límite automático",
+        ticketExpiresAt: currentExpiration?.toISOString() ?? null,
       });
     } else if (jobKind === "reservation") {
       await whatsappQueue.add("reservation-notification", {
@@ -1141,6 +1143,7 @@ export const ticketSaleService = {
         timeLimit: currentExpiration
           ? formatRaffleTimeLimit(currentExpiration)
           : "sin límite automático",
+        ticketExpiresAt: currentExpiration?.toISOString() ?? null,
       });
     } else if (jobKind === "reservation-paid") {
       await whatsappQueue.add("reservation-notification", {
@@ -1549,6 +1552,7 @@ export const ticketSaleService = {
               ? formatRaffleTimeLimit(expectedReleaseAt)
               : "sin límite automático",
             participationUrl,
+            ticketExpiresAt: expectedReleaseAt?.toISOString() ?? null,
           });
         }
       }

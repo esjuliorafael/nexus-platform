@@ -40,10 +40,28 @@ export type CloudTemplateSource = {
   scope: CloudTemplateScope;
   type: CloudTemplateType;
   content: string;
-  variant?: "LEGACY" | "SIMPLIFIED";
+  variant?: CloudTemplateVariant;
 };
 
-export type CloudTemplateVariant = "LEGACY" | "SIMPLIFIED";
+export type CloudTemplateVariant =
+  | "LEGACY"
+  | "SIMPLIFIED"
+  | "SIMPLIFIED_TICKET";
+
+const PARTICIPATION_TICKET_TYPES = new Set<CloudTemplateType>([
+  "RESERVATION",
+  "RESTORED",
+  "RELEASE",
+  "PAYMENT_CONFIRMED",
+]);
+
+function isSimplifiedVariant(variant?: CloudTemplateVariant) {
+  return variant === "SIMPLIFIED" || variant === "SIMPLIFIED_TICKET";
+}
+
+function isParticipationTicketVariant(variant?: CloudTemplateVariant) {
+  return variant === "SIMPLIFIED_TICKET";
+}
 
 export type CloudTemplateOwner =
   | { kind: "principal" }
@@ -159,6 +177,19 @@ const SIMPLIFIED_DATE_CHANGE_CONTENT =
 const SIMPLIFIED_DRAW_REMINDER_CONTENT =
   "\u00a1Hola, {{customer_name}}! \u{1F39F}\u{FE0F}\n\nTe recordamos que la rifa \u{201C}{{raffle_name}}\u{201D} se realizar\u{00E1} el:\n\n\u{1F4C5} {{raffle_date}}\n\nTu participaci\u{00F3}n contin\u{00FA}a registrada para este sorteo. \u{1F340}\n\n\u{1F50E} Consulta el detalle de tu participaci\u{00F3}n en Ver participaci\u{00F3}n:\n\n{{participation_url}}\n\n\u00a1Mucha suerte!";
 
+const SIMPLIFIED_RAFFLE_TEMPLATE_DEFAULT_CONTENTS: Partial<
+  Record<CloudTemplateType, string>
+> = {
+  RESERVATION:
+    "¡Hola, {{customer_name}}! 🎟️\n\nTu participación quedó apartada correctamente. ✅\n\n{{part_info}}\n\n💰 Total pendiente: ${{amount}} MXN\n\n⏳ Tienes {{time_raffle}} para realizar tu depósito o transferencia y enviarnos el comprobante por este medio.\n\n🔎 Consulta el detalle completo de tu participación y las instrucciones en el botón Ver participación:\n\n{{participation_url}}\n\n¡Gracias por participar!",
+  RESTORED:
+    "¡Hola, {{customer_name}}! 🎟️\n\nTu participación fue restaurada correctamente. ✅\n\n{{part_info}}\n\n💰 Total pendiente: ${{amount}} MXN\n\n⏳ Tienes {{time_raffle}} para realizar tu depósito o transferencia.\n\n🔎 Consulta el detalle completo de tu participación en Ver participación:\n\n{{participation_url}}\n\n¡Gracias por participar!",
+  RELEASE:
+    "Hola, {{customer_name}}. 🔓\n\nTu participación fue liberada porque concluyó el tiempo disponible para confirmar el pago. ⏳\n\n🔎 Si todavía quieres participar, consulta tu participación para revisar si puede restaurarse o visita la rifa para elegir nuevos boletos:\n\n{{participation_url}}\n\nSi necesitas ayuda, escríbenos por este medio.",
+  PAYMENT_CONFIRMED:
+    "¡Hola, {{customer_name}}! 🎟️\n\nTu pago fue confirmado correctamente. ✅\n\n{{part_info}}\n\n💳 Total pagado: ${{amount}} MXN\n\n🔎 Consulta el detalle completo de tu participación en Ver participación:\n\n{{participation_url}}\n\n¡Gracias por participar!",
+};
+
 const SIMPLIFIED_STORE_TEMPLATE_DEFAULT_CONTENTS: Partial<
   Record<CloudTemplateType, string>
 > = {
@@ -244,6 +275,25 @@ export function getCanonicalCloudTemplateSettingKey(
   )?.key;
 }
 
+export function getCloudTemplateSimplifiedDefaultContent(
+  scope: CloudTemplateScope,
+  type: CloudTemplateType,
+) {
+  if (type === "DATE_CHANGE") return SIMPLIFIED_DATE_CHANGE_CONTENT;
+  if (scope === "STORE") {
+    return (
+      SIMPLIFIED_STORE_TEMPLATE_DEFAULT_CONTENTS[type] ||
+      SIMPLIFIED_STORE_TEMPLATE_ADDITIONAL_CONTENTS[type] ||
+      ""
+    );
+  }
+  return (
+    SIMPLIFIED_RAFFLE_TEMPLATE_DEFAULT_CONTENTS[type] ||
+    CLOUD_TEMPLATE_DEFAULT_CONTENTS[type] ||
+    ""
+  );
+}
+
 export function getTemplateActiveVersionSettingKey(
   scope: CloudTemplateScope,
   type: CloudTemplateType,
@@ -307,7 +357,10 @@ export async function getActiveCloudTemplateVariant(params: {
       });
     }
   }
-  return setting?.value === "SIMPLIFIED" ? "SIMPLIFIED" : "LEGACY";
+  return setting?.value === "SIMPLIFIED" ||
+    setting?.value === "SIMPLIFIED_TICKET"
+    ? (setting.value as CloudTemplateVariant)
+    : "LEGACY";
 }
 
 export type CloudTemplateRemoteHealth =
@@ -368,26 +421,26 @@ export function buildCanonicalCloudTemplateSources(
   const sources = CLOUD_TEMPLATE_SETTING_KEYS.filter((item) =>
     scopes.includes(item.scope),
   )
+    .filter(
+      (item) =>
+        !isParticipationTicketVariant(variant) ||
+        (item.scope === "RAFFLES" &&
+          PARTICIPATION_TICKET_TYPES.has(item.type)),
+    )
     .map((item) => ({
       scope: item.scope,
       type: item.type,
       content:
-        variant === "SIMPLIFIED"
+        isSimplifiedVariant(variant)
           ? settings[`${item.key}_simplified`] ||
-            (item.type === "DATE_CHANGE"
-              ? SIMPLIFIED_DATE_CHANGE_CONTENT
-              : item.scope === "STORE"
-              ? SIMPLIFIED_STORE_TEMPLATE_DEFAULT_CONTENTS[item.type] ||
-                SIMPLIFIED_STORE_TEMPLATE_ADDITIONAL_CONTENTS[item.type]
-              : CLOUD_TEMPLATE_DEFAULT_CONTENTS[item.type]) ||
-            ""
+            getCloudTemplateSimplifiedDefaultContent(item.scope, item.type)
           : settings[item.key] || "",
       variant,
     }))
     .filter(
       (item) =>
         item.content.trim() ||
-        (variant === "LEGACY" &&
+          (!isSimplifiedVariant(variant) &&
           item.type !== "PARTICIPATION_LOOKUP_CODE" &&
           item.type !== "PARTICIPATION_LINK_MANUAL" &&
           !(item.scope === "RAFFLES" && item.type === "PAYMENT_INSTRUCTIONS")),
@@ -515,9 +568,21 @@ function isRichInvitation(type: CloudTemplateType) {
   return type === "RAFFLE_INVITATION";
 }
 
+function hasParticipationTicketHeader(source: CloudTemplateSource) {
+  return (
+    source.scope === "RAFFLES" &&
+    isParticipationTicketVariant(source.variant) &&
+    PARTICIPATION_TICKET_TYPES.has(source.type)
+  );
+}
+
+function hasSimplifiedBody(source: CloudTemplateSource) {
+  return isSimplifiedVariant(source.variant);
+}
+
 function hasParticipationButton(source: CloudTemplateSource) {
   return (
-    source.variant === "SIMPLIFIED" &&
+    hasSimplifiedBody(source) &&
     source.type !== "PAYMENT_RECOVERY" &&
     /\{\{participation_url\}\}/.test(source.content)
   );
@@ -525,7 +590,7 @@ function hasParticipationButton(source: CloudTemplateSource) {
 
 function hasOrderButton(source: CloudTemplateSource) {
   return (
-    source.variant === "SIMPLIFIED" &&
+    hasSimplifiedBody(source) &&
     source.scope === "STORE" &&
     /\{\{order_url\}\}/.test(source.content)
   );
@@ -533,7 +598,7 @@ function hasOrderButton(source: CloudTemplateSource) {
 
 function hasRecoveryButton(source: CloudTemplateSource) {
   return (
-    source.variant === "SIMPLIFIED" &&
+    hasSimplifiedBody(source) &&
     source.type === "PAYMENT_RECOVERY" &&
     /\{\{recovery_url\}\}/.test(source.content)
   );
@@ -633,21 +698,21 @@ export function getCloudTemplateBodyContent(source: CloudTemplateSource) {
     .replace(/(?:^|\n)[^\n]*\{\{participation_url\}\}[^\n]*(?=\n|$)/gi, "")
     .replace(/\{\{participation_url\}\}/gi, "")
     .replace(
-      source.variant === "SIMPLIFIED" && source.scope === "STORE"
+      hasSimplifiedBody(source) && source.scope === "STORE"
         ? /(?:^|\n)[^\n]*\{\{order_url\}\}[^\n]*(?=\n|$)/gi
         : /$^/,
       "",
     )
     .replace(/\{\{order_url\}\}/gi, "")
     .replace(
-      source.variant === "SIMPLIFIED" && source.type === "PAYMENT_RECOVERY"
+      hasSimplifiedBody(source) && source.type === "PAYMENT_RECOVERY"
         ? /(?:^|\n)[^\n]*\{\{recovery_url\}\}[^\n]*(?=\n|$)/gi
         : /$^/,
       "",
     )
     .replace(/\{\{recovery_url\}\}/gi, "")
     .replace(
-      source.variant === "SIMPLIFIED" &&
+      hasSimplifiedBody(source) &&
       (source.type === "RESULT_PARTICIPANTS" ||
         source.type === "RAFFLE_INVITATION")
         ? /(?:^|\n)[^\n]*\{\{raffle_url\}\}[^\n]*(?=\n|$)/gi
@@ -689,7 +754,7 @@ export function omitOptionalRaffleParticipationInfo(content: string) {
 
 export function getCloudTemplateDefinitionHash(source: CloudTemplateSource) {
   const dynamicButtonLayout =
-    source.variant === "SIMPLIFIED" &&
+    hasSimplifiedBody(source) &&
     (hasParticipationButton(source) ||
       hasOrderButton(source) ||
       hasRecoveryButton(source) ||
@@ -712,6 +777,11 @@ export function getCloudTemplateDefinitionHash(source: CloudTemplateSource) {
     source.type === "RESULT_WINNER"
       ? "\n[nexus-template-category:marketing-v2]"
       : "";
+  if (hasParticipationTicketHeader(source)) {
+    return getCloudTemplateContentHash(
+      `${getCloudTemplateBodyContent(source)}\n[nexus-layout:participation-ticket-image-header-v1]${dynamicButtonLayout}`,
+    );
+  }
   if (!isRichInvitation(source.type)) {
     return getCloudTemplateContentHash(
       `${getCloudTemplateBodyContent(source)}${dynamicButtonLayout}${namingRevision}${categoryRevision}`,
@@ -754,7 +824,7 @@ function getResultsButtonSuffix(value: unknown) {
 
 function hasResultsButton(source: CloudTemplateSource) {
   return (
-    source.variant === "SIMPLIFIED" &&
+    hasSimplifiedBody(source) &&
     source.type === "RESULT_PARTICIPANTS" &&
     /\{\{raffle_url\}\}/.test(source.content)
   );
@@ -762,7 +832,7 @@ function hasResultsButton(source: CloudTemplateSource) {
 
 function hasRaffleButton(source: CloudTemplateSource) {
   return (
-    source.variant === "SIMPLIFIED" &&
+    hasSimplifiedBody(source) &&
     source.type === "RAFFLE_INVITATION" &&
     /\{\{raffle_url\}\}/.test(source.content)
   );
@@ -801,9 +871,10 @@ function buildTemplateDefinition(
   category: "UTILITY" | "MARKETING" | "AUTHENTICATION",
   type: CloudTemplateType,
   source: CloudTemplateSource,
-  richInvitationHeaderHandle?: string | null,
+  headerHandle?: string | null,
 ): KapsoTemplateDefinition {
   const richInvitation = isRichInvitation(type);
+  const participationTicket = hasParticipationTicketHeader(source);
   // The lookup flow is intentionally a regular Utility template. The WABA
   // connected through Kapso does not grant this application permission to
   // create Authentication/OTP templates.
@@ -836,12 +907,12 @@ function buildTemplateDefinition(
             },
           ]
         : []),
-      ...(richInvitation
+      ...(richInvitation || participationTicket
         ? [
             {
               type: "HEADER" as const,
               format: "IMAGE" as const,
-              example: { header_handle: [richInvitationHeaderHandle!] },
+              example: { header_handle: [headerHandle!] },
             },
           ]
         : []),
@@ -981,6 +1052,7 @@ export async function syncCloudTemplateCatalog(params: {
   sources: CloudTemplateSource[];
   languageCode?: string;
   resolveRichInvitationHeaderHandle?: () => Promise<string | null>;
+  resolveParticipationTicketHeaderHandle?: () => Promise<string | null>;
   auditContext?: CloudTemplateAuditContext;
   channelName?: string | null;
   channelPurpose?: string | null;
@@ -1239,17 +1311,23 @@ export async function syncCloudTemplateCatalog(params: {
           String(item.name) === templateName &&
           String(item.language) === languageCode,
       );
-      const richInvitationHeaderHandle =
-        existing || !isRichInvitation(source.type)
+      const needsImageHeader =
+        isRichInvitation(source.type) || hasParticipationTicketHeader(source);
+      const headerHandle =
+        existing || !needsImageHeader
           ? null
-          : await params.resolveRichInvitationHeaderHandle?.();
+          : hasParticipationTicketHeader(source)
+            ? await params.resolveParticipationTicketHeaderHandle?.()
+            : await params.resolveRichInvitationHeaderHandle?.();
       if (
-        isRichInvitation(source.type) &&
+        needsImageHeader &&
         !existing &&
-        !richInvitationHeaderHandle
+        !headerHandle
       ) {
         throw new Error(
-          "No se pudo preparar una imagen de ejemplo para la invitación con portada.",
+          hasParticipationTicketHeader(source)
+            ? "No se pudo preparar una imagen de ejemplo para el ticket de participación."
+            : "No se pudo preparar una imagen de ejemplo para la invitación con portada.",
         );
       }
       const created = existing
@@ -1263,7 +1341,7 @@ export async function syncCloudTemplateCatalog(params: {
               getCloudTemplateCategory(source.type),
               source.type,
               source,
-              richInvitationHeaderHandle,
+              headerHandle,
             ),
           );
       const templateId = String(existing?.id || created?.id || "") || null;
@@ -1545,7 +1623,7 @@ export async function getApprovedCloudTemplate(params: {
     : [];
   const fallbackValues =
     params.type === "RAFFLE_INVITATION" &&
-    variant === "SIMPLIFIED" &&
+    isSimplifiedVariant(variant) &&
     /\{\{raffle_extra\}\}/i.test(params.sourceContent) &&
     mapping.contentHash !== desiredContentHash &&
     String(params.values.raffle_extra || "").trim()
@@ -1565,7 +1643,17 @@ export async function getApprovedCloudTemplate(params: {
     return null;
   }
   const components: KapsoTemplateMessage["components"] = [];
-  if (isRichInvitation(params.type) && params.mediaHeaderUrl?.trim()) {
+  const ticketHeader = hasParticipationTicketHeader({
+    scope: params.scope,
+    type: params.type,
+    variant,
+    content: params.sourceContent,
+  });
+  if (ticketHeader && !params.mediaHeaderUrl?.trim()) return null;
+  if (
+    (isRichInvitation(params.type) || ticketHeader) &&
+    params.mediaHeaderUrl?.trim()
+  ) {
     components.push({
       type: "header",
       parameters: [

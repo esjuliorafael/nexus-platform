@@ -82,6 +82,32 @@ export const storageService = {
     return joinPublicUrl(publicDomain, key);
   },
 
+  async uploadPrivateObject(body: Buffer, key: string, contentType: string) {
+    const { bucketName, client } = await getConfiguredStorage();
+    await client.send(
+      new PutObjectCommand({
+        Bucket: bucketName,
+        Key: key,
+        Body: body,
+        ContentType: contentType,
+        CacheControl: "private, no-store",
+      }),
+    );
+  },
+
+  async createSignedReadUrl(key: string, expiresInSeconds = 30 * 60) {
+    const { bucketName, client } = await getConfiguredStorage();
+    const command = new GetObjectCommand({
+      Bucket: bucketName,
+      Key: key,
+      ResponseContentType: "image/jpeg",
+      ResponseCacheControl: "private, no-store",
+    });
+    return getSignedUrl(client, command, {
+      expiresIn: Math.min(Math.max(60, expiresInSeconds), 7 * 24 * 60 * 60),
+    });
+  },
+
   async createSignedPutUrl(key: string, contentType: string) {
     const { bucketName, publicDomain, client } = await getConfiguredStorage();
     const command = new PutObjectCommand({

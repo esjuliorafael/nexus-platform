@@ -21,7 +21,10 @@ export type ChannelTemplateType =
   | "MARKETING_SUBSCRIBED"
   | "MARKETING_UNSUBSCRIBED";
 
-export type ChannelTemplateVersion = "LEGACY" | "SIMPLIFIED";
+export type ChannelTemplateVersion =
+  | "LEGACY"
+  | "SIMPLIFIED"
+  | "SIMPLIFIED_TICKET";
 
 export type ChannelTemplateDefinition = {
   type: ChannelTemplateType;
@@ -1097,7 +1100,10 @@ const SIMPLIFIED_TEMPLATE_VARIABLES: Partial<
 export const getTemplateStorageKey = (
   template: ChannelTemplateDefinition,
   version: ChannelTemplateVersion,
-) => (version === "SIMPLIFIED" ? `${template.key}_simplified` : template.key);
+) =>
+  version === "LEGACY"
+    ? template.key
+    : `${template.key}_simplified`;
 
 export const getTemplateActiveVersionKey = (
   template: ChannelTemplateDefinition,
@@ -1111,7 +1117,7 @@ export const getTemplateVariantContent = (
   version: ChannelTemplateVersion,
   scope?: ChannelTemplateScope,
 ) =>
-  version === "SIMPLIFIED"
+  version !== "LEGACY"
     ? scope === "RAFFLES"
       ? SIMPLIFIED_RAFFLE_TEMPLATE_CONTENT[template.type] || ""
       : scope === "STORE"
@@ -1126,7 +1132,7 @@ export const getTemplateVariantVariables = (
   version: ChannelTemplateVersion,
   scope?: ChannelTemplateScope,
 ) => {
-  if (version === "SIMPLIFIED" && (scope === "RAFFLES" || scope === "STORE")) {
+  if (version !== "LEGACY" && (scope === "RAFFLES" || scope === "STORE")) {
     const simplifiedVariables =
       scope === "RAFFLES"
         ? SIMPLIFIED_TEMPLATE_VARIABLES[template.type]
@@ -1153,7 +1159,7 @@ export const getChannelTemplateEditorContent = (
 ) => {
   const saved = config[getTemplateStorageKey(template, version)]?.trim();
   const content = saved || getTemplateVariantContent(template, version, scope);
-  if (version === "SIMPLIFIED") return content;
+  if (version !== "LEGACY") return content;
   return content.replace(
     /\n*Consulta el detalle de tu participaci[^\n]*:\s*\n\s*\{\{participation_url\}\}\s*/i,
     "",

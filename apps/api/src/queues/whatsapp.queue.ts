@@ -31,6 +31,7 @@ export type WhatsappJobData = (
       recipientPhone: string;
       timeLimit?: string;
       participationUrl?: string;
+      ticketExpiresAt?: string | null;
     }
   | {
       kind: "order-cancelled";
@@ -90,6 +91,7 @@ export type WhatsappJobData = (
       recipientPhone: string;
       timeLimit: string;
       participationUrl?: string;
+      ticketExpiresAt?: string | null;
     }
   | {
       kind: "reservation-reminder";

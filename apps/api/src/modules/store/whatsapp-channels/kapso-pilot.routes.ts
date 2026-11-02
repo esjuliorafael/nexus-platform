@@ -1,8 +1,11 @@
 import { FastifyInstance } from "fastify";
 import { z } from "zod";
+import { randomUUID } from "node:crypto";
 import { rafflePrisma } from "@nexus/db/raffle";
 import { toWhatsAppCloudPhoneNumber } from "../../../utils/customer-phone";
 import { ensureRaffleWhatsappHeader } from "../../raffle/raffles/raffle-whatsapp-media.service";
+import { renderParticipationTicketJpeg } from "../../raffle/ticket-sales/raffle-participation-ticket.service";
+import { storageService } from "../../../services/storage.service";
 import {
   getKapsoConfig,
   getKapsoConfigForChannel,
@@ -88,7 +91,7 @@ const channelDiagnosticsSchema = z.object({
 
 const cloudTemplateTargetSchema = z.object({
   channelId: z.coerce.number().int().positive().optional(),
-  variant: z.enum(["LEGACY", "SIMPLIFIED"]).default("LEGACY"),
+  variant: z.enum(["LEGACY", "SIMPLIFIED", "SIMPLIFIED_TICKET"]).default("LEGACY"),
   scope: z.enum(["STORE", "RAFFLES"]).optional(),
   type: z.string().trim().min(1).optional(),
 });
@@ -184,7 +187,7 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
 
   const resolveCloudTemplateTarget = async (
     channelId?: number,
-    variant: "LEGACY" | "SIMPLIFIED" = "LEGACY",
+    variant: "LEGACY" | "SIMPLIFIED" | "SIMPLIFIED_TICKET" = "LEGACY",
     scope?: "STORE" | "RAFFLES",
     type?: CloudTemplateType,
   ) => {
@@ -294,6 +297,43 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
     return uploaded.data.target?.handle || null;
   };
 
+  const resolveParticipationTicketHeaderHandle = async (
+    config: NonNullable<ReturnType<typeof getKapsoConfigForChannel>>,
+  ) => {
+    const logo = await server.storePrisma.setting.findUnique({
+      where: { key: "branding_logo_url" },
+      select: { value: true },
+    });
+    const sample = await renderParticipationTicketJpeg(
+      {
+        status: "RESERVED",
+        raffleName: "Rifa de muestra",
+        drawDate: "20 de noviembre de 2026 a las 8:00 p. m.",
+        participantName: "Mariana Torres",
+        eventDate: "1 nov. 10:42 a. m.",
+        ticketNumbers: ["034", "081", "122"],
+        opportunities: [
+          { ticketNumber: "034", numbers: ["412", "587"] },
+          { ticketNumber: "081", numbers: ["612", "901"] },
+          { ticketNumber: "122", numbers: ["028", "775"] },
+        ],
+        amount: "600.00",
+        expiresAt: "2 nov. a las 10:42 a. m.",
+        reservedDuration: "24 horas",
+      },
+      logo?.value,
+    );
+    const key = `whatsapp/template-samples/participation-ticket/${randomUUID()}.jpg`;
+    await storageService.uploadPrivateObject(sample.buffer, key, "image/jpeg");
+    try {
+      const url = await storageService.createSignedReadUrl(key);
+      const uploaded = await kapsoClient.ingestResumableMedia(config, url);
+      return uploaded.data.target?.handle || null;
+    } finally {
+      await storageService.deleteKey(key);
+    }
+  };
+
   server.post(
     "/channel-diagnostics",
     { preHandler: [server.authenticate] },
@@ -371,6 +411,7 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
         });
       }
 
+      let ticketHeaderHandle: Promise<string | null> | null = null;
       const templates = await syncCloudTemplateCatalog({
         owner: target.owner,
         config: target.config,
@@ -380,6 +421,12 @@ export async function kapsoPilotAdminRoutes(server: FastifyInstance) {
         channelPurpose: target.channelOwner?.purpose || null,
         resolveRichInvitationHeaderHandle: () =>
           resolveRaffleInvitationHeaderHandle(target.config!),
+        resolveParticipationTicketHeaderHandle: () => {
+          ticketHeaderHandle ||= resolveParticipationTicketHeaderHandle(
+            target.config!,
+          );
+          return ticketHeaderHandle;
+        },
       });
       const failedTemplate = templates.find(
         (item) => item.status === "ERROR",

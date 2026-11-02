@@ -437,6 +437,7 @@ export const rafflePaymentHoldService = {
         ticketSaleIds: saleIds,
         recipientPhone: converted.hold.customerPhone,
         timeLimit: converted.expiresAt ? formatRaffleTimeLimit(converted.expiresAt) : undefined,
+        ticketExpiresAt: converted.expiresAt?.toISOString() ?? null,
       });
       void raffleNotificationService.sendTicketReservationEmail(storePrisma, prisma, {
         raffleTitle: converted.hold.raffle.title,

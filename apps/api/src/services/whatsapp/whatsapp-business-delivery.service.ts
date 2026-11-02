@@ -13,6 +13,7 @@ import {
   getApprovedCloudTemplate,
   getActiveCloudTemplateVariant,
   getCanonicalCloudTemplateSettingKey,
+  getCloudTemplateSimplifiedDefaultContent,
   resolveCloudTemplateOwner,
   omitOptionalRaffleInvitationAdditionalInfo,
   omitOptionalRaffleParticipationInfo,
@@ -97,7 +98,7 @@ async function resolveActiveTemplateContent(
     provider,
     owner,
   });
-  if (variant !== "SIMPLIFIED") {
+  if (variant === "LEGACY") {
     return {
       variant: "LEGACY" as const,
       content: delivery.legacySourceContent || delivery.sourceContent,
@@ -120,7 +121,10 @@ async function resolveActiveTemplateContent(
     where: { key: `${baseKey}_simplified` },
     select: { value: true },
   });
-  if (!simplified?.value?.trim()) {
+  const simplifiedContent =
+    simplified?.value?.trim() ||
+    getCloudTemplateSimplifiedDefaultContent(delivery.scope, delivery.type);
+  if (!simplifiedContent) {
     return {
       variant: "LEGACY" as const,
       content: delivery.legacySourceContent || delivery.sourceContent,
@@ -130,15 +134,15 @@ async function resolveActiveTemplateContent(
   const contentWithoutRaffleExtra =
     delivery.type === "RAFFLE_INVITATION" &&
     !String(delivery.values.raffle_extra || "").trim()
-      ? omitOptionalRaffleInvitationAdditionalInfo(simplified.value)
-      : simplified.value;
+      ? omitOptionalRaffleInvitationAdditionalInfo(simplifiedContent)
+      : simplifiedContent;
   const content =
     delivery.scope === "RAFFLES" &&
     !String(delivery.values.part_info || "").trim()
       ? omitOptionalRaffleParticipationInfo(contentWithoutRaffleExtra)
       : contentWithoutRaffleExtra;
   return {
-    variant: "SIMPLIFIED" as const,
+    variant: variant === "SIMPLIFIED_TICKET" ? variant : ("SIMPLIFIED" as const),
     content,
     renderedText: renderBusinessTemplate(content, delivery.values),
   };
@@ -197,7 +201,19 @@ async function sendKapso(params: {
     variant: activeContent.variant,
   });
   let renderedText = activeContent.renderedText;
-  if (!approvedTemplate && activeContent.variant === "SIMPLIFIED") {
+  if (
+    !approvedTemplate &&
+    activeContent.variant === "SIMPLIFIED_TICKET"
+  ) {
+    approvedTemplate = await getApprovedCloudTemplate({
+      ...ownerConfig,
+      mediaHeaderUrl: undefined,
+      values: params.delivery.values,
+      sourceContent: activeContent.content,
+      variant: "SIMPLIFIED",
+    });
+  }
+  if (!approvedTemplate && activeContent.variant !== "LEGACY") {
     const legacyContent =
       params.delivery.legacySourceContent || params.delivery.sourceContent;
     approvedTemplate = await getApprovedCloudTemplate({
@@ -265,6 +281,40 @@ async function sendKapso(params: {
       routing,
     });
   } catch (error) {
+    if (
+      isSafeKapsoFallbackError(error) &&
+      !isStaticUrlButtonParameterError(error) &&
+      activeContent.variant === "SIMPLIFIED_TICKET"
+    ) {
+      const fallbackTemplate = await getApprovedCloudTemplate({
+        ...ownerConfig,
+        mediaHeaderUrl: undefined,
+        values: params.delivery.values,
+        sourceContent: activeContent.content,
+        variant: "SIMPLIFIED",
+      });
+      if (fallbackTemplate) {
+        await sendWhatsappAndLog({
+          transport: { provider: "KAPSO", config },
+          recipientPhone: params.delivery.recipientPhone,
+          message: {
+            text: activeContent.renderedText,
+            cloudTemplate: fallbackTemplate.message,
+          },
+          templateName: params.delivery.templateName,
+          orderId: params.delivery.orderId,
+          ticketSaleId: params.delivery.ticketSaleId,
+          jobId: params.delivery.jobId,
+          attempt: params.delivery.attempt,
+          routing: {
+            ...routing,
+            fallbackReason:
+              "Kapso rechazó la imagen del ticket; se reintentó con la plantilla simplificada sin imagen.",
+          },
+        });
+        return true;
+      }
+    }
     if (!isStaticUrlButtonParameterError(error)) throw error;
 
     const components = approvedTemplate.message.components?.filter(

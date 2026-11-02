@@ -6,6 +6,7 @@ import {
   getCloudTemplateRemoteHealth,
   getCloudTemplateBodyContent,
   getCloudTemplateDefinitionHash,
+  getCloudTemplateSimplifiedDefaultContent,
   normalizeCloudTemplateParameterValue,
   omitOptionalRaffleInvitationAdditionalInfo,
   omitOptionalRaffleParticipationInfo,
@@ -247,6 +248,46 @@ test("adds a separate raffle payment-instructions template without changing Stor
       (source) => source.type === "PAYMENT_INSTRUCTIONS",
     ),
     false,
+  );
+});
+
+test("builds only ticket-enabled raffle templates with an image-header variant", () => {
+  const sources = buildCanonicalCloudTemplateSources(
+    {},
+    ["STORE", "RAFFLES"],
+    "SIMPLIFIED_TICKET",
+  );
+
+  assert.deepEqual(
+    sources.map(({ scope, type }) => `${scope}:${type}`).sort(),
+    [
+      "RAFFLES:PAYMENT_CONFIRMED",
+      "RAFFLES:RELEASE",
+      "RAFFLES:RESERVATION",
+      "RAFFLES:RESTORED",
+    ],
+  );
+  assert.ok(sources.every((source) => source.variant === "SIMPLIFIED_TICKET"));
+
+  const ticketReservation = sources.find(
+    (source) => source.type === "RESERVATION",
+  );
+  const textReservation = buildCanonicalCloudTemplateSources(
+    {},
+    ["RAFFLES"],
+    "SIMPLIFIED",
+  ).find((source) => source.type === "RESERVATION");
+
+  assert.ok(ticketReservation);
+  assert.ok(textReservation);
+  assert.equal(ticketReservation.content, textReservation.content);
+  assert.equal(
+    ticketReservation.content,
+    getCloudTemplateSimplifiedDefaultContent("RAFFLES", "RESERVATION"),
+  );
+  assert.notEqual(
+    getCloudTemplateDefinitionHash(ticketReservation),
+    getCloudTemplateDefinitionHash(textReservation),
   );
 });
 

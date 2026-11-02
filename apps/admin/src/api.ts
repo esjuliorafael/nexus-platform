@@ -1025,7 +1025,7 @@ export const apiWhatsApp = {
     }),
   syncKapsoTemplates: async (
     channelId?: string,
-    variant: "LEGACY" | "SIMPLIFIED" = "LEGACY",
+    variant: "LEGACY" | "SIMPLIFIED" | "SIMPLIFIED_TICKET" = "LEGACY",
     target?: { scope?: "STORE" | "RAFFLES"; type?: string },
   ) =>
     api.post("/admin/whatsapp/kapso/sync-templates", {
@@ -1035,13 +1035,13 @@ export const apiWhatsApp = {
     }),
   activateKapsoTemplate: async (data: {
     channelId?: number;
-    variant: "LEGACY" | "SIMPLIFIED";
+    variant: "LEGACY" | "SIMPLIFIED" | "SIMPLIFIED_TICKET";
     scope: "STORE" | "RAFFLES";
     type: string;
   }) => api.post("/admin/whatsapp/kapso/activate-template", data),
   deleteKapsoTemplate: async (data: {
     channelId?: number;
-    variant: "LEGACY" | "SIMPLIFIED";
+    variant: "LEGACY" | "SIMPLIFIED" | "SIMPLIFIED_TICKET";
     scope: "STORE" | "RAFFLES";
     type: string;
     templateName: string;
@@ -1050,7 +1050,7 @@ export const apiWhatsApp = {
   }) => api.post("/admin/whatsapp/kapso/delete-template", data),
   getKapsoTemplateReadiness: async (
     channelId?: string,
-    variant: "LEGACY" | "SIMPLIFIED" = "LEGACY",
+    variant: "LEGACY" | "SIMPLIFIED" | "SIMPLIFIED_TICKET" = "LEGACY",
     target?: { scope: "STORE" | "RAFFLES"; type: string },
   ) =>
     api.get("/admin/whatsapp/kapso/template-readiness", {

@@ -24,14 +24,23 @@ import { createRaffleParticipationAccess } from "../modules/raffle/ticket-sales/
 import { createParticipationLookupAccess } from "../modules/raffle/ticket-sales/raffle-participation-lookup.service";
 import { getParticipationUnitPrice } from "../modules/raffle/ticket-sales/shared-participation";
 import { createStoreOrderAccess } from "../modules/store/orders/store-order-access.service";
-import { omitOptionalRaffleParticipationInfo } from "../services/whatsapp/whatsapp-cloud-template.service";
+import {
+  getCloudTemplateDefaultContent,
+  getActiveCloudTemplateVariant,
+  omitOptionalRaffleParticipationInfo,
+  resolveCloudTemplateOwner,
+} from "../services/whatsapp/whatsapp-cloud-template.service";
 import {
   isRaffleReservationNoticeDelivered,
   shouldSendRafflePaymentInstructions,
 } from "../modules/raffle/ticket-sales/raffle-payment-instructions";
 import { enqueueRafflePaymentInstructionsAfterDelivery } from "../modules/raffle/ticket-sales/raffle-payment-instructions-queue";
 import { finalizeManualParticipationLinkDelivery } from "../modules/raffle/ticket-sales/raffle-participation-private-link-delivery";
-import { getCloudTemplateDefaultContent } from "../services/whatsapp/whatsapp-cloud-template.service";
+import {
+  getParticipationTicketStorageKey,
+  uploadParticipationTicketImage,
+} from "../modules/raffle/ticket-sales/raffle-participation-ticket.service";
+import { storageService } from "../services/storage.service";
 
 const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
 const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
@@ -1408,6 +1417,200 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         Math.max(0, Number(sales[0].raffle.opportunities || 1) - 1),
       );
 
+      let ticketImage: { key: string; url: string } | null = null;
+      const participationTicketStatus =
+        data.kind === "reservation" || data.kind === "reservation-restored"
+          ? "RESERVED"
+          : data.kind === "reservation-paid"
+            ? "CONFIRMED"
+            : data.kind === "reservation-cancelled"
+              ? "RELEASED"
+              : null;
+      const participationTicketTemplateType =
+        data.kind === "reservation"
+          ? "RESERVATION"
+          : data.kind === "reservation-restored"
+            ? "RESTORED"
+            : data.kind === "reservation-paid"
+              ? "PAYMENT_CONFIRMED"
+              : data.kind === "reservation-cancelled"
+                ? "RELEASE"
+                : null;
+      let ticketVariantActive = false;
+      if (
+        participationTicketStatus &&
+        participationTicketTemplateType &&
+        kapsoEnabled &&
+        forceProvider !== "EVOLUTION"
+      ) {
+        try {
+          const activeVariants = [
+            getActiveCloudTemplateVariant({
+              scope: "RAFFLES",
+              type: participationTicketTemplateType,
+              provider: "CLOUD",
+              owner: { kind: "principal" },
+            }),
+          ];
+          if (
+            !forcePrincipal &&
+            raffleChannel?.kapsoPhoneNumberId &&
+            raffleChannel.kapsoBusinessAccountId
+          ) {
+            activeVariants.push(
+              getActiveCloudTemplateVariant({
+                scope: "RAFFLES",
+                type: participationTicketTemplateType,
+                provider: "CLOUD",
+                owner: resolveCloudTemplateOwner({
+                  channelOwner: {
+                    kind: "channel",
+                    channelId: raffleChannel.id,
+                    purpose: raffleChannel.purpose,
+                  },
+                  channelBusinessAccountId:
+                    raffleChannel.kapsoBusinessAccountId,
+                  principalBusinessAccountId:
+                    principalWhatsapp.kapsoBusinessAccountId,
+                }),
+              }),
+            );
+          }
+          ticketVariantActive = (await Promise.all(activeVariants)).includes(
+            "SIMPLIFIED_TICKET",
+          );
+        } catch (error) {
+          console.warn(
+            `[Raffle participation ticket] Could not check active version for job ${String(job.id)}:`,
+            error,
+          );
+        }
+      }
+      if (
+        participationTicketStatus &&
+        ticketVariantActive &&
+        job.id != null
+      ) {
+        try {
+          const participationId =
+            sales[0].reservationId || `sale-${sales[0].id}`;
+          const eventTypes =
+            participationTicketStatus === "RESERVED"
+              ? data.kind === "reservation-restored"
+                ? ["RESTORED"]
+                : ["PARTICIPATION_CREATED"]
+              : participationTicketStatus === "CONFIRMED"
+                ? ["PAYMENT_CONFIRMED", "RESTORED_AND_PAID"]
+                : ["AUTO_CANCELLED", "CANCELLED"];
+          const ticketEvent = await rafflePrisma.raffleParticipationEvent.findFirst({
+            where: {
+              participationId,
+              eventType: { in: eventTypes },
+            },
+            orderBy: { createdAt: "desc" },
+            select: { eventType: true, createdAt: true, metadata: true },
+          });
+          const eventMetadata =
+            ticketEvent?.metadata &&
+            typeof ticketEvent.metadata === "object" &&
+            !Array.isArray(ticketEvent.metadata)
+              ? (ticketEvent.metadata as Record<string, unknown>)
+              : {};
+          const eventAt = ticketEvent?.createdAt || sales[0].createdAt;
+          const expiresAtValue =
+            data.kind === "reservation" || data.kind === "reservation-restored"
+              ? data.ticketExpiresAt || eventMetadata.expectedReleaseAt
+              : null;
+          const expiresAt = expiresAtValue
+            ? new Date(String(expiresAtValue))
+            : null;
+          const dateTime = (value: Date, long = false) =>
+            new Intl.DateTimeFormat("es-MX", {
+              ...(long
+                ? {
+                    day: "numeric",
+                    month: "long",
+                    year: "numeric",
+                  }
+                : { day: "numeric", month: "short" }),
+              hour: "numeric",
+              minute: "2-digit",
+              timeZone: "America/Mexico_City",
+            })
+              .format(value)
+              .replace(",", long ? " a las" : "");
+          const duration = expiresAt
+            ? (() => {
+                const minutes = Math.max(
+                  1,
+                  Math.ceil((expiresAt.getTime() - eventAt.getTime()) / 60_000),
+                );
+                const hours = Math.ceil(minutes / 60);
+                return hours === 1 ? "1 hora" : `${hours} horas`;
+              })()
+            : null;
+          const opportunityMap = new Map<string, string[]>();
+          for (const opportunity of sales[0].raffle.extraOpportunities || []) {
+            const numbers = Array.isArray(opportunity.extraOpportunities)
+              ? opportunity.extraOpportunities
+                  .filter((value: unknown) => typeof value === "string" || typeof value === "number")
+                  .map(String)
+                  .sort((a: string, b: string) => Number(a) - Number(b) || a.localeCompare(b))
+              : [];
+            opportunityMap.set(String(opportunity.mainTicketNumber), numbers);
+          }
+          const total = Math.max(
+            0,
+            sales.reduce(
+              (sum: number, sale: any) =>
+                sum +
+                  getParticipationUnitPrice(
+                    sale.raffle.ticketPrice.toString(),
+                    sale.participationMode === "SHARED" ? "SHARED" : "FULL",
+                  ),
+              0,
+            ) - Number(sales[0].discountTotal || 0),
+          );
+          const brandLogo = await storePrisma.setting.findUnique({
+            where: { key: "branding_logo_url" },
+            select: { value: true },
+          });
+          ticketImage = await uploadParticipationTicketImage({
+            jobId: String(job.id),
+            logoUrl: brandLogo?.value,
+            data: {
+              status: participationTicketStatus,
+              raffleName: sales[0].raffle.title,
+              drawDate: sales[0].raffle.drawDate
+                ? dateTime(sales[0].raffle.drawDate, true)
+                : "Fecha por confirmar",
+              participantName: sales[0].customerName,
+              eventDate: dateTime(eventAt),
+              ticketNumbers: sales.map((sale: any) => String(sale.ticketNumber)),
+              opportunities: sales.map((sale: any) => ({
+                ticketNumber: String(sale.ticketNumber),
+                numbers: opportunityMap.get(String(sale.ticketNumber)) || [],
+              })),
+              amount: total.toLocaleString("en-US", {
+                minimumFractionDigits: 2,
+                maximumFractionDigits: 2,
+              }),
+              expiresAt: expiresAt ? dateTime(expiresAt) : null,
+              reservedDuration: duration,
+              releaseReason:
+                ticketEvent?.eventType === "AUTO_CANCELLED"
+                  ? "DEADLINE"
+                  : "CANCELLED",
+            },
+          });
+        } catch (error) {
+          console.warn(
+            `[Raffle participation ticket] Could not prepare image for job ${String(job.id)}:`,
+            error,
+          );
+        }
+      }
+
       const sent = await sendBusinessWhatsappNotification({
         preferredChannel: forcePrincipal ? null : raffleChannel,
         principal: principalWhatsapp,
@@ -1436,6 +1639,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           ...notification.values,
           ticket_list: formatRaffleTicketList(sales),
         },
+        mediaHeaderUrl: ticketImage?.url,
         templateName:
           data.kind === "reservation"
             ? "reservation_rifas"
@@ -1454,6 +1658,16 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         forceProvider,
         kapsoEnabled,
       });
+      if (participationTicketStatus && job.id != null) {
+        void storageService
+          .deleteKey(getParticipationTicketStorageKey(String(job.id)))
+          .catch((error) => {
+            console.error(
+              `[Raffle participation ticket] Could not clean sent image for job ${String(job.id)}:`,
+              error,
+            );
+          });
+      }
 
       const reservationMessageLog = sent
         ? await storePrisma.whatsappMessageLog.findFirst({
@@ -1498,6 +1712,25 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
 
 whatsappWorker.on("failed", (job, err) => {
   console.error(`[WhatsApp Worker] Job ${job?.id} failed:`, err.message);
+  if (
+    job?.id != null &&
+    job.attemptsMade >= Number(job.opts.attempts ?? 1) &&
+    [
+      "reservation",
+      "reservation-restored",
+      "reservation-paid",
+      "reservation-cancelled",
+    ].includes(job.data.kind)
+  ) {
+    void storageService
+      .deleteKey(getParticipationTicketStorageKey(String(job.id)))
+      .catch((error) => {
+        console.error(
+          `[Raffle participation ticket] Could not clean failed image for job ${String(job.id)}:`,
+          error,
+        );
+      });
+  }
   if (
     job?.data.kind === "raffle-participation-link-manual" &&
     job.attemptsMade >= Number(job.opts.attempts ?? 1)
