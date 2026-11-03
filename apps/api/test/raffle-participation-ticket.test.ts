@@ -33,6 +33,8 @@ test("renders a valid portrait JPEG whose height follows ticket content", async 
 
   assert.equal(simple.width, 900);
   assert.ok(withOpportunities.height > simple.height);
+  assert.ok(withOpportunities.width / withOpportunities.height > 0.45);
+  assert.ok(withOpportunities.width / withOpportunities.height < 0.55);
   assert.equal(metadata.format, "jpeg");
   assert.equal(metadata.width, 900);
   assert.equal(metadata.height, withOpportunities.height);

@@ -22,7 +22,11 @@ FROM node:20-bookworm-slim AS runner
 WORKDIR /app
 
 # Instalar pnpm y OpenSSL (Necesario para Prisma)
-RUN apt-get update -y && apt-get install -y openssl && npm install -g pnpm
+RUN apt-get update -y \
+    && apt-get install -y --no-install-recommends openssl fontconfig fonts-liberation \
+    && fc-match Arial | grep -q "Liberation Sans" \
+    && rm -rf /var/lib/apt/lists/* \
+    && npm install -g pnpm
 
 # Copiar solo lo necesario
 COPY --from=builder /app/package.json ./

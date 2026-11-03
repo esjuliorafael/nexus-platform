@@ -19,11 +19,11 @@ export type ParticipationTicketData = {
   brandName?: string;
 };
 
-const width = 900;
-const cardX = 24;
-const cardWidth = width - cardX * 2;
-const bodyX = 68;
-const bodyWidth = width - bodyX * 2;
+const layoutWidth = 402;
+const renderWidth = 900;
+const renderScale = renderWidth / layoutWidth;
+const bodyX = 24;
+const bodyWidth = layoutWidth - bodyX * 2;
 const colors = {
   reserved: { header: "#a64b16", accent: "#71320e", soft: "#ffe0bd", pale: "#faf5f1", edge: "#ead8cd", payment: "#1d1a23" },
   confirmed: { header: "#176b52", accent: "#135541", soft: "#d8f6e8", pale: "#f0faf6", edge: "#cce8dc", payment: "#153d33" },
@@ -121,38 +121,46 @@ function buildTicketSvg(data: ParticipationTicketData) {
           ? "El plazo para completar el pago venció. Tu selección se liberó y ya no está apartada a tu nombre."
           : "La participación se canceló. Tu selección ya no está apartada a tu nombre.";
 
-  const titleLines = wrapText(data.raffleName || "Rifa", 34);
-  const drawDateLines = wrapText(data.drawDate || "Fecha por confirmar", 52);
+  const titleLines = wrapText(data.raffleName || "Rifa", 27);
+  const drawDateLines = wrapText(data.drawDate || "Fecha por confirmar", 31);
+  const drawLabelLines = wrapText("Fecha y hora de la rifa", 15);
   const note =
-    "Si la rifa se reprograma, tu participación conserva la misma selección y condiciones.";
-  const noteLines = wrapText(note, 58);
-  const headerTitleY = 234;
-  const titleHeight = titleLines.length * 42;
-  const drawY = headerTitleY + titleHeight + 48;
-  const noteY = drawY + drawDateLines.length * 30 + 42;
-  const headerBottom = noteY + 42;
-  const bodyTop = headerBottom + 46;
+    "Si fuera necesario reprogramar la rifa antes del evento de referencia, la nueva fecha se publicará y comunicará a los participantes.";
+  const noteLines = wrapText(note, 68);
+  const headerTitleY = 143;
+  const drawY = headerTitleY + titleLines.length * 26 + 5;
+  const drawRowLines = Math.max(drawDateLines.length, drawLabelLines.length);
+  const noteY = drawY + drawRowLines * 14 + 20;
+  const headerBottom = noteY + noteLines.length * 14 + 28;
+  const bodyTop = headerBottom + 20;
 
   const tickets = Array.from(new Set(data.ticketNumbers));
   const ticketRows = Math.ceil(tickets.length / 3);
-  const ticketsCardHeight = 78 + ticketRows * 84;
+  const ticketsCardHeight = 16 + 12 + 12 + ticketRows * 40 + Math.max(0, ticketRows - 1) * 8 + 16;
   const opportunities = data.opportunities.filter((entry) => entry.numbers.length);
-  const opportunitiesHeight = opportunities.length
-    ? 86 + opportunities.reduce((sum, entry) => sum + Math.max(1, Math.ceil(entry.numbers.join(", ").length / 48)) * 46, 0)
+  const opportunityRows = opportunities.map((entry) => ({
+    ...entry,
+    lines: wrapText(entry.numbers.join(", "), 54),
+  }));
+  const opportunitiesHeight = opportunityRows.length
+    ? 16 + 12 + 6 + opportunityRows.reduce((sum, entry) => sum + Math.max(28, entry.lines.length * 14 + 12), 0) + 16
     : 0;
 
+  const participantNameLines = wrapText(data.participantName || "Participante", 24);
+  const eventDateLines = wrapText(data.eventDate, 18);
+  const metadataHeight = 34 + Math.max(participantNameLines.length * 20, eventDateLines.length * 18);
   let y = bodyTop;
   const header = [
-    svgText("MI PARTICIPACIÓN", 158, 93, { size: 18, weight: 700, fill: "#ffffffb8", letterSpacing: 3 }),
-    svgText(data.brandName || "Rancho Las Trojes", 158, 124, { size: 25, weight: 700, fill: "#ffffff" }),
-    `<rect x="620" y="58" width="220" height="54" rx="27" fill="${theme.soft}"/>`,
-    svgText(statusLabel, 730, 93, { size: 18, weight: 700, fill: theme.accent, anchor: "middle", letterSpacing: 1 }),
-    svgText("RIFA", bodyX, 188, { size: 17, weight: 700, fill: "#ffffffa8", letterSpacing: 4 }),
-    ...titleLines.map((line, index) => svgText(line, bodyX, headerTitleY + index * 42, { size: 34, weight: 700, fill: "#ffffff", max: 100, lineHeight: 42 })),
-    `<circle cx="94" cy="${drawY - 8}" r="13" fill="none" stroke="#ffffffd0" stroke-width="2.5"/><path d="M94 ${drawY - 22}v6m0 16v5m-14 -13h6m16 0h6" stroke="#ffffffd0" stroke-width="2.5" stroke-linecap="round"/>`,
-    svgText("Fecha y hora de la rifa", 126, drawY, { size: 20, fill: "#ffffffd0", max: 26, lineHeight: 28 }),
-    ...drawDateLines.map((line, index) => svgText(line, 346, drawY + index * 28, { size: 20, weight: 700, fill: "#ffffff", max: 60, lineHeight: 28 })),
-    ...noteLines.map((line, index) => svgText(line, width / 2, noteY + index * 23, { size: 16, fill: "#ffffffa8", anchor: "middle", max: 100, lineHeight: 23 })),
+    svgText("MI PARTICIPACIÓN", 70, 37, { size: 10, weight: 700, fill: "#ffffffb8", letterSpacing: 2.2 }),
+    svgText(data.brandName || "Rancho Las Trojes", 70, 55, { size: 14, weight: 700, fill: "#ffffff" }),
+    `<rect x="280" y="24" width="98" height="24" rx="12" fill="${theme.soft}"/>`,
+    svgText(statusLabel, 329, 40, { size: 10, weight: 700, fill: theme.accent, anchor: "middle", letterSpacing: 0.8 }),
+    svgText("RIFA", bodyX, 108, { size: 10, weight: 700, fill: "#ffffffa8", letterSpacing: 2 }),
+    ...titleLines.map((line, index) => svgText(line, bodyX, headerTitleY + index * 26, { size: 24, weight: 700, fill: "#ffffff", max: 100, lineHeight: 26 })),
+    `<circle cx="42" cy="${drawY - 4}" r="7" fill="none" stroke="#ffffffd0" stroke-width="1.5"/><path d="M42 ${drawY - 12}v3m0 10v3m-8 -8h3m10 0h3" stroke="#ffffffd0" stroke-width="1.5" stroke-linecap="round"/>`,
+    ...drawLabelLines.map((line, index) => svgText(line, 56, drawY + index * 14, { size: 12, fill: "#ffffffd0", max: 15, lineHeight: 14 })),
+    ...drawDateLines.map((line, index) => svgText(line, 164, drawY + index * 14, { size: 12, weight: 700, fill: "#ffffff", max: 31, lineHeight: 14 })),
+    ...noteLines.map((line, index) => svgText(line, layoutWidth / 2, noteY + index * 14, { size: 10, fill: "#ffffffa8", anchor: "middle", max: 100, lineHeight: 14 })),
   ].join("");
 
   const sections: string[] = [];
@@ -163,73 +171,84 @@ function buildTicketSvg(data: ParticipationTicketData) {
         ? "CONFIRMACIÓN"
         : "LIBERACIÓN";
   sections.push(
-    svgText("PARTICIPANTE", bodyX, y + 18, { size: 16, weight: 700, fill: "#8a8390", letterSpacing: 2 }),
-    svgText(data.participantName || "Participante", bodyX, y + 52, { size: 23, weight: 700 }),
-    `<line x1="565" y1="${y}" x2="565" y2="${y + 64}" stroke="#dedbe4" stroke-width="2"/>`,
-    svgText(participantDateLabel, 592, y + 18, { size: 16, weight: 700, fill: "#8a8390", letterSpacing: 1.8 }),
-    svgText(data.eventDate, 592, y + 52, { size: 20, weight: 700, max: 24, lineHeight: 26 }),
+    svgText("PARTICIPANTE", bodyX + 8, y + 10, { size: 10, weight: 700, fill: "#8a8390", letterSpacing: 1.6 }),
+    ...participantNameLines.map((line, index) => svgText(line, bodyX + 8, y + 34 + index * 20, { size: 16, weight: 700, max: 24, lineHeight: 20 })),
+    `<line x1="212" y1="${y}" x2="212" y2="${y + Math.min(metadataHeight, 56)}" stroke="#dedbe4" stroke-width="1"/>`,
+    svgText(participantDateLabel, 228, y + 10, { size: 10, weight: 700, fill: "#8a8390", letterSpacing: 1.2 }),
+    ...eventDateLines.map((line, index) => svgText(line, 228, y + 34 + index * 18, { size: 14, weight: 700, max: 18, lineHeight: 18 })),
   );
-  y += 96;
-  sections.push(`<line x1="${bodyX}" y1="${y}" x2="${bodyX + bodyWidth}" y2="${y}" stroke="#d8d4dd" stroke-width="2" stroke-dasharray="7 7"/>`);
-  y += 28;
+  y += metadataHeight;
+  sections.push(`<line x1="${bodyX}" y1="${y}" x2="${bodyX + bodyWidth}" y2="${y}" stroke="#d8d4dd" stroke-width="1" stroke-dasharray="3 3"/>`);
+  y += 16;
 
-  sections.push(`<rect x="${bodyX}" y="${y}" width="${bodyWidth}" height="${ticketsCardHeight}" rx="24" fill="#ffffff" stroke="#e8e5eb" stroke-width="2"/>`);
-  sections.push(svgText(data.status === "RESERVED" ? "BOLETOS APARTADOS" : data.status === "CONFIRMED" ? "BOLETOS CONFIRMADOS" : "BOLETOS LIBERADOS", bodyX + 28, y + 36, { size: 16, weight: 700, fill: "#8a8390", letterSpacing: 1.8 }));
-  sections.push(svgText(formatCount(tickets.length).toUpperCase(), bodyX + bodyWidth - 28, y + 36, { size: 15, weight: 700, fill: "#8a8390", anchor: "end", letterSpacing: 1 }));
+  sections.push(`<rect x="${bodyX}" y="${y}" width="${bodyWidth}" height="${ticketsCardHeight}" rx="16" fill="#ffffff" stroke="#e8e5eb" stroke-width="1"/>`);
+  sections.push(svgText(data.status === "RESERVED" ? "BOLETOS APARTADOS" : data.status === "CONFIRMED" ? "BOLETOS CONFIRMADOS" : "BOLETOS LIBERADOS", bodyX + 16, y + 27, { size: 10, weight: 700, fill: "#8a8390", letterSpacing: 1.2 }));
+  sections.push(svgText(formatCount(tickets.length).toUpperCase(), bodyX + bodyWidth - 16, y + 27, { size: 10, weight: 700, fill: "#8a8390", anchor: "end", letterSpacing: 0.4 }));
   tickets.forEach((ticket, index) => {
     const column = index % 3;
     const row = Math.floor(index / 3);
-    const chipX = bodyX + 28 + column * 242;
-    const chipY = y + 54 + row * 84;
-    sections.push(`<rect x="${chipX}" y="${chipY}" width="224" height="64" rx="16" fill="${theme.pale}" stroke="${theme.edge}" stroke-width="2"/>`);
-    sections.push(svgText(ticket, chipX + 112, chipY + 42, { size: 24, weight: 700, fill: theme.accent, anchor: "middle", letterSpacing: 1.5 }));
-    if (data.status === "RELEASED") sections.push(`<line x1="${chipX + 65}" y1="${chipY + 33}" x2="${chipX + 159}" y2="${chipY + 33}" stroke="${theme.accent}" stroke-width="2" opacity=".65"/>`);
+    const chipWidth = (bodyWidth - 32 - 16) / 3;
+    const chipX = bodyX + 16 + column * (chipWidth + 8);
+    const chipY = y + 46 + row * 48;
+    sections.push(`<rect x="${chipX}" y="${chipY}" width="${chipWidth}" height="40" rx="8" fill="${theme.pale}" stroke="${theme.edge}" stroke-width="1"/>`);
+    sections.push(svgText(ticket, chipX + chipWidth / 2, chipY + 26, { size: 16, weight: 700, fill: theme.accent, anchor: "middle", letterSpacing: 1 }));
+    if (data.status === "RELEASED") sections.push(`<line x1="${chipX + 28}" y1="${chipY + 21}" x2="${chipX + chipWidth - 28}" y2="${chipY + 21}" stroke="${theme.accent}" stroke-width="1" opacity=".65"/>`);
   });
-  y += ticketsCardHeight + 24;
+  y += ticketsCardHeight + 12;
 
   if (opportunitiesHeight) {
-    sections.push(`<rect x="${bodyX}" y="${y}" width="${bodyWidth}" height="${opportunitiesHeight}" rx="24" fill="#f8eee6" stroke="#ead3c3" stroke-width="2"/>`);
-    sections.push(svgText("OPORTUNIDADES ADICIONALES", bodyX + 28, y + 34, { size: 16, weight: 700, fill: "#9a5a32", letterSpacing: 1.6 }));
+    sections.push(`<rect x="${bodyX}" y="${y}" width="${bodyWidth}" height="${opportunitiesHeight}" rx="16" fill="#f8eee6" stroke="#ead3c3" stroke-width="1"/>`);
+    sections.push(svgText("OPORTUNIDADES ADICIONALES", bodyX + 16, y + 28, { size: 10, weight: 700, fill: "#9a5a32", letterSpacing: 1.2 }));
     const opportunityCount = opportunities.reduce((sum, item) => sum + item.numbers.length, 0);
-    sections.push(svgText(`${opportunityCount} EN TOTAL`, bodyX + bodyWidth - 28, y + 34, { size: 15, weight: 700, fill: "#a2765d", anchor: "end", letterSpacing: 1 }));
-    let rowY = y + 72;
-    for (const entry of opportunities) {
-      const lineText = entry.numbers.join(", ");
-      const lines = wrapText(lineText, 48);
-      sections.push(svgText(entry.ticketNumber, bodyX + 28, rowY + 2, { size: 18, weight: 700, fill: theme.accent }));
-      lines.forEach((line, index) => sections.push(svgText(line, bodyX + 196, rowY + 2 + index * 24, { size: 17, weight: 600, fill: "#6f5546", max: 100, lineHeight: 24 })));
-      rowY += Math.max(1, lines.length) * 46;
-      if (entry !== opportunities[opportunities.length - 1]) {
-        sections.push(`<line x1="${bodyX + 28}" y1="${rowY - 10}" x2="${bodyX + bodyWidth - 28}" y2="${rowY - 10}" stroke="#e6d3c7" stroke-width="1.5"/>`);
+    sections.push(svgText(`${opportunityCount} EN TOTAL`, bodyX + bodyWidth - 16, y + 28, { size: 10, weight: 700, fill: "#a2765d", anchor: "end", letterSpacing: 0.4 }));
+    let rowY = y + 44;
+    opportunityRows.forEach((entry, entryIndex) => {
+      const rowHeight = Math.max(28, entry.lines.length * 14 + 12);
+      sections.push(svgText(entry.ticketNumber, bodyX + 16, rowY + 17, { size: 10, weight: 700, fill: theme.accent }));
+      entry.lines.forEach((line, index) => sections.push(svgText(line, bodyX + 62, rowY + 17 + index * 14, { size: 10, weight: 600, fill: "#6f5546", max: 54, lineHeight: 14 })));
+      rowY += rowHeight;
+      if (entryIndex < opportunityRows.length - 1) {
+        sections.push(`<line x1="${bodyX + 16}" y1="${rowY}" x2="${bodyX + bodyWidth - 16}" y2="${rowY}" stroke="#e6d3c7" stroke-width="1"/>`);
       }
-    }
-    y += opportunitiesHeight + 24;
+    });
+    y += opportunitiesHeight + 16;
   }
 
-  const detailLines = wrapText(detailCopy, 98);
-  const paymentCardHeight = 184 + detailLines.length * 24;
-  sections.push(`<rect x="${bodyX}" y="${y}" width="${bodyWidth}" height="${paymentCardHeight}" rx="24" fill="${theme.payment}"/>`);
-  const paymentIconX = bodyX + 24;
-  const paymentIconY = y + 24;
-  sections.push(`<rect x="${paymentIconX}" y="${paymentIconY}" width="56" height="56" rx="18" fill="${theme.soft}"/>`);
-  sections.push(`<rect x="${paymentIconX + 14}" y="${paymentIconY + 17}" width="29" height="25" rx="4" fill="none" stroke="${theme.accent}" stroke-width="3"/><path d="M${paymentIconX + 18} ${paymentIconY + 17}v-3a3 3 0 0 1 2.5-3l17-3v9m-7 8h12v9h-12a4.5 4.5 0 1 1 0-9Z" fill="none" stroke="${theme.accent}" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>`);
+  const detailValueLines = wrapText(detailValue, 34);
+  const detailLines = wrapText(detailCopy, 68);
+  const detailCopyY = 76 + 25 + Math.max(14, detailValueLines.length * 14) + 3;
+  const paymentCardHeight = Math.max(
+    156,
+    detailCopyY + Math.max(0, detailLines.length - 1) * 14 + 18,
+  );
+  sections.push(`<rect x="${bodyX}" y="${y}" width="${bodyWidth}" height="${paymentCardHeight}" rx="16" fill="${theme.payment}"/>`);
+  const paymentIconX = bodyX + 16;
+  const paymentIconY = y + 16;
+  sections.push(`<rect x="${paymentIconX}" y="${paymentIconY}" width="36" height="36" rx="8" fill="${theme.soft}"/>`);
+  sections.push(`<rect x="${paymentIconX + 9}" y="${paymentIconY + 11}" width="19" height="16" rx="3" fill="none" stroke="${theme.accent}" stroke-width="1.5"/><path d="M${paymentIconX + 11} ${paymentIconY + 11}v-2a2 2 0 0 1 1.5-2l11-2v6m-4 5h8v6h-8a3 3 0 1 1 0-6Z" fill="none" stroke="${theme.accent}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`);
   const amountLabel = data.status === "RESERVED" ? "IMPORTE PENDIENTE DE PAGO" : data.status === "CONFIRMED" ? "IMPORTE PAGADO" : "SIN PAGO CONFIRMADO";
-  sections.push(svgText(amountLabel, bodyX + bodyWidth - 28, y + 34, { size: 16, weight: 700, fill: "#ffffff80", anchor: "end", letterSpacing: 2 }));
-  sections.push(svgText(data.status === "RELEASED" ? "Selección liberada" : `$${data.amount}`, bodyX + bodyWidth - 28, y + 73, { size: data.status === "RELEASED" ? 22 : 30, weight: 700, fill: "#ffffff", anchor: "end" }));
-  if (data.status !== "RELEASED") sections.push(svgText("MXN", bodyX + bodyWidth - 28, y + 100, { size: 15, weight: 600, fill: "#ffffff80", anchor: "end" }));
-  const dividerY = y + 120;
-  sections.push(`<line x1="${bodyX + 24}" y1="${dividerY}" x2="${bodyX + bodyWidth - 24}" y2="${dividerY}" stroke="#ffffff24" stroke-width="2"/>`);
-  sections.push(svgText(detailLabel, bodyX + 28, dividerY + 34, { size: 15, weight: 700, fill: "#ffffff78", letterSpacing: 1.6 }));
-  sections.push(svgText(detailValue, bodyX + bodyWidth - 28, dividerY + 34, { size: 16, weight: 700, fill: "#ffffffde", anchor: "end", max: 39 }));
-  detailLines.forEach((line, index) => sections.push(svgText(line, bodyX + 28, dividerY + 64 + index * 24, { size: 15, fill: "#ffffffa0", max: 110, lineHeight: 24 })));
-  y += paymentCardHeight + 44;
+  sections.push(svgText(amountLabel, bodyX + bodyWidth - 16, y + 14, { size: 10, weight: 700, fill: "#ffffff80", anchor: "end", letterSpacing: 1.4 }));
+  if (data.status === "RELEASED") {
+    sections.push(svgText("Selección liberada", bodyX + bodyWidth - 16, y + 40, { size: 16, weight: 700, fill: "#ffffff", anchor: "end" }));
+  } else {
+    sections.push(svgText(`$${data.amount}`, bodyX + bodyWidth - 42, y + 40, { size: 20, weight: 700, fill: "#ffffff", anchor: "end" }));
+    sections.push(svgText("MXN", bodyX + bodyWidth - 16, y + 40, { size: 10, weight: 600, fill: "#ffffff80", anchor: "end" }));
+  }
+  const dividerY = y + 76;
+  sections.push(`<line x1="${bodyX + 16}" y1="${dividerY}" x2="${bodyX + bodyWidth - 16}" y2="${dividerY}" stroke="#ffffff24" stroke-width="1"/>`);
+  sections.push(svgText(detailLabel, bodyX + 16, dividerY + 25, { size: 10, weight: 700, fill: "#ffffff78", letterSpacing: 1 }));
+  detailValueLines.forEach((line, index) => sections.push(svgText(line, bodyX + bodyWidth - 16, dividerY + 25 + index * 14, { size: 10, weight: 700, fill: "#ffffffde", anchor: "end", max: 34, lineHeight: 14 })));
+  detailLines.forEach((line, index) => sections.push(svgText(line, bodyX + 16, y + detailCopyY + index * 14, { size: 10, fill: "#ffffffa0", max: 68, lineHeight: 14 })));
+  y += paymentCardHeight + 20;
 
-  const fullHeight = y + 20;
-  if (fullHeight > 14_000) {
+  const fullHeight = y;
+  if (fullHeight * renderScale > 14_000) {
     throw new Error("El ticket excede la altura admitida para una imagen de WhatsApp.");
   }
-  const ticketSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${fullHeight}" viewBox="0 0 ${width} ${fullHeight}"><rect width="100%" height="100%" fill="#17151e"/><rect x="${cardX}" y="20" width="${cardWidth}" height="${fullHeight - 40}" rx="54" fill="#f8f7f4"/><path d="M${cardX + 54} 20H${cardX + cardWidth - 54}a54 54 0 0 1 54 54v${headerBottom - 54}H${cardX}V74a54 54 0 0 1 54-54Z" fill="${theme.header}"/><circle cx="${cardX}" cy="${headerBottom}" r="24" fill="#17151e"/><circle cx="${cardX + cardWidth}" cy="${headerBottom}" r="24" fill="#17151e"/>${header}${sections.join("")}</svg>`;
-  return { svg: ticketSvg, width, height: fullHeight };
+  const renderHeight = Math.ceil(fullHeight * renderScale);
+  const cutoutTop = fullHeight * 0.314;
+  const ticketSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${renderWidth}" height="${renderHeight}" viewBox="0 0 ${layoutWidth} ${fullHeight}"><rect width="100%" height="100%" fill="#17151e"/><rect width="${layoutWidth}" height="${fullHeight}" rx="34" fill="#f8f7f4"/><path d="M34 0H368a34 34 0 0 1 34 34v${headerBottom - 34}H0V34A34 34 0 0 1 34 0Z" fill="${theme.header}"/><circle cx="0" cy="${cutoutTop + 10}" r="10" fill="#17151e"/><circle cx="${layoutWidth}" cy="${cutoutTop + 10}" r="10" fill="#17151e"/>${header}${sections.join("")}</svg>`;
+  return { svg: ticketSvg, width: renderWidth, height: renderHeight };
 }
 
 async function resolveLogoBuffer(url?: string | null) {
@@ -270,7 +289,7 @@ export async function renderParticipationTicketJpeg(
   const logo = await resolveLogoBuffer(logoUrl);
   const mark = await logoLayer(logo);
   const image = await sharp(Buffer.from(layout.svg))
-    .composite([{ input: mark, left: 70, top: 48 }])
+    .composite([{ input: mark, left: Math.round(24 * renderScale), top: Math.round(24 * renderScale) }])
     .jpeg({ quality: 82, mozjpeg: true })
     .toBuffer();
   if (image.length > 5 * 1024 * 1024) {
