@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import sharp from "sharp";
 import {
+  getParticipationTicketCleanupJobId,
   getParticipationTicketStorageKey,
   renderParticipationTicketJpeg,
 } from "../src/modules/raffle/ticket-sales/raffle-participation-ticket.service";
@@ -35,6 +36,16 @@ test("renders a valid portrait JPEG whose height follows ticket content", async 
   assert.equal(metadata.format, "jpeg");
   assert.equal(metadata.width, 900);
   assert.equal(metadata.height, withOpportunities.height);
+});
+
+test("creates a unique BullMQ-safe delayed cleanup job id per attempt", () => {
+  const first = getParticipationTicketCleanupJobId("reservation:job/52", 1);
+  const retry = getParticipationTicketCleanupJobId("reservation:job/52", 2);
+
+  assert.match(first, /^raffle-ticket-image-cleanup-[a-f0-9]{32}$/);
+  assert.equal(first, getParticipationTicketCleanupJobId("reservation:job/52", 1));
+  assert.notEqual(first, retry);
+  assert.doesNotMatch(first, /:/);
 });
 
 test("renders confirmed and released states as valid ticket images", async () => {

@@ -21,6 +21,7 @@ import {
 import {
   getKapsoWebhookError,
   getKapsoInboundMessage,
+  isKapsoMediaUploadFailure,
   normalizeKapsoWebhookStatus,
   registerKapsoRawBodyCapture,
   shouldAdvanceKapsoStatus,
@@ -54,7 +55,11 @@ import {
   getWhatsappMarketingOptOutKeyword,
   whatsappMarketingConsentService,
 } from "../../../services/whatsapp-marketing-consent.service";
-import { buildWhatsappAsyncFallbackPatch } from "../../../services/whatsapp/whatsapp-async-fallback";
+import {
+  buildWhatsappAsyncFallbackPatch,
+  buildWhatsappTicketTextFallbackPatch,
+  getWhatsappTicketTextFallbackJobId,
+} from "../../../services/whatsapp/whatsapp-async-fallback";
 import { sendMarketingConsentConfirmation } from "../../../services/whatsapp/whatsapp-marketing-consent-confirmation.service";
 import { whatsappCustomerServiceWindowService } from "../../../services/whatsapp/whatsapp-customer-service-window.service";
 import { sendWhatsappAndLog } from "../../../services/whatsapp/whatsapp-send.service";
@@ -1894,30 +1899,58 @@ export async function kapsoWebhookRoutes(server: FastifyInstance) {
             typeof previousPayload.nexusRouting === "object"
               ? (previousPayload.nexusRouting as Record<string, unknown>)
               : {};
-          const fallbackPatch = buildWhatsappAsyncFallbackPatch({
-            failedProvider: "KAPSO",
-            routing: routing as any,
-            originalJob: originalJob.data,
-            originalJobId: String(originalJob.id ?? ""),
-          });
           let fallbackScheduled = false;
-          if (fallbackPatch) {
+          const textFallbackPatch = isKapsoMediaUploadFailure(payload)
+            ? buildWhatsappTicketTextFallbackPatch({
+                routing: routing as any,
+                originalJob: originalJob.data,
+                originalJobId: String(originalJob.id ?? ""),
+              })
+            : null;
+          if (textFallbackPatch) {
             try {
               await whatsappQueue.add(
-                `${originalJob.name}-kapso-fallback`,
+                `${originalJob.name}-kapso-text-fallback`,
                 {
                   ...originalJob.data,
-                  ...fallbackPatch,
+                  ...textFallbackPatch,
                   fallbackOfMessageId: messageId,
                 },
-                { jobId: `kapso-fallback-${messageId}` },
+                { jobId: getWhatsappTicketTextFallbackJobId(messageId) },
               );
               fallbackScheduled = true;
             } catch (error) {
               console.error(
-                "[WhatsApp Kapso] Could not enqueue provider fallback:",
+                "[WhatsApp Kapso] Could not enqueue ticket text fallback:",
                 error,
               );
+            }
+          }
+          if (!fallbackScheduled) {
+            const providerFallbackPatch = buildWhatsappAsyncFallbackPatch({
+              failedProvider: "KAPSO",
+              routing: routing as any,
+              originalJob: originalJob.data,
+              originalJobId: String(originalJob.id ?? ""),
+            });
+            if (providerFallbackPatch) {
+              try {
+                await whatsappQueue.add(
+                  `${originalJob.name}-kapso-fallback`,
+                  {
+                    ...originalJob.data,
+                    ...providerFallbackPatch,
+                    fallbackOfMessageId: messageId,
+                  },
+                  { jobId: `kapso-fallback-${messageId}` },
+                );
+                fallbackScheduled = true;
+              } catch (error) {
+                console.error(
+                  "[WhatsApp Kapso] Could not enqueue provider fallback:",
+                  error,
+                );
+              }
             }
           }
           if (!fallbackScheduled) {

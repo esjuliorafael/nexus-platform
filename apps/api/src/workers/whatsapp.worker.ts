@@ -37,6 +37,7 @@ import {
 import { enqueueRafflePaymentInstructionsAfterDelivery } from "../modules/raffle/ticket-sales/raffle-payment-instructions-queue";
 import { finalizeManualParticipationLinkDelivery } from "../modules/raffle/ticket-sales/raffle-participation-private-link-delivery";
 import {
+  getParticipationTicketCleanupJobId,
   getParticipationTicketStorageKey,
   uploadParticipationTicketImage,
 } from "../modules/raffle/ticket-sales/raffle-participation-ticket.service";
@@ -46,11 +47,23 @@ const REDIS_URL = process.env.REDIS_URL || "redis://127.0.0.1:6379";
 const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
 const SHARED_PARTICIPATION_INFO =
   "ℹ️ Participación compartida: pagas el 50% del boleto y, si resulta ganador, te corresponde el 50% del premio. Las oportunidades adicionales, si existen, se incluyen en tu participación y conservan la misma proporción.";
+const PARTICIPATION_TICKET_IMAGE_RETENTION_MS = 2 * 60 * 60 * 1000;
 
 export const whatsappWorker = new Worker<WhatsappJobData>(
   queueName("whatsapp-notifications"),
   async (job: Job<WhatsappJobData>) => {
     const { data } = job;
+    if (data.kind === "raffle-ticket-image-cleanup") {
+      if (
+        !data.storageKey.startsWith(
+          "whatsapp/raffle-participation-tickets/",
+        )
+      ) {
+        throw new Error("Clave de limpieza de ticket no válida.");
+      }
+      await storageService.deleteKey(data.storageKey);
+      return;
+    }
     if (data.kind === "raffle-draw-reminder-dispatch") {
       await raffleDrawReminderService.dispatchScheduledCampaign(
         rafflePrisma,
@@ -1441,7 +1454,8 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         participationTicketStatus &&
         participationTicketTemplateType &&
         kapsoEnabled &&
-        forceProvider !== "EVOLUTION"
+        forceProvider !== "EVOLUTION" &&
+        !data.forceTextOnly
       ) {
         try {
           const activeVariants = [
@@ -1575,8 +1589,24 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
             where: { key: "branding_logo_url" },
             select: { value: true },
           });
+          const ticketJobId = String(job.id);
+          const ticketStorageKey = getParticipationTicketStorageKey(ticketJobId);
+          await whatsappQueue.add(
+            "raffle-ticket-image-cleanup",
+            {
+              kind: "raffle-ticket-image-cleanup",
+              storageKey: ticketStorageKey,
+            },
+            {
+              delay: PARTICIPATION_TICKET_IMAGE_RETENTION_MS,
+              jobId: getParticipationTicketCleanupJobId(
+                ticketJobId,
+                job.attemptsMade + 1,
+              ),
+            },
+          );
           ticketImage = await uploadParticipationTicketImage({
-            jobId: String(job.id),
+            jobId: ticketJobId,
             logoUrl: brandLogo?.value,
             data: {
               status: participationTicketStatus,
@@ -1658,17 +1688,6 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         forceProvider,
         kapsoEnabled,
       });
-      if (participationTicketStatus && job.id != null) {
-        void storageService
-          .deleteKey(getParticipationTicketStorageKey(String(job.id)))
-          .catch((error) => {
-            console.error(
-              `[Raffle participation ticket] Could not clean sent image for job ${String(job.id)}:`,
-              error,
-            );
-          });
-      }
-
       const reservationMessageLog = sent
         ? await storePrisma.whatsappMessageLog.findFirst({
             where: {
@@ -1712,25 +1731,6 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
 
 whatsappWorker.on("failed", (job, err) => {
   console.error(`[WhatsApp Worker] Job ${job?.id} failed:`, err.message);
-  if (
-    job?.id != null &&
-    job.attemptsMade >= Number(job.opts.attempts ?? 1) &&
-    [
-      "reservation",
-      "reservation-restored",
-      "reservation-paid",
-      "reservation-cancelled",
-    ].includes(job.data.kind)
-  ) {
-    void storageService
-      .deleteKey(getParticipationTicketStorageKey(String(job.id)))
-      .catch((error) => {
-        console.error(
-          `[Raffle participation ticket] Could not clean failed image for job ${String(job.id)}:`,
-          error,
-        );
-      });
-  }
   if (
     job?.data.kind === "raffle-participation-link-manual" &&
     job.attemptsMade >= Number(job.opts.attempts ?? 1)

@@ -284,6 +284,17 @@ export function getParticipationTicketStorageKey(jobId: string) {
   return `whatsapp/raffle-participation-tickets/${digest}.jpg`;
 }
 
+export function getParticipationTicketCleanupJobId(
+  jobId: string,
+  attempt: number,
+) {
+  const digest = createHash("sha256")
+    .update(`${jobId}:${attempt}`)
+    .digest("hex")
+    .slice(0, 32);
+  return `raffle-ticket-image-cleanup-${digest}`;
+}
+
 export async function uploadParticipationTicketImage(params: {
   data: ParticipationTicketData;
   jobId: string;

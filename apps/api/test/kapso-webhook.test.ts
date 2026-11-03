@@ -3,6 +3,7 @@ import { createHmac } from "node:crypto";
 import test from "node:test";
 import {
   getKapsoWebhookError,
+  isKapsoMediaUploadFailure,
   getKapsoInboundMessage,
   normalizeKapsoWebhookStatus,
   shouldAdvanceKapsoStatus,
@@ -22,6 +23,25 @@ test("verifies Kapso webhook HMAC signatures", () => {
 
   assert.equal(verifyKapsoWebhookSignature(payload, signature, secret), true);
   assert.equal(verifyKapsoWebhookSignature(payload, "invalid", secret), false);
+});
+
+test("recognizes Meta media upload failures for ticket text fallback", () => {
+  assert.equal(
+    isKapsoMediaUploadFailure({
+      message: {
+        kapso: {
+          statuses: [{ errors: [{ code: 131053, title: "Media upload error" }] }],
+        },
+      },
+    }),
+    true,
+  );
+  assert.equal(
+    isKapsoMediaUploadFailure({
+      message: { kapso: { statuses: [{ errors: [{ code: 131042 }] }] } },
+    }),
+    false,
+  );
 });
 
 test("verifies Kapso signatures against the exact raw JSON body", () => {

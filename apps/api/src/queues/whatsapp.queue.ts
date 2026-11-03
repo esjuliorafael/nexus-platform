@@ -10,6 +10,7 @@ const connection = new IORedis(REDIS_URL, { maxRetriesPerRequest: null });
 export type WhatsappJobRouting = {
   forcePrincipal?: boolean;
   forceProvider?: WhatsappProviderKind;
+  forceTextOnly?: boolean;
   fallbackDepth?: number;
   sourceJobId?: string;
   /** @deprecated Use forceProvider instead. */
@@ -136,6 +137,10 @@ export type WhatsappJobData = (
   | {
       kind: "raffle-draw-reminder-dispatch";
       campaignId: string;
+    }
+  | {
+      kind: "raffle-ticket-image-cleanup";
+      storageKey: string;
     }
   | {
       kind: "raffle-invitation";

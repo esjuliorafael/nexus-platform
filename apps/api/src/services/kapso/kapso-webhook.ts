@@ -97,6 +97,20 @@ export function getKapsoWebhookError(payload: any) {
     : null;
 }
 
+export function isKapsoMediaUploadFailure(payload: any) {
+  const statuses = Array.isArray(payload?.message?.kapso?.statuses)
+    ? payload.message.kapso.statuses
+    : [];
+  return statuses.some((status: any) =>
+    Array.isArray(status?.errors) &&
+    status.errors.some(
+      (error: any) =>
+        Number(error?.code) === 131053 ||
+        /media upload error/i.test(String(error?.title || "")),
+    ),
+  );
+}
+
 export function getKapsoInboundMessage(payload: any) {
   const messageId = String(payload?.message?.id || "").trim();
   const senderPhone = String(

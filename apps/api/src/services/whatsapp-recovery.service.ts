@@ -23,6 +23,8 @@ export type WhatsappRecoveryResult = {
 };
 
 async function isJobStillRelevant(data: WhatsappJobData) {
+  if (data.kind === "raffle-ticket-image-cleanup") return false;
+
   if (
     data.kind === "order" ||
     data.kind === "order-cancelled" ||

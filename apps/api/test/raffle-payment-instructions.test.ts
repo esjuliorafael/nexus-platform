@@ -5,7 +5,11 @@ import {
   isRaffleReservationNoticeDelivered,
   shouldSendRafflePaymentInstructions,
 } from "../src/modules/raffle/ticket-sales/raffle-payment-instructions";
-import { buildWhatsappAsyncFallbackPatch } from "../src/services/whatsapp/whatsapp-async-fallback";
+import {
+  buildWhatsappAsyncFallbackPatch,
+  buildWhatsappTicketTextFallbackPatch,
+  getWhatsappTicketTextFallbackJobId,
+} from "../src/services/whatsapp/whatsapp-async-fallback";
 
 const eligibleSale = {
   customerPhone: "+52 222 123 4567",
@@ -106,4 +110,32 @@ test("async provider fallbacks keep the source reservation job ID", () => {
     originalJobId: "provider-fallback-message-456",
   });
   assert.equal(nextFallback?.sourceJobId, "reservation-source-123");
+});
+
+test("ticket media failures retry once with text through Kapso", () => {
+  const originalJob = {
+    kind: "reservation" as const,
+    ticketSaleIds: [123],
+    recipientPhone: "+522221234567",
+  };
+  const fallback = buildWhatsappTicketTextFallbackPatch({
+    routing: { route: "DIRECT", preferredInstanceName: "Rifas" },
+    originalJob,
+    originalJobId: "reservation-source-123",
+  });
+
+  assert.equal(fallback?.forceTextOnly, true);
+  assert.equal(fallback?.forceProvider, "KAPSO");
+  assert.equal(fallback?.forcePrincipal, false);
+  assert.equal(fallback?.sourceJobId, "reservation-source-123");
+  assert.equal(
+    buildWhatsappTicketTextFallbackPatch({
+      originalJob: { ...originalJob, ...fallback },
+    }),
+    null,
+  );
+  assert.match(
+    getWhatsappTicketTextFallbackJobId("wamid:123/456"),
+    /^kapso-ticket-text-fallback-[a-f0-9]{32}$/,
+  );
 });
