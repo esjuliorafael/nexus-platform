@@ -30,13 +30,21 @@ test("renders a valid portrait JPEG whose height follows ticket content", async 
     ],
   });
   const metadata = await sharp(withOpportunities.buffer).metadata();
+  const outerBackground = await sharp(simple.buffer)
+    .extract({ left: 3, top: 3, width: 1, height: 1 })
+    .removeAlpha()
+    .raw()
+    .toBuffer();
 
-  assert.equal(simple.width, 900);
+  assert.equal(simple.width, Math.ceil((402 + 16 * 2) * (900 / 402)));
   assert.ok(withOpportunities.height > simple.height);
   assert.ok(withOpportunities.width / withOpportunities.height > 0.45);
   assert.ok(withOpportunities.width / withOpportunities.height < 0.55);
+  assert.ok(Math.abs(outerBackground[0] - 233) < 15);
+  assert.ok(Math.abs(outerBackground[1] - 231) < 15);
+  assert.ok(Math.abs(outerBackground[2] - 230) < 15);
   assert.equal(metadata.format, "jpeg");
-  assert.equal(metadata.width, 900);
+  assert.equal(metadata.width, simple.width);
   assert.equal(metadata.height, withOpportunities.height);
 });
 

@@ -22,6 +22,8 @@ export type ParticipationTicketData = {
 const layoutWidth = 402;
 const renderWidth = 900;
 const renderScale = renderWidth / layoutWidth;
+const ticketOuterInset = 16;
+const ticketCanvasBackground = "#e9e7e6";
 const bodyX = 24;
 const bodyWidth = layoutWidth - bodyX * 2;
 const colors = {
@@ -123,13 +125,14 @@ function buildTicketSvg(data: ParticipationTicketData) {
 
   const titleLines = wrapText(data.raffleName || "Rifa", 27);
   const drawDateLines = wrapText(data.drawDate || "Fecha por confirmar", 31);
-  const drawLabelLines = wrapText("Fecha y hora de la rifa", 15);
+  const drawLabelLines = wrapText("Fecha y hora de la rifa:", 19);
   const note =
     "Si fuera necesario reprogramar la rifa antes del evento de referencia, la nueva fecha se publicará y comunicará a los participantes.";
   const noteLines = wrapText(note, 68);
   const headerTitleY = 143;
   const drawY = headerTitleY + titleLines.length * 26 + 5;
   const drawRowLines = Math.max(drawDateLines.length, drawLabelLines.length);
+  const drawIconY = drawY - 10 + (drawRowLines * 14 - 16) / 2;
   const noteY = drawY + drawRowLines * 14 + 20;
   const headerBottom = noteY + noteLines.length * 14 + 28;
   const bodyTop = headerBottom + 20;
@@ -150,16 +153,25 @@ function buildTicketSvg(data: ParticipationTicketData) {
   const eventDateLines = wrapText(data.eventDate, 18);
   const metadataHeight = 34 + Math.max(participantNameLines.length * 20, eventDateLines.length * 18);
   let y = bodyTop;
+  const statusIcon =
+    data.status === "RESERVED"
+      ? `<circle cx="12" cy="12" r="8"/><path d="M12 7.5V12l3 2" stroke-linecap="round" stroke-linejoin="round"/>`
+      : data.status === "CONFIRMED"
+        ? `<circle cx="12" cy="12" r="8"/><path d="m8.5 12 2.3 2.3 4.8-5" stroke-linecap="round" stroke-linejoin="round"/>`
+        : `<rect x="5" y="10" width="14" height="10" rx="2"/><path d="M9 10V7a4 4 0 0 1 7.5-2" stroke-linecap="round"/>`;
+  const statusPillWidth = statusLabel === "CONFIRMADA" ? 112 : 98;
+  const statusPillX = layoutWidth - 24 - statusPillWidth;
   const header = [
     svgText("MI PARTICIPACIÓN", 70, 37, { size: 10, weight: 700, fill: "#ffffffb8", letterSpacing: 2.2 }),
     svgText(data.brandName || "Rancho Las Trojes", 70, 55, { size: 14, weight: 700, fill: "#ffffff" }),
-    `<rect x="280" y="24" width="98" height="24" rx="12" fill="${theme.soft}"/>`,
-    svgText(statusLabel, 329, 40, { size: 10, weight: 700, fill: theme.accent, anchor: "middle", letterSpacing: 0.8 }),
+    `<rect x="${statusPillX}" y="24" width="${statusPillWidth}" height="24" rx="12" fill="${theme.soft}" stroke="#ffffff33" stroke-width="1"/>`,
+    `<svg x="${statusPillX + 12}" y="30" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="${theme.accent}" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">${statusIcon}</svg>`,
+    svgText(statusLabel, statusPillX + 30, 40, { size: 10, weight: 700, fill: theme.accent, letterSpacing: 0.8 }),
     svgText("RIFA", bodyX, 108, { size: 10, weight: 700, fill: "#ffffffa8", letterSpacing: 2 }),
     ...titleLines.map((line, index) => svgText(line, bodyX, headerTitleY + index * 26, { size: 24, weight: 700, fill: "#ffffff", max: 100, lineHeight: 26 })),
-    `<circle cx="42" cy="${drawY - 4}" r="7" fill="none" stroke="#ffffffd0" stroke-width="1.5"/><path d="M42 ${drawY - 12}v3m0 10v3m-8 -8h3m10 0h3" stroke="#ffffffd0" stroke-width="1.5" stroke-linecap="round"/>`,
-    ...drawLabelLines.map((line, index) => svgText(line, 56, drawY + index * 14, { size: 12, fill: "#ffffffd0", max: 15, lineHeight: 14 })),
-    ...drawDateLines.map((line, index) => svgText(line, 164, drawY + index * 14, { size: 12, weight: 700, fill: "#ffffff", max: 31, lineHeight: 14 })),
+    `<svg x="24" y="${drawIconY}" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffffd0" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M5.5 6.5h13a1.5 1.5 0 0 1 1.5 1.5v10a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 18V8a1.5 1.5 0 0 1 1.5-1.5Z"/><path d="M8 4v5M16 4v5M4 10.5h16M8 14h2M14 14h2M8 17h2"/></svg>`,
+    ...drawLabelLines.map((line, index) => svgText(line, 48, drawY + index * 14, { size: 12, fill: "#ffffffd0", max: 19, lineHeight: 14 })),
+    ...drawDateLines.map((line, index) => svgText(line, 154, drawY + index * 14, { size: 12, weight: 700, fill: "#ffffff", max: 31, lineHeight: 14 })),
     ...noteLines.map((line, index) => svgText(line, layoutWidth / 2, noteY + index * 14, { size: 10, fill: "#ffffffa8", anchor: "middle", max: 100, lineHeight: 14 })),
   ].join("");
 
@@ -189,7 +201,7 @@ function buildTicketSvg(data: ParticipationTicketData) {
     const row = Math.floor(index / 3);
     const chipWidth = (bodyWidth - 32 - 16) / 3;
     const chipX = bodyX + 16 + column * (chipWidth + 8);
-    const chipY = y + 46 + row * 48;
+    const chipY = y + 40 + row * 48;
     sections.push(`<rect x="${chipX}" y="${chipY}" width="${chipWidth}" height="40" rx="8" fill="${theme.pale}" stroke="${theme.edge}" stroke-width="1"/>`);
     sections.push(svgText(ticket, chipX + chipWidth / 2, chipY + 26, { size: 16, weight: 700, fill: theme.accent, anchor: "middle", letterSpacing: 1 }));
     if (data.status === "RELEASED") sections.push(`<line x1="${chipX + 28}" y1="${chipY + 21}" x2="${chipX + chipWidth - 28}" y2="${chipY + 21}" stroke="${theme.accent}" stroke-width="1" opacity=".65"/>`);
@@ -227,12 +239,12 @@ function buildTicketSvg(data: ParticipationTicketData) {
   sections.push(`<rect x="${paymentIconX}" y="${paymentIconY}" width="36" height="36" rx="8" fill="${theme.soft}"/>`);
   sections.push(`<rect x="${paymentIconX + 9}" y="${paymentIconY + 11}" width="19" height="16" rx="3" fill="none" stroke="${theme.accent}" stroke-width="1.5"/><path d="M${paymentIconX + 11} ${paymentIconY + 11}v-2a2 2 0 0 1 1.5-2l11-2v6m-4 5h8v6h-8a3 3 0 1 1 0-6Z" fill="none" stroke="${theme.accent}" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/>`);
   const amountLabel = data.status === "RESERVED" ? "IMPORTE PENDIENTE DE PAGO" : data.status === "CONFIRMED" ? "IMPORTE PAGADO" : "SIN PAGO CONFIRMADO";
-  sections.push(svgText(amountLabel, bodyX + bodyWidth - 16, y + 14, { size: 10, weight: 700, fill: "#ffffff80", anchor: "end", letterSpacing: 1.4 }));
+  sections.push(svgText(amountLabel, bodyX + bodyWidth - 16, y + 26, { size: 10, weight: 700, fill: "#ffffff80", anchor: "end", letterSpacing: 1.4 }));
   if (data.status === "RELEASED") {
-    sections.push(svgText("Selección liberada", bodyX + bodyWidth - 16, y + 40, { size: 16, weight: 700, fill: "#ffffff", anchor: "end" }));
+    sections.push(svgText("Selección liberada", bodyX + bodyWidth - 16, y + 54, { size: 16, weight: 700, fill: "#ffffff", anchor: "end" }));
   } else {
-    sections.push(svgText(`$${data.amount}`, bodyX + bodyWidth - 42, y + 40, { size: 20, weight: 700, fill: "#ffffff", anchor: "end" }));
-    sections.push(svgText("MXN", bodyX + bodyWidth - 16, y + 40, { size: 10, weight: 600, fill: "#ffffff80", anchor: "end" }));
+    sections.push(svgText(`$${data.amount}`, bodyX + bodyWidth - 42, y + 54, { size: 20, weight: 700, fill: "#ffffff", anchor: "end" }));
+    sections.push(svgText("MXN", bodyX + bodyWidth - 16, y + 54, { size: 10, weight: 600, fill: "#ffffff80", anchor: "end" }));
   }
   const dividerY = y + 76;
   sections.push(`<line x1="${bodyX + 16}" y1="${dividerY}" x2="${bodyX + bodyWidth - 16}" y2="${dividerY}" stroke="#ffffff24" stroke-width="1"/>`);
@@ -242,13 +254,16 @@ function buildTicketSvg(data: ParticipationTicketData) {
   y += paymentCardHeight + 20;
 
   const fullHeight = y;
-  if (fullHeight * renderScale > 14_000) {
+  if ((fullHeight + ticketOuterInset * 2) * renderScale > 14_000) {
     throw new Error("El ticket excede la altura admitida para una imagen de WhatsApp.");
   }
-  const renderHeight = Math.ceil(fullHeight * renderScale);
+  const canvasWidth = layoutWidth + ticketOuterInset * 2;
+  const canvasHeight = fullHeight + ticketOuterInset * 2;
+  const canvasRenderWidth = Math.ceil(canvasWidth * renderScale);
+  const renderHeight = Math.ceil(canvasHeight * renderScale);
   const cutoutTop = fullHeight * 0.314;
-  const ticketSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${renderWidth}" height="${renderHeight}" viewBox="0 0 ${layoutWidth} ${fullHeight}"><rect width="100%" height="100%" fill="#17151e"/><rect width="${layoutWidth}" height="${fullHeight}" rx="34" fill="#f8f7f4"/><path d="M34 0H368a34 34 0 0 1 34 34v${headerBottom - 34}H0V34A34 34 0 0 1 34 0Z" fill="${theme.header}"/><circle cx="0" cy="${cutoutTop + 10}" r="10" fill="#17151e"/><circle cx="${layoutWidth}" cy="${cutoutTop + 10}" r="10" fill="#17151e"/>${header}${sections.join("")}</svg>`;
-  return { svg: ticketSvg, width: renderWidth, height: renderHeight };
+  const ticketSvg = `<svg xmlns="http://www.w3.org/2000/svg" width="${canvasRenderWidth}" height="${renderHeight}" viewBox="0 0 ${canvasWidth} ${canvasHeight}"><rect width="100%" height="100%" fill="${ticketCanvasBackground}"/><g transform="translate(${ticketOuterInset} ${ticketOuterInset})"><rect width="${layoutWidth}" height="${fullHeight}" rx="34" fill="#f8f7f4"/><path d="M34 0H368a34 34 0 0 1 34 34v${headerBottom - 34}H0V34A34 34 0 0 1 34 0Z" fill="${theme.header}"/><circle cx="0" cy="${cutoutTop + 10}" r="10" fill="${ticketCanvasBackground}"/><circle cx="${layoutWidth}" cy="${cutoutTop + 10}" r="10" fill="${ticketCanvasBackground}"/>${header}${sections.join("")}</g></svg>`;
+  return { svg: ticketSvg, width: canvasRenderWidth, height: renderHeight };
 }
 
 async function resolveLogoBuffer(url?: string | null) {
@@ -289,7 +304,13 @@ export async function renderParticipationTicketJpeg(
   const logo = await resolveLogoBuffer(logoUrl);
   const mark = await logoLayer(logo);
   const image = await sharp(Buffer.from(layout.svg))
-    .composite([{ input: mark, left: Math.round(24 * renderScale), top: Math.round(24 * renderScale) }])
+    .composite([
+      {
+        input: mark,
+        left: Math.round((ticketOuterInset + 24) * renderScale),
+        top: Math.round((ticketOuterInset + 24) * renderScale),
+      },
+    ])
     .jpeg({ quality: 82, mozjpeg: true })
     .toBuffer();
   if (image.length > 5 * 1024 * 1024) {
