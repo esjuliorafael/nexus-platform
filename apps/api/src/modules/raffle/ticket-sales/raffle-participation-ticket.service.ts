@@ -3,6 +3,35 @@ import sharp from "sharp";
 import { storageService } from "../../../services/storage.service";
 
 export type ParticipationTicketStatus = "RESERVED" | "CONFIRMED" | "RELEASED";
+export type ParticipationTicketTemplateType =
+  | "RESERVATION"
+  | "RESTORED"
+  | "RELEASE"
+  | "PAYMENT_CONFIRMED";
+
+const participationTicketStatusByTemplate: Record<
+  ParticipationTicketTemplateType,
+  ParticipationTicketStatus
+> = {
+  RESERVATION: "RESERVED",
+  RESTORED: "RESERVED",
+  RELEASE: "RELEASED",
+  PAYMENT_CONFIRMED: "CONFIRMED",
+};
+
+export function getParticipationTicketStatusForTemplate(
+  templateType: string,
+): ParticipationTicketStatus {
+  if (!Object.prototype.hasOwnProperty.call(
+    participationTicketStatusByTemplate,
+    templateType,
+  )) {
+    throw new Error(`Unsupported participation ticket template: ${templateType}`);
+  }
+  return participationTicketStatusByTemplate[
+    templateType as ParticipationTicketTemplateType
+  ];
+}
 
 export type ParticipationTicketData = {
   status: ParticipationTicketStatus;

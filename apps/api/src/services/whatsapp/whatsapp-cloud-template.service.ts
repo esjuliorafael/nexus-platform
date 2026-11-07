@@ -778,8 +778,14 @@ export function getCloudTemplateDefinitionHash(source: CloudTemplateSource) {
       ? "\n[nexus-template-category:marketing-v2]"
       : "";
   if (hasParticipationTicketHeader(source)) {
+    // Meta keeps the sample media attached to a submitted template immutable.
+    // Version this sample separately after correcting the confirmed-ticket preview.
+    const sampleRevision =
+      source.type === "PAYMENT_CONFIRMED"
+        ? "\n[nexus-layout:participation-ticket-confirmed-sample-v2]"
+        : "";
     return getCloudTemplateContentHash(
-      `${getCloudTemplateBodyContent(source)}\n[nexus-layout:participation-ticket-image-header-v1]${dynamicButtonLayout}`,
+      `${getCloudTemplateBodyContent(source)}\n[nexus-layout:participation-ticket-image-header-v1]${dynamicButtonLayout}${sampleRevision}`,
     );
   }
   if (!isRichInvitation(source.type)) {
@@ -1052,7 +1058,9 @@ export async function syncCloudTemplateCatalog(params: {
   sources: CloudTemplateSource[];
   languageCode?: string;
   resolveRichInvitationHeaderHandle?: () => Promise<string | null>;
-  resolveParticipationTicketHeaderHandle?: () => Promise<string | null>;
+  resolveParticipationTicketHeaderHandle?: (
+    source: CloudTemplateSource,
+  ) => Promise<string | null>;
   auditContext?: CloudTemplateAuditContext;
   channelName?: string | null;
   channelPurpose?: string | null;
@@ -1317,7 +1325,7 @@ export async function syncCloudTemplateCatalog(params: {
         existing || !needsImageHeader
           ? null
           : hasParticipationTicketHeader(source)
-            ? await params.resolveParticipationTicketHeaderHandle?.()
+            ? await params.resolveParticipationTicketHeaderHandle?.(source)
             : await params.resolveRichInvitationHeaderHandle?.();
       if (
         needsImageHeader &&

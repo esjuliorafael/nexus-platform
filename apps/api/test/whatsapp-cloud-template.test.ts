@@ -5,6 +5,7 @@ import {
   findCloudTemplateInCatalog,
   getCloudTemplateRemoteHealth,
   getCloudTemplateBodyContent,
+  getCloudTemplateContentHash,
   getCloudTemplateDefinitionHash,
   getCloudTemplateSimplifiedDefaultContent,
   normalizeCloudTemplateParameterValue,
@@ -272,6 +273,9 @@ test("builds only ticket-enabled raffle templates with an image-header variant",
   const ticketReservation = sources.find(
     (source) => source.type === "RESERVATION",
   );
+  const ticketPaymentConfirmed = sources.find(
+    (source) => source.type === "PAYMENT_CONFIRMED",
+  );
   const textReservation = buildCanonicalCloudTemplateSources(
     {},
     ["RAFFLES"],
@@ -279,6 +283,7 @@ test("builds only ticket-enabled raffle templates with an image-header variant",
   ).find((source) => source.type === "RESERVATION");
 
   assert.ok(ticketReservation);
+  assert.ok(ticketPaymentConfirmed);
   assert.ok(textReservation);
   assert.equal(ticketReservation.content, textReservation.content);
   assert.equal(
@@ -288,6 +293,12 @@ test("builds only ticket-enabled raffle templates with an image-header variant",
   assert.notEqual(
     getCloudTemplateDefinitionHash(ticketReservation),
     getCloudTemplateDefinitionHash(textReservation),
+  );
+  assert.notEqual(
+    getCloudTemplateDefinitionHash(ticketPaymentConfirmed),
+    getCloudTemplateContentHash(
+      `${getCloudTemplateBodyContent(ticketPaymentConfirmed)}\n[nexus-layout:participation-ticket-image-header-v1]\n[nexus-layout:dynamic-url-button-v3]`,
+    ),
   );
 });
 

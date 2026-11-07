@@ -3,6 +3,7 @@ import test from "node:test";
 import sharp from "sharp";
 import {
   getParticipationTicketCleanupJobId,
+  getParticipationTicketStatusForTemplate,
   getParticipationTicketStorageKey,
   renderParticipationTicketJpeg,
 } from "../src/modules/raffle/ticket-sales/raffle-participation-ticket.service";
@@ -76,6 +77,29 @@ test("renders confirmed and released states as valid ticket images", async () =>
   assert.notDeepEqual(confirmed.buffer, released.buffer);
   assert.equal((await sharp(confirmed.buffer).metadata()).format, "jpeg");
   assert.equal((await sharp(released.buffer).metadata()).format, "jpeg");
+});
+
+test("uses the matching ticket status for each image-template sample", () => {
+  assert.equal(
+    getParticipationTicketStatusForTemplate("RESERVATION"),
+    "RESERVED",
+  );
+  assert.equal(
+    getParticipationTicketStatusForTemplate("RESTORED"),
+    "RESERVED",
+  );
+  assert.equal(
+    getParticipationTicketStatusForTemplate("PAYMENT_CONFIRMED"),
+    "CONFIRMED",
+  );
+  assert.equal(
+    getParticipationTicketStatusForTemplate("RELEASE"),
+    "RELEASED",
+  );
+  assert.throws(
+    () => getParticipationTicketStatusForTemplate("PAYMENT_INSTRUCTIONS"),
+    /Unsupported participation ticket template/,
+  );
 });
 
 test("uses a deterministic opaque storage key from the queue job id", () => {
