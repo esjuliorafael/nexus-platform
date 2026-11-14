@@ -1,10 +1,12 @@
 import { CouponDiscountType } from "@prisma/client-store";
 import { storePrisma } from "@nexus/db/store";
+import { hasUniqueTitleEmphasis } from "./storefront-campaign.schema";
 
 type CampaignInput = {
   name?: string;
   eyebrow?: string | null;
   title?: string;
+  titleEmphasis?: string | null;
   message?: string | null;
   ctaLabel?: string | null;
   ctaHref?: string | null;
@@ -195,6 +197,9 @@ export const storefrontCampaignService = {
   },
 
   async create(input: CampaignInput) {
+    if (!hasUniqueTitleEmphasis(input.title || "", input.titleEmphasis)) {
+      fail("La frase destacada debe aparecer una sola vez en el título.");
+    }
     const normalized = await validateAndNormalize(input);
     if (normalized.active)
       await assertNoActiveOverlap(normalized.startsAt, normalized.endsAt);
@@ -203,6 +208,7 @@ export const storefrontCampaignService = {
         name: input.name!,
         eyebrow: input.eyebrow || null,
         title: input.title!,
+        titleEmphasis: input.titleEmphasis || null,
         message: input.message || null,
         ctaLabel: input.ctaLabel || null,
         ctaHref: input.ctaHref || null,
@@ -219,6 +225,14 @@ export const storefrontCampaignService = {
     });
     if (!current) fail("No se encontró la campaña.", 404);
     const existing = current as NonNullable<typeof current>;
+    const nextTitle = input.title ?? existing.title;
+    const nextTitleEmphasis =
+      input.titleEmphasis !== undefined
+        ? input.titleEmphasis
+        : existing.titleEmphasis;
+    if (!hasUniqueTitleEmphasis(nextTitle, nextTitleEmphasis)) {
+      fail("La frase destacada debe aparecer una sola vez en el título.");
+    }
     const normalized = await validateAndNormalize(input, existing);
     if (normalized.active)
       await assertNoActiveOverlap(normalized.startsAt, normalized.endsAt, id);
@@ -230,6 +244,9 @@ export const storefrontCampaignService = {
           ? { eyebrow: input.eyebrow || null }
           : {}),
         ...(input.title !== undefined ? { title: input.title } : {}),
+        ...(input.titleEmphasis !== undefined
+          ? { titleEmphasis: input.titleEmphasis || null }
+          : {}),
         ...(input.message !== undefined
           ? { message: input.message || null }
           : {}),

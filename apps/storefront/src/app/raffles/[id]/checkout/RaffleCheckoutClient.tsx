@@ -759,6 +759,7 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
             <RaffleSelectionSummaryCard
               selectedTickets={draft.tickets}
               ticketOpportunities={raffle.extraOpportunities ?? []}
+              subtotal={subtotal}
               total={total}
               participationMode={draft.participationMode ?? 'FULL'}
               coupon={draft.coupon}
@@ -797,7 +798,7 @@ export function RaffleCheckoutClient({ raffleId }: { raffleId: number }) {
         title="Mi selección"
         icon={Ticket}
       >
-        <RaffleCheckoutSummarySheet raffle={raffle} draft={draft} total={total} discount={discount} />
+        <RaffleCheckoutSummarySheet raffle={raffle} draft={draft} subtotal={subtotal} total={total} discount={discount} />
       </BottomSheet>
 
       <StorefrontPurchaseBar
@@ -1043,11 +1044,13 @@ function formatReservationDeadline(value: string | null) {
 function RaffleCheckoutSummarySheet({
   raffle,
   draft,
+  subtotal,
   total,
   discount,
 }: {
   raffle: Raffle;
   draft: RaffleCheckoutDraft;
+  subtotal: number;
   total: number;
   discount: number;
 }) {
@@ -1065,6 +1068,10 @@ function RaffleCheckoutSummarySheet({
         variant="sheet"
       />
       <div className="flex flex-col border-t border-stone-100 pt-[var(--sf-space-lg)]" style={{ gap: 'var(--sf-space-md)' }}>
+        <div className="flex items-center justify-between sf-text-secondary text-stone-500" style={{ gap: 'var(--sf-space-md)' }}>
+          <span>Subtotal de boletos</span>
+          <span>${formatPrice(subtotal)}</span>
+        </div>
         {draft.coupon && (
           <div className="flex items-center justify-between sf-text-secondary text-stone-500" style={{ gap: 'var(--sf-space-md)' }}>
             <span className="truncate">Cupón {draft.coupon.code}</span>

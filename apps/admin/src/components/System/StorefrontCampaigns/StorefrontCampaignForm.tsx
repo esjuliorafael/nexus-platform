@@ -76,6 +76,9 @@ export const StorefrontCampaignForm = forwardRef<
   const [name, setName] = useState(initialData?.name || "");
   const [eyebrow, setEyebrow] = useState(initialData?.eyebrow || "");
   const [title, setTitle] = useState(initialData?.title || "");
+  const [titleEmphasis, setTitleEmphasis] = useState(
+    initialData?.titleEmphasis || "",
+  );
   const [message, setMessage] = useState(initialData?.message || "");
   const [ctaLabel, setCtaLabel] = useState(initialData?.ctaLabel || "");
   const [ctaHref, setCtaHref] = useState(initialData?.ctaHref || "");
@@ -96,9 +99,18 @@ export const StorefrontCampaignForm = forwardRef<
   const ctaComplete =
     (!ctaLabel.trim() && !ctaHref.trim()) ||
     Boolean(ctaLabel.trim() && ctaHref.trim());
+  const normalizedTitleEmphasis = titleEmphasis.trim();
+  const firstEmphasisIndex = normalizedTitleEmphasis
+    ? title.indexOf(normalizedTitleEmphasis)
+    : -1;
+  const titleEmphasisValid =
+    !normalizedTitleEmphasis ||
+    (firstEmphasisIndex !== -1 &&
+      title.indexOf(normalizedTitleEmphasis, firstEmphasisIndex + 1) === -1);
   const valid = Boolean(
     name.trim() &&
     title.trim() &&
+    titleEmphasisValid &&
     startsAt &&
     endsAt &&
     couponId &&
@@ -121,7 +133,7 @@ export const StorefrontCampaignForm = forwardRef<
     if (!valid || isSaving) {
       if (!valid)
         showToast(
-          "Completa nombre, título, vigencia y cupón. Revisa también el CTA.",
+          "Completa nombre, título, vigencia y cupón. Revisa la frase destacada y el CTA.",
           "error",
         );
       return;
@@ -132,6 +144,7 @@ export const StorefrontCampaignForm = forwardRef<
         name: name.trim(),
         eyebrow: eyebrow.trim() || null,
         title: title.trim(),
+        titleEmphasis: normalizedTitleEmphasis || null,
         message: message.trim() || null,
         ctaLabel: ctaLabel.trim() || null,
         ctaHref: ctaHref.trim() || null,
@@ -163,6 +176,34 @@ export const StorefrontCampaignForm = forwardRef<
   const selectedCoupon =
     coupons.find((coupon) => String(coupon.id) === couponId) ||
     initialData?.coupon;
+  const titlePreviewPalette = {
+    BRAND: {
+      background: "oklch(28% 0.025 47)",
+      foreground: "oklch(98% 0.015 82)",
+      accent: "oklch(83% 0.09 72)",
+    },
+    RED: {
+      background: "oklch(38% 0.13 28)",
+      foreground: "oklch(98% 0.015 82)",
+      accent: "oklch(82% 0.11 72)",
+    },
+    PINE: {
+      background: "oklch(34% 0.09 155)",
+      foreground: "oklch(98% 0.015 82)",
+      accent: "oklch(84% 0.1 92)",
+    },
+  }[theme];
+  const titlePreview = titleEmphasisValid && normalizedTitleEmphasis ? (
+    <>
+      {title.slice(0, firstEmphasisIndex)}
+      <em style={{ color: titlePreviewPalette.accent }}>
+        {normalizedTitleEmphasis}
+      </em>
+      {title.slice(firstEmphasisIndex + normalizedTitleEmphasis.length)}
+    </>
+  ) : (
+    title
+  );
 
   return (
     <div
@@ -197,6 +238,53 @@ export const StorefrontCampaignForm = forwardRef<
             maxLength={120}
             required
           />
+          <NexusInput
+            label="Frase destacada (opcional)"
+            value={titleEmphasis}
+            onChange={(event) => setTitleEmphasis(event.target.value)}
+            maxLength={120}
+            placeholder="de descuento"
+            helperText="Se mostrará en cursiva y con el acento de la campaña. Debe coincidir exactamente con una sola parte del título."
+            error={
+              titleEmphasisValid
+                ? undefined
+                : "La frase debe aparecer una sola vez en el título."
+            }
+          />
+          <div
+            className="flex flex-col border border-white/15"
+            style={{
+              backgroundColor: titlePreviewPalette.background,
+              borderRadius: "var(--radius-inner-visual)",
+              gap: "var(--space-xs)",
+              padding: "var(--padding-inner)",
+            }}
+            role="group"
+            aria-label="Vista previa del título promocional"
+          >
+            <span
+              className="text-label uppercase"
+              style={{ color: "oklch(82% 0.025 67)" }}
+            >
+              Vista previa
+            </span>
+            <p
+              className="max-w-full"
+              style={{
+                color: titlePreviewPalette.foreground,
+                fontFamily: 'Georgia, "Times New Roman", serif',
+                fontSize: "var(--text-hero)",
+                fontWeight: 400,
+                letterSpacing: 0,
+                lineHeight: 1.08,
+                maxWidth: "18ch",
+                margin: 0,
+                textWrap: "balance",
+              }}
+            >
+              {titlePreview || "Título promocional"}
+            </p>
+          </div>
           <NexusTextarea
             label="Mensaje"
             value={message}

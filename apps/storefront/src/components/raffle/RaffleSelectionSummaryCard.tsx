@@ -11,6 +11,7 @@ import { RaffleParticipationMode } from '../../lib/raffle-participation';
 interface RaffleSelectionSummaryCardProps {
   selectedTickets: string[];
   ticketOpportunities: RaffleOpportunity[];
+  subtotal: number;
   total: number;
   coupon?: { code: string } | null;
   discount?: number;
@@ -30,6 +31,7 @@ interface RaffleSelectionSummaryCardProps {
 export function RaffleSelectionSummaryCard({
   selectedTickets,
   ticketOpportunities,
+  subtotal,
   total,
   coupon,
   discount = 0,
@@ -81,6 +83,10 @@ export function RaffleSelectionSummaryCard({
       )}
 
       <div className="flex flex-col border-t border-stone-800 pt-[var(--sf-space-md)]" style={{ gap: 'var(--sf-space-md)' }}>
+        <div className="flex items-center justify-between sf-text-secondary text-stone-400" style={{ gap: 'var(--sf-space-md)' }}>
+          <span>Subtotal de boletos</span>
+          <span className="shrink-0">${formatPrice(subtotal)}</span>
+        </div>
         {coupon && (
           <div className="flex items-center justify-between sf-text-secondary text-stone-400" style={{ gap: 'var(--sf-space-md)' }}>
             <span className="truncate">Cupón {coupon.code}</span>

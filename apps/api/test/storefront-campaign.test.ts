@@ -10,6 +10,7 @@ const validCampaign = {
   name: "Buen Fin 2026",
   eyebrow: "Buen Fin · 13 al 17 de noviembre",
   title: "Aprovecha el 15% de descuento",
+  titleEmphasis: "de descuento",
   message: "Promoción en ejemplares participantes.",
   ctaLabel: "Ver promociones",
   ctaHref: "/store?type=BIRD",
@@ -23,6 +24,31 @@ const validCampaign = {
 test("accepts a campaign with an internal destination and valid schedule", () => {
   assert.equal(
     createStorefrontCampaignSchema.safeParse(validCampaign).success,
+    true,
+  );
+});
+
+test("requires the highlighted phrase to occur exactly once in the title", () => {
+  assert.equal(
+    createStorefrontCampaignSchema.safeParse({
+      ...validCampaign,
+      titleEmphasis: "no está en el título",
+    }).success,
+    false,
+  );
+  assert.equal(
+    createStorefrontCampaignSchema.safeParse({
+      ...validCampaign,
+      title: "de descuento y de descuento",
+      titleEmphasis: "de descuento",
+    }).success,
+    false,
+  );
+  assert.equal(
+    updateStorefrontCampaignSchema.safeParse({
+      title: "Aprovecha el 15% de descuento",
+      titleEmphasis: "de descuento",
+    }).success,
     true,
   );
 });

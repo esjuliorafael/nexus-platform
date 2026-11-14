@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { CouponValidationResponse } from "../api/coupons";
 
 export interface CartItem {
   productId: number;
@@ -12,16 +13,7 @@ export interface CartItem {
 
 export type AddItemResult = "added" | "updated" | "already-in-cart";
 
-export interface CartCoupon {
-  code: string;
-  name?: string | null;
-  discountType: "PERCENTAGE" | "FIXED";
-  discountValue: number;
-  scope: "ALL" | "ITEM" | "BIRD";
-  birdPurpose: "COMBAT" | "BREEDING" | null;
-  discountTotal: number;
-  eligibleSubtotal: number;
-}
+export type CartCoupon = CouponValidationResponse;
 
 interface CartState {
   items: CartItem[];

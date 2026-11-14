@@ -612,10 +612,15 @@ export function ProductDetailsClient({
                       size="lg"
                       context="section"
                       className="w-full"
+                      aria-label={
+                        addFeedbackActive
+                          ? `${product.name} agregado al carrito`
+                          : `Agregar ${product.name} al carrito`
+                      }
                       onClick={handleAddToCart}
                     >
                       <ShoppingCart className="mr-2" size={22} />
-                      {addFeedbackActive ? "Agregado" : "Agregar al Carrito"}
+                      {addFeedbackActive ? "Agregado" : "Agregar"}
                     </Button>
                   ) : (
                     <Button
@@ -970,14 +975,16 @@ function ProductPurchaseBar({
           padding: "var(--sf-space-sm)",
         }}
       >
-        <div className="min-w-0 shrink-0 pl-[var(--sf-space-sm)]">
+        <div className="min-w-0 flex-1 pl-[var(--sf-space-sm)]">
           <span className="block sf-text-caption text-stone-400">Precio</span>
-          <p className="sf-text-h2 font-black text-brand-500">
+          <p className="min-w-0 sf-text-h2 font-black leading-tight text-brand-500">
             <CampaignProductPrice
               product={product}
               priceClassName="text-brand-500"
               oldPriceClassName="sf-text-label font-medium text-stone-500 line-through"
               discountClassName="sf-text-label font-bold text-emerald-700"
+              couponClassName="sf-text-caption max-w-full truncate font-medium text-stone-500"
+              couponLabelPrefix="Cupón"
             />
           </p>
         </div>
@@ -989,7 +996,12 @@ function ProductPurchaseBar({
           disabled={!isAvailable}
           icon={ShoppingCart}
           onClick={onAddToCart}
-          className="shrink-0"
+          aria-label={
+            addFeedbackActive
+              ? `${product.name} agregado al carrito`
+              : `Agregar ${product.name} al carrito`
+          }
+          className="shrink-0 whitespace-nowrap"
           style={
             {
               height: "var(--sf-size-mobile-nav-item)",
@@ -1001,7 +1013,7 @@ function ProductPurchaseBar({
           {isAvailable
             ? addFeedbackActive
               ? "Agregado"
-              : "Agregar al Carrito"
+              : "Agregar"
             : "No disponible"}
         </Button>
       </div>

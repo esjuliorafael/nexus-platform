@@ -13,12 +13,12 @@ const themeClasses = {
 
 interface CampaignAnnouncementBarProps {
   className?: string;
-  mobileAfterCatalogRail?: boolean;
+  mobileAfterRail?: boolean;
 }
 
 export function CampaignAnnouncementBar({
   className = "",
-  mobileAfterCatalogRail = false,
+  mobileAfterRail = false,
 }: CampaignAnnouncementBarProps) {
   const { campaign } = useStorefrontCampaign();
 
@@ -80,7 +80,7 @@ export function CampaignAnnouncementBar({
     <div
       className={`sf-campaign-ticker ${themeClasses[campaign.theme]} ${className}`}
       style={
-        mobileAfterCatalogRail
+        mobileAfterRail
           ? {
               marginInline: "var(--sf-inset-mobile-chrome)",
               marginTop:

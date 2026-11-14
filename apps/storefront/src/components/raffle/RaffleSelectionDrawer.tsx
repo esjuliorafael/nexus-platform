@@ -95,11 +95,17 @@ export function RaffleSelectionDrawer({ isOpen, raffleId, selectedTickets, ticke
         ) : <p className="sf-text-secondary text-stone-500">Selecciona tus números para continuar.</p>}
       </StorefrontTemporarySurfaceItem>
 
-      {selectedTickets.length > 0 && participationMode === 'FULL' && <StorefrontTemporarySurfaceItem phase="footer" className="shrink-0 border-t border-stone-100 bg-white/95 sm:hidden" style={{ paddingInline: 'var(--sf-inset-page-mobile)', paddingTop: 'var(--sf-space-md)', paddingBottom: 'var(--sf-mobile-chrome-content-padding-bottom)' }}><RaffleCouponRedemption raffleId={raffleId} tickets={selectedTickets} coupon={coupon} onCouponChange={onCouponChange} /></StorefrontTemporarySurfaceItem>}
+      {selectedTickets.length > 0 && <StorefrontTemporarySurfaceItem phase="footer" className="shrink-0 border-t border-stone-100 bg-white/95 sm:hidden" style={{ paddingInline: 'var(--sf-inset-page-mobile)', paddingTop: 'var(--sf-space-md)', paddingBottom: 'var(--sf-mobile-chrome-content-padding-bottom)' }}>
+        <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
+          <div className="flex items-center justify-between sf-text-secondary text-stone-500" style={{ gap: 'var(--sf-space-md)' }}><span>Subtotal de boletos</span><span>${formatPrice(subtotal)}</span></div>
+          {participationMode === 'FULL' && <RaffleCouponRedemption raffleId={raffleId} tickets={selectedTickets} coupon={coupon} onCouponChange={onCouponChange} />}
+        </div>
+      </StorefrontTemporarySurfaceItem>}
       <StorefrontTemporarySurfaceItem phase="footer" className="hidden shrink-0 border-t border-stone-100 bg-stone-50/70 sm:block" style={{ padding: 'var(--sf-padding-inner)' }}>
         <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
           {selectedTickets.length > 0 && participationMode === 'FULL' && <RaffleCouponRedemption raffleId={raffleId} tickets={selectedTickets} coupon={coupon} onCouponChange={onCouponChange} />}
-          {coupon && <div className="flex items-center justify-between sf-text-secondary text-stone-500"><span>Descuento</span><span>-${formatPrice(coupon.discountTotal)}</span></div>}
+          <div className="flex items-center justify-between sf-text-secondary text-stone-500"><span>Subtotal de boletos</span><span>${formatPrice(subtotal)}</span></div>
+          {coupon && <div className="flex items-center justify-between sf-text-secondary text-stone-500"><span>Cupón {coupon.code}</span><span>-${formatPrice(coupon.discountTotal)}</span></div>}
           <div className="flex items-center justify-between" style={{ gap: 'var(--sf-space-md)' }}><span className="sf-text-label text-stone-400">Total</span><span className="sf-text-h1 text-brand-500">${formatPrice(total)}</span></div>
           <Button type="button" context="section" className="w-full" icon={CheckCircle2} disabled={!selectedTickets.length || isContinuing} isLoading={isContinuing} onClick={handleContinue}>Finalizar apartado</Button>
         </div>

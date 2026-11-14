@@ -24,6 +24,14 @@ import { CampaignAnnouncementBar } from "../campaigns/CampaignAnnouncementBar";
 
 const mobileCatalogRoutes = new Set(["/store", "/gallery", "/raffles"]);
 
+function hasMobileCampaignRail(pathname: string) {
+  return (
+    mobileCatalogRoutes.has(pathname) ||
+    /^\/store\/[^/]+\/?$/.test(pathname) ||
+    /^\/raffles\/[^/]+\/?$/.test(pathname)
+  );
+}
+
 function StorefrontMainContent({
   pathname,
   children,
@@ -32,17 +40,23 @@ function StorefrontMainContent({
   children: React.ReactNode;
 }) {
   const { campaign } = useStorefrontCampaign();
-  const campaignFollowsCatalogRail =
-    Boolean(campaign) && mobileCatalogRoutes.has(pathname);
+  const campaignFollowsRail =
+    Boolean(campaign) && hasMobileCampaignRail(pathname);
+  const campaignDetailRoute =
+    campaignFollowsRail &&
+    (/^\/store\/[^/]+\/?$/.test(pathname) ||
+      /^\/raffles\/[^/]+\/?$/.test(pathname));
 
   return (
     <main
       className={`flex-1 ${
         pathname === "/"
           ? "pt-0"
-          : campaignFollowsCatalogRail
+          : campaignFollowsRail && mobileCatalogRoutes.has(pathname)
             ? "sf-campaign-catalog-layout pt-0 md:pt-24"
-            : "pt-6 md:pt-24"
+            : campaignDetailRoute
+              ? "sf-campaign-detail-layout pt-0 md:pt-24"
+              : "pt-6 md:pt-24"
       }`}
     >
       {children}
@@ -163,7 +177,7 @@ export function ClientLayout({ children }: ClientLayoutProps) {
         {pathname !== "/" && (
           <div className="md:hidden">
             <CampaignAnnouncementBar
-              mobileAfterCatalogRail={mobileCatalogRoutes.has(pathname)}
+              mobileAfterRail={hasMobileCampaignRail(pathname)}
             />
           </div>
         )}

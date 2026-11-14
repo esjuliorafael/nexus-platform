@@ -26,6 +26,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { orderApi, StoreOrderResponse } from "../../api/orders";
+import { couponApi } from "../../api/coupons";
 import {
   MercadoPagoCardFormData,
   MercadoPagoCheckoutConfig,
@@ -50,6 +51,7 @@ import { StorefrontCheckoutTopBar } from "../../components/ui/CheckoutTopBar";
 import { StorefrontCheckoutSection } from "../../components/ui/CheckoutSection";
 import { StorefrontNote } from "../../components/ui/Note";
 import { CouponRedemption } from "../../components/cart/CouponRedemption";
+import { CouponAdjustedPrice } from "../../components/cart/CouponAdjustedPrice";
 import { formatPrice, getAssetUrl } from "../../utils/formatters";
 import {
   clearStoreCheckoutFormDraft,
@@ -107,12 +109,14 @@ interface PendingPaymentAttempt {
 
 interface CheckoutSummarySnapshot {
   items: ReturnType<typeof useCartStore.getState>["items"];
+  coupon: ReturnType<typeof useCartStore.getState>["coupon"];
   subtotal: number;
   discountTotal: number;
   shippingTotal: number;
   shippingDetails: ShippingDetail[];
   selectedZone: ShippingZone | null;
   total: number;
+  shippingResolved: boolean;
 }
 
 const PENDING_MP_PAYMENT_KEY = "nexus_pending_mp_payment";
@@ -161,7 +165,7 @@ function clearAssistedCheckoutToken() {
 }
 
 export default function CheckoutPage() {
-  const { items, coupon, getTotalPrice, getDiscountTotal, clearCart, removeItem, replaceCart } = useCartStore();
+  const { items, coupon, getTotalPrice, getDiscountTotal, clearCart, clearCoupon, setCoupon, removeItem, replaceCart } = useCartStore();
   const { settings, loading: settingsLoading } = useSettings();
   const { showToast } = useToastStore();
   const router = useRouter();
@@ -207,6 +211,47 @@ export default function CheckoutPage() {
   const checkoutFormRef = useRef<HTMLFormElement>(null);
   const confirmationFeedbackPlayedRef = useRef(false);
   const errorFeedbackPlayedRef = useRef(false);
+  const couponRefreshAttemptRef = useRef<string | null>(null);
+
+  const couponAllocationIsCurrent = !coupon || (
+    Array.isArray(coupon.lineDiscounts) &&
+    coupon.lineDiscounts.length === items.length &&
+    items.every((item) => {
+      const allocation = coupon.lineDiscounts.find((line) => line.productId === item.productId);
+      return allocation?.quantity === item.quantity &&
+        Math.abs(allocation.subtotal - item.price * item.quantity) < 0.005;
+    })
+  );
+
+  useEffect(() => {
+    if (!coupon) {
+      couponRefreshAttemptRef.current = null;
+      return;
+    }
+    if (couponAllocationIsCurrent) {
+      couponRefreshAttemptRef.current = null;
+      return;
+    }
+
+    const refreshKey = `${coupon.code}:${items.map((item) => `${item.productId}-${item.quantity}`).join(",")}`;
+    if (couponRefreshAttemptRef.current === refreshKey) return;
+    couponRefreshAttemptRef.current = refreshKey;
+
+    let active = true;
+    couponApi.validate(coupon.code, items.map(({ productId, quantity }) => ({ productId, quantity })))
+      .then((freshCoupon) => {
+        if (active) setCoupon(freshCoupon);
+      })
+      .catch(() => {
+        if (!active) return;
+        clearCoupon();
+        showToast("No se pudo actualizar el cupón guardado. Vuelve a aplicarlo.", "info");
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [clearCoupon, coupon, couponAllocationIsCurrent, items, setCoupon, showToast]);
   const {
     play: playConfirmationSound,
     prepare: prepareConfirmationSound,
@@ -679,6 +724,11 @@ export default function CheckoutPage() {
     return { total, details };
   }, [hasBirds, hasItems, selectedZone, settings]);
 
+  const shippingResolved =
+    settingsReady &&
+    (!hasBirds || freeBirdShipping || Boolean(selectedZone)) &&
+    (!hasItems || freeItemShipping || Number.isFinite(Number(findSetting("shipping_base_cost_items") || 0)));
+
   const isMPEnabled = Boolean(paymentOptions?.mercadoPago.available);
   const isAssistedCheckout = Boolean(assistedCheckoutToken);
   const isEmbeddedMP = isMPEnabled && !isAssistedCheckout && !forceCheckoutPro && mpCheckoutConfig?.mode === "embedded" && Boolean(mpCheckoutConfig.publicKey);
@@ -687,13 +737,15 @@ export default function CheckoutPage() {
   const orderTotal = Math.max(0, getTotalPrice() + shippingCalculation.total - discountTotal);
   const buildSummarySnapshot = useCallback((): CheckoutSummarySnapshot => ({
     items: [...items],
+    coupon,
     subtotal: getTotalPrice(),
     discountTotal,
     shippingTotal: shippingCalculation.total,
     shippingDetails: [...shippingCalculation.details],
     selectedZone,
     total: orderTotal,
-  }), [discountTotal, getTotalPrice, items, orderTotal, selectedZone, shippingCalculation.details, shippingCalculation.total]);
+    shippingResolved,
+  }), [coupon, discountTotal, getTotalPrice, items, orderTotal, selectedZone, shippingCalculation.details, shippingCalculation.total, shippingResolved]);
 
   const finishCheckout = useCallback((state: Exclude<CompletionState, null>, order: StoreOrderResponse) => {
     clearStoreCheckoutFormDraft();
@@ -1649,12 +1701,14 @@ export default function CheckoutPage() {
             <StorefrontCheckoutMotion phase="summary" ready={checkoutMotionReady}>
               <OrderSummary
                 items={summarySnapshot.items}
+                coupon={summarySnapshot.coupon}
                 subtotal={summarySnapshot.subtotal}
                 discountTotal={summarySnapshot.discountTotal}
                 shippingTotal={summarySnapshot.shippingTotal}
                 shippingDetails={summarySnapshot.shippingDetails}
                 selectedZone={summarySnapshot.selectedZone}
                 total={summarySnapshot.total}
+                shippingResolved={summarySnapshot.shippingResolved}
                 onRemoveItem={completionState ? undefined : (item) => setItemToDelete(item)}
                 actionLabel={showSummaryAction ? summaryActionLabel : undefined}
                 onAction={showSummaryAction ? handleDesktopSummaryAction : undefined}
@@ -1708,12 +1762,14 @@ export default function CheckoutPage() {
         <OrderSummary
           variant="sheet"
           items={summarySnapshot.items}
+          coupon={summarySnapshot.coupon}
           subtotal={summarySnapshot.subtotal}
           discountTotal={summarySnapshot.discountTotal}
           shippingTotal={summarySnapshot.shippingTotal}
           shippingDetails={summarySnapshot.shippingDetails}
           selectedZone={summarySnapshot.selectedZone}
           total={summarySnapshot.total}
+          shippingResolved={summarySnapshot.shippingResolved}
           onRemoveItem={completionState ? undefined : (item) => setItemToDelete(item)}
           completionStatus={completionPresentation
             ? {
@@ -1725,8 +1781,14 @@ export default function CheckoutPage() {
       </BottomSheet>
 
       <StorefrontPurchaseBar
-        total={summarySnapshot.total}
-        totalLabel={completionPresentation ? "Estado" : "Total"}
+        total={summarySnapshot.shippingResolved
+          ? summarySnapshot.total
+          : Math.max(0, summarySnapshot.subtotal - summarySnapshot.discountTotal)}
+        totalLabel={completionPresentation
+          ? "Estado"
+          : summarySnapshot.shippingResolved
+            ? "Total"
+            : "Subtotal"}
         totalValue={completionPresentation?.mobileStatus}
         loading={loading}
         disabled={completionState
@@ -1931,12 +1993,14 @@ function ZoneSelect({
 function OrderSummary({
   variant = "sidebar",
   items,
+  coupon,
   subtotal,
   discountTotal,
   shippingTotal,
   shippingDetails,
   selectedZone,
   total,
+  shippingResolved,
   onRemoveItem,
   actionLabel,
   onAction,
@@ -1947,12 +2011,14 @@ function OrderSummary({
 }: {
   variant?: "sidebar" | "sheet";
   items: ReturnType<typeof useCartStore.getState>["items"];
+  coupon: ReturnType<typeof useCartStore.getState>["coupon"];
   subtotal: number;
   discountTotal: number;
   shippingTotal: number;
   shippingDetails: ShippingDetail[];
   selectedZone: ShippingZone | null;
   total: number;
+  shippingResolved: boolean;
   onRemoveItem?: (item: any) => void;
   actionLabel?: string;
   onAction?: () => void;
@@ -2024,8 +2090,15 @@ function OrderSummary({
                   <p className="sf-text-label text-stone-500 uppercase tracking-widest mt-1 text-[9px]">{item.quantity} {item.quantity === 1 ? "unidad" : "unidades"}</p>
                 </div>
               </div>
-              <div className="flex items-center gap-4">
-                <span className="sf-text-h2 tabular-nums text-brand-500 font-black text-lg">${formatPrice(item.price * item.quantity)}</span>
+              <div className="flex items-center" style={{ gap: "var(--sf-space-md)" }}>
+                <CouponAdjustedPrice
+                  productId={item.productId}
+                  quantity={item.quantity}
+                  originalSubtotal={item.price * item.quantity}
+                  coupon={coupon}
+                  tone="dark"
+                  align="end"
+                />
                 {onRemoveItem && (
                   <button
                     onClick={() => onRemoveItem(item)}
@@ -2044,7 +2117,7 @@ function OrderSummary({
         <div className="flex flex-col border-t border-white/10 pt-[var(--sf-space-lg)]" style={{ gap: "var(--sf-space-md)" }}>
           <SummaryRow label="Subtotal" value={`$${formatPrice(subtotal)}`} />
           {discountTotal > 0 && (
-            <SummaryRow label="Descuento" value={`-$${formatPrice(discountTotal)}`} />
+            <SummaryRow label={coupon?.code ? `Cupón ${coupon.code}` : "Descuento"} value={`-$${formatPrice(discountTotal)}`} />
           )}
           <AnimatePresence mode="popLayout">
             {shippingDetails.length > 0 && (
@@ -2062,13 +2135,20 @@ function OrderSummary({
             )}
           </AnimatePresence>
 
-          <SummaryRow label="Envío total" value={shippingDetails.length > 0 ? (shippingTotal > 0 ? `$${formatPrice(shippingTotal)}` : "Gratis") : "Pendiente de estado"} />
+          <SummaryRow
+            label="Envío total"
+            value={!shippingResolved
+              ? "Pendiente de estado"
+              : shippingTotal > 0
+                ? `$${formatPrice(shippingTotal)}`
+                : "Gratis"}
+          />
 
           <div className="flex flex-col pt-[var(--sf-space-md)] mt-2">
             <div className="flex items-center justify-between border-t border-white/5 pt-[var(--sf-space-md)]" style={{ gap: "var(--sf-space-md)" }}>
-              <span className="sf-text-label text-stone-400">Total</span>
+              <span className="sf-text-label text-stone-400">{shippingResolved ? "Total" : "Subtotal"}</span>
               <strong className="sf-text-display tabular-nums text-brand-500 font-black tracking-tighter leading-none">
-                ${formatPrice(total)}
+                ${formatPrice(shippingResolved ? total : Math.max(0, subtotal - discountTotal))}
               </strong>
             </div>
           </div>

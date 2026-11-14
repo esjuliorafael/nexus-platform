@@ -43,6 +43,9 @@ jobs:
       - name: Test storefront campaign validation
         run: pnpm --filter @nexus/api test:storefront-campaign
 
+      - name: Test coupon discount allocation
+        run: pnpm --filter @nexus/api test:coupon-discount-allocation
+
       - name: Test WhatsApp Cloud template readiness
         run: pnpm --filter @nexus/api test:whatsapp-cloud-templates
 

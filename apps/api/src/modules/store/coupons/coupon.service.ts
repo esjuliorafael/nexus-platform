@@ -1,5 +1,6 @@
 import { storePrisma } from "@nexus/db/store";
 import { BirdPurpose, ProductType } from "@prisma/client-store";
+import { allocateCouponDiscount } from "./coupon-discount-allocation";
 
 type CouponItemInput = {
   productId: number;
@@ -129,6 +130,19 @@ export async function validateCouponForItems(
     throw createCouponError("El cupón no genera descuento para este pedido.");
   }
 
+  const lineDiscounts = allocateCouponDiscount(
+    discountTotal,
+    items.map((item) => {
+      const product = products.find((entry) => entry.id === item.productId)!;
+      return {
+        productId: item.productId,
+        quantity: item.quantity,
+        subtotal: Number(product.price) * item.quantity,
+        eligible: isProductEligible(coupon.scope, coupon.birdPurpose, product),
+      };
+    }),
+  );
+
   return {
     coupon,
     code: coupon.code,
@@ -139,6 +153,7 @@ export async function validateCouponForItems(
     birdPurpose: coupon.birdPurpose,
     eligibleSubtotal,
     discountTotal,
+    lineDiscounts,
   };
 }
 

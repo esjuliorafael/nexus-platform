@@ -11,6 +11,7 @@ interface Props {
   oldPriceClassName?: string;
   discountClassName?: string;
   couponClassName?: string;
+  couponLabelPrefix?: string;
 }
 
 export function CampaignProductPrice({
@@ -20,6 +21,7 @@ export function CampaignProductPrice({
   oldPriceClassName = "",
   discountClassName = "",
   couponClassName = "sf-text-caption font-medium text-stone-600",
+  couponLabelPrefix = "Con cupón",
 }: Props) {
   const { campaign } = useStorefrontCampaign();
   const coupon = campaign?.coupon;
@@ -75,7 +77,7 @@ export function CampaignProductPrice({
         </span>
       </span>
       <span className={couponClassName} style={{ lineHeight: 1.25 }}>
-        Con cupón {coupon.code}
+        {couponLabelPrefix} {coupon.code}
       </span>
     </span>
   );

@@ -325,6 +325,7 @@ export interface StorefrontCampaign {
   name: string;
   eyebrow?: string | null;
   title: string;
+  titleEmphasis?: string | null;
   message?: string | null;
   ctaLabel?: string | null;
   ctaHref?: string | null;

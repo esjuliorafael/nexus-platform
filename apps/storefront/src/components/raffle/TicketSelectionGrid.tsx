@@ -461,6 +461,7 @@ export function TicketSelectionGrid({
           <RaffleSelectionSummaryCard
             selectedTickets={selectedTickets}
             ticketOpportunities={raffle.extraOpportunities ?? []}
+            subtotal={totalAmount}
             total={totalAmount}
             participationMode={participationMode}
             onRemoveTicket={toggleTicket}

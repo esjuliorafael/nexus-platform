@@ -126,6 +126,7 @@
 
   /* Typography Scale - Modular Scale (Major Third 1.25x) */
   --sf-text-hero:      clamp(1.875rem, 5vw,  2.5rem);    /* 30px -> 40px */
+  --sf-text-campaign-offer: clamp(4rem, 5vw, 4.5rem);   /* 64px -> 72px */
   --sf-text-display:   clamp(1.5rem,   4vw,  2rem);       /* 24px -> 32px */
   --sf-text-h1:        clamp(1.2rem,   2.5vw, 1.5rem);   /* 19px -> 24px */
   --sf-text-h2:        clamp(1.05rem,  2vw,  1.25rem);   /* 16.8px -> 20px */
@@ -224,8 +225,364 @@
     box-shadow: 0 0.5rem 1.5rem rgb(12 10 9 / 0.2);
   }
 
+  .sf-campaign-promo {
+    --sf-campaign-bg: oklch(38% 0.13 28);
+    --sf-campaign-ink: oklch(98% 0.015 82);
+    --sf-campaign-muted: oklch(88% 0.025 67);
+    --sf-campaign-accent: oklch(82% 0.11 72);
+    --sf-campaign-paper: oklch(97% 0.025 82);
+    --sf-campaign-paper-ink: oklch(36% 0.1 29);
+    position: relative;
+    display: grid;
+    grid-template-columns: minmax(0, 1.1fr) minmax(19rem, 0.9fr);
+    grid-template-areas:
+      "meta meta"
+      "copy ticket"
+      "timer ticket";
+    align-items: center;
+    gap: var(--sf-space-lg) var(--sf-space-xl);
+    overflow: hidden;
+    width: 100%;
+    padding: var(--sf-padding-outer);
+    border-radius: var(--sf-radius-outer);
+    background: var(--sf-campaign-bg);
+    color: var(--sf-campaign-ink);
+  }
+
+  .sf-campaign-promo--brand {
+    --sf-campaign-bg: oklch(28% 0.025 47);
+    --sf-campaign-accent: oklch(83% 0.09 72);
+  }
+
+  .sf-campaign-promo--pine {
+    --sf-campaign-bg: oklch(34% 0.09 155);
+    --sf-campaign-accent: oklch(84% 0.1 92);
+  }
+
+  .sf-campaign-promo__meta {
+    grid-area: meta;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sf-space-md);
+    min-width: 0;
+    color: var(--sf-campaign-muted);
+    font-size: var(--sf-text-label);
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+
+  .sf-campaign-promo__name {
+    flex: 0 0 auto;
+    padding: var(--sf-space-xs) var(--sf-space-sm);
+    border: 1px solid rgb(255 255 255 / 0.28);
+    border-radius: var(--sf-radius-nested);
+    color: var(--sf-campaign-ink);
+    letter-spacing: 0.08em;
+    font-weight: 700;
+  }
+
+  .sf-campaign-promo__dates {
+    letter-spacing: 0.04em;
+    text-align: right;
+  }
+
+  .sf-campaign-promo__copy {
+    grid-area: copy;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: var(--sf-space-md);
+    min-width: 0;
+    padding-block: var(--sf-space-md);
+  }
+
+  .sf-campaign-promo__title {
+    max-width: 18ch;
+    margin: 0;
+    color: var(--sf-campaign-ink);
+    font-family: Georgia, "Times New Roman", serif;
+    font-size: var(--sf-text-hero);
+    font-weight: 400;
+    line-height: 1.08;
+    text-wrap: balance;
+  }
+
+  .sf-campaign-promo__title-emphasis {
+    color: var(--sf-campaign-accent);
+    font-style: italic;
+  }
+
+  .sf-campaign-promo__message {
+    max-width: 42ch;
+    margin: 0;
+    color: var(--sf-campaign-muted);
+    font-size: var(--sf-text-body);
+    line-height: 1.55;
+  }
+
+  .sf-campaign-promo__cta {
+    display: inline-flex;
+    min-height: var(--sf-h-button-card);
+    align-items: center;
+    gap: var(--sf-space-md);
+    padding-block: var(--sf-space-sm);
+    border-bottom: 1px solid rgb(255 255 255 / 0.35);
+    color: var(--sf-campaign-ink);
+    font-size: var(--sf-text-button-section);
+    font-weight: 600;
+    text-decoration: none;
+  }
+
+  .sf-campaign-promo__cta:hover {
+    color: var(--sf-campaign-accent);
+  }
+
+  .sf-campaign-promo__cta:focus-visible,
+  .sf-campaign-promo__copy-button:focus-visible {
+    outline: 2px solid var(--sf-campaign-accent);
+    outline-offset: 3px;
+  }
+
+  .sf-campaign-promo__ticket {
+    grid-area: ticket;
+    position: relative;
+    min-width: 0;
+    padding: var(--sf-padding-inner);
+    border-radius: var(--sf-radius-inner);
+    background: var(--sf-campaign-paper);
+    box-shadow: 0 1rem 2rem rgb(12 10 9 / 0.12);
+    color: var(--sf-campaign-paper-ink);
+    text-align: center;
+    transform: rotate(1.2deg);
+  }
+
+  .sf-campaign-promo__ticket-kicker,
+  .sf-campaign-promo__discount-label,
+  .sf-campaign-promo__scope,
+  .sf-campaign-promo__redeem {
+    margin: 0;
+  }
+
+  .sf-campaign-promo__ticket-kicker,
+  .sf-campaign-promo__coupon-label {
+    color: color-mix(in oklch, var(--sf-campaign-paper-ink) 68%, transparent);
+    font-size: var(--sf-text-label);
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+
+  .sf-campaign-promo__discount {
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    gap: var(--sf-space-xs);
+    margin-top: var(--sf-space-sm);
+    color: var(--sf-campaign-paper-ink);
+    font-family: var(--font-cabinet);
+    line-height: 0.9;
+  }
+
+  .sf-campaign-promo__discount strong {
+    font-size: var(--sf-text-campaign-offer);
+    font-weight: 900;
+  }
+
+  .sf-campaign-promo__discount span {
+    padding-top: 0.45rem;
+    font-size: var(--sf-text-display);
+    font-weight: 700;
+  }
+
+  .sf-campaign-promo__discount-label {
+    margin-top: var(--sf-space-xs);
+    font-size: var(--sf-text-secondary);
+    font-weight: 700;
+    line-height: 1.4;
+    text-transform: uppercase;
+  }
+
+  .sf-campaign-promo__scope {
+    margin-top: var(--sf-space-md);
+    color: color-mix(in oklch, var(--sf-campaign-paper-ink) 72%, transparent);
+    font-size: var(--sf-text-secondary);
+  }
+
+  .sf-campaign-promo__perforation {
+    position: relative;
+    height: 1px;
+    margin: var(--sf-space-md) calc(-1 * var(--sf-padding-inner));
+    border-top: 1px dashed color-mix(in oklch, var(--sf-campaign-paper-ink) 26%, transparent);
+  }
+
+  .sf-campaign-promo__perforation::before,
+  .sf-campaign-promo__perforation::after {
+    position: absolute;
+    top: 50%;
+    width: 0.75rem;
+    height: 0.75rem;
+    border-radius: 50%;
+    background: var(--sf-campaign-bg);
+    content: "";
+    transform: translateY(-50%);
+  }
+
+  .sf-campaign-promo__perforation::before {
+    left: -0.375rem;
+  }
+
+  .sf-campaign-promo__perforation::after {
+    right: -0.375rem;
+  }
+
+  .sf-campaign-promo__coupon {
+    display: flex;
+    min-height: var(--sf-h-button-card);
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sf-space-md);
+    padding: var(--sf-space-sm) var(--sf-space-base);
+    border: 1px dashed color-mix(in oklch, var(--sf-campaign-paper-ink) 38%, transparent);
+    border-radius: var(--sf-radius-nested);
+    background: color-mix(in oklch, var(--sf-campaign-paper-ink) 5%, transparent);
+    text-align: left;
+  }
+
+  .sf-campaign-promo__coupon-copy {
+    display: flex;
+    min-width: 0;
+    flex-direction: column;
+    gap: var(--sf-space-xs);
+  }
+
+  .sf-campaign-promo__coupon-copy strong {
+    overflow-wrap: anywhere;
+    color: var(--sf-campaign-paper-ink);
+    font-family: var(--font-cabinet);
+    font-size: var(--sf-text-h2);
+    font-weight: 700;
+    line-height: 1.15;
+  }
+
+  .sf-campaign-promo__coupon-label {
+    font-size: var(--sf-text-label);
+  }
+
+  .sf-campaign-promo__copy-button {
+    display: inline-flex;
+    width: var(--sf-h-button-card);
+    height: var(--sf-h-button-card);
+    flex: 0 0 auto;
+    align-items: center;
+    justify-content: center;
+    border: 0;
+    border-left: 1px solid color-mix(in oklch, var(--sf-campaign-paper-ink) 20%, transparent);
+    background: transparent;
+    color: var(--sf-campaign-paper-ink);
+    cursor: pointer;
+  }
+
+  .sf-campaign-promo__copy-button svg {
+    width: 1.125rem;
+    height: 1.125rem;
+  }
+
+  .sf-campaign-promo__redeem {
+    margin-top: var(--sf-space-sm);
+    color: color-mix(in oklch, var(--sf-campaign-paper-ink) 70%, transparent);
+    font-size: var(--sf-text-body);
+    line-height: 1.5;
+  }
+
+  .sf-campaign-promo__timer {
+    grid-area: timer;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: var(--sf-space-md);
+    color: var(--sf-campaign-muted);
+  }
+
+  .sf-campaign-promo__timer-label,
+  .sf-campaign-promo__time-unit {
+    display: inline-flex;
+    align-items: baseline;
+    gap: var(--sf-space-xs);
+  }
+
+  .sf-campaign-promo__timer-label {
+    align-items: center;
+    font-size: var(--sf-text-label);
+  }
+
+  .sf-campaign-promo__timer-label svg {
+    flex: 0 0 auto;
+  }
+
+  .sf-campaign-promo__time-unit strong {
+    color: var(--sf-campaign-ink);
+    font-size: var(--sf-text-h2);
+    font-variant-numeric: tabular-nums;
+    font-weight: 600;
+    line-height: 1;
+  }
+
+  .sf-campaign-promo__time-unit span {
+    font-size: var(--sf-text-label);
+  }
+
+  @media (min-width: 768px) {
+    .sf-campaign-promo__ticket {
+      transform: rotate(1.6deg);
+    }
+  }
+
+  @media (max-width: 767px) {
+    .sf-campaign-promo {
+      grid-template-columns: minmax(0, 1fr);
+      grid-template-areas:
+        "meta"
+        "copy"
+        "ticket"
+        "timer";
+      gap: var(--sf-space-md);
+    }
+
+    .sf-campaign-promo__copy {
+      gap: var(--sf-space-sm);
+      padding-block: var(--sf-space-sm) var(--sf-space-base);
+    }
+
+    .sf-campaign-promo__message {
+      max-width: 34ch;
+    }
+
+    .sf-campaign-promo__cta {
+      min-height: 2.75rem;
+      margin-top: var(--sf-space-xs);
+    }
+
+    .sf-campaign-promo__ticket {
+      padding: var(--sf-padding-inner);
+      transform: rotate(-1.2deg);
+    }
+
+    .sf-campaign-promo__timer {
+      justify-content: center;
+      gap: var(--sf-space-sm) var(--sf-space-md);
+      padding-top: var(--sf-space-sm);
+      border-top: 1px solid rgb(255 255 255 / 0.2);
+    }
+  }
+
   .sf-campaign-catalog-layout {
     --sf-store-content-padding-top: var(--sf-space-md);
+  }
+
+  .sf-campaign-detail-layout {
+    --sf-mobile-chrome-content-padding-top: var(--sf-space-md);
   }
 
   @media (min-width: 768px) {

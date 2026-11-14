@@ -8,6 +8,7 @@ import { Button } from '../ui/Button';
 import { StorefrontIcon } from '../ui/Icon';
 import { StorefrontPurchaseBar } from '../ui/PurchaseBar';
 import { CouponRedemption } from './CouponRedemption';
+import { CouponAdjustedPrice } from './CouponAdjustedPrice';
 import { useBodyScrollLock } from '../../hooks/useBodyScrollLock';
 import { useCheckoutTransitionStore } from '../../store/checkout-transition.store';
 import { useCheckoutTransitionGuard } from '../../hooks/useCheckoutTransitionGuard';
@@ -20,7 +21,7 @@ import {
 } from '../ui/TemporarySurfaceMotion';
 
 export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () => void }) {
-  const { items, removeItem, updateQuantity, getDiscountTotal, getCartTotalAfterDiscount } = useCartStore();
+  const { items, coupon, removeItem, updateQuantity, getDiscountTotal, getCartTotalAfterDiscount } = useCartStore();
   const { showToast } = useToastStore();
   const router = useRouter();
   const pathname = usePathname();
@@ -145,15 +146,29 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
                       )}
                     </div>
 
-                    <div className="flex min-w-0 flex-1 items-center justify-between" style={{ gap: 'var(--sf-space-sm)' }}>
-                      <div className="flex min-w-0 flex-1 flex-col" style={{ gap: 'var(--sf-space-xs)' }}>
-                        <h4 className="sf-text-secondary truncate font-bold text-stone-800">{item.name}</h4>
-                        <p className="sf-text-h2 text-brand-500">${formatPrice(item.price)}</p>
+                    <div className="flex min-w-0 flex-1 flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
+                      <div className="flex min-w-0 items-center" style={{ gap: 'var(--sf-space-xs)' }}>
+                        <h4 className="sf-text-secondary min-w-0 flex-1 truncate font-bold text-stone-800">{item.name}</h4>
+                        <button
+                          className="flex h-9 w-9 shrink-0 items-center justify-center text-stone-300 opacity-100 transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/25 sm:opacity-0 sm:group-hover:opacity-100 sm:group-focus-within:opacity-100"
+                          style={{ borderRadius: 'var(--sf-radius-card-inner)' }}
+                          onClick={() => handleRemove(item.productId, item.name)}
+                          aria-label={`Eliminar ${item.name} del carrito`}
+                        >
+                          <Trash2 size={16} />
+                        </button>
                       </div>
 
-                      <div className="flex shrink-0 items-center" style={{ gap: 'var(--sf-space-sm)' }}>
+                      <div className="flex min-w-0 flex-wrap items-center justify-between" style={{ columnGap: 'var(--sf-space-sm)', rowGap: 'var(--sf-space-sm)' }}>
+                        <CouponAdjustedPrice
+                          productId={item.productId}
+                          quantity={item.quantity}
+                          originalSubtotal={item.price * item.quantity}
+                          coupon={coupon}
+                        />
+
                         <div
-                          className="flex w-fit items-center bg-stone-100"
+                          className="flex w-fit shrink-0 items-center bg-stone-100"
                           style={{ borderRadius: 'var(--sf-radius-card-inner)', padding: 'var(--sf-space-xs)' }}
                         >
                           <button
@@ -174,15 +189,6 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
                             <Plus size={14} />
                           </button>
                         </div>
-
-                        <button
-                          className="flex h-9 w-9 shrink-0 items-center justify-center text-stone-300 opacity-100 transition-colors hover:bg-red-50 hover:text-red-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500/25 sm:opacity-0 sm:group-hover:opacity-100"
-                          style={{ borderRadius: 'var(--sf-radius-card-inner)' }}
-                          onClick={() => handleRemove(item.productId, item.name)}
-                          aria-label="Eliminar producto"
-                        >
-                          <Trash2 size={16} />
-                        </button>
                       </div>
                     </div>
                   </div>
@@ -217,7 +223,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
             <div className="flex flex-col" style={{ gap: 'var(--sf-space-md)' }}>
               <CouponRedemption />
               <div className="flex items-center justify-between">
-                <span className="sf-text-label text-stone-400">Total</span>
+                <span className="sf-text-label text-stone-400">Subtotal</span>
                 <span className="sf-text-h1 text-stone-850">${formatPrice(getCartTotalAfterDiscount())}</span>
               </div>
               {getDiscountTotal() > 0 && (
@@ -242,6 +248,7 @@ export function CartDrawer({ isOpen, onClose }: { isOpen: boolean; onClose: () =
         {items.length > 0 && (
           <StorefrontPurchaseBar
             total={getCartTotalAfterDiscount()}
+            totalLabel="Subtotal"
             buttonLabel="Finalizar pedido"
             buttonIcon={ShoppingBag}
             loading={isCheckingOut}

@@ -15,6 +15,7 @@ const campaignShape = {
   name: z.string().trim().min(2).max(80),
   eyebrow: z.string().trim().max(48).optional().nullable(),
   title: z.string().trim().min(2).max(120),
+  titleEmphasis: z.string().trim().max(120).optional().nullable(),
   message: z.string().trim().max(240).optional().nullable(),
   ctaLabel: z.string().trim().max(32).optional().nullable(),
   ctaHref: campaignHrefSchema.optional().nullable(),
@@ -31,6 +32,8 @@ function validateCampaignDates(
     endsAt?: string;
     ctaLabel?: string | null;
     ctaHref?: string | null;
+    title?: string;
+    titleEmphasis?: string | null;
   },
   context: z.RefinementCtx,
 ) {
@@ -52,6 +55,25 @@ function validateCampaignDates(
       message: "Completa el texto y el destino del CTA, o deja ambos vacíos.",
     });
   }
+
+  if (
+    value.title &&
+    value.titleEmphasis?.trim() &&
+    !hasUniqueTitleEmphasis(value.title, value.titleEmphasis)
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["titleEmphasis"],
+      message: "La frase destacada debe aparecer una sola vez en el título.",
+    });
+  }
+}
+
+export function hasUniqueTitleEmphasis(title: string, emphasis?: string | null) {
+  const phrase = emphasis?.trim();
+  if (!phrase) return true;
+  const firstIndex = title.indexOf(phrase);
+  return firstIndex !== -1 && title.indexOf(phrase, firstIndex + 1) === -1;
 }
 
 export const createStorefrontCampaignSchema = z

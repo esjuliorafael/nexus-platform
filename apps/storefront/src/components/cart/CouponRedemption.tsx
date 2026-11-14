@@ -1,4 +1,4 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { Check, Tag, X } from "lucide-react";
 import { couponApi } from "../../api/coupons";
 import { useCartStore } from "../../store/cart.store";
@@ -39,6 +39,12 @@ export function CouponRedemption({
   const [code, setCode] = useState(coupon?.code || "");
   const [loading, setLoading] = useState(false);
   const isDark = tone === "dark";
+
+  useEffect(() => {
+    if (!coupon && !code.trim() && campaign?.coupon.code) {
+      setCode(campaign.coupon.code);
+    }
+  }, [campaign?.coupon.code, code, coupon]);
 
   const handleApply = async (event: FormEvent) => {
     event.preventDefault();
@@ -121,7 +127,7 @@ export function CouponRedemption({
               type="button"
               onClick={() => {
                 clearCoupon();
-                setCode("");
+                setCode(campaign?.coupon.code || "");
               }}
               className={`flex shrink-0 items-center justify-center transition-colors ${isDark ? "bg-white/10 text-white/70 hover:text-white" : "bg-stone-100 text-stone-500 hover:text-stone-800"}`}
               style={{
@@ -173,7 +179,7 @@ export function CouponRedemption({
               <p
                 className={`sf-text-caption ${isDark ? "text-stone-400" : "text-stone-500"}`}
               >
-                Aplica {campaign.coupon.code} para usar el{" "}
+                Pulsa Aplicar para activar el{" "}
                 {campaign.coupon.discountValue}% de descuento.
               </p>
             )}

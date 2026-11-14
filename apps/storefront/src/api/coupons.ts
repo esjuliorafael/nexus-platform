@@ -5,6 +5,14 @@ export interface CouponValidationItem {
   quantity: number;
 }
 
+export interface CouponLineDiscount {
+  productId: number;
+  quantity: number;
+  subtotal: number;
+  discountTotal: number;
+  discountedSubtotal: number;
+}
+
 export interface CouponValidationResponse {
   code: string;
   name?: string | null;
@@ -14,6 +22,7 @@ export interface CouponValidationResponse {
   birdPurpose: "COMBAT" | "BREEDING" | null;
   eligibleSubtotal: number;
   discountTotal: number;
+  lineDiscounts: CouponLineDiscount[];
 }
 
 export const couponApi = {
