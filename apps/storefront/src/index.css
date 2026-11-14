@@ -224,6 +224,16 @@
     box-shadow: 0 0.5rem 1.5rem rgb(12 10 9 / 0.2);
   }
 
+  .sf-campaign-catalog-layout {
+    --sf-store-content-padding-top: var(--sf-space-md);
+  }
+
+  @media (min-width: 768px) {
+    .sf-campaign-catalog-layout {
+      --sf-store-content-padding-top: var(--sf-space-xl);
+    }
+  }
+
   .sf-campaign-ticker-link {
     display: flex;
     width: 100%;

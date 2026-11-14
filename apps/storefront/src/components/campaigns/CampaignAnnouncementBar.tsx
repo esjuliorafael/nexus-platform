@@ -13,10 +13,12 @@ const themeClasses = {
 
 interface CampaignAnnouncementBarProps {
   className?: string;
+  mobileAfterCatalogRail?: boolean;
 }
 
 export function CampaignAnnouncementBar({
   className = "",
+  mobileAfterCatalogRail = false,
 }: CampaignAnnouncementBarProps) {
   const { campaign } = useStorefrontCampaign();
 
@@ -77,6 +79,15 @@ export function CampaignAnnouncementBar({
   return (
     <div
       className={`sf-campaign-ticker ${themeClasses[campaign.theme]} ${className}`}
+      style={
+        mobileAfterCatalogRail
+          ? {
+              marginInline: "var(--sf-inset-mobile-chrome)",
+              marginTop:
+                "calc(var(--sf-inset-mobile-chrome-block) + var(--sf-h-mobile-chrome-rail) + var(--sf-space-md))",
+            }
+          : undefined
+      }
     >
       {campaign.ctaHref ? (
         <Link

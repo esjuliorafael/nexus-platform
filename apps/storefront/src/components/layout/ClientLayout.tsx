@@ -16,8 +16,39 @@ import { RaffleSelectionDrawerHost } from "../raffle/RaffleSelectionDrawerHost";
 import { StorefrontRouteTransition } from "./StorefrontRouteTransition";
 import { StorefrontRouteRevealProvider } from "./StorefrontRouteMotionContext";
 import { StorefrontAnnouncementHost } from "../announcements/StorefrontAnnouncementHost";
-import { StorefrontCampaignProvider } from "../campaigns/StorefrontCampaignContext";
+import {
+  StorefrontCampaignProvider,
+  useStorefrontCampaign,
+} from "../campaigns/StorefrontCampaignContext";
 import { CampaignAnnouncementBar } from "../campaigns/CampaignAnnouncementBar";
+
+const mobileCatalogRoutes = new Set(["/store", "/gallery", "/raffles"]);
+
+function StorefrontMainContent({
+  pathname,
+  children,
+}: {
+  pathname: string;
+  children: React.ReactNode;
+}) {
+  const { campaign } = useStorefrontCampaign();
+  const campaignFollowsCatalogRail =
+    Boolean(campaign) && mobileCatalogRoutes.has(pathname);
+
+  return (
+    <main
+      className={`flex-1 ${
+        pathname === "/"
+          ? "pt-0"
+          : campaignFollowsCatalogRail
+            ? "sf-campaign-catalog-layout pt-0 md:pt-24"
+            : "pt-6 md:pt-24"
+      }`}
+    >
+      {children}
+    </main>
+  );
+}
 
 interface ClientLayoutProps {
   children: React.ReactNode;
@@ -131,7 +162,9 @@ export function ClientLayout({ children }: ClientLayoutProps) {
 
         {pathname !== "/" && (
           <div className="md:hidden">
-            <CampaignAnnouncementBar />
+            <CampaignAnnouncementBar
+              mobileAfterCatalogRail={mobileCatalogRoutes.has(pathname)}
+            />
           </div>
         )}
         <Header
@@ -139,9 +172,9 @@ export function ClientLayout({ children }: ClientLayoutProps) {
           onOpenCart={openCart}
         />
 
-        <main className={`flex-1 ${pathname === "/" ? "pt-0" : "pt-6 md:pt-24"}`}>
+        <StorefrontMainContent pathname={pathname}>
           {children}
-        </main>
+        </StorefrontMainContent>
 
         <AnimatePresence>
           {message && (
