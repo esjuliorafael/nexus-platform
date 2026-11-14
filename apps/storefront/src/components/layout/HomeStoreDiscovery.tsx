@@ -13,6 +13,7 @@ import { StorefrontPillFilter } from "../ui/PillFilter";
 import { Spinner } from "../ui/Spinner";
 import { EmptyState } from "../ui/EmptyState";
 import { Button } from "../ui/Button";
+import { CampaignCountdown } from "../campaigns/CampaignCountdown";
 
 const purposeOptions = [
   { value: "ALL", label: "Todos" },
@@ -142,7 +143,13 @@ export function HomeStoreDiscovery({
           />
         </div>
 
-        {isHeroLoading ? <StoreHeroSkeleton /> : hero && <StoreHeroBanner hero={hero} />}
+        {isHeroLoading ? (
+          <StoreHeroSkeleton />
+        ) : (
+          hero && <StoreHeroBanner hero={hero} />
+        )}
+
+        <CampaignCountdown />
 
         <div>
           <StorefrontPillFilter
@@ -182,7 +189,8 @@ export function HomeStoreDiscovery({
                   Ejemplares disponibles
                 </h3>
                 <span className="sf-text-button-card font-black text-stone-500 tabular-nums">
-                  {filteredBirds.length} {filteredBirds.length === 1 ? "resultado" : "resultados"}
+                  {filteredBirds.length} {" "}
+                  {filteredBirds.length === 1 ? "resultado" : "resultados"}
                 </span>
               </div>
               <ProductGrid products={visibleBirds} />

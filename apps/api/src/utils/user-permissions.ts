@@ -21,6 +21,8 @@ const readImpliedPermissions: Partial<Record<PermissionId, PermissionId[]>> = {
   "channels.view": ["channels.manage", "messaging.templates.delete"],
   "payments.config.view": ["payments.config.manage"],
   "storefront.status.view": ["storefront.status.manage"],
+  "storefront.campaigns.manage": ["storefront.campaigns.view"],
+  "storefront.campaigns.delete": ["storefront.campaigns.view"],
   "storefront.branding.view": ["storefront.branding.manage"],
   "inventory.policies.view": ["inventory.policies.manage"],
   "inventory.audit": ["inventory.reservations.release"],
@@ -45,7 +47,9 @@ const legacyPermissionGrants: Record<string, PermissionId[]> = {
   "users.manage": ["users.view", "users.create", "users.update", "users.delete", "users.permissions.manage"],
   "settings.view": [
     "storefront.status.view", "storefront.branding.view", "storefront.heroes.view",
-    "storefront.slides.view", "storefront.announcements.view", "inventory.policies.view",
+    "storefront.slides.view", "storefront.announcements.view",
+    "storefront.campaigns.view",
+    "inventory.policies.view",
     "raffles.settings.view", "payments.config.view", "shipping.view", "messaging.view",
   ],
   "settings.manage": [
@@ -56,11 +60,15 @@ const legacyPermissionGrants: Record<string, PermissionId[]> = {
   "payment-links.manage": ["payment-links.view", "payment-links.generate", "payment-links.revoke"],
   "storefront.content.view": [
     "storefront.heroes.view", "storefront.slides.view", "storefront.announcements.view",
+    "storefront.campaigns.view",
   ],
   "storefront.content.manage": [
     "storefront.heroes.view", "storefront.heroes.manage", "storefront.heroes.delete",
     "storefront.slides.view", "storefront.slides.manage", "storefront.slides.delete",
     "storefront.announcements.view", "storefront.announcements.manage", "storefront.announcements.delete",
+    "storefront.campaigns.view",
+    "storefront.campaigns.manage",
+    "storefront.campaigns.delete",
     "storefront.branding.view", "storefront.branding.manage",
   ],
   "media.vault.manage": ["media.vault.view", "media.vault.upload", "media.vault.delete"],
@@ -127,7 +135,9 @@ function hasPermission(request: FastifyRequest, permission: PermissionId) {
 }
 
 function isSuperadminRequest(request: FastifyRequest) {
-  return String((request.user as { role?: string } | undefined)?.role || "").toUpperCase() === "SUPERADMIN";
+  return (
+    String((request.user as { role?: string } | undefined)?.role || "").toUpperCase() === "SUPERADMIN"
+  );
 }
 
 function expandedRequestPermissions(request: FastifyRequest) {
@@ -186,6 +196,11 @@ export function requiredPermissionForRequest(request: FastifyRequest): Permissio
   if (starts(path, "/api/v1/admin/store-heroes")) {
     if (method === "GET") return "storefront.heroes.view";
     return method === "DELETE" ? "storefront.heroes.delete" : "storefront.heroes.manage";
+  }
+  if (starts(path, "/api/v1/admin/storefront-campaigns")) {
+    if (method === "GET") return "storefront.campaigns.view";
+    if (method === "DELETE") return "storefront.campaigns.delete";
+    return "storefront.campaigns.manage";
   }
   if (starts(path, "/api/v1/admin/storefront-announcements")) {
     if (method === "GET") return "storefront.announcements.view";
@@ -345,7 +360,8 @@ function permissionRequirementGroupsForRequest(
     if (keys.length) return keys.map((key) => [settingPermissionForKey(key, true)]);
   }
   if (starts(path, "/api/v1/admin/users") && methodOf(request) !== "GET") {
-    const body = request.body as { permissions?: unknown; role?: unknown } | undefined;
+    const body = request.body as
+      | { permissions?: unknown; role?: unknown } | undefined;
     const groups: PermissionId[][] = [];
     if (methodOf(request) === "POST" || Array.isArray(body?.permissions)) {
       groups.push(["users.permissions.manage"]);
@@ -375,7 +391,8 @@ export function actorHasReadPermission(
 
 export function isAdminManagedRequest(request: FastifyRequest) {
   const path = pathOf(request);
-  return path !== "/api/v1/admin/shipping-zones/public" && (path.startsWith("/api/v1/admin/")
+  return (
+    path !== "/api/v1/admin/shipping-zones/public" && (path.startsWith("/api/v1/admin/")
     || starts(path, "/api/v1/store/orders/admin")
     || starts(path, "/api/v1/raffles/admin")
     || starts(path, "/api/v1/ticket-sales/admin")
@@ -386,7 +403,8 @@ export function isAdminManagedRequest(request: FastifyRequest) {
     || (path === "/api/v1/raffles" && methodOf(request) !== "GET")
     || path === "/api/v1/raffles/featured/reorder"
     || path === "/api/v1/mp/auth-url"
-    || path === "/api/v1/mp/disconnect-main");
+    || path === "/api/v1/mp/disconnect-main")
+  );
 }
 
 export async function authorizeAdminRequest(
@@ -433,5 +451,7 @@ export async function authorizeAdminRequest(
 }
 
 export function actorHasPermission(request: FastifyRequest, permission: PermissionId) {
-  return isSuperadminRequest(request) || expandedRequestPermissions(request).has(permission);
+  return (
+    isSuperadminRequest(request) || expandedRequestPermissions(request).has(permission)
+  );
 }

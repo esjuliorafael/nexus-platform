@@ -16,6 +16,8 @@ import { RaffleSelectionDrawerHost } from "../raffle/RaffleSelectionDrawerHost";
 import { StorefrontRouteTransition } from "./StorefrontRouteTransition";
 import { StorefrontRouteRevealProvider } from "./StorefrontRouteMotionContext";
 import { StorefrontAnnouncementHost } from "../announcements/StorefrontAnnouncementHost";
+import { StorefrontCampaignProvider } from "../campaigns/StorefrontCampaignContext";
+import { CampaignAnnouncementBar } from "../campaigns/CampaignAnnouncementBar";
 
 interface ClientLayoutProps {
   children: React.ReactNode;
@@ -117,7 +119,8 @@ export function ClientLayout({ children }: ClientLayoutProps) {
   }
 
   return (
-    <StorefrontRouteRevealProvider value={routeMotionContextValue}>
+    <StorefrontCampaignProvider>
+      <StorefrontRouteRevealProvider value={routeMotionContextValue}>
       <div className="flex min-h-screen flex-col bg-stone-50 text-stone-900">
         <StorefrontRouteTransition
           logoUrl={branding.logo_url}
@@ -126,6 +129,11 @@ export function ClientLayout({ children }: ClientLayoutProps) {
           onDestinationReveal={handleDestinationReveal}
         />
 
+        {pathname !== "/" && (
+          <div className="md:hidden">
+            <CampaignAnnouncementBar />
+          </div>
+        )}
         <Header
           showRaffles={showRaffles}
           onOpenCart={openCart}
@@ -166,5 +174,6 @@ export function ClientLayout({ children }: ClientLayoutProps) {
         </div>
       </div>
     </StorefrontRouteRevealProvider>
+    </StorefrontCampaignProvider>
   );
 }

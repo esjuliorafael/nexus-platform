@@ -118,6 +118,27 @@ export interface StoreHero {
   endsAt: string | null;
 }
 
+export interface StorefrontCampaign {
+  id: number;
+  name: string;
+  eyebrow: string | null;
+  title: string;
+  message: string | null;
+  ctaLabel: string | null;
+  ctaHref: string | null;
+  theme: "BRAND" | "RED" | "PINE";
+  active: boolean;
+  startsAt: string;
+  endsAt: string;
+  coupon: {
+    code: string;
+    discountType: "PERCENTAGE";
+    discountValue: number;
+    scope: "ALL" | "BIRD" | "ITEM";
+    birdPurpose: "COMBAT" | "BREEDING" | null;
+  };
+}
+
 export interface PublicContactChannel {
   id: number;
   type: "WHATSAPP" | "PHONE";

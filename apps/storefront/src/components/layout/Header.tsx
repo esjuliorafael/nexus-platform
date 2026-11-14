@@ -17,6 +17,7 @@ import { useFavicon } from "../../hooks/useFavicon";
 import { useCartStore } from "../../store/cart.store";
 import { Button } from "../ui/Button";
 import { StorefrontBrandLogo } from "../ui/BrandLogo";
+import { CampaignAnnouncementBar } from "../campaigns/CampaignAnnouncementBar";
 
 interface HeaderProps {
   showRaffles?: boolean;
@@ -65,23 +66,31 @@ export function Header({ showRaffles = false, onOpenCart }: HeaderProps) {
             paddingInline: "var(--sf-inset-mobile-chrome)",
           }}
         >
-          <StorefrontBrandLogo
-            src={branding.logo_url}
-            alt={brandName}
-            size="mobile"
-            className="pointer-events-auto transition-transform duration-300 active:scale-95"
-          />
+          <div
+            className="flex min-w-0 items-center"
+            style={{ gap: "var(--sf-space-sm)" }}
+          >
+            <StorefrontBrandLogo
+              src={branding.logo_url}
+              alt={brandName}
+              size="mobile"
+              className="pointer-events-auto shrink-0 transition-transform duration-300 active:scale-95"
+            />
+            <CampaignAnnouncementBar className="min-w-0 flex-1" />
+          </div>
         </header>
       )}
 
       <header className="pointer-events-none fixed left-0 right-0 top-0 z-50 hidden md:block">
-        <div className="mx-auto flex max-w-[1440px] items-start justify-between px-[var(--sf-padding-outer)] pt-[var(--sf-space-md)]">
+        <div className="mx-auto flex max-w-[1440px] items-center justify-between px-[var(--sf-padding-outer)] pt-[var(--sf-space-md)]">
           <StorefrontBrandLogo
             src={branding.logo_url}
             alt={brandName}
             size="desktop"
             className="pointer-events-auto group flex min-h-[4.25rem] min-w-[4.25rem] transition-transform duration-300 hover:scale-[1.03] active:scale-95"
           />
+
+          <CampaignAnnouncementBar className="mx-[var(--sf-space-lg)] min-w-0 flex-1" />
 
           <Button
             type="button"

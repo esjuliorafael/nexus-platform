@@ -1,47 +1,51 @@
 "use client";
 
-import { Suspense, useEffect, useMemo, useRef, useState } from 'react';
-import Link from 'next/link';
-import { usePathname, useRouter, useSearchParams } from 'next/navigation';
-import { motion } from 'framer-motion';
-import { Package, Search, Sparkles } from 'lucide-react';
-import { storeHeroApi } from '../../api/storeHeroes';
-import { useProducts } from '../../hooks/useProducts';
-import { Product, StoreHero, StoreHeroScope } from '../../types';
-import { formatPrice, getAssetUrl } from '../../utils/formatters';
-import { ProductGrid } from '../../components/product/ProductGrid';
-import { Spinner } from '../../components/ui/Spinner';
-import { Button } from '../../components/ui/Button';
-import { EmptyState } from '../../components/ui/EmptyState';
-import { StorefrontAutonomousCard } from '../../components/ui/Card';
-import { StorefrontPaginator } from '../../components/ui/Paginator';
-import { StorefrontPillFilter } from '../../components/ui/PillFilter';
-import { StorefrontCatalogToolbar } from '../../components/ui/CatalogToolbar';
-import { StoreHeroBanner, StoreHeroSkeleton } from '../../components/layout/StoreHeroBanner';
+import { Suspense, useEffect, useMemo, useRef, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { motion } from "framer-motion";
+import { Package, Search, Sparkles } from "lucide-react";
+import { storeHeroApi } from "../../api/storeHeroes";
+import { useProducts } from "../../hooks/useProducts";
+import { Product, StoreHero, StoreHeroScope } from "../../types";
+import { getAssetUrl } from "../../utils/formatters";
+import { ProductGrid } from "../../components/product/ProductGrid";
+import { Spinner } from "../../components/ui/Spinner";
+import { Button } from "../../components/ui/Button";
+import { EmptyState } from "../../components/ui/EmptyState";
+import { StorefrontAutonomousCard } from "../../components/ui/Card";
+import { StorefrontPaginator } from "../../components/ui/Paginator";
+import { StorefrontPillFilter } from "../../components/ui/PillFilter";
+import { StorefrontCatalogToolbar } from "../../components/ui/CatalogToolbar";
+import {
+  StoreHeroBanner,
+  StoreHeroSkeleton,
+} from "../../components/layout/StoreHeroBanner";
+import { CampaignProductPrice } from "../../components/campaigns/CampaignProductPrice";
 import {
   CatalogFilterPanel,
   type CatalogFilters,
-} from '../../components/product/CatalogFilterPanel';
+} from "../../components/product/CatalogFilterPanel";
 
 const MOBILE_PRODUCTS_PER_PAGE = 8;
 const DESKTOP_PRODUCTS_PER_PAGE = 12;
 
 const typeOptions = [
-  { value: 'ALL', label: 'Todo' },
-  { value: 'BIRD', label: 'Aves' },
-  { value: 'ITEM', label: 'Artículos' },
+  { value: "ALL", label: "Todo" },
+  { value: "BIRD", label: "Aves" },
+  { value: "ITEM", label: "Artículos" },
 ];
 
 const purposeOptions = [
-  { value: 'ALL', label: 'Todos' },
-  { value: 'BREEDING', label: 'Cría' },
-  { value: 'COMBAT', label: 'Combate' },
+  { value: "ALL", label: "Todos" },
+  { value: "BREEDING", label: "Cría" },
+  { value: "COMBAT", label: "Combate" },
 ];
 
 const DEFAULT_CATALOG_FILTERS: CatalogFilters = {
-  type: 'ALL',
-  purpose: 'ALL',
-  status: 'ALL',
+  type: "ALL",
+  purpose: "ALL",
+  status: "ALL",
 };
 
 function StorePageContent() {
@@ -50,35 +54,38 @@ function StorePageContent() {
   const pathname = usePathname();
 
   const { products, loading } = useProducts();
-  const [searchTerm, setSearchText] = useState('');
+  const [searchTerm, setSearchText] = useState("");
   const [heroes, setHeroes] = useState<StoreHero[]>([]);
   const [isHeroLoading, setIsHeroLoading] = useState(false);
   const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
-  const [draftFilters, setDraftFilters] = useState<CatalogFilters>(DEFAULT_CATALOG_FILTERS);
+  const [draftFilters, setDraftFilters] = useState<CatalogFilters>(
+    DEFAULT_CATALOG_FILTERS,
+  );
   const [page, setPage] = useState(1);
   const productsPerPage = useResponsiveProductsPerPage();
   const catalogRef = useRef<HTMLDivElement>(null);
 
-  const typeFilter = searchParams.get('type') || 'ALL';
-  const statusFilter = searchParams.get('status') || 'ALL';
-  const purposeFilter = searchParams.get('purpose') || 'ALL';
-  const heroScope = typeFilter === 'ALL' ? 'ALL' : (typeFilter as StoreHeroScope);
-  const showPurposeFilters = typeFilter === 'BIRD';
+  const typeFilter = searchParams.get("type") || "ALL";
+  const statusFilter = searchParams.get("status") || "ALL";
+  const purposeFilter = searchParams.get("purpose") || "ALL";
+  const heroScope =
+    typeFilter === "ALL" ? "ALL" : (typeFilter as StoreHeroScope);
+  const showPurposeFilters = typeFilter === "BIRD";
   const isSearchMode = searchTerm.trim().length > 0;
 
   const setQueryParams = (newParams: Record<string, string>) => {
     const params = new URLSearchParams(searchParams.toString());
 
     Object.entries(newParams).forEach(([key, val]) => {
-      if (val === 'ALL' || val === '') {
+      if (val === "ALL" || val === "") {
         params.delete(key);
       } else {
         params.set(key, val);
       }
     });
 
-    if (newParams.type && newParams.type !== 'BIRD') {
-      params.delete('purpose');
+    if (newParams.type && newParams.type !== "BIRD") {
+      params.delete("purpose");
     }
 
     const queryString = params.toString();
@@ -113,14 +120,16 @@ function StorePageContent() {
   }, [products]);
 
   const typeProducts = useMemo(() => {
-    return activeProducts.filter((product) => typeFilter === 'ALL' || product.type === typeFilter);
+    return activeProducts.filter(
+      (product) => typeFilter === "ALL" || product.type === typeFilter,
+    );
   }, [activeProducts, typeFilter]);
 
   const featuredProducts = useMemo(() => {
     return typeProducts
       .filter((product) => product.featured)
       .filter((product) => {
-        if (!showPurposeFilters || purposeFilter === 'ALL') return true;
+        if (!showPurposeFilters || purposeFilter === "ALL") return true;
         return product.purpose === purposeFilter;
       })
       .sort((a, b) => {
@@ -134,13 +143,24 @@ function StorePageContent() {
 
   const filteredProducts = useMemo(() => {
     return typeProducts.filter((product) => {
-      const matchesStatus = statusFilter === 'ALL' || product.saleStatus === statusFilter;
+      const matchesStatus =
+        statusFilter === "ALL" || product.saleStatus === statusFilter;
       const matchesPurpose =
-        !showPurposeFilters || purposeFilter === 'ALL' || product.purpose === purposeFilter;
-      const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase());
+        !showPurposeFilters ||
+        purposeFilter === "ALL" ||
+        product.purpose === purposeFilter;
+      const matchesSearch = product.name
+        .toLowerCase()
+        .includes(searchTerm.toLowerCase());
       return matchesStatus && matchesPurpose && matchesSearch;
     });
-  }, [purposeFilter, searchTerm, showPurposeFilters, statusFilter, typeProducts]);
+  }, [
+    purposeFilter,
+    searchTerm,
+    showPurposeFilters,
+    statusFilter,
+    typeProducts,
+  ]);
 
   const totalPages = Math.ceil(filteredProducts.length / productsPerPage);
   const paginatedProducts = useMemo(() => {
@@ -158,7 +178,7 @@ function StorePageContent() {
 
   const clearFilters = () => {
     router.push(pathname);
-    setSearchText('');
+    setSearchText("");
     setIsFilterSheetOpen(false);
   };
 
@@ -185,18 +205,21 @@ function StorePageContent() {
   };
 
   const handlePurposeChange = (value: string) => {
-    setQueryParams({ purpose: purposeFilter === value ? 'ALL' : value });
+    setQueryParams({ purpose: purposeFilter === value ? "ALL" : value });
   };
 
   const handlePageChange = (nextPage: number) => {
     setPage(nextPage);
     requestAnimationFrame(() => {
-      catalogRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      catalogRef.current?.scrollIntoView({
+        behavior: "smooth",
+        block: "start",
+      });
     });
   };
 
   const hasCatalogFilters =
-    typeFilter !== 'ALL' || statusFilter !== 'ALL' || purposeFilter !== 'ALL';
+    typeFilter !== "ALL" || statusFilter !== "ALL" || purposeFilter !== "ALL";
   const hasActiveFilters = hasCatalogFilters || isSearchMode;
   const currentHero = typeProducts.length > 0 ? heroes[0] : null;
 
@@ -204,11 +227,11 @@ function StorePageContent() {
     <div
       className="mx-auto max-w-[var(--sf-max-width-content)] px-[var(--sf-inset-page)]"
       style={{
-        paddingTop: 'var(--sf-store-content-padding-top)',
-        paddingBottom: 'var(--sf-mobile-chrome-content-padding-bottom)',
+        paddingTop: "var(--sf-store-content-padding-top)",
+        paddingBottom: "var(--sf-mobile-chrome-content-padding-bottom)",
       }}
     >
-      <div className="flex flex-col" style={{ gap: 'var(--sf-space-lg)' }}>
+      <div className="flex flex-col" style={{ gap: "var(--sf-space-lg)" }}>
         <StorefrontCatalogToolbar
           searchTerm={searchTerm}
           searchLabel="Buscar productos"
@@ -244,22 +267,28 @@ function StorePageContent() {
             animate={{ opacity: 1 }}
             transition={{ duration: 0.35, ease: [0.23, 1, 0.32, 1] }}
             className="flex flex-col"
-            style={{ gap: 'var(--sf-space-lg)' }}
+            style={{ gap: "var(--sf-space-lg)" }}
           >
             {!isSearchMode && (
               <>
-                {isHeroLoading ? <StoreHeroSkeleton /> : currentHero && <StoreHeroBanner hero={currentHero} />}
+                {isHeroLoading ? (
+                  <StoreHeroSkeleton />
+                ) : (
+                  currentHero && <StoreHeroBanner hero={currentHero} />
+                )}
 
-            {showPurposeFilters && (
-              <StorefrontPillFilter
-                title="Propósito"
-                value={purposeFilter}
-                options={purposeOptions}
-                onChange={handlePurposeChange}
-              />
-            )}
+                {showPurposeFilters && (
+                  <StorefrontPillFilter
+                    title="Propósito"
+                    value={purposeFilter}
+                    options={purposeOptions}
+                    onChange={handlePurposeChange}
+                  />
+                )}
 
-                {featuredProducts.length > 0 && <FeaturedProductRail products={featuredProducts} />}
+                {featuredProducts.length > 0 && (
+                  <FeaturedProductRail products={featuredProducts} />
+                )}
               </>
             )}
 
@@ -272,8 +301,13 @@ function StorePageContent() {
                 onActionClick={clearFilters}
               />
             ) : (
-              <div ref={catalogRef} className="flex flex-col scroll-mt-[var(--sf-mobile-chrome-content-padding-top)] md:scroll-mt-[var(--sf-space-xl)]">
-                {isSearchMode && <SearchResultsHeader count={filteredProducts.length} />}
+              <div
+                ref={catalogRef}
+                className="flex flex-col scroll-mt-[var(--sf-mobile-chrome-content-padding-top)] md:scroll-mt-[var(--sf-space-xl)]"
+              >
+                {isSearchMode && (
+                  <SearchResultsHeader count={filteredProducts.length} />
+                )}
                 <ProductGrid products={paginatedProducts} />
                 <StorefrontPaginator
                   page={page}
@@ -300,18 +334,25 @@ function StorePageContent() {
 }
 
 function useResponsiveProductsPerPage() {
-  const [productsPerPage, setProductsPerPage] = useState(MOBILE_PRODUCTS_PER_PAGE);
+  const [productsPerPage, setProductsPerPage] = useState(
+    MOBILE_PRODUCTS_PER_PAGE,
+  );
 
   useEffect(() => {
-    const mediaQuery = window.matchMedia('(min-width: 768px)');
+    const mediaQuery = window.matchMedia("(min-width: 768px)");
     const updateProductsPerPage = () => {
-      setProductsPerPage(mediaQuery.matches ? DESKTOP_PRODUCTS_PER_PAGE : MOBILE_PRODUCTS_PER_PAGE);
+      setProductsPerPage(
+        mediaQuery.matches
+          ? DESKTOP_PRODUCTS_PER_PAGE
+          : MOBILE_PRODUCTS_PER_PAGE,
+      );
     };
 
     updateProductsPerPage();
-    mediaQuery.addEventListener('change', updateProductsPerPage);
+    mediaQuery.addEventListener("change", updateProductsPerPage);
 
-    return () => mediaQuery.removeEventListener('change', updateProductsPerPage);
+    return () =>
+      mediaQuery.removeEventListener("change", updateProductsPerPage);
   }, []);
 
   return productsPerPage;
@@ -322,15 +363,15 @@ function SearchResultsHeader({ count }: { count: number }) {
     <div
       className="flex items-center justify-between"
       style={{
-        gap: 'var(--sf-space-md)',
-        marginBottom: 'var(--sf-space-md)',
+        gap: "var(--sf-space-md)",
+        marginBottom: "var(--sf-space-md)",
       }}
     >
       <h2 className="sf-text-h3 font-black text-stone-950">
-        {count === 1 ? 'Resultado' : 'Resultados'}
+        {count === 1 ? "Resultado" : "Resultados"}
       </h2>
       <span className="sf-text-button-card font-black text-stone-500 tabular-nums">
-        {count} {count === 1 ? 'producto' : 'productos'}
+        {count} {count === 1 ? "producto" : "productos"}
       </span>
     </div>
   );
@@ -338,14 +379,14 @@ function SearchResultsHeader({ count }: { count: number }) {
 
 function FeaturedProductRail({ products }: { products: Product[] }) {
   return (
-    <section className="flex flex-col" style={{ gap: 'var(--sf-space-sm)' }}>
-      <div className="flex items-center" style={{ gap: 'var(--sf-space-xs)' }}>
+    <section className="flex flex-col" style={{ gap: "var(--sf-space-sm)" }}>
+      <div className="flex items-center" style={{ gap: "var(--sf-space-xs)" }}>
         <Sparkles
           aria-hidden="true"
           className="text-brand-500"
           style={{
-            width: 'var(--sf-size-inner-icon-card)',
-            height: 'var(--sf-size-inner-icon-card)',
+            width: "var(--sf-size-inner-icon-card)",
+            height: "var(--sf-size-inner-icon-card)",
           }}
           strokeWidth={2.35}
         />
@@ -355,8 +396,8 @@ function FeaturedProductRail({ products }: { products: Product[] }) {
       <div
         className="-mx-[var(--sf-inset-page-mobile)] flex snap-x snap-mandatory overflow-x-auto px-[var(--sf-inset-page-mobile)] pb-[var(--sf-space-md)] pt-[var(--sf-space-xs)] [-ms-overflow-style:none] [scrollbar-width:none] md:mx-0 md:px-0 [&::-webkit-scrollbar]:hidden"
         style={{
-          gap: 'var(--sf-space-md)',
-          scrollPaddingInline: 'var(--sf-inset-page-mobile)',
+          gap: "var(--sf-space-md)",
+          scrollPaddingInline: "var(--sf-inset-page-mobile)",
         }}
       >
         {products.map((product) => (
@@ -368,7 +409,9 @@ function FeaturedProductRail({ products }: { products: Product[] }) {
 }
 
 function FeaturedProductCard({ product }: { product: Product }) {
-  const mediaUrl = getAssetUrl(product.coverPosterUrl || product.coverMediaUrl || product.thumbnail);
+  const mediaUrl = getAssetUrl(
+    product.coverPosterUrl || product.coverMediaUrl || product.thumbnail,
+  );
 
   return (
     <Link
@@ -391,8 +434,8 @@ function FeaturedProductCard({ product }: { product: Product }) {
           <div className="flex h-full w-full items-center justify-center bg-stone-100 text-stone-300">
             <Package
               style={{
-                width: 'var(--sf-size-stage-icon-compact)',
-                height: 'var(--sf-size-stage-icon-compact)',
+                width: "var(--sf-size-stage-icon-compact)",
+                height: "var(--sf-size-stage-icon-compact)",
               }}
               strokeWidth={1.5}
             />
@@ -401,20 +444,28 @@ function FeaturedProductCard({ product }: { product: Product }) {
         <div
           className="pointer-events-none absolute inset-x-0 bottom-0"
           style={{
-            height: '58%',
+            height: "58%",
             background:
-              'linear-gradient(to top, rgb(12 10 9 / 0.86) 0%, rgb(12 10 9 / 0.52) 42%, rgb(12 10 9 / 0) 100%)',
+              "linear-gradient(to top, rgb(12 10 9 / 0.86) 0%, rgb(12 10 9 / 0.52) 42%, rgb(12 10 9 / 0) 100%)",
           }}
         />
         <div
           className="absolute inset-x-0 bottom-0 z-10 flex flex-col text-white"
           style={{
-            padding: 'var(--sf-padding-inner)',
-            gap: 'var(--sf-space-xs)',
+            padding: "var(--sf-padding-inner)",
+            gap: "var(--sf-space-xs)",
           }}
         >
           <h3 className="sf-text-h2 line-clamp-1 font-black">{product.name}</h3>
-          <p className="sf-text-body font-black tabular-nums text-white/82">${formatPrice(product.price)}</p>
+          <p className="sf-text-body font-black tabular-nums text-white/82">
+            <CampaignProductPrice
+              product={product}
+              priceClassName="text-white"
+              oldPriceClassName="sf-text-caption font-medium text-white/65 line-through"
+              discountClassName="sf-text-label font-bold text-emerald-300"
+              couponClassName="sf-text-caption font-medium text-white/75"
+            />
+          </p>
         </div>
       </StorefrontAutonomousCard>
     </Link>
@@ -427,7 +478,7 @@ export default function StorePage() {
       fallback={
         <div
           className="mx-auto max-w-[var(--sf-max-width-content)] animate-pulse px-[var(--sf-inset-page)]"
-          style={{ paddingBlock: 'var(--sf-space-xl)' }}
+          style={{ paddingBlock: "var(--sf-space-xl)" }}
         >
           <div className="flex h-96 items-center justify-center">
             <Spinner className="h-12 w-12" />

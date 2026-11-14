@@ -40,6 +40,9 @@ jobs:
       - name: Test admin user permissions
         run: pnpm --filter @nexus/api test:user-permissions
 
+      - name: Test storefront campaign validation
+        run: pnpm --filter @nexus/api test:storefront-campaign
+
       - name: Test WhatsApp Cloud template readiness
         run: pnpm --filter @nexus/api test:whatsapp-cloud-templates
 

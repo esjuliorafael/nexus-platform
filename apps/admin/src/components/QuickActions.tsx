@@ -125,7 +125,12 @@ export const QuickActions: React.FC<QuickActionsProps> = ({
         { icon: <Receipt size={20} />, label: "Estado de cuenta", permission: "billing.view" },
         { icon: <Store size={20} />, label: "Estado Storefront", permission: ["storefront.status.view", "storefront.status.manage"] },
         { icon: <Megaphone size={20} />, label: "Avisos Storefront", permission: "storefront.announcements.view" },
-        { icon: <Settings size={20} />, label: "Plataforma", permission: ["platform.settings.view", "platform.settings.manage"], superadminOnly: true },
+        { icon: <BadgePercent size={20} />,
+          label: "Campañas Storefront",
+          permission: "storefront.campaigns.view",
+        },
+        {
+          icon: <Settings size={20} />, label: "Plataforma", permission: ["platform.settings.view", "platform.settings.manage"], superadminOnly: true },
         { icon: <Users size={20} />, label: "Usuarios", permission: ["users.view", "users.create", "users.update", "users.delete", "users.permissions.manage", "users.roles.manage"] },
         { icon: <LayoutGrid size={20} />, label: "Canales operativos", permission: ["channels.view", "channels.manage", "messaging.templates.delete"] },
         { icon: <Truck size={20} />, label: "Configurar envíos", permission: ["shipping.view", "shipping.manage"] },

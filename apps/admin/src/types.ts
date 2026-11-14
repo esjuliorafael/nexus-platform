@@ -314,6 +314,30 @@ export interface StorefrontAnnouncement {
   updatedAt: string;
 }
 
+export type StorefrontCampaignTheme = "BRAND" | "RED" | "PINE";
+
+export interface StorefrontCampaignCoupon extends Coupon {
+  discountType: "PERCENTAGE";
+}
+
+export interface StorefrontCampaign {
+  id: string;
+  name: string;
+  eyebrow?: string | null;
+  title: string;
+  message?: string | null;
+  ctaLabel?: string | null;
+  ctaHref?: string | null;
+  theme: StorefrontCampaignTheme;
+  active: boolean;
+  startsAt: string;
+  endsAt: string;
+  couponId: number;
+  coupon: StorefrontCampaignCoupon;
+  createdAt: string;
+  updatedAt: string;
+}
+
 export interface Subcategory {
   id: string;
   name: string;
@@ -771,8 +795,7 @@ export type RaffleParticipationStatus =
   | "PAYMENT_REVIEW"
   | "NOT_COMPLETED";
 
-export type RaffleFinancialStatus =
-  | "RECOGNIZED"
+export type RaffleFinancialStatus = "RECOGNIZED"
   | "NOT_RECOGNIZED"
   | "MIXED";
 

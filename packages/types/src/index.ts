@@ -158,7 +158,22 @@ export const PERMISSIONS = [
     group: "storefront",
     label: "Eliminar avisos del Storefront",
   },
-  { id: "storefront.status.view", group: "storefront", label: "Consultar estado del Storefront" },
+  { id: "storefront.campaigns.view",
+    group: "storefront",
+    label: "Consultar campañas del Storefront",
+  },
+  {
+    id: "storefront.campaigns.manage",
+    group: "storefront",
+    label: "Crear, editar y programar campañas del Storefront",
+  },
+  {
+    id: "storefront.campaigns.delete",
+    group: "storefront",
+    label: "Eliminar campañas del Storefront",
+  },
+  {
+    id: "storefront.status.view", group: "storefront", label: "Consultar estado del Storefront" },
   { id: "storefront.status.manage", group: "storefront", label: "Cambiar estado y pantallas del Storefront" },
   { id: "storefront.branding.view", group: "storefront", label: "Consultar identidad visual" },
   { id: "storefront.branding.manage", group: "storefront", label: "Cambiar identidad visual" },
@@ -329,22 +344,30 @@ const legacyPermissionGrants: Record<string, PermissionId[]> = {
   "users.manage": ["users.view", "users.create", "users.update", "users.delete", "users.permissions.manage"],
   "settings.view": [
     "storefront.status.view", "storefront.branding.view", "storefront.heroes.view",
-    "storefront.slides.view", "storefront.announcements.view", "inventory.policies.view",
+    "storefront.slides.view", "storefront.announcements.view",
+    "storefront.campaigns.view",
+    "inventory.policies.view",
     "raffles.settings.view", "payments.config.view", "shipping.view", "messaging.view",
   ],
   "settings.manage": [
     "storefront.status.manage", "storefront.branding.manage", "inventory.policies.manage",
+    "storefront.campaigns.manage",
+    "storefront.campaigns.delete",
     "shipping.manage", "payments.config.manage", "messaging.manage",
   ],
   "products.manage": ["products.view", "products.create", "products.update", "products.delete"],
   "payment-links.manage": ["payment-links.view", "payment-links.generate", "payment-links.revoke"],
   "storefront.content.view": [
     "storefront.heroes.view", "storefront.slides.view", "storefront.announcements.view",
+    "storefront.campaigns.view",
   ],
   "storefront.content.manage": [
     "storefront.heroes.view", "storefront.heroes.manage", "storefront.heroes.delete",
     "storefront.slides.view", "storefront.slides.manage", "storefront.slides.delete",
     "storefront.announcements.view", "storefront.announcements.manage", "storefront.announcements.delete",
+    "storefront.campaigns.view",
+    "storefront.campaigns.manage",
+    "storefront.campaigns.delete",
     "storefront.branding.view", "storefront.branding.manage",
   ],
   "media.vault.manage": ["media.vault.view", "media.vault.upload", "media.vault.delete"],
@@ -389,6 +412,8 @@ const permissionReadGrants: Partial<Record<PermissionId, PermissionId[]>> = {
   "channels.view": ["channels.manage", "messaging.templates.delete"],
   "payments.config.view": ["payments.config.manage"],
   "storefront.status.view": ["storefront.status.manage"],
+  "storefront.campaigns.manage": ["storefront.campaigns.view"],
+  "storefront.campaigns.delete": ["storefront.campaigns.view"],
   "storefront.branding.view": ["storefront.branding.manage"],
   "inventory.policies.view": ["inventory.policies.manage"],
   "raffles.settings.view": ["raffles.settings.manage"],
@@ -462,7 +487,8 @@ export interface Order {
   total: number;
   status: "PENDING" | "PAID" | "SHIPPED" | "DELIVERED" | "CANCELLED";
   paymentMethod: "TRANSFER" | "MERCADOPAGO" | string;
-  paymentStatus: "PENDING" | "APPROVED" | "FAILED" | "EXPIRED" | "CANCELLED" | "REFUNDED" | string;
+  paymentStatus:
+    | "PENDING" | "APPROVED" | "FAILED" | "EXPIRED" | "CANCELLED" | "REFUNDED" | string;
   paymentExpiresAt: Date | null;
   mpPaymentId: string | null;
   mpSellerUserId: string | null;

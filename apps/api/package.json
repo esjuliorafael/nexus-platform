@@ -6,6 +6,7 @@
     "dev": "tsx watch src/server.ts",
     "build": "tsc",
     "test:media-queue": "tsx --test test/media-asset-job-id.test.ts",
+    "test:storefront-campaign": "tsx --test test/storefront-campaign.test.ts",
     "test:raffle-private-link": "tsx --test test/raffle-participation-private-link.test.ts && tsx --test --test-name-pattern=\"manual participation-link failures\" test/whatsapp-providers.test.ts",
     "test:raffle-payment-instructions": "tsx --test test/raffle-payment-instructions.test.ts",
     "test:raffle-participation-ticket": "tsx --test test/raffle-participation-ticket.test.ts",

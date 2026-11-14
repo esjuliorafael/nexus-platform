@@ -37,7 +37,31 @@ test("maps high-impact admin operations to explicit permissions", () => {
     "storefront.announcements.manage",
   );
   assert.equal(
-    requiredPermissionForRequest(makeRequest("/api/v1/admin/whatsapp-channels", "GET")),
+    requiredPermissionForRequest(makeRequest("/api/v1/admin/storefront-campaigns", "GET"),
+    ),
+    "storefront.campaigns.view",
+  );
+  assert.equal(
+    requiredPermissionForRequest(
+      makeRequest("/api/v1/admin/storefront-campaigns", "POST"),
+    ),
+    "storefront.campaigns.manage",
+  );
+  assert.equal(
+    requiredPermissionForRequest(
+      makeRequest("/api/v1/admin/storefront-campaigns/3/active", "PATCH"),
+    ),
+    "storefront.campaigns.manage",
+  );
+  assert.equal(
+    requiredPermissionForRequest(
+      makeRequest("/api/v1/admin/storefront-campaigns/3", "DELETE"),
+    ),
+    "storefront.campaigns.delete",
+  );
+  assert.equal(
+    requiredPermissionForRequest(
+      makeRequest("/api/v1/admin/whatsapp-channels", "GET")),
     "messaging.view",
   );
   assert.equal(
@@ -91,6 +115,76 @@ test("maps high-impact admin operations to explicit permissions", () => {
   assert.equal(
     requiredPermissionForRequest(makeRequest("/api/v1/admin/settings/unknown_runtime_key", "PUT")),
     "platform.settings.manage",
+  );
+});
+
+test("campaign permissions separate viewing, management, and deletion", async () => {
+  const makeReply = () => ({
+    sent: false,
+    statusCode: 200,
+    status(code: number) {
+      this.statusCode = code;
+      return this;
+    },
+    send(body: unknown) {
+      this.sent = true;
+      this.body = body;
+      return body;
+    },
+  });
+  const authorize = async (
+    url: string,
+    method: string,
+    permissions: string[],
+  ) => {
+    const reply: any = makeReply();
+    await authorizeAdminRequest(
+      { authenticate: async () => undefined } as any,
+      makeRequest(url, method, permissions),
+      reply,
+    );
+    return reply;
+  };
+
+  assert.equal(
+    (
+      await authorize("/api/v1/admin/storefront-campaigns", "GET", [
+        "storefront.campaigns.view",
+      ])
+    ).sent,
+    false,
+  );
+  assert.equal(
+    (
+      await authorize("/api/v1/admin/storefront-campaigns", "POST", [
+        "storefront.campaigns.view",
+      ])
+    ).statusCode,
+    403,
+  );
+  assert.equal(
+    (
+      await authorize("/api/v1/admin/storefront-campaigns", "POST", [
+        "storefront.campaigns.manage",
+      ])
+    ).sent,
+    false,
+  );
+  assert.equal(
+    (
+      await authorize("/api/v1/admin/storefront-campaigns/3", "DELETE", [
+        "storefront.campaigns.manage",
+      ])
+    ).statusCode,
+    403,
+  );
+  assert.equal(
+    (
+      await authorize("/api/v1/admin/storefront-campaigns/3", "DELETE", [
+        "storefront.campaigns.delete",
+      ])
+    ).sent,
+    false,
   );
 });
 

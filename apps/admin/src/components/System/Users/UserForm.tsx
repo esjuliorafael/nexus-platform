@@ -48,6 +48,7 @@ const permissionResourceLabel = (id: PermissionId) => {
   if (id.startsWith("storefront.heroes.")) return "Héroes de tienda";
   if (id.startsWith("storefront.slides.")) return "Slider de inicio";
   if (id.startsWith("storefront.announcements.")) return "Avisos del Storefront";
+  if (id.startsWith("storefront.campaigns.")) return "Campañas Storefront";
   if (id.startsWith("storefront.status.")) return "Estado del Storefront";
   if (id.startsWith("storefront.branding.")) return "Identidad visual";
   if (id.startsWith("payment-links.")) return "Enlaces de pago";
@@ -368,7 +369,8 @@ export const UserForm = forwardRef<UserFormRef, UserFormProps>(
                     {activePermissionGroup.label}
                   </h3>
                   <span className="shrink-0 text-caption text-text-muted">
-                    {getGroupSelectionCount(activePermissionGroup.id).selected} de {activeGroupPermissions.length}
+                    {getGroupSelectionCount(activePermissionGroup.id).selected}{" "}
+                    de {activeGroupPermissions.length}
                   </span>
                 </div>
 

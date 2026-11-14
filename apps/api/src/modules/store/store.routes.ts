@@ -44,6 +44,10 @@ import {
   storefrontAnnouncementAdminRoutes,
   storefrontAnnouncementPublicRoutes,
 } from "./storefront-announcements/storefront-announcement.routes";
+import {
+  storefrontCampaignAdminRoutes,
+  storefrontCampaignPublicRoutes,
+} from "./campaigns/storefront-campaign.routes";
 import { inventoryIntegrityRoutes } from "./inventory/inventory-integrity.routes";
 import { authorizeAdminRequest } from "../../utils/user-permissions";
 
@@ -69,6 +73,9 @@ export async function storeRoutes(server: FastifyInstance) {
   });
   await server.register(publicSettingRoutes, { prefix: "/store/settings" });
   await server.register(storefrontAnnouncementPublicRoutes, { prefix: "/store/announcements" });
+  await server.register(storefrontCampaignPublicRoutes, {
+    prefix: "/store/campaigns",
+  });
   await server.register(mpRoutes, { prefix: "/mp" });
   await server.register(evolutionWebhookRoutes, { prefix: "/webhooks" });
   await server.register(kapsoWebhookRoutes, { prefix: "/webhooks" });
@@ -106,6 +113,9 @@ export async function storeRoutes(server: FastifyInstance) {
   await server.register(channelsOverviewRoutes, { prefix: "/admin/channels" });
   await server.register(couponAdminRoutes, { prefix: "/admin/coupons" });
   await server.register(storefrontAnnouncementAdminRoutes, { prefix: "/admin/storefront-announcements" });
+  await server.register(storefrontCampaignAdminRoutes, {
+    prefix: "/admin/storefront-campaigns",
+  });
   await server.register(inventoryIntegrityRoutes, { prefix: "/admin/inventory-integrity" });
 
   // Settings Logo Upload

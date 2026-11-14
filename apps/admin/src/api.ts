@@ -41,6 +41,8 @@ import {
   StoreHero,
   StoreHeroScope,
   StorefrontAnnouncement,
+  StorefrontCampaign,
+  StorefrontCampaignCoupon,
   Coupon,
   OwnProfile,
   WhatsAppMessageLog,
@@ -686,6 +688,49 @@ export const apiStorefrontAnnouncements = {
   },
   delete: async (id: string) =>
     api.delete(`/admin/storefront-announcements/${id}`),
+};
+
+const mapStorefrontCampaignCoupon = (item: any): StorefrontCampaignCoupon => ({
+  ...mapCoupon(item),
+  id: String(item.id),
+  discountType: item.discountType,
+});
+
+const mapStorefrontCampaign = (item: any): StorefrontCampaign => ({
+  ...item,
+  id: String(item.id),
+  couponId: Number(item.couponId),
+  coupon: mapStorefrontCampaignCoupon(item.coupon),
+});
+
+export const apiStorefrontCampaigns = {
+  getAll: async (): Promise<StorefrontCampaign[]> => {
+    const res = await api.get("/admin/storefront-campaigns");
+    return res.data.map(mapStorefrontCampaign);
+  },
+  getAvailableCoupons: async (
+    campaignId?: string,
+  ): Promise<StorefrontCampaignCoupon[]> => {
+    const res = await api.get("/admin/storefront-campaigns/available-coupons", {
+      params: campaignId ? { campaignId } : undefined,
+    });
+    return res.data.map(mapStorefrontCampaignCoupon);
+  },
+  create: async (data: Partial<StorefrontCampaign>) => {
+    const res = await api.post("/admin/storefront-campaigns", data);
+    return mapStorefrontCampaign(res.data);
+  },
+  update: async (id: string, data: Partial<StorefrontCampaign>) => {
+    const res = await api.put(`/admin/storefront-campaigns/${id}`, data);
+    return mapStorefrontCampaign(res.data);
+  },
+  updateActive: async (id: string, active: boolean) => {
+    const res = await api.patch(`/admin/storefront-campaigns/${id}/active`, {
+      active,
+    });
+    return mapStorefrontCampaign(res.data);
+  },
+  delete: async (id: string) => api.delete(`/admin/storefront-campaigns/${id}`),
 };
 
 const mapNullableNumber = (value: any) =>

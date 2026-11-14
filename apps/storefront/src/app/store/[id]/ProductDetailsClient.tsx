@@ -17,6 +17,7 @@ import { Button } from "../../../components/ui/Button";
 import { Badge } from "../../../components/ui/Badge";
 import { StorefrontCard } from "../../../components/ui/Card";
 import { MediaViewer } from "../../../components/ui/MediaViewer";
+import { CampaignProductPrice } from "../../../components/campaigns/CampaignProductPrice";
 import {
   StorefrontMediaRail,
   StorefrontVideoThumbnailIndicator,
@@ -46,7 +47,6 @@ import {
 import {
   formatBirdAge,
   formatBirdPurpose,
-  formatPrice,
   formatSaleStatus,
   getAssetUrl,
 } from "../../../utils/formatters";
@@ -272,7 +272,9 @@ export function ProductDetailsClient({
       thumbnail: getAssetUrl(
         product.coverMediaType === "VIDEO"
           ? product.coverPosterUrl
-          : product.coverPosterUrl || product.coverMediaUrl || product.thumbnail,
+          : product.coverPosterUrl ||
+              product.coverMediaUrl ||
+              product.thumbnail,
       ),
       type: product.type.toLowerCase() as "bird" | "item",
     });
@@ -568,7 +570,12 @@ export function ProductDetailsClient({
                       STOREFRONT_DETAIL_MOTION_SEQUENCE_MS.priceDelayMs,
                     )}
                   >
-                    ${formatPrice(product.price)}
+                    <CampaignProductPrice
+                      product={product}
+                      priceClassName="text-brand-500"
+                      oldPriceClassName="sf-text-secondary font-semibold text-stone-500 line-through"
+                      discountClassName="sf-text-label font-bold text-emerald-700"
+                    />
                   </motion.p>
                 </div>
               </div>
@@ -763,7 +770,7 @@ export function ProductDetailsClient({
       </div>
 
       <ProductPurchaseBar
-        price={product.price}
+        product={product}
         isAvailable={isAvailable}
         addFeedbackActive={addFeedbackActive}
         onAddToCart={handleAddToCart}
@@ -920,12 +927,12 @@ function ProductTopRail({ children }: { children: ReactNode }) {
 }
 
 function ProductPurchaseBar({
-  price,
+  product,
   isAvailable,
   addFeedbackActive,
   onAddToCart,
 }: {
-  price: Product["price"];
+  product: Product;
   isAvailable: boolean;
   addFeedbackActive: boolean;
   onAddToCart: () => void;
@@ -964,9 +971,14 @@ function ProductPurchaseBar({
         }}
       >
         <div className="min-w-0 shrink-0 pl-[var(--sf-space-sm)]">
-          <span className="block sf-text-caption text-stone-400">Total</span>
-          <p className="truncate sf-text-h2 font-black text-brand-500">
-            ${formatPrice(price)}
+          <span className="block sf-text-caption text-stone-400">Precio</span>
+          <p className="sf-text-h2 font-black text-brand-500">
+            <CampaignProductPrice
+              product={product}
+              priceClassName="text-brand-500"
+              oldPriceClassName="sf-text-label font-medium text-stone-500 line-through"
+              discountClassName="sf-text-label font-bold text-emerald-700"
+            />
           </p>
         </div>
 

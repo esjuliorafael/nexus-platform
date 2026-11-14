@@ -131,6 +131,11 @@ import {
   StorefrontAnnouncementViewMode,
   StorefrontAnnouncementViewRef,
 } from "./components/System/StorefrontAnnouncements/StorefrontAnnouncementView";
+import {
+  StorefrontCampaignsView,
+  StorefrontCampaignViewMode,
+  StorefrontCampaignsViewRef,
+} from "./components/System/StorefrontCampaigns/StorefrontCampaignsView";
 import { LoginView } from "./components/Auth/LoginView";
 import { SetupAccountView } from "./components/Auth/SetupAccountView";
 import {
@@ -204,6 +209,7 @@ type SystemViewType =
   | "billing"
   | "storefront"
   | "announcements"
+  | "campaigns"
   | "raffle"
   | "intelligence";
 
@@ -678,6 +684,9 @@ function App() {
   const canViewHeroes = hasPermission("storefront.heroes.view");
   const canViewSlides = hasPermission("storefront.slides.view");
   const canViewAnnouncements = hasPermission("storefront.announcements.view");
+  const canViewCampaigns = hasPermission("storefront.campaigns.view");
+  const canManageCampaigns = hasPermission("storefront.campaigns.manage");
+  const canDeleteCampaigns = hasPermission("storefront.campaigns.delete");
   const canViewCoupons = hasPermission("coupons.view");
   const canViewPaymentLinks = hasPermission("payment-links.view");
   const canViewMedia = hasPermission("media.view");
@@ -751,6 +760,7 @@ function App() {
       "billing",
       "storefront",
       "announcements",
+      "campaigns",
       "raffle",
       "intelligence",
     ];
@@ -824,6 +834,8 @@ function App() {
   const [hasTempLogo, setHasTempLogo] = useState(false);
   const [announcementViewMode, setAnnouncementViewMode] =
     useState<StorefrontAnnouncementViewMode>("list");
+  const [campaignViewMode, setCampaignViewMode] =
+    useState<StorefrontCampaignViewMode>("list");
   const [isFormValid, setIsFormValid] = useState(false);
   const [isUserFormSaving, setIsUserFormSaving] = useState(false);
   const [raffleEnabled, setRaffleEnabled] = useState(
@@ -844,6 +856,8 @@ function App() {
   const storefrontStatusRef = React.useRef<StorefrontStatusViewRef>(null);
   const storefrontAnnouncementRef =
     React.useRef<StorefrontAnnouncementViewRef>(null);
+
+  const storefrontCampaignsRef = React.useRef<StorefrontCampaignsViewRef>(null);
 
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null);
   const orderDetailOriginRef = React.useRef<
@@ -1199,16 +1213,22 @@ function App() {
   const showRaffleNavigation = raffleEnabled || isRafflesMode;
   const visibleTabs: ActiveTabType[] = [
     ...(canViewDashboard ? ["Inicio" as const] : []),
-    ...((canViewProducts || canViewOrders || canViewRaffleParticipations) ? ["Operaciones" as const] : []),
-    ...((canViewProducts || canViewOrders || canViewPaymentLinks || canViewCoupons || canViewHeroes) ? ["Tienda" as const] : []),
+    ...(canViewProducts || canViewOrders || canViewRaffleParticipations
+      ? ["Operaciones" as const] : []),
+    ...(canViewProducts || canViewOrders || canViewPaymentLinks || canViewCoupons || canViewHeroes
+      ? ["Tienda" as const] : []),
     ...(raffleEnabled && userPermissions.some((permission) => permission.startsWith("raffles.")) ? ["Rifas" as const] : []),
-    ...((canViewMedia || canViewMediaVault || canViewCategories || canViewSlides) ? ["Medios" as const] : []),
+    ...(canViewMedia || canViewMediaVault || canViewCategories || canViewSlides
+      ? ["Medios" as const] : []),
     ...(userPermissions.some((permission) => [
       "shipping.view", "shipping.manage", "payments.config.manage",
       "payments.config.view", "inventory.policies.view",
       "inventory.policies.manage", "storefront.status.view", "storefront.status.manage",
       "storefront.announcements.view", "storefront.announcements.manage", "storefront.announcements.delete", "storefront.branding.view",
-      "storefront.branding.manage", "platform.settings.view", "platform.settings.manage",
+        "storefront.campaigns.view",
+        "storefront.campaigns.manage",
+        "storefront.campaigns.delete",
+        "storefront.branding.manage", "platform.settings.view", "platform.settings.manage",
       "billing.view", "billing.manage", "channels.view", "channels.manage",
       "messaging.view", "messaging.manage", "messaging.templates.delete", "raffles.settings.view", "raffles.settings.manage",
       "raffles.intelligence.view", "raffles.intelligence.manage", "raffles.intelligence.export",
@@ -1522,6 +1542,10 @@ function App() {
       case "Avisos Storefront":
         navigateToSystem("announcements");
         setAnnouncementViewMode("list");
+        break;
+      case "Campañas Storefront":
+        navigateToSystem("campaigns");
+        setCampaignViewMode("list");
         break;
       case "Plataforma":
         navigateToSystem("config");
@@ -2140,7 +2164,8 @@ function App() {
       if (!isTransfer) return null;
       return (
         <PageHeaderActionPair>
-          {hasPermission("raffles.participations.manage") && <NexusSectionButton
+          {hasPermission("raffles.participations.manage") && (
+            <NexusSectionButton
             variant="secondary"
             className="w-full text-text-muted hover:text-text-main md:w-auto"
             onClick={() =>
@@ -2159,8 +2184,10 @@ function App() {
             }
           >
             Cancelar
-          </NexusSectionButton>}
-          {hasPermission("raffles.financial.manage") && <NexusSectionButton
+          </NexusSectionButton>
+          )}
+          {hasPermission("raffles.financial.manage") && (
+            <NexusSectionButton
             variant="brand"
             icon={CheckCircle2}
             className="w-full md:w-auto"
@@ -2179,7 +2206,8 @@ function App() {
             }
           >
             Confirmar pago
-          </NexusSectionButton>}
+          </NexusSectionButton>
+          )}
         </PageHeaderActionPair>
       );
     }
@@ -2229,7 +2257,8 @@ function App() {
           className="flex w-full flex-col sm:flex-row"
           style={{ gap: "var(--space-sm)" }}
         >
-          {hasPermission("raffles.participations.manage") && <NexusSectionButton
+          {hasPermission("raffles.participations.manage") && (
+            <NexusSectionButton
             variant="secondary"
             icon={RotateCcw}
             className="w-full whitespace-nowrap sm:w-auto"
@@ -2249,8 +2278,10 @@ function App() {
             }
           >
             Restaurar participación
-          </NexusSectionButton>}
-          {hasPermission("raffles.financial.manage") && <NexusSectionButton
+          </NexusSectionButton>
+          )}
+          {hasPermission("raffles.financial.manage") && (
+            <NexusSectionButton
             variant="brand"
             icon={CheckCircle2}
             className="w-full whitespace-nowrap sm:w-auto"
@@ -2270,7 +2301,8 @@ function App() {
             }
           >
             Restaurar y confirmar
-          </NexusSectionButton>}
+          </NexusSectionButton>
+          )}
         </div>
       );
     }
@@ -2514,6 +2546,40 @@ function App() {
           </PageHeaderActionPair>
         );
       }
+      if (systemViewMode === "campaigns") {
+        if (!canViewCampaigns) return null;
+        if (!canManageCampaigns) return null;
+        if (campaignViewMode === "list") {
+          return (
+            <NexusSectionButton
+              onClick={() => setCampaignViewMode("create")}
+              variant="brand"
+              icon={Plus}
+            >
+              Nueva campaña
+            </NexusSectionButton>
+          );
+        }
+        return (
+          <PageHeaderActionPair>
+            <NexusSectionButton
+              onClick={() => setCampaignViewMode("list")}
+              variant="secondary"
+              className="text-text-muted hover:text-text-main"
+            >
+              Cancelar
+            </NexusSectionButton>
+            <NexusSectionButton
+              onClick={() => storefrontCampaignsRef.current?.handleSave()}
+              variant="brand"
+              icon={Save}
+              disabled={!isFormValid}
+            >
+              Guardar campaña
+            </NexusSectionButton>
+          </PageHeaderActionPair>
+        );
+      }
       if (systemViewMode === "raffle") {
         if (!hasPermission("raffles.settings.manage")) return null;
         return (
@@ -2646,6 +2712,7 @@ function App() {
                 systemViewMode={systemViewMode}
                 usersFormMode={userFormMode}
                 announcementViewMode={announcementViewMode}
+                campaignViewMode={campaignViewMode}
                 profileViewMode={profileViewMode}
                 shippingSubView={shippingSubView}
                 channelsViewMode={channelsViewMode}
@@ -3255,6 +3322,17 @@ function App() {
                         setConfirmDialog={setConfirmDialog}
                         canManage={canManageAnnouncements}
                         canDelete={canDeleteAnnouncements}
+                      />
+                    ) : systemViewMode === "campaigns" ? (
+                      <StorefrontCampaignsView
+                        ref={storefrontCampaignsRef}
+                        viewMode={campaignViewMode}
+                        onSetViewMode={setCampaignViewMode}
+                        onValidationChange={setIsFormValid}
+                        showToast={showToast}
+                        setConfirmDialog={setConfirmDialog}
+                        canManage={canManageCampaigns}
+                        canDelete={canDeleteCampaigns}
                       />
                     ) : systemViewMode === "raffle" ? (
                       <RaffleSettingsView

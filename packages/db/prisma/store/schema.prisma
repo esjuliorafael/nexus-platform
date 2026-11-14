@@ -432,9 +432,31 @@ model Coupon {
   updatedAt     DateTime           @updatedAt @map("updated_at")
   orders        Order[]
   paymentHolds  StorePaymentHold[]
+  storefrontCampaign StorefrontCampaign?
 
   @@index([active, startsAt, expiresAt])
   @@map("coupons")
+}
+
+model StorefrontCampaign {
+  id        Int      @id @default(autoincrement())
+  name      String
+  eyebrow   String?
+  title     String
+  message   String?
+  ctaLabel  String?  @map("cta_label")
+  ctaHref   String?  @map("cta_href")
+  theme     String   @default("BRAND")
+  active    Boolean  @default(false)
+  startsAt  DateTime @map("starts_at")
+  endsAt    DateTime @map("ends_at")
+  couponId  Int      @unique @map("coupon_id")
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Restrict)
+
+  @@index([active, startsAt, endsAt])
+  @@map("storefront_campaigns")
 }
 
 model OrderRead {

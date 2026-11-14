@@ -209,6 +209,105 @@
     animation: sf-brand-logo-reveal var(--sf-motion-duration-standard) var(--sf-ease-reveal) both;
   }
 
+  @keyframes sf-campaign-ticker-scroll {
+    to {
+      transform: translate3d(-50%, 0, 0);
+    }
+  }
+
+  .sf-campaign-ticker {
+    height: var(--sf-h-button-card);
+    min-width: 0;
+    overflow: hidden;
+    border: 1px solid rgb(255 255 255 / 0.14);
+    border-radius: 999px;
+    box-shadow: 0 0.5rem 1.5rem rgb(12 10 9 / 0.2);
+  }
+
+  .sf-campaign-ticker-link {
+    display: flex;
+    width: 100%;
+    height: 100%;
+    align-items: center;
+    overflow: hidden;
+    color: inherit;
+    font-size: var(--sf-text-secondary);
+    font-weight: 600;
+    line-height: 1;
+    text-decoration: none;
+  }
+
+  .sf-campaign-ticker-track {
+    display: flex;
+    width: max-content;
+    align-items: center;
+    animation: sf-campaign-ticker-scroll 32s linear infinite;
+    will-change: transform;
+  }
+
+  .sf-campaign-ticker-copy {
+    display: inline-flex;
+    flex: 0 0 auto;
+    align-items: center;
+    gap: var(--sf-space-md);
+    padding-inline: var(--sf-space-md) var(--sf-space-xl);
+    white-space: nowrap;
+  }
+
+  .sf-campaign-ticker-message {
+    color: rgb(255 255 255 / 0.78);
+  }
+
+  .sf-campaign-ticker-cta {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sf-space-xs);
+    font-weight: 800;
+  }
+
+  .sf-campaign-ticker-cta svg {
+    width: var(--sf-space-md);
+    height: var(--sf-space-md);
+    flex: 0 0 auto;
+  }
+
+  .sf-campaign-ticker-link:hover .sf-campaign-ticker-track,
+  .sf-campaign-ticker-link:focus-visible .sf-campaign-ticker-track {
+    animation-play-state: paused;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .sf-campaign-ticker-track {
+      width: 100%;
+      animation: none;
+      transform: none;
+      will-change: auto;
+    }
+
+    .sf-campaign-ticker-copy[aria-hidden="true"] {
+      display: none;
+    }
+
+    .sf-campaign-ticker-copy:first-child {
+      width: 100%;
+      justify-content: center;
+      gap: var(--sf-space-sm);
+      padding-inline: var(--sf-space-sm);
+    }
+
+    .sf-campaign-ticker-eyebrow,
+    .sf-campaign-ticker-message {
+      display: none;
+    }
+
+    .sf-campaign-ticker-title {
+      min-width: 0;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+  }
+
   @keyframes sf-checkout-step-reveal {
     from {
       opacity: 0;

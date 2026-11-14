@@ -12,13 +12,14 @@ import {
   Tag,
 } from "lucide-react";
 import { Product } from "../../types";
-import { formatPrice, getAssetUrl } from "../../utils/formatters";
+import { getAssetUrl } from "../../utils/formatters";
 import { useCartStore } from "../../store/cart.store";
 import { useCartUiStore } from "../../store/cart-ui.store";
 import { useToastStore } from "../../store/toast.store";
 import { Badge } from "../ui/Badge";
 import { Button } from "../ui/Button";
 import { StorefrontAutonomousCard } from "../ui/Card";
+import { CampaignProductPrice } from "../campaigns/CampaignProductPrice";
 
 export function ProductCard({ product }: { product: Product }) {
   const [addFeedbackActive, setAddFeedbackActive] = useState(false);
@@ -254,7 +255,12 @@ export function ProductCard({ product }: { product: Product }) {
           {product.name}
         </h3>
         <p className="sf-text-body font-black leading-none tabular-nums text-brand-500">
-          ${formatPrice(product.price)}
+          <CampaignProductPrice
+            product={product}
+            priceClassName="text-brand-500"
+            oldPriceClassName="sf-text-caption font-medium text-stone-500 line-through"
+            discountClassName="sf-text-label font-bold text-emerald-700"
+          />
         </p>
       </div>
     </motion.article>

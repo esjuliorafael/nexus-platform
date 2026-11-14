@@ -22,6 +22,7 @@ interface PageHeaderProps {
   systemViewMode: string;
   usersFormMode?: "create" | "edit" | null;
   announcementViewMode?: string;
+  campaignViewMode?: string;
   profileViewMode: string;
   shippingSubView: string;
   channelsViewMode: string;
@@ -57,6 +58,7 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
   systemViewMode,
   usersFormMode = null,
   announcementViewMode = "list",
+  campaignViewMode = "list",
   profileViewMode,
   shippingSubView,
   channelsViewMode,
@@ -350,9 +352,13 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
         );
       }
       if (systemViewMode === "users" && usersFormMode === "create")
-        return <>Nuevo <span className="text-text-muted">usuario</span></>;
+        return (
+          <>Nuevo <span className="text-text-muted">usuario</span></>
+        );
       if (systemViewMode === "users" && usersFormMode === "edit")
-        return <>Editar <span className="text-text-muted">usuario</span></>;
+        return (
+          <>Editar <span className="text-text-muted">usuario</span></>
+        );
       if (systemViewMode === "users")
         return (
           <>
@@ -429,6 +435,25 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
           </>
         );
       }
+      if (systemViewMode === "campaigns") {
+        if (campaignViewMode === "create")
+          return (
+            <>
+              Nueva <span className="text-text-muted">campaña</span>
+            </>
+          );
+        if (campaignViewMode === "edit")
+          return (
+            <>
+              Editar <span className="text-text-muted">campaña</span>
+            </>
+          );
+        return (
+          <>
+            Campañas del <span className="text-text-muted">Storefront</span>
+          </>
+        );
+      }
       if (systemViewMode === "intelligence")
         return (
           <>
@@ -489,6 +514,11 @@ export const PageHeader: React.FC<PageHeaderProps> = ({
       if (announcementViewMode === "create" || announcementViewMode === "edit")
         return "Configura el contenido, destino, vigencia y frecuencia del mensaje.";
       return "Publica avisos globales o específicos sin modificar el contenido principal.";
+    }
+    if (isSystemMode && systemViewMode === "campaigns") {
+      if (campaignViewMode === "create" || campaignViewMode === "edit")
+        return "Programa una promoción y vincúlala con un cupón existente.";
+      return "Coordina la vigencia y el mensaje de campaña, y el cupón que los clientes podrán aplicar en el Storefront.";
     }
     if (isCreatingProduct || isEditingProduct)
       return "Administra el inventario del rancho. Priorizamos la venta de aves de combate y cría.";

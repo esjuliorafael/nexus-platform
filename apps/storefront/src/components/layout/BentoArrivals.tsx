@@ -1,14 +1,14 @@
 "use client";
 
-import { motion } from 'framer-motion';
-import { ArrowUpRight, ShoppingCart, Eye, Tag } from 'lucide-react';
-import Link from 'next/link';
-import { Product } from '../../types';
-import { Badge } from '../ui/Badge';
-import { Button } from '../ui/Button';
-import { formatPrice } from '../../utils/formatters';
-import { useCartStore } from '../../store/cart.store';
-import { useToastStore } from '../../store/toast.store';
+import { motion } from "framer-motion";
+import { ArrowUpRight, ShoppingCart, Eye, Tag } from "lucide-react";
+import Link from "next/link";
+import { Product } from "../../types";
+import { Badge } from "../ui/Badge";
+import { Button } from "../ui/Button";
+import { useCartStore } from "../../store/cart.store";
+import { useToastStore } from "../../store/toast.store";
+import { CampaignProductPrice } from "../campaigns/CampaignProductPrice";
 
 interface BentoArrivalsProps {
   products: Product[];
@@ -37,14 +37,21 @@ export function BentoArrivals({ products }: BentoArrivalsProps) {
   );
 }
 
-function ImmersiveProductCard({ product, priority = false }: { product: Product, priority?: boolean }) {
+function ImmersiveProductCard({
+  product,
+  priority = false,
+}: {
+  product: Product;
+  priority?: boolean;
+}) {
   const addItem = useCartStore((state) => state.addItem);
   const showToast = useToastStore((state) => state.showToast);
 
   const isAvailable =
-    product.saleStatus === 'AVAILABLE' &&
-    (product.type !== 'ITEM' || Number(product.stock) > 0);
-  const displayImage = product.coverPosterUrl || product.coverMediaUrl || product.thumbnail;
+    product.saleStatus === "AVAILABLE" &&
+    (product.type !== "ITEM" || Number(product.stock) > 0);
+  const displayImage =
+    product.coverPosterUrl || product.coverMediaUrl || product.thumbnail;
 
   const handleAddToCart = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -55,16 +62,19 @@ function ImmersiveProductCard({ product, priority = false }: { product: Product,
       price: Number(product.price),
       quantity: 1,
       thumbnail: displayImage,
-      type: product.type.toLowerCase() as 'bird' | 'item',
+      type: product.type.toLowerCase() as "bird" | "item",
     });
-    showToast(`${product.name} añadido al carrito`, 'success');
+    showToast(`${product.name} añadido al carrito`, "success");
   };
 
   const statusConfig = {
-    AVAILABLE: { label: 'Disponible', variant: 'success' as const },
-    RESERVED: { label: 'Apartado', variant: 'warning' as const },
-    SOLD: { label: 'Vendido', variant: 'danger' as const },
-  }[product.saleStatus] || { label: product.saleStatus, variant: 'muted' as const };
+    AVAILABLE: { label: "Disponible", variant: "success" as const },
+    RESERVED: { label: "Apartado", variant: "warning" as const },
+    SOLD: { label: "Vendido", variant: "danger" as const },
+  }[product.saleStatus] || {
+    label: product.saleStatus,
+    variant: "muted" as const,
+  };
 
   return (
     <motion.div
@@ -72,10 +82,10 @@ function ImmersiveProductCard({ product, priority = false }: { product: Product,
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
       className="group relative h-full overflow-hidden bg-white border border-stone-200/60 shadow-sm transition-all duration-700 hover:shadow-2xl hover:shadow-stone-200/50 hover:border-brand-500/20"
-      style={{ 
-        borderRadius: 'var(--sf-radius-outer)',
-        aspectRatio: priority ? 'unset' : '1/1',
-        minHeight: priority ? '500px' : 'auto'
+      style={{
+        borderRadius: "var(--sf-radius-outer)",
+        aspectRatio: priority ? "unset" : "1/1",
+        minHeight: priority ? "500px" : "auto",
       }}
     >
       {/* Background Image (Full blood) */}
@@ -94,33 +104,42 @@ function ImmersiveProductCard({ product, priority = false }: { product: Product,
       </div>
 
       {/* Top Badge: Global Status (Recursive Position & Radius) */}
-      <div 
+      <div
         className="absolute z-20"
-        style={{ top: 'var(--sf-padding-inner)', left: 'var(--sf-padding-inner)' }}
+        style={{
+          top: "var(--sf-padding-inner)",
+          left: "var(--sf-padding-inner)",
+        }}
       >
-        <Badge 
-          variant={statusConfig.variant} 
+        <Badge
+          variant={statusConfig.variant}
           className="shadow-xl backdrop-blur-md px-5 py-2 uppercase font-black tracking-widest text-[9px] border-none"
-          style={{ borderRadius: 'var(--sf-radius-inner)' }}
+          style={{ borderRadius: "var(--sf-radius-inner)" }}
         >
           {statusConfig.label}
         </Badge>
       </div>
 
       {/* Information Overlay (Integrated with accurate spacing) */}
-      <div 
+      <div
         className="absolute inset-0 z-10 flex flex-col justify-end bg-gradient-to-t from-stone-950/90 via-stone-950/20 to-transparent transition-all duration-500"
-        style={{ padding: 'var(--sf-padding-inner)' }}
+        style={{ padding: "var(--sf-padding-inner)" }}
       >
         <div className="space-y-4">
           {/* Always Visible: Title and Price */}
           <div className="space-y-1">
-             <h3 className="sf-text-h2 font-black tracking-tight line-clamp-2 leading-none text-white group-hover:text-brand-400 transition-colors">
-               {product.name}
-             </h3>
-             <p className="sf-text-body font-black tabular-nums text-brand-400 leading-none">
-               ${formatPrice(product.price)}
-             </p>
+            <h3 className="sf-text-h2 font-black tracking-tight line-clamp-2 leading-none text-white group-hover:text-brand-400 transition-colors">
+              {product.name}
+            </h3>
+            <p className="sf-text-body font-black tabular-nums text-brand-400 leading-none">
+              <CampaignProductPrice
+                product={product}
+                priceClassName="text-brand-400"
+                oldPriceClassName="sf-text-caption font-medium text-white/65 line-through"
+                discountClassName="sf-text-label font-bold text-emerald-300"
+                couponClassName="sf-text-caption font-medium text-white/75"
+              />
+            </p>
           </div>
 
           {/* Hover Visible: Extra Info and Actions */}
@@ -131,34 +150,32 @@ function ImmersiveProductCard({ product, priority = false }: { product: Product,
                   {product.description}
                 </p>
               )}
-              
+
               <div className="grid grid-cols-2 gap-3">
-                <Button 
+                <Button
                   asChild
-                  variant="secondary" 
-                  context="card" 
+                  variant="secondary"
+                  context="card"
                   className="w-full h-12 bg-white/10 backdrop-blur-xl border border-white/10 text-white shadow-lg hover:bg-white/20 transition-all active:scale-95"
-                  style={{ borderRadius: 'var(--sf-radius-inner)' }}
+                  style={{ borderRadius: "var(--sf-radius-inner)" }}
                 >
-                  <Link href={`/store/${product.id}`}>
-                    Detalles
-                  </Link>
+                  <Link href={`/store/${product.id}`}>Detalles</Link>
                 </Button>
-                
+
                 {isAvailable ? (
-                  <Button 
-                    variant="primary" 
-                    context="card" 
+                  <Button
+                    variant="primary"
+                    context="card"
                     onClick={handleAddToCart}
                     className="w-full h-12 shadow-xl shadow-brand-500/30 transition-all active:scale-95"
-                    style={{ borderRadius: 'var(--sf-radius-inner)' }}
+                    style={{ borderRadius: "var(--sf-radius-inner)" }}
                   >
                     <ShoppingCart size={18} className="mr-2" /> Añadir
                   </Button>
                 ) : (
-                  <div 
+                  <div
                     className="w-full h-12 bg-white/5 backdrop-blur-md border border-white/5 flex items-center justify-center text-[10px] font-black uppercase text-white/30 tracking-widest"
-                    style={{ borderRadius: 'var(--sf-radius-inner)' }}
+                    style={{ borderRadius: "var(--sf-radius-inner)" }}
                   >
                     No disp.
                   </div>
