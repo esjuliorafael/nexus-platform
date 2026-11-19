@@ -986,6 +986,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       let replacedProducts: {
         previous: string;
         replacement: string;
+        due: string;
       } | null = null;
       if (data.kind === "order-item-changed") {
         const event = await storePrisma.orderEvent.findFirst({
@@ -994,7 +995,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
             orderId: order.id,
             eventType: "ORDER_ITEM_REPLACED",
           },
-          select: { previousState: true, nextState: true },
+          select: { previousState: true, nextState: true, metadata: true },
         });
         const previousState = event?.previousState as
           | { item?: { name?: string } }
@@ -1002,6 +1003,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         const nextState = event?.nextState as
           | { item?: { name?: string } }
           | null;
+        const eventMetadata = event?.metadata as { due?: unknown } | null;
         const previous = previousState?.item?.name?.trim();
         const replacement = nextState?.item?.name?.trim();
         if (!previous || !replacement) {
@@ -1020,7 +1022,11 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           });
           return;
         }
-        replacedProducts = { previous, replacement };
+        replacedProducts = {
+          previous,
+          replacement,
+          due: typeof eventMetadata?.due === "string" ? eventMetadata.due : "",
+        };
       }
 
       let paymentChannel = null;
@@ -1079,6 +1085,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           ? {
               previous_product: replacedProducts.previous,
               replacement_product: replacedProducts.replacement,
+              due: replacedProducts.due,
             }
           : undefined,
       );

@@ -11,6 +11,7 @@ import {
   getCloudTemplateDefinitionHash,
   getCloudTemplateSimplifiedDefaultContent,
   normalizeCloudTemplateParameterValue,
+  omitOptionalOrderItemDue,
   omitOptionalRaffleInvitationAdditionalInfo,
   omitOptionalRaffleParticipationInfo,
   resolveCloudTemplateOwner,
@@ -126,8 +127,26 @@ test("defines a dedicated utility template for customer-requested order item cha
   assert.equal(getCloudTemplateCategory("ORDER_ITEM_CHANGED"), "UTILITY");
   assert.match(source.content, /\{\{previous_product\}\}/);
   assert.match(source.content, /\{\{replacement_product\}\}/);
+  assert.match(source.content, /\{\{due\}\}/);
   assert.match(source.content, /\{\{order_url\}\}/);
   assert.doesNotMatch(getCloudTemplateBodyContent(source), /\{\{order_url\}\}/);
+  assert.doesNotMatch(getCloudTemplateBodyContent(source), /\{\{due\}\}/);
+  assert.equal(
+    getCloudTemplateDefinitionHash(source),
+    getCloudTemplateDefinitionHash({
+      ...source,
+      content: omitOptionalOrderItemDue(source.content),
+    }),
+  );
+});
+
+test("omits an empty optional order replacement balance without leaving a blank paragraph", () => {
+  assert.equal(
+    omitOptionalOrderItemDue(
+      "Antes del cambio.\n\n  {{due}}  \n\nDespués del cambio.",
+    ),
+    "Antes del cambio.\n\nDespués del cambio.",
+  );
 });
 
 test("normalizes tabs and repeated whitespace in Cloud API parameters", () => {

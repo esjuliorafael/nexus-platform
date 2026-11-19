@@ -275,12 +275,14 @@ model Order {
   mpPaymentMethodId     String?                 @map("mp_payment_method_id")
   mpPaymentTypeId       String?                 @map("mp_payment_type_id")
   mpPaidAmount          Decimal?                @map("mp_paid_amount")
+  paidAmount            Decimal                 @default(0.00) @map("paid_amount")
   mpRefundId            String?                 @map("mp_refund_id")
   mpRefundedAmount      Decimal                 @default(0.00) @map("mp_refunded_amount")
   mpRefundedAt          DateTime?               @map("mp_refunded_at")
   customerEmail         String?                 @map("customer_email")
   couponId              Int?                    @map("coupon_id")
   couponCode            String?                 @map("coupon_code")
+  couponSnapshot        Json?                   @map("coupon_snapshot")
   expiresAt             DateTime?               @map("expires_at")
   coupon                Coupon?                 @relation(fields: [couponId], references: [id], onDelete: SetNull)
   items                 OrderItem[]
@@ -330,6 +332,7 @@ model StorePaymentHold {
   total                 Decimal
   couponId              Int?                       @map("coupon_id")
   couponCode            String?                    @map("coupon_code")
+  couponSnapshot        Json?                       @map("coupon_snapshot")
   status                PaymentHoldStatus          @default(ACTIVE)
   expiresAt             DateTime                   @map("expires_at")
   promotedOrderId       Int?                       @unique @map("promoted_order_id")

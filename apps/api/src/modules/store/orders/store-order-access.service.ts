@@ -165,6 +165,7 @@ const getOrderStatus = (order: {
   if (status === "CANCELLED" || paymentStatus === "CANCELLED") return "CANCELLED" as const;
   if (status === "DELIVERED") return "DELIVERED" as const;
   if (status === "SHIPPED") return "SHIPPED" as const;
+  if (paymentStatus === "PARTIALLY_PAID") return "PARTIALLY_PAID" as const;
   if (status === "PAID" || paymentStatus === "APPROVED" || paymentStatus === "PAID") return "PAID" as const;
   if (order.expiresAt && order.expiresAt <= new Date()) return "EXPIRED" as const;
   return "PENDING" as const;
@@ -235,7 +236,9 @@ export async function getStoreOrderAccess(token: string) {
 
   const order = access.order;
   const status = getOrderStatus(order);
-  const paymentPending = status === "PENDING" && String(order.paymentMethod).toUpperCase() === "TRANSFER";
+  const paymentPending =
+    (status === "PENDING" || status === "PARTIALLY_PAID") &&
+    String(order.paymentMethod).toUpperCase() === "TRANSFER";
   const bankInfo = paymentPending ? await getStoreBankInfo(order.items) : null;
   const paymentExpiresAt = order.paymentExpiresAt || order.expiresAt;
 
@@ -256,6 +259,8 @@ export async function getStoreOrderAccess(token: string) {
                 ? "Cancelada"
                 : status === "EXPIRED"
                   ? "Plazo concluido"
+                  : status === "PARTIALLY_PAID"
+                    ? "Saldo pendiente"
                   : "Pago pendiente",
       paymentMethod: String(order.paymentMethod).toUpperCase(),
       paymentExpiresAt,
@@ -275,6 +280,8 @@ export async function getStoreOrderAccess(token: string) {
         discountTotal: Number(order.discountTotal),
         shippingCost: Number(order.shippingCost),
         total: Number(order.total),
+        paidAmount: Number(order.paidAmount || 0),
+        balanceDue: Math.max(0, Number(order.total) - Number(order.paidAmount || 0)),
       },
       items: order.items.map(toStoreOrderAccessItem),
     },

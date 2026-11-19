@@ -13,6 +13,7 @@ export interface StoreOrderResponse {
 
 export type StoreOrderAccessStatus =
   | 'PENDING'
+  | 'PARTIALLY_PAID'
   | 'PAID'
   | 'SHIPPED'
   | 'DELIVERED'
@@ -44,6 +45,8 @@ export interface StoreOrderAccessResponse {
       discountTotal: number;
       shippingCost: number;
       total: number;
+      paidAmount: number;
+      balanceDue: number;
     };
     items: Array<{
       id: number;

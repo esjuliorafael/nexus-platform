@@ -17,6 +17,7 @@ import {
   resolveCloudTemplateOwner,
   omitOptionalRaffleInvitationAdditionalInfo,
   omitOptionalRaffleParticipationInfo,
+  omitOptionalOrderItemDue,
   type CloudTemplateScope,
   type CloudTemplateOwner,
   type CloudTemplateType,
@@ -133,11 +134,16 @@ async function resolveActiveTemplateContent(
       renderedText: delivery.renderedText,
     };
   }
+  const contentWithoutDue =
+    delivery.type === "ORDER_ITEM_CHANGED" &&
+    !String(delivery.values.due || "").trim()
+      ? omitOptionalOrderItemDue(simplifiedContent)
+      : simplifiedContent;
   const contentWithoutRaffleExtra =
     delivery.type === "RAFFLE_INVITATION" &&
     !String(delivery.values.raffle_extra || "").trim()
-      ? omitOptionalRaffleInvitationAdditionalInfo(simplifiedContent)
-      : simplifiedContent;
+      ? omitOptionalRaffleInvitationAdditionalInfo(contentWithoutDue)
+      : contentWithoutDue;
   const content =
     delivery.scope === "RAFFLES" &&
     !String(delivery.values.part_info || "").trim()

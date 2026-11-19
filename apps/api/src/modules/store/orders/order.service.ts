@@ -11,7 +11,7 @@ import {
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
 import { customerPhoneIdentity } from "../../../utils/customer-phone";
 import type { OrderKind, OrderItemPurpose } from "../../../services/evolution/channel.resolver";
-import { validateCouponForItems } from "../coupons/coupon.service";
+import { createCouponTermsSnapshot, validateCouponForItems } from "../coupons/coupon.service";
 import { resolvePaymentHoldMinutes } from "../payments/payment-hold-policy";
 import {
   auditActorData,
@@ -20,6 +20,7 @@ import {
 } from "../../../utils/admin-authorization";
 import { synchronizeItemAvailability } from "../products/product-inventory";
 import {
+  previewBirdOrderItemReplacement,
   replacePaidBirdOrderItem,
   type ReplacePaidBirdOrderItemInput,
 } from "./order-item-replacement.service";
@@ -284,6 +285,10 @@ export const orderService = {
     return { ...order, whatsappNotificationQueued };
   },
 
+  async previewBirdItemReplacement(id: number, input: { sourceProductId: number; replacementProductId: number }) {
+    return previewBirdOrderItemReplacement(storePrisma, id, input);
+  },
+
   async getWhatsappLogs(id: number) {
     return storePrisma.whatsappMessageLog.findMany({
       where: { orderId: id.toString() },
@@ -471,9 +476,11 @@ export const orderService = {
           total,
           couponId: couponResult?.coupon.id || null,
           couponCode: couponResult?.code || null,
+          ...(couponResult ? { couponSnapshot: createCouponTermsSnapshot(couponResult.coupon) } : {}),
           status: "PENDING",
           paymentMethod,
           paymentStatus: "PENDING",
+          paidAmount: 0,
           paymentExpiresAt: isMercadoPagoOrder ? expiresAt : null,
           expiresAt,
           items: {
@@ -608,20 +615,50 @@ export const orderService = {
 
     if (!currentOrder) throw new Error("Order not found");
 
+    if (
+      (status === "SHIPPED" || status === "DELIVERED") &&
+      (currentOrder.status !== "PAID" || currentOrder.paymentStatus !== "APPROVED")
+    ) {
+      throw createOrderError("No se puede avanzar la entrega mientras exista un saldo pendiente.", 409);
+    }
+    if (
+      status === "CANCELLED" &&
+      (currentOrder.paymentStatus === "PARTIALLY_PAID" || Number(currentOrder.paidAmount) > 0)
+    ) {
+      throw createOrderError("Esta orden tiene un pago recibido. Resuelve el saldo o la devolución antes de cancelarla.", 409);
+    }
+
     const order = await storePrisma.$transaction(async (tx) => {
-      const updatedOrder = await tx.order.update({
-        where: { id },
+      const changed = await tx.order.updateMany({
+        where: {
+          id,
+          status: currentOrder.status,
+          paymentStatus: currentOrder.paymentStatus,
+          total: currentOrder.total,
+        },
         data: {
           status,
           ...(status === "PAID"
-            ? { paymentStatus: "APPROVED", paymentExpiresAt: null, expiresAt: null }
+            ? {
+                paymentStatus: "APPROVED",
+                paidAmount: currentOrder.total,
+                paymentExpiresAt: null,
+                expiresAt: null,
+              }
             : {}),
           ...(status === "CANCELLED"
             ? { paymentStatus: "CANCELLED", paymentExpiresAt: null }
             : {}),
         },
-        include: { items: true }
       });
+      if (changed.count !== 1) {
+        throw createOrderError("La orden cambió mientras se actualizaba. Vuelve a cargarla e inténtalo de nuevo.", 409);
+      }
+      const updatedOrder = await tx.order.findUnique({
+        where: { id },
+        include: { items: true },
+      });
+      if (!updatedOrder) throw createOrderError("Order not found", 404);
 
       if (status === 'PAID') {
         for (const item of updatedOrder.items) {
@@ -694,10 +731,13 @@ export const orderService = {
     if (order.status !== "PENDING") {
       throw createOrderError("Solo se pueden cancelar órdenes apartadas.", 409);
     }
+    if (order.paymentStatus === "PARTIALLY_PAID" || Number(order.paidAmount) > 0) {
+      throw createOrderError("Esta orden tiene un pago recibido. Resuelve el saldo o la devolución antes de cancelarla.", 409);
+    }
 
     const cancelledOrder = await storePrisma.$transaction(async (tx) => {
       const cancelled = await tx.order.updateMany({
-        where: { id, status: "PENDING" },
+        where: { id, status: "PENDING", paymentStatus: "PENDING", paidAmount: 0 },
         data: {
           status: "CANCELLED",
           paymentStatus: "CANCELLED",

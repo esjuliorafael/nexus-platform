@@ -23,6 +23,23 @@ export interface OrderPaymentAttempt {
   updatedAt: string;
 }
 
+export interface OrderReplacementQuote {
+  paymentMethod: string;
+  paymentStatus: string;
+  couponCode: string | null;
+  currentSubtotal: number;
+  newSubtotal: number;
+  currentDiscount: number;
+  newDiscount: number;
+  shippingCost: number;
+  currentTotal: number;
+  newTotal: number;
+  paidAmount: number;
+  balanceDue: number;
+  noticeDue: number;
+  totalChanged: boolean;
+}
+
 export interface ActivityEvent {
   id: string;
   eventType: string;
@@ -55,6 +72,11 @@ export interface Order {
   shippingCity?: string | null;
   items: OrderItem[];
   total: number;
+  subtotal?: number;
+  discountTotal?: number;
+  shippingCost?: number;
+  paidAmount?: number;
+  balanceDue?: number;
   status:
     | "paid"
     | "pending"
@@ -73,6 +95,7 @@ export interface Order {
     | "FAILED"
     | "EXPIRED"
     | "CANCELLED"
+    | "PARTIALLY_PAID"
     | "REFUNDED"
     | string;
   paymentExpiresAt?: string | null;

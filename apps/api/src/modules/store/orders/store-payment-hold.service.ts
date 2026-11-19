@@ -13,7 +13,7 @@ import {
 import { whatsappQueue } from "../../../queues/whatsapp.queue";
 import { customerPhoneIdentity } from "../../../utils/customer-phone";
 import type { OrderItemPurpose, OrderKind } from "../../../services/evolution/channel.resolver";
-import { validateCouponForItems } from "../coupons/coupon.service";
+import { createCouponTermsSnapshot, validateCouponForItems } from "../coupons/coupon.service";
 import {
   hasReachedPaymentProcessingLimit,
   canConvertPaymentHoldToTransfer,
@@ -182,6 +182,7 @@ export const storePaymentHoldService = {
           total,
           couponId: couponResult?.coupon.id || null,
           couponCode: couponResult?.code || null,
+          ...(couponResult ? { couponSnapshot: createCouponTermsSnapshot(couponResult.coupon) } : {}),
           expiresAt,
           items: { create: items },
         },
@@ -282,9 +283,11 @@ export const storePaymentHoldService = {
           total: hold.total,
           couponId: hold.couponId,
           couponCode: hold.couponCode,
+          couponSnapshot: hold.couponSnapshot ?? Prisma.JsonNull,
           status: "PENDING",
           paymentMethod: "TRANSFER",
           paymentStatus: "PENDING",
+          paidAmount: 0,
           expiresAt,
           paymentExpiresAt: null,
           items: {
@@ -400,6 +403,7 @@ export const storePaymentHoldService = {
           total: hold.total,
           couponId: hold.couponId,
           couponCode: hold.couponCode,
+          couponSnapshot: hold.couponSnapshot ?? Prisma.JsonNull,
           status: "PAID",
           paymentMethod: "MERCADOPAGO",
           paymentStatus: "APPROVED",
@@ -410,6 +414,7 @@ export const storePaymentHoldService = {
           mpPaymentMethodId: payment.payment_method_id || null,
           mpPaymentTypeId: payment.payment_type_id || null,
           mpPaidAmount: Number(payment.transaction_amount),
+          paidAmount: Number(payment.transaction_amount),
           items: { create: hold.items.map((item) => ({
             productId: item.productId,
             productName: item.productName,

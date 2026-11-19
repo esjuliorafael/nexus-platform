@@ -48,6 +48,14 @@ const statusPresentation = (status: StoreOrderAccessStatus) => {
       variant: "success" as const,
     };
   }
+  if (status === "PARTIALLY_PAID") {
+    return {
+      title: "Saldo pendiente",
+      description: "Recibimos una parte del pago. Completa el saldo para confirmar la orden.",
+      icon: CreditCard,
+      variant: "warning" as const,
+    };
+  }
   if (status === "CANCELLED" || status === "EXPIRED") {
     return {
       title: status === "EXPIRED" ? "Plazo concluido" : "Orden cancelada",
@@ -206,6 +214,12 @@ export function OrderAccessClient({
                 {data.order.totals.discountTotal > 0 && <div className="flex justify-between sf-text-secondary text-stone-500"><span>Descuento</span><span>-${formatPrice(data.order.totals.discountTotal)}</span></div>}
                 {data.order.totals.shippingCost > 0 && <div className="flex justify-between sf-text-secondary text-stone-500"><span>Envío</span><span>${formatPrice(data.order.totals.shippingCost)}</span></div>}
                 <div className="mt-[var(--sf-space-xs)] flex justify-between" style={{ gap: "var(--sf-space-md)" }}><span className="sf-text-h3 font-semibold text-stone-900">Total</span><span className="sf-text-h3 font-semibold text-stone-900">${formatPrice(data.order.totals.total)}</span></div>
+                {data.order.status === "PARTIALLY_PAID" && (
+                  <>
+                    <div className="flex justify-between sf-text-secondary text-stone-500"><span>Pago recibido</span><span>${formatPrice(data.order.totals.paidAmount)}</span></div>
+                    <div className="flex justify-between sf-text-body font-semibold text-stone-900"><span>Saldo pendiente</span><span>${formatPrice(data.order.totals.balanceDue)}</span></div>
+                  </>
+                )}
               </div>
             </div>
           </div>
@@ -225,6 +239,21 @@ export function OrderAccessClient({
         )}
 
         {data.bankInfo && data.order.status === "PENDING" && data.order.paymentMethod === "TRANSFER" && (
+          <BankInfoCard
+            bankInfo={data.bankInfo}
+            onCopy={(value) => {
+              void navigator.clipboard?.writeText(value);
+            }}
+          />
+        )}
+
+        {data.bankInfo && data.order.status === "PARTIALLY_PAID" && data.order.paymentMethod === "TRANSFER" && (
+          <div className="sf-text-secondary text-stone-600">
+            Completa únicamente el saldo pendiente de ${formatPrice(data.order.totals.balanceDue)} MXN.
+          </div>
+        )}
+
+        {data.bankInfo && data.order.status === "PARTIALLY_PAID" && data.order.paymentMethod === "TRANSFER" && (
           <BankInfoCard
             bankInfo={data.bankInfo}
             onCopy={(value) => {

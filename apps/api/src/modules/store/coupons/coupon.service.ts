@@ -17,6 +17,18 @@ type CouponProduct = {
 
 const normalizeCode = (code: string) => code.trim().toUpperCase();
 
+export function createCouponTermsSnapshot(coupon: any) {
+  return {
+    code: String(coupon.code),
+    discountType: String(coupon.discountType),
+    discountValue: String(coupon.discountValue),
+    scope: String(coupon.scope),
+    birdPurpose: coupon.birdPurpose ? String(coupon.birdPurpose) : null,
+    minSubtotal: coupon.minSubtotal == null ? null : String(coupon.minSubtotal),
+    maxDiscount: coupon.maxDiscount == null ? null : String(coupon.maxDiscount),
+  };
+}
+
 const createCouponError = (message: string, statusCode = 400) => {
   const error = new Error(message) as Error & { statusCode?: number };
   error.statusCode = statusCode;

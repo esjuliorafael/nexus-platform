@@ -209,7 +209,7 @@ const SIMPLIFIED_STORE_TEMPLATE_ADDITIONAL_CONTENTS: Partial<
   Record<CloudTemplateType, string>
 > = {
   ORDER_ITEM_CHANGED:
-    "Hola, {{customer_name}}. Actualizamos tu orden #{{order_id}} a solicitud tuya.\n\n{{previous_product}} fue sustituido por {{replacement_product}}.\n\nEl importe pagado no cambia: ${{amount}} MXN.\n\nConsulta los detalles actualizados en el botón Ver orden:\n\n{{order_url}}",
+    "Hola, {{customer_name}}. Actualizamos tu orden #{{order_id}} a solicitud tuya.\n\n{{previous_product}} fue sustituido por {{replacement_product}}.\n\n{{due}}\n\nConsulta los detalles actualizados en el botón Ver orden:\n\n{{order_url}}",
   RESTORED:
     "¡Hola, {{customer_name}}! 🔄\n\nEl apartado de tu orden #{{order_id}} fue restaurado correctamente. ✅\n\n💰 Total pendiente: ${{amount}} MXN\n🕒 Plazo de pago: {{time_store}}\n\n🔎 Consulta el estado y las instrucciones de pago en el botón Ver orden:\n\n{{order_url}}",
   REMINDER:
@@ -485,6 +485,7 @@ const VARIABLE_EXAMPLES: Record<string, string> = {
   order_url: "https://example.com/orders/demo-access-token",
   previous_product: "Giro BF",
   replacement_product: "Morado Patas Verdes",
+  due: "Queda un saldo pendiente de $3,400.00 MXN.",
   raffle_name: "Rifa Especial de Junio",
   raffle_description: "Tres premios de pollos para show a elegir.",
   raffle_extra: "📌 Cruzas disponibles: Alimonados, Colorados y Giros.",
@@ -697,7 +698,13 @@ function getRecoveryButtonSuffix(value: unknown) {
 }
 
 export function getCloudTemplateBodyContent(source: CloudTemplateSource) {
-  const content = source.content
+  const sourceContent =
+    source.scope === "STORE" &&
+    source.type === "ORDER_ITEM_CHANGED" &&
+    hasSimplifiedBody(source)
+      ? omitOptionalOrderItemDue(source.content)
+      : source.content;
+  const content = sourceContent
     .trim()
     .replace(
       /\n*Consulta el detalle de tu participaci[\s\S]*?\{\{participation_url\}\}\s*/i,
@@ -748,6 +755,13 @@ export function omitOptionalRaffleInvitationAdditionalInfo(content: string) {
       /(?:^|\n)[^\n]*\{\{raffle_extra\}\}[^\n]*(?:\n|$)/gi,
       "",
     )
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
+export function omitOptionalOrderItemDue(content: string) {
+  return content
+    .replace(/(?:^|\n)[^\n]*\{\{due\}\}[^\n]*(?:\n|$)/gi, "")
     .replace(/\n{3,}/g, "\n\n")
     .trim();
 }
@@ -1512,12 +1526,20 @@ export async function getApprovedCloudTemplate(params: {
       }
     }
 
-    // The lookup template changed from an OTP code to a private-link request.
-    // Never send the old code template as an implicit fallback for this type.
+    // Never reuse an approved template whose body describes a different action.
     if (
       params.type === "PARTICIPATION_LOOKUP_CODE" &&
       mapping.contentHash !== desiredContentHash
     ) {
+      mapping = null;
+    }
+    if (
+      mapping &&
+      params.type === "ORDER_ITEM_CHANGED" &&
+      isSimplifiedVariant(variant) &&
+      mapping.contentHash !== desiredContentHash
+    ) {
+      // Never send the old "same amount" copy after this template changes.
       mapping = null;
     }
   }
@@ -1639,22 +1661,36 @@ export async function getApprovedCloudTemplate(params: {
   const parameterNames = Array.isArray(mapping.parameterNames)
     ? mapping.parameterNames.map(String)
     : [];
+  const dueText = String(params.values.due || "").trim();
   const fallbackValues =
-    params.type === "RAFFLE_INVITATION" &&
+    params.type === "ORDER_ITEM_CHANGED" &&
     isSimplifiedVariant(variant) &&
-    /\{\{raffle_extra\}\}/i.test(params.sourceContent) &&
-    mapping.contentHash !== desiredContentHash &&
-    String(params.values.raffle_extra || "").trim()
+    /\{\{due\}\}/i.test(params.sourceContent) &&
+    dueText
       ? {
           ...params.values,
-          raffle_description: [
-            params.values.raffle_description,
-            params.values.raffle_extra,
+          replacement_product: [
+            params.values.replacement_product,
+            dueText,
           ]
             .filter(Boolean)
-            .join(" · "),
+            .join(". "),
         }
-      : params.values;
+      : params.type === "RAFFLE_INVITATION" &&
+          isSimplifiedVariant(variant) &&
+          /\{\{raffle_extra\}\}/i.test(params.sourceContent) &&
+          mapping.contentHash !== desiredContentHash &&
+          String(params.values.raffle_extra || "").trim()
+        ? {
+            ...params.values,
+            raffle_description: [
+              params.values.raffle_description,
+              params.values.raffle_extra,
+            ]
+              .filter(Boolean)
+              .join(" · "),
+          }
+        : params.values;
   if (
     !parameterNames.every((parameterName) => parameterName in fallbackValues)
   ) {

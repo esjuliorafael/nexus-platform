@@ -1,15 +1,16 @@
 import React, { useRef } from 'react';
 import {
   Package, Clock, CheckCircle2, Phone, MapPin, User,
-  Calendar, DollarSign, Plane, Truck, CircleX, ChevronLeft, Layers, MessageCircle, Edit2, Save,
-  CreditCard, RotateCcw, History, ArrowLeftRight
+  Calendar, DollarSign, Plane, Truck, CircleX, ChevronLeft, ChevronRight, Layers, MessageCircle, Edit2, Save,
+  CreditCard, RotateCcw, History, ArrowLeftRight, Search, ShoppingCart
 } from 'lucide-react';
-import { Order, Product, WhatsAppMessageLog } from '../../../types';
+import { Order, OrderReplacementQuote, Product, WhatsAppMessageLog } from '../../../types';
 import { NexusAutonomousButton, NexusSectionButton } from '../../ui/NexusButton';
 import { NexusSection } from '../../ui/NexusSection';
 import { NexusModal, NexusModalActions } from '../../ui/NexusModal';
 import { NexusConfirmModal } from '../../ui/NexusConfirmModal';
 import { NexusInput, NexusSelect } from '../../ui/NexusInputs';
+import { NexusSegmentedControl } from '../../ui/NexusSegmentedControl';
 import { NexusPhoneField } from '../../ui/NexusPhoneField';
 import { NexusBadge } from '../../ui/NexusBadge';
 import { ASSET_BASE_URL, apiOrders, apiProducts } from '../../../api';
@@ -149,6 +150,7 @@ const formatCurrency = (value?: number | null) => {
 
 const getPaymentStatusLabel = (status?: string | null) => {
   if (status === 'APPROVED') return 'Pagado';
+  if (status === 'PARTIALLY_PAID') return 'Pago parcial';
   if (status === 'REFUNDED') return 'Devuelto';
   if (status === 'FAILED') return 'Fallido';
   if (status === 'EXPIRED') return 'Expirado';
@@ -258,7 +260,12 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
   const [isReplaceModalOpen, setIsReplaceModalOpen] = React.useState(false);
   const [isReplaceConfirmOpen, setIsReplaceConfirmOpen] = React.useState(false);
   const [isLoadingReplacementProducts, setIsLoadingReplacementProducts] = React.useState(false);
+  const [isLoadingReplacementQuote, setIsLoadingReplacementQuote] = React.useState(false);
   const [isReplacingItem, setIsReplacingItem] = React.useState(false);
+  const [replacementQuote, setReplacementQuote] = React.useState<OrderReplacementQuote | null>(null);
+  const [replacementStep, setReplacementStep] = React.useState<'selection' | 'details'>('selection');
+  const [replacementSource, setReplacementSource] = React.useState<'cart' | 'products'>('cart');
+  const [replacementSearchQuery, setReplacementSearchQuery] = React.useState('');
   const [replacementProducts, setReplacementProducts] = React.useState<Product[]>([]);
   const [replacementForm, setReplacementForm] = React.useState({
     sourceProductId: '',
@@ -315,24 +322,30 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
   const canReplacePaidBird =
     canManageOrder &&
     !isPaymentHold &&
-    currentOrder.status === 'paid' &&
-    currentOrder.fulfillmentStatus === 'PAID' &&
-    currentOrder.paymentStatus === 'APPROVED' &&
+    ((currentOrder.status === 'paid' &&
+      currentOrder.fulfillmentStatus === 'PAID' &&
+      currentOrder.paymentStatus === 'APPROVED') ||
+      (currentOrder.status === 'pending' &&
+        currentOrder.paymentMethod === 'TRANSFER' &&
+        ['PENDING', 'PARTIALLY_PAID'].includes(currentOrder.paymentStatus || ''))) &&
     replaceableBirdItems.length > 0;
   const selectedSourceItem = replaceableBirdItems.find(
     (item) => item.productId === replacementForm.sourceProductId,
-  );
-  const selectedSourceProduct = replacementProducts.find(
-    (product) => product.id === replacementForm.sourceProductId,
   );
   const replacementOptions = replacementProducts.filter((product) =>
     product.type === 'BIRD' &&
     product.status === 'available' &&
     product.active &&
     product.published &&
-    product.id !== replacementForm.sourceProductId &&
-    selectedSourceProduct &&
-    Math.round(Number(product.price) * 100) === Math.round(Number(selectedSourceProduct.price) * 100),
+    product.id !== replacementForm.sourceProductId,
+  );
+  const filteredReplacementOptions = replacementOptions.filter((product) => {
+    const query = replacementSearchQuery.trim().toLocaleLowerCase();
+    return !query || `${product.name} ${product.ringNumber || ''}`.toLocaleLowerCase().includes(query);
+  });
+  const canContinueReplacement = Boolean(
+    selectedSourceItem &&
+    replacementOptions.some((product) => product.id === replacementForm.replacementProductId),
   );
   const canSubmitReplacement =
     Boolean(selectedSourceItem) &&
@@ -425,6 +438,10 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
       customerAuthorized: false,
       deliveryConfirmed: false,
     });
+    setReplacementStep('selection');
+    setReplacementSource('cart');
+    setReplacementSearchQuery('');
+    setReplacementQuote(null);
     setIsReplaceModalOpen(true);
     setIsLoadingReplacementProducts(true);
     try {
@@ -434,6 +451,24 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
       showToast(error?.response?.data?.message || 'No se pudieron cargar las aves disponibles', 'error');
     } finally {
       setIsLoadingReplacementProducts(false);
+    }
+  };
+
+  const handlePreviewReplacement = async () => {
+    if (!currentOrder?.id || !canContinueReplacement || isLoadingReplacementQuote) return;
+    setIsLoadingReplacementQuote(true);
+    try {
+      const quote = await apiOrders.previewItemReplacement(currentOrder.id, {
+        sourceProductId: Number(replacementForm.sourceProductId),
+        replacementProductId: Number(replacementForm.replacementProductId),
+      });
+      setReplacementQuote(quote);
+      setReplacementStep('details');
+    } catch (error: any) {
+      setReplacementQuote(null);
+      showToast(error?.response?.data?.message || 'No se pudo calcular el nuevo total de la orden', 'error');
+    } finally {
+      setIsLoadingReplacementQuote(false);
     }
   };
 
@@ -447,14 +482,24 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
         reason: replacementForm.reason.trim(),
         customerAuthorized: true,
         deliveryConfirmed: true,
+        expectedCurrentTotal: replacementQuote?.currentTotal ?? currentOrder.total,
+        expectedNewTotal: replacementQuote?.newTotal ?? currentOrder.total,
+        expectedNewSubtotal: replacementQuote?.newSubtotal ?? currentOrder.subtotal ?? currentOrder.total,
+        expectedNewDiscount: replacementQuote?.newDiscount ?? currentOrder.discountTotal ?? 0,
+        expectedPaidAmount: replacementQuote?.paidAmount ?? currentOrder.paidAmount ?? 0,
       });
       setCurrentOrder(updatedOrder);
       setIsReplaceConfirmOpen(false);
       setIsReplaceModalOpen(false);
+      const amountMessage = replacementQuote?.totalChanged
+        ? updatedOrder.paidAmount
+          ? ` Saldo pendiente: ${formatCurrency(updatedOrder.balanceDue)}.`
+          : ` Nuevo monto pendiente: ${formatCurrency(updatedOrder.balanceDue)}.`
+        : ' El monto de la orden no cambió.';
       showToast(
         updatedOrder.whatsappNotificationQueued === false
-          ? 'Producto sustituido y pago sin cambios. El aviso de WhatsApp no pudo ponerse en cola; revisa los registros.'
-          : 'Producto sustituido, pago sin cambios y aviso de WhatsApp en cola.',
+          ? `Producto sustituido.${amountMessage} El aviso de WhatsApp no pudo ponerse en cola; revisa los registros.`
+          : `Producto sustituido.${amountMessage} Aviso de WhatsApp en cola.`,
         updatedOrder.whatsappNotificationQueued === false ? 'error' : 'success',
       );
     } catch (error: any) {
@@ -604,13 +649,19 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
               </span>
               <span className="text-h1 text-text-main">${(currentOrder.total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
             </div>
+            {currentOrder.paymentStatus === 'PARTIALLY_PAID' && (
+              <div className="grid grid-cols-2 border-t border-border-main pt-[var(--space-md)] text-secondary" style={{ gap: 'var(--space-md)' }}>
+                <DetailField label="Monto recibido" value={formatCurrency(currentOrder.paidAmount)} />
+                <DetailField label="Saldo pendiente" value={formatCurrency(currentOrder.balanceDue)} />
+              </div>
+            )}
           </NexusSection>
 
           <NexusModal
             isOpen={isReplaceModalOpen}
             onClose={() => setIsReplaceModalOpen(false)}
             title="Sustituir ave de la orden"
-            eyebrow="Ajuste autorizado por el cliente"
+            eyebrow={replacementStep === 'selection' ? 'Paso 1 de 2 · Selección' : 'Paso 2 de 2 · Motivo y autorización'}
             icon={ArrowLeftRight}
             iconTone="brand"
             size="standard"
@@ -619,68 +670,240 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
             <form
               onSubmit={(event) => {
                 event.preventDefault();
-                setIsReplaceConfirmOpen(true);
+                if (replacementStep === 'selection') {
+                  void handlePreviewReplacement();
+                  return;
+                }
+                if (canSubmitReplacement) setIsReplaceConfirmOpen(true);
               }}
               className="flex flex-col"
               style={{ gap: 'var(--space-lg)' }}
             >
+              <p className="text-secondary text-text-muted">
+                {replacementStep === 'selection'
+                  ? 'Elige el ave actual y una sustitución disponible. Antes de confirmar verás el total y el saldo recalculados.'
+                  : 'Registra el motivo y confirma los datos acordados con el cliente.'}
+              </p>
+
               <div
                 className="border border-amber-200 bg-amber-50 text-amber-900"
                 style={{ padding: 'var(--padding-inner)', borderRadius: 'var(--radius-card-inner)' }}
               >
-                <p className="text-secondary font-semibold">El pago ya está aprobado.</p>
+                <p className="text-secondary font-semibold">
+                  {currentOrder.paymentStatus === 'PARTIALLY_PAID'
+                    ? 'La orden tiene un pago parcial.'
+                    : currentOrder.paymentStatus === 'APPROVED'
+                      ? 'El pago está confirmado.'
+                      : 'El pago aún está pendiente.'}
+                </p>
                 <p className="text-label leading-relaxed" style={{ marginTop: 'var(--space-xs)' }}>
-                  Solo se habilitan aves disponibles con el mismo precio de catálogo. El monto cobrado y el total de la orden se conservan. El aviso de WhatsApp se pondrá en cola por separado; la sustitución no depende de que su entrega tenga éxito.
+                  Se respetará el cupón registrado y se recalculará el total. Una diferencia a favor del cliente no se convierte automáticamente en devolución; el cambio se bloqueará si el total queda por debajo de lo ya recibido. Los ajustes de monto con Mercado Pago tampoco se admiten. El aviso de WhatsApp se procesa después de guardar el cambio.
                 </p>
               </div>
 
-              {isLoadingReplacementProducts ? (
-                <p className="text-secondary text-text-muted">Cargando aves disponibles...</p>
+              {replacementStep === 'selection' ? (
+                <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
+                  <NexusSegmentedControl
+                    context="section"
+                    value={replacementSource}
+                    ariaLabel="Origen del ave"
+                    onChange={setReplacementSource}
+                    className="grid h-[var(--h-input)] w-full grid-cols-2"
+                    options={[
+                      {
+                        value: 'cart',
+                        label: 'Carrito',
+                        activeClassName: 'bg-bg-card text-brand-600 border border-border-main shadow-sm',
+                      },
+                      {
+                        value: 'products',
+                        label: 'Productos',
+                        activeClassName: 'bg-bg-card text-brand-600 border border-border-main shadow-sm',
+                      },
+                    ]}
+                  />
+
+                  {replacementSource === 'cart' ? (
+                    <div className="flex flex-col" style={{ gap: 'var(--space-sm)' }}>
+                      <div className="flex items-center justify-between" style={{ gap: 'var(--space-sm)' }}>
+                        <div className="flex items-center text-text-main" style={{ gap: 'var(--space-sm)' }}>
+                          <ShoppingCart size={18} className="text-brand-600" />
+                          <p className="text-button-card font-semibold">Aves de esta orden</p>
+                        </div>
+                        <span className="text-caption text-text-muted">
+                          {replaceableBirdItems.length} {replaceableBirdItems.length === 1 ? 'ave' : 'aves'}
+                        </span>
+                      </div>
+                      <div
+                        className="divide-y divide-border-main overflow-hidden border border-border-main"
+                        style={{ borderRadius: 'var(--radius-inner-visual)' }}
+                      >
+                        {replaceableBirdItems.map((item) => {
+                          const isSelected = item.productId === replacementForm.sourceProductId;
+                          return (
+                            <button
+                              key={item.id}
+                              type="button"
+                              aria-pressed={isSelected}
+                              onClick={() => {
+                                setReplacementForm({
+                                  ...replacementForm,
+                                  sourceProductId: item.productId,
+                                  replacementProductId: '',
+                                });
+                                setReplacementQuote(null);
+                              }}
+                              className={`flex w-full min-w-0 items-center text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 ${isSelected ? 'bg-brand-50/70' : 'bg-bg-card hover:bg-bg-muted/60'}`}
+                              style={{ gap: 'var(--space-md)', padding: 'var(--space-md)' }}
+                            >
+                              <OrderItemThumbnail item={item} />
+                              <span className="min-w-0 flex-1">
+                                <span className="block truncate text-button-card font-semibold text-text-main">{item.name}</span>
+                                <span className="mt-[var(--space-xs)] block text-secondary text-text-muted">
+                                  {item.ringNumber ? `Anillo ${item.ringNumber} · ` : ''}{formatCurrency(item.price)}
+                                </span>
+                              </span>
+                              {isSelected && <CheckCircle2 size={20} className="shrink-0 text-brand-600" />}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
+                      {!selectedSourceItem ? (
+                        <div
+                          className="flex items-start border border-border-main bg-bg-muted/50 text-text-muted"
+                          style={{ gap: 'var(--space-sm)', padding: 'var(--space-md)', borderRadius: 'var(--radius-inner-visual)' }}
+                        >
+                          <ShoppingCart size={18} className="mt-0.5 shrink-0" />
+                          <p className="text-secondary">Selecciona primero el ave actual en Carrito para consultar aves disponibles.</p>
+                        </div>
+                      ) : (
+                        <>
+                          <NexusInput
+                            label="Buscar aves disponibles"
+                            icon={Search}
+                            value={replacementSearchQuery}
+                            onChange={(event) => setReplacementSearchQuery(event.target.value)}
+                            placeholder="Ej. Morado Patas Verdes o anillo 096"
+                          />
+
+                          <div
+                            className="divide-y divide-border-main overflow-y-auto border border-border-main"
+                            style={{ height: 'min(22rem, 36dvh)', borderRadius: 'var(--radius-inner-visual)' }}
+                          >
+                            {isLoadingReplacementProducts ? (
+                              <div className="flex h-full flex-col justify-evenly" style={{ paddingInline: 'var(--space-md)' }} aria-label="Cargando aves disponibles">
+                                {[0, 1, 2].map((index) => (
+                                  <div key={index} className="flex items-center" style={{ gap: 'var(--space-md)' }}>
+                                    <div className="h-12 w-12 shrink-0 animate-pulse bg-bg-muted" style={{ borderRadius: 'var(--radius-inner-visual)' }} />
+                                    <div className="flex min-w-0 flex-1 flex-col" style={{ gap: 'var(--space-sm)' }}>
+                                      <div className="h-3 w-3/4 animate-pulse bg-bg-muted" />
+                                      <div className="h-3 w-1/3 animate-pulse bg-bg-muted" />
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : filteredReplacementOptions.length === 0 ? (
+                              <div className="flex h-full items-center justify-center text-center" style={{ padding: 'var(--space-md)' }}>
+                                <p className="text-secondary text-text-muted">
+                                  {replacementOptions.length === 0
+                                    ? 'No hay otras aves disponibles para sustituir.'
+                                    : 'No encontramos aves con esa búsqueda.'}
+                                </p>
+                              </div>
+                            ) : (
+                              filteredReplacementOptions.map((product) => {
+                                const isSelected = product.id === replacementForm.replacementProductId;
+                                return (
+                                  <button
+                                    key={product.id}
+                                    type="button"
+                                    aria-pressed={isSelected}
+                                    onClick={() => {
+                                      setReplacementForm({ ...replacementForm, replacementProductId: product.id });
+                                      setReplacementQuote(null);
+                                    }}
+                                    className={`flex w-full min-w-0 items-center text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand-500 ${isSelected ? 'bg-brand-50/70' : 'bg-bg-card hover:bg-bg-muted/60'}`}
+                                    style={{ gap: 'var(--space-md)', padding: 'var(--space-md)' }}
+                                  >
+                                    <OrderItemThumbnail item={product} />
+                                    <span className="min-w-0 flex-1">
+                                      <span className="block truncate text-button-card font-semibold text-text-main">
+                                        {product.name}{product.ringNumber ? ` · Anillo ${product.ringNumber}` : ''}
+                                      </span>
+                                      <span className="mt-[var(--space-xs)] block text-secondary text-text-muted">
+                                        {formatCurrency(product.price)} · Disponible
+                                      </span>
+                                    </span>
+                                    {isSelected
+                                      ? <CheckCircle2 size={20} className="shrink-0 text-brand-600" />
+                                      : <span className="shrink-0 text-label font-bold text-brand-600">Seleccionar</span>}
+                                  </button>
+                                );
+                              })
+                            )}
+                          </div>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
               ) : (
                 <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
-                  <NexusSelect
-                    label="Ave actual *"
-                    value={replacementForm.sourceProductId}
-                    onChange={(event) => setReplacementForm({
-                      ...replacementForm,
-                      sourceProductId: event.target.value,
-                      replacementProductId: '',
-                    })}
-                    icon={Package}
-                    required
+                  {replacementQuote && (
+                    <div
+                      className="border border-border-main bg-bg-muted/50"
+                      style={{ padding: 'var(--padding-inner)', borderRadius: 'var(--radius-inner-visual)' }}
+                    >
+                      <div className="flex justify-between text-secondary text-text-muted">
+                        <span>Total actual</span><span>{formatCurrency(replacementQuote.currentTotal)}</span>
+                      </div>
+                      <div className="mt-[var(--space-xs)] flex justify-between text-button-card font-semibold text-text-main">
+                        <span>Nuevo total</span><span>{formatCurrency(replacementQuote.newTotal)}</span>
+                      </div>
+                      {replacementQuote.paidAmount > 0 && (
+                        <div className="mt-[var(--space-xs)] flex justify-between text-secondary text-text-muted">
+                          <span>Ya recibido</span><span>{formatCurrency(replacementQuote.paidAmount)}</span>
+                        </div>
+                      )}
+                      <div className="mt-[var(--space-xs)] flex justify-between text-button-card font-semibold text-brand-700">
+                        <span>{replacementQuote.paidAmount > 0 ? 'Saldo por cubrir' : 'Pendiente de pago'}</span>
+                        <span>{formatCurrency(replacementQuote.balanceDue)}</span>
+                      </div>
+                      {replacementQuote.couponCode && (
+                        <p className="mt-[var(--space-sm)] text-label text-text-muted">
+                          Cupón {replacementQuote.couponCode}: descuento recalculado de {formatCurrency(replacementQuote.newDiscount)}.
+                        </p>
+                      )}
+                      {replacementQuote.paymentMethod === 'MERCADOPAGO' && (
+                        <p className="mt-[var(--space-sm)] text-label text-text-muted">
+                          Mercado Pago conserva el importe cobrado; solo se permitirá si el total final no cambia.
+                        </p>
+                      )}
+                    </div>
+                  )}
+                  <div
+                    className="grid grid-cols-[1fr_auto_1fr] items-center border border-border-main bg-bg-muted/50"
+                    style={{ gap: 'var(--space-sm)', padding: 'var(--space-md)', borderRadius: 'var(--radius-inner-visual)' }}
                   >
-                    <option value="">Selecciona el ave de la orden</option>
-                    {replaceableBirdItems.map((item) => (
-                      <option key={item.id} value={item.productId}>
-                        {item.name}{item.ringNumber ? ` · Anillo ${item.ringNumber}` : ''}
-                      </option>
-                    ))}
-                  </NexusSelect>
-
-                  <NexusSelect
-                    label="Ave de reemplazo *"
-                    value={replacementForm.replacementProductId}
-                    onChange={(event) => setReplacementForm({
-                      ...replacementForm,
-                      replacementProductId: event.target.value,
-                    })}
-                    icon={ArrowLeftRight}
-                    required
-                    disabled={!selectedSourceItem || replacementOptions.length === 0}
-                  >
-                    <option value="">
-                      {!selectedSourceItem
-                        ? 'Selecciona primero el ave actual'
-                        : replacementOptions.length
-                          ? 'Selecciona un ave disponible del mismo precio'
-                          : 'No hay aves disponibles con ese precio'}
-                    </option>
-                    {replacementOptions.map((product) => (
-                      <option key={product.id} value={product.id}>
-                        {product.name}{product.ringNumber ? ` · Anillo ${product.ringNumber}` : ''} · {formatCurrency(product.price)}
-                      </option>
-                    ))}
-                  </NexusSelect>
+                    <div className="min-w-0">
+                      <p className="text-label uppercase text-text-muted">Ave actual</p>
+                      <p className="truncate text-button-card font-semibold text-text-main">{selectedSourceItem?.name}</p>
+                      <p className="text-secondary text-text-muted">{formatCurrency(selectedSourceItem?.price)}</p>
+                    </div>
+                    <ArrowLeftRight size={18} className="text-brand-600" />
+                    <div className="min-w-0 text-right">
+                      <p className="text-label uppercase text-text-muted">Sustitución</p>
+                      <p className="truncate text-button-card font-semibold text-text-main">
+                        {replacementOptions.find((product) => product.id === replacementForm.replacementProductId)?.name}
+                      </p>
+                      <p className="text-secondary text-text-muted">
+                        {formatCurrency(replacementOptions.find((product) => product.id === replacementForm.replacementProductId)?.price)}
+                      </p>
+                    </div>
+                  </div>
 
                   <NexusInput
                     label="Motivo del cambio *"
@@ -702,7 +925,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                         className="mt-1 accent-brand-600"
                         required
                       />
-                      <span>El cliente autorizó expresamente sustituir esta ave por la seleccionada.</span>
+                      <span>El cliente autorizó expresamente este cambio.</span>
                     </label>
                     <label className="flex items-start text-secondary text-text-main" style={{ gap: 'var(--space-sm)' }}>
                       <input
@@ -712,7 +935,7 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                         className="mt-1 accent-brand-600"
                         required
                       />
-                      <span>Confirmé con el cliente que se conserva la dirección y el método de entrega registrados.</span>
+                      <span>Se conservan la dirección y el método de entrega registrados.</span>
                     </label>
                   </div>
                 </div>
@@ -722,19 +945,29 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                 <NexusAutonomousButton
                   type="button"
                   variant="secondary"
-                  onClick={() => setIsReplaceModalOpen(false)}
+                  onClick={() => {
+                    if (replacementStep === 'selection') {
+                      setIsReplaceModalOpen(false);
+                    } else {
+                      setReplacementQuote(null);
+                      setReplacementStep('selection');
+                    }
+                  }}
                   className="flex-1"
                 >
-                  Cancelar
+                  {replacementStep === 'selection' ? 'Cancelar' : 'Volver'}
                 </NexusAutonomousButton>
                 <NexusAutonomousButton
                   type="submit"
                   variant="brand"
-                  icon={ArrowLeftRight}
-                  disabled={!canSubmitReplacement || isLoadingReplacementProducts}
+                  icon={replacementStep === 'selection' ? ChevronRight : ArrowLeftRight}
+                  disabled={replacementStep === 'selection'
+                    ? !canContinueReplacement || isLoadingReplacementProducts || isLoadingReplacementQuote
+                    : !canSubmitReplacement || isLoadingReplacementProducts}
+                  isLoading={replacementStep === 'selection' && isLoadingReplacementQuote}
                   className="flex-[2]"
                 >
-                  Revisar sustitución
+                  {replacementStep === 'selection' ? 'Continuar' : 'Revisar sustitución'}
                 </NexusAutonomousButton>
               </NexusModalActions>
             </form>
@@ -749,8 +982,14 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
               <span>
                 Se cambiará <strong>{selectedSourceItem?.name}</strong> por{' '}
                 <strong>{replacementOptions.find((product) => product.id === replacementForm.replacementProductId)?.name}</strong>.
-                {' '}Se liberará el ave anterior y la nueva quedará asignada a esta orden. El historial guardará el motivo y las confirmaciones. El pago de{' '}
-                <strong>{formatCurrency(currentOrder.total)}</strong> no cambiará.
+                {' '}Se liberará el ave anterior y la nueva quedará asignada a esta orden. El historial guardará el motivo y las confirmaciones. El total cambiará de{' '}
+                <strong>{formatCurrency(replacementQuote?.currentTotal ?? currentOrder.total)}</strong> a{' '}
+                <strong>{formatCurrency(replacementQuote?.newTotal ?? currentOrder.total)}</strong>.{' '}
+                {replacementQuote?.paidAmount
+                  ? <>Quedará un saldo pendiente de <strong>{formatCurrency(replacementQuote.balanceDue)}</strong>.</>
+                  : replacementQuote?.balanceDue
+                    ? <>El nuevo monto pendiente será <strong>{formatCurrency(replacementQuote.balanceDue)}</strong>.</>
+                    : 'No habrá saldo pendiente.'}
               </span>
             )}
             confirmLabel="Sustituir producto"

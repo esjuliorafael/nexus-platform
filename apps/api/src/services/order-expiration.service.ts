@@ -34,6 +34,7 @@ export const expirePendingOrder = async (orderId: number) => {
   if (
     !order ||
     order.status !== "PENDING" ||
+    order.paymentStatus === "PARTIALLY_PAID" ||
     !order.expiresAt ||
     order.expiresAt.getTime() > Date.now()
   ) {
@@ -58,6 +59,7 @@ export const expirePendingOrder = async (orderId: number) => {
       where: {
         id: orderId,
         status: "PENDING",
+        paymentStatus: "PENDING",
         expiresAt: { lte: new Date() },
       },
       data: {
@@ -142,6 +144,7 @@ export const reconcilePendingOrderExpirations = async (limit = 100) => {
   const pendingOrders = await storePrisma.order.findMany({
     where: {
       status: "PENDING",
+      paymentStatus: "PENDING",
       paymentMethod: "TRANSFER",
       expiresAt: null,
     },
@@ -158,6 +161,7 @@ export const reconcilePendingOrderExpirations = async (limit = 100) => {
         where: {
           id: order.id,
           status: "PENDING",
+          paymentStatus: "PENDING",
           paymentMethod: "TRANSFER",
           expiresAt: null,
         },
@@ -194,6 +198,7 @@ export const expireOverduePendingOrders = async (limit = 100) => {
   const orders = await storePrisma.order.findMany({
     where: {
       status: "PENDING",
+      paymentStatus: "PENDING",
       expiresAt: { lte: new Date() },
     },
     select: { id: true },

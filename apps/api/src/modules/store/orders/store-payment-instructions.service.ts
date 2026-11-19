@@ -24,6 +24,7 @@ type StorePaymentOrder = {
   id: number;
   customerName: string;
   total: unknown;
+  paidAmount: unknown;
   paymentMethod: string;
   expiresAt: Date | null;
   items: Array<{ productId: number; productType: string }>;
@@ -90,7 +91,7 @@ async function findPendingOrders(
     where: {
       customerPhone: { in: customerPhoneCandidates(phone) },
       status: "PENDING",
-      paymentStatus: "PENDING",
+      paymentStatus: { in: ["PENDING", "PARTIALLY_PAID"] },
       OR: [{ expiresAt: null }, { expiresAt: { gt: now } }],
     },
     orderBy: { createdAt: "desc" },
@@ -98,6 +99,7 @@ async function findPendingOrders(
       id: true,
       customerName: true,
       total: true,
+      paidAmount: true,
       paymentMethod: true,
       expiresAt: true,
       items: { select: { productId: true, productType: true } },
@@ -182,7 +184,7 @@ export async function handleStoreWhatsappMessage(params: {
       bankInfo,
       values: {
         order_id: String(order.id),
-        amount: formatAmount(order.total),
+        amount: formatAmount(Math.max(0, Number(order.total) - Number(order.paidAmount || 0))),
         bank_name: bankInfo.bank || "",
         bank_beneficiary: bankInfo.beneficiary || "",
         bank_account: bankInfo.accountNumber || "",

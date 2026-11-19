@@ -40,12 +40,20 @@ export const updateOrderCustomerSchema = z.object({
   shippingState: z.string().trim().optional().nullable(),
 });
 
-export const replacePaidBirdOrderItemSchema = z.object({
+export const previewBirdOrderItemReplacementSchema = z.object({
   sourceProductId: z.number().int().positive(),
   replacementProductId: z.number().int().positive(),
+});
+
+export const replacePaidBirdOrderItemSchema = previewBirdOrderItemReplacementSchema.extend({
   reason: z.string().trim().min(8).max(500),
   customerAuthorized: z.literal(true),
   deliveryConfirmed: z.literal(true),
+  expectedCurrentTotal: z.number().nonnegative(),
+  expectedNewTotal: z.number().nonnegative(),
+  expectedNewSubtotal: z.number().nonnegative(),
+  expectedNewDiscount: z.number().nonnegative(),
+  expectedPaidAmount: z.number().nonnegative(),
 });
 
 export const cancelPaymentAttemptSchema = z.object({

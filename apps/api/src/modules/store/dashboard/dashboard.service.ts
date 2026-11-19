@@ -75,6 +75,8 @@ type CommercialOrder = {
   status: string;
   paymentMethod?: string | null;
   total: unknown;
+  paymentStatus?: string;
+  paidAmount?: unknown;
   mpRefundedAmount: unknown;
   createdAt: Date;
   items?: Array<{
@@ -343,8 +345,10 @@ const getStoreCommercialPulse = (orders: CommercialOrder[]) =>
           pulse.confirmed.count += 1;
           pulse.confirmed.amount += Math.max(0, total - refunded);
         } else if (order.status === "PENDING") {
+          const collected = Math.min(total, Math.max(0, Number(order.paidAmount || 0)));
+          pulse.confirmed.amount += collected;
           pulse.pending.count += 1;
-          pulse.pending.amount += total;
+          pulse.pending.amount += Math.max(0, total - collected);
         } else if (order.status === "CANCELLED") {
           pulse.cancelled.count += 1;
           pulse.cancelled.amount += total;
@@ -383,6 +387,7 @@ export const dashboardService = {
     const [
       products,
       orderGroups,
+      partialOrderPayments,
       activeCategories,
       totalMedia,
       allRaffleSales,
@@ -401,6 +406,10 @@ export const dashboardService = {
         by: ['status'],
         _count: { _all: true },
         _sum: { total: true }
+      }),
+      storePrisma.order.aggregate({
+        where: { status: "PENDING", paymentStatus: "PARTIALLY_PAID" },
+        _sum: { paidAmount: true },
       }),
       storePrisma.category.count({ where: { active: true } }),
       storePrisma.media.count({ where: { active: true } }),
@@ -424,7 +433,9 @@ export const dashboardService = {
         where: { status: { in: [...SETTLED_ORDER_STATUSES] } },
         select: {
           status: true,
+          paymentStatus: true,
           total: true,
+          paidAmount: true,
           mpRefundedAmount: true,
           createdAt: true,
         },
@@ -481,8 +492,11 @@ export const dashboardService = {
       };
     };
 
+    const partialCollectedAmount = Number(partialOrderPayments._sum.paidAmount || 0);
     const paidStats = getOrderStats(['PAID', 'SHIPPED', 'DELIVERED']);
     const pendingStats = getOrderStats(['PENDING']);
+    paidStats.amount += partialCollectedAmount;
+    pendingStats.amount = Math.max(0, pendingStats.amount - partialCollectedAmount);
     const cancelledStats = getOrderStats(['CANCELLED']);
     const totalGrossAmount = paidStats.amount + pendingStats.amount + cancelledStats.amount;
 
@@ -587,6 +601,7 @@ export const dashboardService = {
         select: {
           status: true,
           total: true,
+          paidAmount: true,
           mpRefundedAmount: true,
           createdAt: true,
         }
@@ -760,7 +775,9 @@ export const dashboardService = {
               customerName: true,
               status: true,
               paymentMethod: true,
+              paymentStatus: true,
               total: true,
+              paidAmount: true,
               mpRefundedAmount: true,
               createdAt: true,
               items: {

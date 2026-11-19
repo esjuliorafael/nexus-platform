@@ -1,6 +1,7 @@
 import axios from "axios";
 import {
   Order,
+  OrderReplacementQuote,
   Product,
   Media,
   User,
@@ -909,10 +910,22 @@ export const apiOrders = {
       reason: string;
       customerAuthorized: true;
       deliveryConfirmed: true;
+      expectedCurrentTotal: number;
+      expectedNewTotal: number;
+      expectedNewSubtotal: number;
+      expectedNewDiscount: number;
+      expectedPaidAmount: number;
     },
   ): Promise<Order> => {
     const res = await api.post(`/store/orders/admin/${id}/replace-item`, data);
     return mapOrderResponse(res.data);
+  },
+  previewItemReplacement: async (
+    id: string,
+    data: { sourceProductId: number; replacementProductId: number },
+  ): Promise<OrderReplacementQuote> => {
+    const res = await api.post(`/store/orders/admin/${id}/replace-item/preview`, data);
+    return res.data;
   },
   getWhatsAppLogs: async (id: string): Promise<WhatsAppMessageLog[]> => {
     const res = await api.get(`/store/orders/admin/${id}/whatsapp-logs`);
@@ -1870,6 +1883,13 @@ function mapOrderResponse(item: any): Order {
     shippingPostalCode: item.shippingPostalCode,
     shippingCity: item.shippingCity,
     total: parseFloat(item.total),
+    subtotal: item.subtotal != null ? parseFloat(item.subtotal) : undefined,
+    discountTotal: item.discountTotal != null ? parseFloat(item.discountTotal) : undefined,
+    shippingCost: item.shippingCost != null ? parseFloat(item.shippingCost) : undefined,
+    paidAmount: item.paidAmount != null ? parseFloat(item.paidAmount) : 0,
+    balanceDue: item.balanceDue != null
+      ? parseFloat(item.balanceDue)
+      : Math.max(0, parseFloat(item.total) - Number(item.paidAmount || 0)),
     status: mapOrderStatus(item.status),
     fulfillmentStatus: String(item.status || "").toUpperCase() as Order["fulfillmentStatus"],
     holdStatus: item.holdStatus || null,

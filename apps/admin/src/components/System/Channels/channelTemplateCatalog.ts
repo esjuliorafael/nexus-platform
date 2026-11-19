@@ -104,7 +104,7 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
           "{{order_id}}",
           "{{previous_product}}",
           "{{replacement_product}}",
-          "{{amount}}",
+          "{{due}}",
           "{{order_url}}",
         ],
         simplifiedOnly: true,
@@ -571,7 +571,7 @@ No se realiz\u00f3 ning\u00fan cobro.
 
 {{previous_product}} fue sustituido por {{replacement_product}}.
 
-El importe pagado no cambia: \${{amount}} MXN.
+{{due}}
 
 Consulta los detalles actualizados en el botón Ver orden:
 
@@ -636,7 +636,7 @@ const SIMPLIFIED_STORE_TEMPLATE_VARIABLES: Partial<
     "{{order_id}}",
     "{{previous_product}}",
     "{{replacement_product}}",
-    "{{amount}}",
+    "{{due}}",
     "{{order_url}}",
   ],
 };
