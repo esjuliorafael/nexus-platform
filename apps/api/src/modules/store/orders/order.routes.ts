@@ -4,6 +4,7 @@ import {
   cancelPaymentAttemptSchema,
   createOrderSchema,
   markOrdersReadSchema,
+  replacePaidBirdOrderItemSchema,
   updateOrderCustomerSchema,
   updateOrderStatusSchema,
 } from "./order.schema";
@@ -270,6 +271,31 @@ export async function orderRoutes(server: FastifyInstance) {
           message: "Validation error",
           errors: error.issues,
         });
+      }
+      throw error;
+    }
+  });
+
+  server.post("/admin/:id/replace-item", { preHandler: [server.authenticate] }, async (request, reply) => {
+    try {
+      const actor = await requireAdminActor(server, request, reply);
+      if (!actor) return;
+      const { id } = request.params as { id: string };
+      const orderId = parseInt(id, 10);
+      if (!Number.isInteger(orderId) || orderId < 1) {
+        return reply.status(400).send({ message: "Invalid order id" });
+      }
+      const body = replacePaidBirdOrderItemSchema.parse(request.body);
+      return await orderService.replacePaidBirdItem(orderId, body, actor);
+    } catch (error: any) {
+      if (error?.issues) {
+        return reply.status(400).send({
+          message: "Validation error",
+          errors: error.issues,
+        });
+      }
+      if (error?.statusCode) {
+        return reply.status(error.statusCode).send({ message: error.message });
       }
       throw error;
     }

@@ -19,6 +19,10 @@ import {
   type AuditActor,
 } from "../../../utils/admin-authorization";
 import { synchronizeItemAvailability } from "../products/product-inventory";
+import {
+  replacePaidBirdOrderItem,
+  type ReplacePaidBirdOrderItemInput,
+} from "./order-item-replacement.service";
 
 const createOrderError = (message: string, statusCode = 400) => {
   const error = new Error(message) as Error & { statusCode?: number };
@@ -210,6 +214,74 @@ export const orderService = {
       },
     });
     return order ? { ...order, recordType: "ORDER" } : null;
+  },
+
+  async replacePaidBirdItem(
+    id: number,
+    input: ReplacePaidBirdOrderItemInput,
+    actor: AuditActor,
+  ) {
+    const order = await replacePaidBirdOrderItem(storePrisma, id, input, actor);
+    let whatsappNotificationQueued = false;
+    const event = order.events.find(
+      (candidate) => candidate.eventType === "ORDER_ITEM_REPLACED",
+    );
+
+    if (event) {
+      try {
+        const birds = order.items.filter((item) => item.productType === "BIRD");
+        const hasArticles = order.items.some(
+          (item) => item.productType !== "BIRD",
+        );
+        const replacement = await storePrisma.product.findUnique({
+          where: { id: input.replacementProductId },
+          select: { purpose: true },
+        });
+        const orderKind: OrderKind = birds.length && !hasArticles
+          ? {
+              type: "birds_only",
+              purpose: (replacement?.purpose as OrderItemPurpose | undefined) ?? null,
+            }
+          : !birds.length && hasArticles
+            ? { type: "articles_only" }
+            : { type: "mixed" };
+
+        await whatsappQueue.add(
+          "order-item-changed",
+          {
+            kind: "order-item-changed",
+            orderId: order.id.toString(),
+            eventId: event.id,
+            recipientPhone: order.customerPhone,
+            orderKind,
+          },
+          { jobId: `order-item-changed-${order.id}-${event.id}` },
+        );
+        whatsappNotificationQueued = true;
+      } catch (error: any) {
+        try {
+          await storePrisma.whatsappMessageLog.create({
+            data: {
+              orderId: order.id.toString(),
+              recipientPhone: order.customerPhone,
+              instanceName: "unavailable",
+              jobId: `order-item-changed-${order.id}-${event.id}`,
+              templateUsed: "order_item_changed",
+              status: "failed",
+              errorMessage: `No se pudo poner el aviso en cola: ${error?.message || "error de cola"}`,
+              responsePayload: { eventId: event.id, stage: "enqueue" },
+            },
+          });
+        } catch (logError) {
+          console.error(
+            `[Orders] Could not log item-change notification failure for order ${order.id}`,
+            logError,
+          );
+        }
+      }
+    }
+
+    return { ...order, whatsappNotificationQueued };
   },
 
   async getWhatsappLogs(id: number) {

@@ -439,22 +439,28 @@ model Coupon {
 }
 
 model StorefrontCampaign {
-  id            Int      @id @default(autoincrement())
-  name          String
-  eyebrow       String?
-  title         String
-  titleEmphasis String?  @map("title_emphasis")
-  message       String?
-  ctaLabel      String?  @map("cta_label")
-  ctaHref       String?  @map("cta_href")
-  theme         String   @default("BRAND")
-  active        Boolean  @default(false)
-  startsAt      DateTime @map("starts_at")
-  endsAt        DateTime @map("ends_at")
-  couponId      Int      @unique @map("coupon_id")
-  createdAt     DateTime @default(now()) @map("created_at")
-  updatedAt     DateTime @updatedAt @map("updated_at")
-  coupon        Coupon   @relation(fields: [couponId], references: [id], onDelete: Restrict)
+  id                   Int      @id @default(autoincrement())
+  name                 String
+  eyebrow              String?
+  title                String
+  titleEmphasis        String?  @map("title_emphasis")
+  message              String?
+  ctaLabel             String?  @map("cta_label")
+  ctaHref              String?  @map("cta_href")
+  cardLabel            String?  @map("card_label")
+  homeCardEnabled      Boolean  @default(true) @map("home_card_enabled")
+  tickerEnabled        Boolean  @default(true) @map("ticker_enabled")
+  tickerMessage        String?  @map("ticker_message")
+  tickerDetail         String?  @map("ticker_detail")
+  tickerShowCouponCode Boolean  @default(false) @map("ticker_show_coupon_code")
+  theme                String   @default("BRAND")
+  active               Boolean  @default(false)
+  startsAt             DateTime @map("starts_at")
+  endsAt               DateTime @map("ends_at")
+  couponId             Int      @unique @map("coupon_id")
+  createdAt            DateTime @default(now()) @map("created_at")
+  updatedAt            DateTime @updatedAt @map("updated_at")
+  coupon               Coupon   @relation(fields: [couponId], references: [id], onDelete: Restrict)
 
   @@index([active, startsAt, endsAt])
   @@map("storefront_campaigns")
@@ -1091,6 +1097,7 @@ enum TemplateType {
   PAYMENT_REFUNDED          @map("payment_refunded")
   PAYMENT_RECOVERY          @map("payment_recovery")
   PAYMENT_INSTRUCTIONS      @map("payment_instructions")
+  ORDER_ITEM_CHANGED        @map("order_item_changed")
   RESTORED                  @map("restored")
   REMINDER                  @map("reminder")
   OPENING                   @map("opening")

@@ -20,6 +20,7 @@ import {
   type CloudTemplateScope,
   type CloudTemplateOwner,
   type CloudTemplateType,
+  type CloudTemplateVariant,
 } from "./whatsapp-cloud-template.service";
 import {
   getWhatsappDeliveryPolicy,
@@ -63,6 +64,7 @@ export type SendBusinessWhatsappParams = {
   attempt?: number;
   forceProvider?: WhatsappProviderKind;
   kapsoEnabled?: boolean;
+  requiredCloudVariant?: CloudTemplateVariant;
 };
 
 const renderBusinessTemplate = (
@@ -148,18 +150,23 @@ async function resolveActiveTemplateContent(
   };
 }
 
+function getBusinessProviderPriority(params: SendBusinessWhatsappParams) {
+  if (params.requiredCloudVariant) return ["KAPSO"] as const;
+  return resolveWhatsappProviderPriority({
+    type: params.type,
+    forceProvider: params.forceProvider,
+    kapsoEnabled: params.kapsoEnabled,
+    deliveryStrategy:
+      params.preferredChannel?.deliveryStrategy ||
+      params.principal.deliveryStrategy,
+  });
+}
+
 function getPolicyRouting(params: SendBusinessWhatsappParams) {
   const policy = getWhatsappDeliveryPolicy(params.type);
   return {
     policyClass: policy.classification,
-    providerPriority: resolveWhatsappProviderPriority({
-      type: params.type,
-      forceProvider: params.forceProvider,
-      kapsoEnabled: params.kapsoEnabled,
-      deliveryStrategy:
-        params.preferredChannel?.deliveryStrategy ||
-        params.principal.deliveryStrategy,
-    }),
+    providerPriority: getBusinessProviderPriority(params),
   };
 }
 
@@ -194,6 +201,12 @@ async function sendKapso(params: {
     "CLOUD",
     params.owner,
   );
+  if (
+    params.delivery.requiredCloudVariant &&
+    activeContent.variant !== params.delivery.requiredCloudVariant
+  ) {
+    return false;
+  }
   let approvedTemplate = await getApprovedCloudTemplate({
     ...ownerConfig,
     values: params.delivery.values,
@@ -213,7 +226,11 @@ async function sendKapso(params: {
       variant: "SIMPLIFIED",
     });
   }
-  if (!approvedTemplate && activeContent.variant !== "LEGACY") {
+  if (
+    !approvedTemplate &&
+    activeContent.variant !== "LEGACY" &&
+    !params.delivery.requiredCloudVariant
+  ) {
     const legacyContent =
       params.delivery.legacySourceContent || params.delivery.sourceContent;
     approvedTemplate = await getApprovedCloudTemplate({
@@ -241,14 +258,7 @@ async function sendKapso(params: {
     fallbackReason: params.fallbackReason,
     ...getPolicyRouting(params.delivery),
     fallbackFromProvider:
-      resolveWhatsappProviderPriority({
-        type: params.delivery.type,
-        forceProvider: params.delivery.forceProvider,
-        kapsoEnabled: params.delivery.kapsoEnabled,
-        deliveryStrategy:
-          params.delivery.preferredChannel?.deliveryStrategy ||
-          params.delivery.principal.deliveryStrategy,
-      })[0] === "EVOLUTION"
+      getBusinessProviderPriority(params.delivery)[0] === "EVOLUTION"
         ? "EVOLUTION"
         : undefined,
     metaBilling: {
@@ -378,12 +388,7 @@ export async function sendBusinessWhatsappNotification(
   const deliveryParams = params;
   const preferred = deliveryParams.preferredChannel || null;
   const principalEvolution = deliveryParams.principal.evolution;
-  const providerPriority = resolveWhatsappProviderPriority({
-    type: deliveryParams.type,
-    forceProvider: deliveryParams.forceProvider,
-    kapsoEnabled: deliveryParams.kapsoEnabled,
-    deliveryStrategy: preferred?.deliveryStrategy || deliveryParams.principal.deliveryStrategy,
-  });
+  const providerPriority = getBusinessProviderPriority(deliveryParams);
   let fallbackReason = "";
   const principalDelivery: SendBusinessWhatsappParams = {
     ...deliveryParams,

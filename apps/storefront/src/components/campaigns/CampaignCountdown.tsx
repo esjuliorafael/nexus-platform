@@ -66,16 +66,13 @@ export function CampaignCountdown() {
     return () => window.clearInterval(interval);
   }, []);
 
-  if (!campaign) return null;
+  if (!campaign?.homeCardEnabled) return null;
 
   const remaining = remainingTime(campaign.endsAt, now);
   if (remaining.ended) return null;
 
   const campaignLabel = campaign.name.replace(/\s+\d{4}$/, "").trim();
-  const campaignEyebrow = campaign.eyebrow
-    ?.split(/[·•|]/, 1)[0]
-    .trim();
-  const campaignDisplayName = campaignEyebrow || campaignLabel;
+  const campaignDisplayName = campaign.cardLabel?.trim() || campaignLabel;
   const dateRange = campaignDateRange(campaign.startsAt, campaign.endsAt);
   const scopeLabel = couponScopeLabel(
     campaign.coupon.scope,
@@ -104,14 +101,14 @@ export function CampaignCountdown() {
       campaign.title.indexOf(emphasis, emphasisStart + 1) === -1
     : false;
   const title = emphasis && emphasisIsUnique ? (
-    <>
-      {campaign.title.slice(0, emphasisStart)}
-      <em className="sf-campaign-promo__title-emphasis">{emphasis}</em>
-      {campaign.title.slice(emphasisStart + emphasis.length)}
-    </>
-  ) : (
-    campaign.title
-  );
+      <>
+        {campaign.title.slice(0, emphasisStart)}
+        <em className="sf-campaign-promo__title-emphasis">{emphasis}</em>
+        {campaign.title.slice(emphasisStart + emphasis.length)}
+      </>
+    ) : (
+      campaign.title
+    );
 
   return (
     <section

@@ -226,14 +226,28 @@ export const StorefrontCampaignsView = forwardRef<
                           <NexusAutonomousBadge variant="brand">
                             {item.coupon.discountValue}% · {item.coupon.code}
                           </NexusAutonomousBadge>
+                          <NexusAutonomousBadge
+                            variant={item.homeCardEnabled ? "success" : "muted"}
+                          >
+                            Tarjeta{" "}
+                            {item.homeCardEnabled ? "visible" : "oculta"}
+                          </NexusAutonomousBadge>
+                          <NexusAutonomousBadge
+                            variant={item.tickerEnabled ? "success" : "muted"}
+                          >
+                            Cinta {item.tickerEnabled ? "visible" : "oculta"}
+                          </NexusAutonomousBadge>
                         </div>
                         <div className="min-w-0">
                           <h3 className="text-h2 text-text-main">
-                            {item.title}
+                            {item.homeCardEnabled ? item.title : item.name}
                           </h3>
                           <p className="text-secondary text-text-muted">
-                            {item.name}
-                            {item.message ? ` · ${item.message}` : ""}
+                            {item.homeCardEnabled
+                              ? `${item.name}${item.message ? ` · ${item.message}` : ""}`
+                              : item.tickerEnabled
+                                ? item.tickerMessage
+                                : "Promoción disponible durante la vigencia."}
                           </p>
                         </div>
                         <div

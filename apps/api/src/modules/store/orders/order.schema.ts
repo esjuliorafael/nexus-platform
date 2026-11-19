@@ -40,6 +40,14 @@ export const updateOrderCustomerSchema = z.object({
   shippingState: z.string().trim().optional().nullable(),
 });
 
+export const replacePaidBirdOrderItemSchema = z.object({
+  sourceProductId: z.number().int().positive(),
+  replacementProductId: z.number().int().positive(),
+  reason: z.string().trim().min(8).max(500),
+  customerAuthorized: z.literal(true),
+  deliveryConfirmed: z.literal(true),
+});
+
 export const cancelPaymentAttemptSchema = z.object({
   customerPhone: customerPhoneSchema,
 });

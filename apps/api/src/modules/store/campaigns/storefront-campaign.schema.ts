@@ -14,7 +14,13 @@ const campaignHrefSchema = z
 const campaignShape = {
   name: z.string().trim().min(2).max(80),
   eyebrow: z.string().trim().max(48).optional().nullable(),
-  title: z.string().trim().min(2).max(120),
+  cardLabel: z.string().trim().max(48).optional().nullable(),
+  homeCardEnabled: z.boolean().default(true),
+  tickerEnabled: z.boolean().default(true),
+  tickerMessage: z.string().trim().max(120).optional().nullable(),
+  tickerDetail: z.string().trim().max(160).optional().nullable(),
+  tickerShowCouponCode: z.boolean().default(false),
+  title: z.string().trim().max(120).optional(),
   titleEmphasis: z.string().trim().max(120).optional().nullable(),
   message: z.string().trim().max(240).optional().nullable(),
   ctaLabel: z.string().trim().max(32).optional().nullable(),
@@ -30,12 +36,17 @@ function validateCampaignDates(
   value: {
     startsAt?: string;
     endsAt?: string;
+    homeCardEnabled?: boolean;
+    cardLabel?: string | null;
+    tickerEnabled?: boolean;
+    tickerMessage?: string | null;
     ctaLabel?: string | null;
     ctaHref?: string | null;
     title?: string;
     titleEmphasis?: string | null;
   },
   context: z.RefinementCtx,
+  requireEnabledContent = false,
 ) {
   if (
     value.startsAt &&
@@ -48,7 +59,12 @@ function validateCampaignDates(
       message: "La fecha de cierre debe ser posterior al inicio.",
     });
   }
-  if (Boolean(value.ctaLabel?.trim()) !== Boolean(value.ctaHref?.trim())) {
+  if (
+    value.homeCardEnabled !== false &&
+    (requireEnabledContent ||
+      (value.ctaLabel !== undefined && value.ctaHref !== undefined)) &&
+    Boolean(value.ctaLabel?.trim()) !== Boolean(value.ctaHref?.trim())
+  ) {
     context.addIssue({
       code: z.ZodIssueCode.custom,
       path: ["ctaLabel"],
@@ -57,6 +73,8 @@ function validateCampaignDates(
   }
 
   if (
+    value.homeCardEnabled !== false &&
+    value.title !== undefined &&
     value.title &&
     value.titleEmphasis?.trim() &&
     !hasUniqueTitleEmphasis(value.title, value.titleEmphasis)
@@ -67,9 +85,48 @@ function validateCampaignDates(
       message: "La frase destacada debe aparecer una sola vez en el título.",
     });
   }
+
+  if (
+    value.homeCardEnabled === true &&
+    (requireEnabledContent || value.title !== undefined) &&
+    (!value.title?.trim() || value.title.trim().length < 2)
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["title"],
+      message: "Escribe un título para la tarjeta del Inicio.",
+    });
+  }
+
+  if (
+    value.homeCardEnabled === true &&
+    (requireEnabledContent || value.cardLabel !== undefined) &&
+    !value.cardLabel?.trim()
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["cardLabel"],
+      message: "Define la etiqueta pública de la tarjeta.",
+    });
+  }
+
+  if (
+    value.tickerEnabled === true &&
+    (requireEnabledContent || value.tickerMessage !== undefined) &&
+    !value.tickerMessage?.trim()
+  ) {
+    context.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ["tickerMessage"],
+      message: "Escribe el mensaje principal de la cinta.",
+    });
+  }
 }
 
-export function hasUniqueTitleEmphasis(title: string, emphasis?: string | null) {
+export function hasUniqueTitleEmphasis(
+  title: string,
+  emphasis?: string | null,
+) {
   const phrase = emphasis?.trim();
   if (!phrase) return true;
   const firstIndex = title.indexOf(phrase);
@@ -78,7 +135,7 @@ export function hasUniqueTitleEmphasis(title: string, emphasis?: string | null) 
 
 export const createStorefrontCampaignSchema = z
   .object(campaignShape)
-  .superRefine(validateCampaignDates);
+  .superRefine((value, context) => validateCampaignDates(value, context, true));
 export const updateStorefrontCampaignSchema = z
   .object({
     ...campaignShape,

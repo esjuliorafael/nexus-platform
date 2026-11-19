@@ -41,7 +41,7 @@ function StorefrontMainContent({
 }) {
   const { campaign } = useStorefrontCampaign();
   const campaignFollowsRail =
-    Boolean(campaign) && hasMobileCampaignRail(pathname);
+    Boolean(campaign?.tickerEnabled) && hasMobileCampaignRail(pathname);
   const campaignDetailRoute =
     campaignFollowsRail &&
     (/^\/store\/[^/]+\/?$/.test(pathname) ||

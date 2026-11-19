@@ -2,7 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   buildCanonicalCloudTemplateSources,
+  CLOUD_TEMPLATE_SETTING_KEYS,
   findCloudTemplateInCatalog,
+  getCloudTemplateCategory,
   getCloudTemplateRemoteHealth,
   getCloudTemplateBodyContent,
   getCloudTemplateContentHash,
@@ -108,6 +110,24 @@ test("normalizes multiline Cloud API template parameters", () => {
     ),
     "02, 05 y 09 · Oportunidades: · 02: 35, 76 · 05: 47, 48",
   );
+});
+
+test("defines a dedicated utility template for customer-requested order item changes", () => {
+  const source = buildCanonicalCloudTemplateSources({}, ["STORE"], "SIMPLIFIED")
+    .find((candidate) => candidate.type === "ORDER_ITEM_CHANGED");
+
+  assert.equal(
+    CLOUD_TEMPLATE_SETTING_KEYS.find(
+      (candidate) => candidate.type === "ORDER_ITEM_CHANGED",
+    )?.key,
+    "whatsapp_global_store_item_changed",
+  );
+  assert.ok(source);
+  assert.equal(getCloudTemplateCategory("ORDER_ITEM_CHANGED"), "UTILITY");
+  assert.match(source.content, /\{\{previous_product\}\}/);
+  assert.match(source.content, /\{\{replacement_product\}\}/);
+  assert.match(source.content, /\{\{order_url\}\}/);
+  assert.doesNotMatch(getCloudTemplateBodyContent(source), /\{\{order_url\}\}/);
 });
 
 test("normalizes tabs and repeated whitespace in Cloud API parameters", () => {

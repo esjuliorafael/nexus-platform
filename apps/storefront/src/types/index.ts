@@ -121,7 +121,12 @@ export interface StoreHero {
 export interface StorefrontCampaign {
   id: number;
   name: string;
-  eyebrow: string | null;
+  cardLabel: string | null;
+  homeCardEnabled: boolean;
+  tickerEnabled: boolean;
+  tickerMessage: string | null;
+  tickerDetail: string | null;
+  tickerShowCouponCode: boolean;
   title: string;
   titleEmphasis: string | null;
   message: string | null;

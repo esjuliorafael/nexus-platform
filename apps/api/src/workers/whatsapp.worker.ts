@@ -26,6 +26,7 @@ import { getParticipationUnitPrice } from "../modules/raffle/ticket-sales/shared
 import { createStoreOrderAccess } from "../modules/store/orders/store-order-access.service";
 import {
   getCloudTemplateDefaultContent,
+  getCloudTemplateSimplifiedDefaultContent,
   getActiveCloudTemplateVariant,
   omitOptionalRaffleParticipationInfo,
   resolveCloudTemplateOwner,
@@ -95,6 +96,8 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
               "whatsapp_global_store_res",
               "whatsapp_global_store_rel",
               "whatsapp_global_store_pay",
+              "whatsapp_global_store_item_changed",
+              "whatsapp_global_store_item_changed_simplified",
               "whatsapp_global_store_refunded",
               "whatsapp_global_store_payment_recovery",
               "whatsapp_global_store_restored",
@@ -898,6 +901,7 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       data.kind === "order" ||
       data.kind === "order-cancelled" ||
       data.kind === "order-paid" ||
+      data.kind === "order-item-changed" ||
       data.kind === "order-refunded" ||
       data.kind === "order-restored" ||
       data.kind === "order-reminder"
@@ -916,6 +920,12 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
       const principalTemplate =
         data.kind === "order"
           ? getSetting("whatsapp_global_store_res") || ""
+          : data.kind === "order-item-changed"
+            ? getSetting("whatsapp_global_store_item_changed_simplified") ||
+              getCloudTemplateSimplifiedDefaultContent(
+                "STORE",
+                "ORDER_ITEM_CHANGED",
+              )
           : data.kind === "order-paid"
             ? getSetting("whatsapp_global_store_pay") || ""
             : data.kind === "order-refunded"
@@ -973,6 +983,46 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
         return;
       }
 
+      let replacedProducts: {
+        previous: string;
+        replacement: string;
+      } | null = null;
+      if (data.kind === "order-item-changed") {
+        const event = await storePrisma.orderEvent.findFirst({
+          where: {
+            id: data.eventId,
+            orderId: order.id,
+            eventType: "ORDER_ITEM_REPLACED",
+          },
+          select: { previousState: true, nextState: true },
+        });
+        const previousState = event?.previousState as
+          | { item?: { name?: string } }
+          | null;
+        const nextState = event?.nextState as
+          | { item?: { name?: string } }
+          | null;
+        const previous = previousState?.item?.name?.trim();
+        const replacement = nextState?.item?.name?.trim();
+        if (!previous || !replacement) {
+          await storePrisma.whatsappMessageLog.create({
+            data: {
+              attempt: job.attemptsMade + 1,
+              orderId: data.orderId,
+              recipientPhone: data.recipientPhone,
+              instanceName,
+              jobId: String(job.id ?? ""),
+              templateUsed: "order_item_changed",
+              status: "failed",
+              errorMessage:
+                "No se encontró el evento o los productos de la sustitución.",
+            },
+          });
+          return;
+        }
+        replacedProducts = { previous, replacement };
+      }
+
       let paymentChannel = null;
       if (data.orderKind.type === "birds_only" && data.orderKind.purpose) {
         const orderPurpose = data.orderKind.purpose;
@@ -1025,6 +1075,12 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
           ? data.timeRemaining
           : undefined,
         orderUrl,
+        replacedProducts
+          ? {
+              previous_product: replacedProducts.previous,
+              replacement_product: replacedProducts.replacement,
+            }
+          : undefined,
       );
 
       await sendBusinessWhatsappNotification({
@@ -1036,13 +1092,15 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
             ? "RESERVATION"
             : data.kind === "order-paid"
               ? "PAYMENT_CONFIRMED"
-              : data.kind === "order-refunded"
-                ? "PAYMENT_REFUNDED"
-                : data.kind === "order-restored"
-                  ? "RESTORED"
-                  : data.kind === "order-reminder"
-                    ? "REMINDER"
-                    : "RELEASE",
+              : data.kind === "order-item-changed"
+                ? "ORDER_ITEM_CHANGED"
+                : data.kind === "order-refunded"
+                  ? "PAYMENT_REFUNDED"
+                  : data.kind === "order-restored"
+                    ? "RESTORED"
+                    : data.kind === "order-reminder"
+                      ? "REMINDER"
+                      : "RELEASE",
         sourceContent: template,
         principalSourceContent: principalTemplate,
         recipientPhone: data.recipientPhone,
@@ -1059,18 +1117,22 @@ export const whatsappWorker = new Worker<WhatsappJobData>(
               : "order_principal"
             : data.kind === "order-paid"
               ? "order_paid"
-              : data.kind === "order-refunded"
-                ? "order_refunded"
-                : data.kind === "order-restored"
-                  ? "order_restored"
-                  : data.kind === "order-reminder"
-                    ? "order_reminder"
-                    : "order_cancelled",
+              : data.kind === "order-item-changed"
+                ? "order_item_changed"
+                : data.kind === "order-refunded"
+                  ? "order_refunded"
+                  : data.kind === "order-restored"
+                    ? "order_restored"
+                    : data.kind === "order-reminder"
+                      ? "order_reminder"
+                      : "order_cancelled",
         orderId: data.orderId,
         jobId: String(job.id ?? ""),
         attempt: job.attemptsMade + 1,
         forceProvider,
         kapsoEnabled,
+        requiredCloudVariant:
+          data.kind === "order-item-changed" ? "SIMPLIFIED" : undefined,
       });
     }
 
@@ -1858,6 +1920,7 @@ function buildOrderNotification(
   itemList?: string,
   timeRemaining?: string,
   orderUrl?: string,
+  additionalValues?: Record<string, string>,
 ) {
   const hour = new Date().getHours();
   let greeting = "Buen día";
@@ -1884,6 +1947,7 @@ function buildOrderNotification(
     time_store: timeLimit || "",
     time_remaining: timeRemaining || "",
     order_url: orderUrl || "",
+    ...additionalValues,
   };
   return { message: renderTemplate(template, values), values };
 }

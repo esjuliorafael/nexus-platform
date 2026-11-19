@@ -901,6 +901,19 @@ export const apiOrders = {
     const res = await api.patch(`/store/orders/admin/${id}/customer`, data);
     return mapOrderResponse(res.data);
   },
+  replaceItem: async (
+    id: string,
+    data: {
+      sourceProductId: number;
+      replacementProductId: number;
+      reason: string;
+      customerAuthorized: true;
+      deliveryConfirmed: true;
+    },
+  ): Promise<Order> => {
+    const res = await api.post(`/store/orders/admin/${id}/replace-item`, data);
+    return mapOrderResponse(res.data);
+  },
   getWhatsAppLogs: async (id: string): Promise<WhatsAppMessageLog[]> => {
     const res = await api.get(`/store/orders/admin/${id}/whatsapp-logs`);
     return res.data.map((item: any) => ({
@@ -1841,6 +1854,9 @@ function mapProductType(type?: string): "BIRD" | "ITEM" {
 function mapOrderResponse(item: any): Order {
   return {
     id: item.id.toString(),
+    ...(typeof item.whatsappNotificationQueued === "boolean"
+      ? { whatsappNotificationQueued: item.whatsappNotificationQueued }
+      : {}),
     recordType: item.recordType || "ORDER",
     paymentHoldId: item.paymentHoldId || null,
     customer: item.customerName,
@@ -1855,6 +1871,7 @@ function mapOrderResponse(item: any): Order {
     shippingCity: item.shippingCity,
     total: parseFloat(item.total),
     status: mapOrderStatus(item.status),
+    fulfillmentStatus: String(item.status || "").toUpperCase() as Order["fulfillmentStatus"],
     holdStatus: item.holdStatus || null,
     expiresAt: item.expiresAt || null,
     paymentMethod: item.paymentMethod,
@@ -1893,7 +1910,8 @@ function mapOrderResponse(item: any): Order {
       }),
     ),
     items: (item.items || []).map((i: any) => ({
-      id: i.productId.toString(),
+      id: i.id.toString(),
+      productId: i.productId.toString(),
       name: i.productName || "Producto",
       price: parseFloat(i.unitPrice),
       quantity: i.quantity,

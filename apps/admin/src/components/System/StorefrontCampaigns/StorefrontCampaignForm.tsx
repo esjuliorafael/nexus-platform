@@ -74,7 +74,27 @@ export const StorefrontCampaignForm = forwardRef<
   Props
 >(({ initialData, onSave, showToast, onValidationChange }, ref) => {
   const [name, setName] = useState(initialData?.name || "");
-  const [eyebrow, setEyebrow] = useState(initialData?.eyebrow || "");
+  const [cardLabel, setCardLabel] = useState(
+    initialData?.cardLabel ||
+      initialData?.eyebrow?.split(/[·•|]/, 1)[0].trim() ||
+      initialData?.name.replace(/\s+\d{4}$/, "") ||
+      "",
+  );
+  const [homeCardEnabled, setHomeCardEnabled] = useState(
+    initialData?.homeCardEnabled ?? true,
+  );
+  const [tickerEnabled, setTickerEnabled] = useState(
+    initialData?.tickerEnabled ?? true,
+  );
+  const [tickerMessage, setTickerMessage] = useState(
+    initialData?.tickerMessage || initialData?.eyebrow || "",
+  );
+  const [tickerDetail, setTickerDetail] = useState(
+    initialData?.tickerDetail || "",
+  );
+  const [tickerShowCouponCode, setTickerShowCouponCode] = useState(
+    initialData?.tickerShowCouponCode ?? false,
+  );
   const [title, setTitle] = useState(initialData?.title || "");
   const [titleEmphasis, setTitleEmphasis] = useState(
     initialData?.titleEmphasis || "",
@@ -97,6 +117,7 @@ export const StorefrontCampaignForm = forwardRef<
   const [isSaving, setIsSaving] = useState(false);
 
   const ctaComplete =
+    !homeCardEnabled ||
     (!ctaLabel.trim() && !ctaHref.trim()) ||
     Boolean(ctaLabel.trim() && ctaHref.trim());
   const normalizedTitleEmphasis = titleEmphasis.trim();
@@ -104,12 +125,14 @@ export const StorefrontCampaignForm = forwardRef<
     ? title.indexOf(normalizedTitleEmphasis)
     : -1;
   const titleEmphasisValid =
+    !homeCardEnabled ||
     !normalizedTitleEmphasis ||
     (firstEmphasisIndex !== -1 &&
       title.indexOf(normalizedTitleEmphasis, firstEmphasisIndex + 1) === -1);
   const valid = Boolean(
     name.trim() &&
-    title.trim() &&
+    (!homeCardEnabled || (cardLabel.trim() && title.trim())) &&
+    (!tickerEnabled || tickerMessage.trim()) &&
     titleEmphasisValid &&
     startsAt &&
     endsAt &&
@@ -131,18 +154,30 @@ export const StorefrontCampaignForm = forwardRef<
 
   const save = async () => {
     if (!valid || isSaving) {
-      if (!valid)
-        showToast(
-          "Completa nombre, título, vigencia y cupón. Revisa la frase destacada y el CTA.",
-          "error",
-        );
+      if (!valid) {
+        const message = !name.trim()
+          ? "Escribe un nombre interno para la campaña."
+          : homeCardEnabled && !cardLabel.trim()
+            ? "Define la etiqueta de la tarjeta del Inicio."
+            : homeCardEnabled && !title.trim()
+              ? "Escribe el título de la tarjeta del Inicio."
+              : tickerEnabled && !tickerMessage.trim()
+                ? "Escribe el mensaje principal de la cinta."
+                : "Revisa las fechas, el cupón, la frase destacada y el CTA.";
+        showToast(message, "error");
+      }
       return;
     }
     setIsSaving(true);
     try {
       const payload = {
         name: name.trim(),
-        eyebrow: eyebrow.trim() || null,
+        cardLabel: cardLabel.trim() || null,
+        homeCardEnabled,
+        tickerEnabled,
+        tickerMessage: tickerMessage.trim() || null,
+        tickerDetail: tickerDetail.trim() || null,
+        tickerShowCouponCode,
         title: title.trim(),
         titleEmphasis: normalizedTitleEmphasis || null,
         message: message.trim() || null,
@@ -193,127 +228,186 @@ export const StorefrontCampaignForm = forwardRef<
       accent: "oklch(84% 0.1 92)",
     },
   }[theme];
-  const titlePreview = titleEmphasisValid && normalizedTitleEmphasis ? (
-    <>
-      {title.slice(0, firstEmphasisIndex)}
-      <em style={{ color: titlePreviewPalette.accent }}>
-        {normalizedTitleEmphasis}
-      </em>
-      {title.slice(firstEmphasisIndex + normalizedTitleEmphasis.length)}
-    </>
-  ) : (
-    title
-  );
+  const titlePreview =
+    titleEmphasisValid && normalizedTitleEmphasis ? (
+      <>
+        {title.slice(0, firstEmphasisIndex)}
+        <em style={{ color: titlePreviewPalette.accent }}>
+          {normalizedTitleEmphasis}
+        </em>
+        {title.slice(firstEmphasisIndex + normalizedTitleEmphasis.length)}
+      </>
+    ) : (
+      title
+    );
 
   return (
     <div
       className="grid grid-cols-1 xl:grid-cols-2"
       style={{ gap: "var(--space-lg)" }}
     >
-      <NexusSection
-        title="Presentación"
-        subtitle="Define el mensaje breve de la campaña"
-        icon={Megaphone}
-        iconVariant="brand"
-      >
-        <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
-          <NexusInput
-            label="Nombre interno"
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            maxLength={80}
-            required
-          />
-          <NexusInput
-            label="Frase superior"
-            value={eyebrow}
-            onChange={(event) => setEyebrow(event.target.value)}
-            maxLength={48}
-            placeholder="Buen Fin · 13 al 17 de noviembre"
-          />
-          <NexusInput
-            label="Título promocional"
-            value={title}
-            onChange={(event) => setTitle(event.target.value)}
-            maxLength={120}
-            required
-          />
-          <NexusInput
-            label="Frase destacada (opcional)"
-            value={titleEmphasis}
-            onChange={(event) => setTitleEmphasis(event.target.value)}
-            maxLength={120}
-            placeholder="de descuento"
-            helperText="Se mostrará en cursiva y con el acento de la campaña. Debe coincidir exactamente con una sola parte del título."
-            error={
-              titleEmphasisValid
-                ? undefined
-                : "La frase debe aparecer una sola vez en el título."
-            }
-          />
-          <div
-            className="flex flex-col border border-white/15"
-            style={{
-              backgroundColor: titlePreviewPalette.background,
-              borderRadius: "var(--radius-inner-visual)",
-              gap: "var(--space-xs)",
-              padding: "var(--padding-inner)",
-            }}
-            role="group"
-            aria-label="Vista previa del título promocional"
-          >
-            <span
-              className="text-label uppercase"
-              style={{ color: "oklch(82% 0.025 67)" }}
+      <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
+        <NexusSection
+          title="Cinta de aviso"
+          icon={Megaphone}
+          iconVariant="brand"
+        >
+          <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+            <div
+              className="flex items-center justify-between"
+              style={{ gap: "var(--space-md)" }}
             >
-              Vista previa
-            </span>
-            <p
-              className="max-w-full"
-              style={{
-                color: titlePreviewPalette.foreground,
-                fontFamily: 'Georgia, "Times New Roman", serif',
-                fontSize: "var(--text-hero)",
-                fontWeight: 400,
-                letterSpacing: 0,
-                lineHeight: 1.08,
-                maxWidth: "18ch",
-                margin: 0,
-                textWrap: "balance",
-              }}
+              <span className="text-h3 text-text-main">Mostrar cinta</span>
+              <NexusSwitch
+                checked={tickerEnabled}
+                onChange={setTickerEnabled}
+                aria-label="Mostrar cinta de aviso"
+              />
+            </div>
+            {tickerEnabled && (
+              <>
+                <NexusInput
+                  label="Mensaje principal"
+                  value={tickerMessage}
+                  onChange={(event) => setTickerMessage(event.target.value)}
+                  maxLength={120}
+                  required
+                  placeholder="Buen Fin en Rancho Las Trojes"
+                />
+                <NexusInput
+                  label="Mensaje complementario (opcional)"
+                  value={tickerDetail}
+                  onChange={(event) => setTickerDetail(event.target.value)}
+                  maxLength={160}
+                  placeholder="Promoción vigente hasta el 17 de noviembre"
+                />
+                <div
+                  className="flex items-center justify-between"
+                  style={{ gap: "var(--space-md)" }}
+                >
+                  <span className="text-secondary text-text-main">
+                    Mostrar código del cupón
+                  </span>
+                  <NexusSwitch
+                    checked={tickerShowCouponCode}
+                    onChange={setTickerShowCouponCode}
+                    aria-label="Mostrar código del cupón en la cinta"
+                  />
+                </div>
+              </>
+            )}
+          </div>
+        </NexusSection>
+
+        <NexusSection title="Tarjeta del Inicio" icon={TicketPercent}>
+          <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+            <div
+              className="flex items-center justify-between"
+              style={{ gap: "var(--space-md)" }}
             >
-              {titlePreview || "Título promocional"}
-            </p>
+              <span className="text-h3 text-text-main">Mostrar tarjeta</span>
+              <NexusSwitch
+                checked={homeCardEnabled}
+                onChange={setHomeCardEnabled}
+                aria-label="Mostrar tarjeta de campaña en el Inicio"
+              />
+            </div>
+            {homeCardEnabled && (
+              <>
+                <NexusInput
+                  label="Etiqueta de campaña"
+                  value={cardLabel}
+                  onChange={(event) => setCardLabel(event.target.value)}
+                  maxLength={48}
+                  required
+                  placeholder="Buen Fin"
+                />
+                <NexusInput
+                  label="Título promocional"
+                  value={title}
+                  onChange={(event) => setTitle(event.target.value)}
+                  maxLength={120}
+                  required
+                />
+                <NexusInput
+                  label="Frase destacada (opcional)"
+                  value={titleEmphasis}
+                  onChange={(event) => setTitleEmphasis(event.target.value)}
+                  maxLength={120}
+                  placeholder="de descuento"
+                  helperText="Se mostrará en cursiva y con el acento de la campaña. Debe coincidir exactamente con una sola parte del título."
+                  error={
+                    titleEmphasisValid
+                      ? undefined
+                      : "La frase debe aparecer una sola vez en el título."
+                  }
+                />
+                <div
+                  className="flex flex-col border border-white/15"
+                  style={{
+                    backgroundColor: titlePreviewPalette.background,
+                    borderRadius: "var(--radius-inner-visual)",
+                    gap: "var(--space-xs)",
+                    padding: "var(--padding-inner)",
+                  }}
+                  role="group"
+                  aria-label="Vista previa del título promocional"
+                >
+                  <span
+                    className="text-label uppercase"
+                    style={{ color: "oklch(82% 0.025 67)" }}
+                  >
+                    Vista previa
+                  </span>
+                  <p
+                    className="max-w-full"
+                    style={{
+                      color: titlePreviewPalette.foreground,
+                      fontFamily: 'Georgia, "Times New Roman", serif',
+                      fontSize: "var(--text-hero)",
+                      fontWeight: 400,
+                      letterSpacing: 0,
+                      lineHeight: 1.08,
+                      maxWidth: "18ch",
+                      margin: 0,
+                      textWrap: "balance",
+                    }}
+                  >
+                    {titlePreview || "Título promocional"}
+                  </p>
+                </div>
+                <NexusTextarea
+                  label="Mensaje"
+                  value={message}
+                  onChange={(event) => setMessage(event.target.value)}
+                  maxLength={240}
+                  rows={3}
+                  placeholder="Aprovecha el descuento en ejemplares participantes."
+                />
+                <div
+                  className="grid grid-cols-1 md:grid-cols-2"
+                  style={{ gap: "var(--space-md)" }}
+                >
+                  <NexusInput
+                    label="Texto del CTA"
+                    value={ctaLabel}
+                    onChange={(event) => setCtaLabel(event.target.value)}
+                    maxLength={32}
+                    placeholder="Ver aves"
+                  />
+                  <NexusInput
+                    label="Destino interno"
+                    value={ctaHref}
+                    onChange={(event) => setCtaHref(event.target.value)}
+                    maxLength={240}
+                    placeholder="/store?type=BIRD"
+                  />
+                </div>
+              </>
+            )}
           </div>
-          <NexusTextarea
-            label="Mensaje"
-            value={message}
-            onChange={(event) => setMessage(event.target.value)}
-            maxLength={240}
-            rows={3}
-            placeholder="Aprovecha el descuento en ejemplares participantes."
-          />
-          <div
-            className="grid grid-cols-1 md:grid-cols-2"
-            style={{ gap: "var(--space-md)" }}
-          >
-            <NexusInput
-              label="Texto del CTA"
-              value={ctaLabel}
-              onChange={(event) => setCtaLabel(event.target.value)}
-              maxLength={32}
-              placeholder="Ver promociones"
-            />
-            <NexusInput
-              label="Destino interno"
-              value={ctaHref}
-              onChange={(event) => setCtaHref(event.target.value)}
-              maxLength={240}
-              placeholder="/store?type=BIRD"
-            />
-          </div>
-        </div>
-      </NexusSection>
+        </NexusSection>
+      </div>
 
       <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
         <NexusSection
@@ -322,6 +416,14 @@ export const StorefrontCampaignForm = forwardRef<
           icon={TicketPercent}
         >
           <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+            <NexusInput
+              label="Nombre interno"
+              value={name}
+              onChange={(event) => setName(event.target.value)}
+              maxLength={80}
+              required
+              placeholder="Buen Fin 2026"
+            />
             <NexusSelect
               label="Cupón asociado"
               value={couponId}

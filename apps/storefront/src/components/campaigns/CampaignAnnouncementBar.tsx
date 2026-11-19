@@ -1,8 +1,6 @@
 "use client";
 
 import type { ReactNode } from "react";
-import Link from "next/link";
-import { ArrowRight } from "lucide-react";
 import { useStorefrontCampaign } from "./StorefrontCampaignContext";
 
 const themeClasses = {
@@ -22,25 +20,21 @@ export function CampaignAnnouncementBar({
 }: CampaignAnnouncementBarProps) {
   const { campaign } = useStorefrontCampaign();
 
-  if (!campaign) return null;
+  if (!campaign?.tickerEnabled || !campaign.tickerMessage?.trim()) return null;
 
   const copy = (
     <>
-      {campaign.eyebrow && (
-        <span className="sf-campaign-ticker-eyebrow">{campaign.eyebrow}</span>
-      )}
-      <span className="sf-campaign-ticker-title">{campaign.title}</span>
-      {campaign.message && (
-        <span className="sf-campaign-ticker-message">{campaign.message}</span>
-      )}
-      <span className="sf-campaign-ticker-message">
-        Ingresa {campaign.coupon.code} en el carrito o antes de finalizar tu
-        pedido.
+      <span className="sf-campaign-ticker-primary">
+        {campaign.tickerMessage}
       </span>
-      {campaign.ctaLabel && (
-        <span className="sf-campaign-ticker-cta">
-          {campaign.ctaLabel}
-          <ArrowRight aria-hidden="true" />
+      {campaign.tickerDetail && (
+        <span className="sf-campaign-ticker-detail">
+          {campaign.tickerDetail}
+        </span>
+      )}
+      {campaign.tickerShowCouponCode && (
+        <span className="sf-campaign-ticker-code">
+          Cupón {campaign.coupon.code}
         </span>
       )}
     </>
@@ -66,13 +60,11 @@ export function CampaignAnnouncementBar({
   );
 
   const label = [
-    campaign.eyebrow,
-    campaign.title,
-    campaign.message,
-    `Ingresa ${campaign.coupon.code} en el carrito o antes de finalizar tu pedido`,
-    campaign.ctaLabel,
+    campaign.tickerMessage,
+    campaign.tickerDetail,
+    campaign.tickerShowCouponCode ? `Cupón ${campaign.coupon.code}` : null,
   ]
-    .filter((part): part is string => Boolean(part))
+    .filter((part): part is string => Boolean(part?.trim()))
     .map((part) => part.trim().replace(/[.!?]+$/, ""))
     .join(". ");
 
@@ -89,23 +81,13 @@ export function CampaignAnnouncementBar({
           : undefined
       }
     >
-      {campaign.ctaHref ? (
-        <Link
-          href={campaign.ctaHref}
-          aria-label={label}
-          className="sf-campaign-ticker-link focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-white"
-        >
-          {track}
-        </Link>
-      ) : (
-        <div
-          role="group"
-          className="sf-campaign-ticker-link"
-          aria-label={label}
-        >
-          {track}
-        </div>
-      )}
+      <div
+        role="group"
+        className="sf-campaign-ticker-content"
+        aria-label={label}
+      >
+        {track}
+      </div>
     </div>
   );
 }

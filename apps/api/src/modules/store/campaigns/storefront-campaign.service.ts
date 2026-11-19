@@ -5,6 +5,12 @@ import { hasUniqueTitleEmphasis } from "./storefront-campaign.schema";
 type CampaignInput = {
   name?: string;
   eyebrow?: string | null;
+  cardLabel?: string | null;
+  homeCardEnabled?: boolean;
+  tickerEnabled?: boolean;
+  tickerMessage?: string | null;
+  tickerDetail?: string | null;
+  tickerShowCouponCode?: boolean;
   title?: string;
   titleEmphasis?: string | null;
   message?: string | null;
@@ -20,6 +26,58 @@ type CampaignInput = {
 const fail = (message: string, statusCode = 400): never => {
   throw Object.assign(new Error(message), { statusCode });
 };
+
+function validatePresentation(
+  input: CampaignInput,
+  current?: {
+    name: string;
+    cardLabel: string | null;
+    homeCardEnabled: boolean;
+    tickerEnabled: boolean;
+    tickerMessage: string | null;
+    title: string;
+    titleEmphasis: string | null;
+    ctaLabel: string | null;
+    ctaHref: string | null;
+  },
+) {
+  const homeCardEnabled =
+    input.homeCardEnabled ?? current?.homeCardEnabled ?? true;
+  const title = input.title ?? current?.title ?? "";
+  const cardLabel =
+    input.cardLabel !== undefined
+      ? input.cardLabel
+      : (current?.cardLabel ?? input.name ?? current?.name ?? null);
+  const titleEmphasis =
+    input.titleEmphasis !== undefined
+      ? input.titleEmphasis
+      : current?.titleEmphasis;
+  const ctaLabel =
+    input.ctaLabel !== undefined ? input.ctaLabel : current?.ctaLabel;
+  const ctaHref =
+    input.ctaHref !== undefined ? input.ctaHref : current?.ctaHref;
+  const tickerEnabled = input.tickerEnabled ?? current?.tickerEnabled ?? true;
+  const tickerMessage =
+    input.tickerMessage !== undefined
+      ? input.tickerMessage
+      : current?.tickerMessage;
+
+  if (homeCardEnabled) {
+    if (title.trim().length < 2)
+      fail("Escribe un título para la tarjeta del Inicio.");
+    if (!cardLabel?.trim()) fail("Define la etiqueta pública de la tarjeta.");
+    if (Boolean(ctaLabel?.trim()) !== Boolean(ctaHref?.trim())) {
+      fail("Completa el texto y el destino del CTA, o deja ambos vacíos.");
+    }
+    if (!hasUniqueTitleEmphasis(title, titleEmphasis)) {
+      fail("La frase destacada debe aparecer una sola vez en el título.");
+    }
+  }
+
+  if (tickerEnabled && !tickerMessage?.trim()) {
+    fail("Escribe el mensaje principal de la cinta.");
+  }
+}
 
 function couponCanShowUnitPrices(coupon: {
   discountType: CouponDiscountType;
@@ -197,9 +255,7 @@ export const storefrontCampaignService = {
   },
 
   async create(input: CampaignInput) {
-    if (!hasUniqueTitleEmphasis(input.title || "", input.titleEmphasis)) {
-      fail("La frase destacada debe aparecer una sola vez en el título.");
-    }
+    validatePresentation(input);
     const normalized = await validateAndNormalize(input);
     if (normalized.active)
       await assertNoActiveOverlap(normalized.startsAt, normalized.endsAt);
@@ -207,7 +263,13 @@ export const storefrontCampaignService = {
       data: {
         name: input.name!,
         eyebrow: input.eyebrow || null,
-        title: input.title!,
+        cardLabel: input.cardLabel?.trim() || input.name!.trim(),
+        homeCardEnabled: input.homeCardEnabled ?? true,
+        tickerEnabled: input.tickerEnabled ?? true,
+        tickerMessage: input.tickerMessage?.trim() || null,
+        tickerDetail: input.tickerDetail?.trim() || null,
+        tickerShowCouponCode: input.tickerShowCouponCode ?? false,
+        title: input.title?.trim() || "",
         titleEmphasis: input.titleEmphasis || null,
         message: input.message || null,
         ctaLabel: input.ctaLabel || null,
@@ -225,14 +287,7 @@ export const storefrontCampaignService = {
     });
     if (!current) fail("No se encontró la campaña.", 404);
     const existing = current as NonNullable<typeof current>;
-    const nextTitle = input.title ?? existing.title;
-    const nextTitleEmphasis =
-      input.titleEmphasis !== undefined
-        ? input.titleEmphasis
-        : existing.titleEmphasis;
-    if (!hasUniqueTitleEmphasis(nextTitle, nextTitleEmphasis)) {
-      fail("La frase destacada debe aparecer una sola vez en el título.");
-    }
+    validatePresentation(input, existing);
     const normalized = await validateAndNormalize(input, existing);
     if (normalized.active)
       await assertNoActiveOverlap(normalized.startsAt, normalized.endsAt, id);
@@ -242,6 +297,24 @@ export const storefrontCampaignService = {
         ...(input.name !== undefined ? { name: input.name } : {}),
         ...(input.eyebrow !== undefined
           ? { eyebrow: input.eyebrow || null }
+          : {}),
+        ...(input.cardLabel !== undefined
+          ? { cardLabel: input.cardLabel?.trim() || null }
+          : {}),
+        ...(input.homeCardEnabled !== undefined
+          ? { homeCardEnabled: input.homeCardEnabled }
+          : {}),
+        ...(input.tickerEnabled !== undefined
+          ? { tickerEnabled: input.tickerEnabled }
+          : {}),
+        ...(input.tickerMessage !== undefined
+          ? { tickerMessage: input.tickerMessage?.trim() || null }
+          : {}),
+        ...(input.tickerDetail !== undefined
+          ? { tickerDetail: input.tickerDetail?.trim() || null }
+          : {}),
+        ...(input.tickerShowCouponCode !== undefined
+          ? { tickerShowCouponCode: input.tickerShowCouponCode }
           : {}),
         ...(input.title !== undefined ? { title: input.title } : {}),
         ...(input.titleEmphasis !== undefined

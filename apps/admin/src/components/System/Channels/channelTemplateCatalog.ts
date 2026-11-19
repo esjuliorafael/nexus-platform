@@ -6,6 +6,7 @@ export type ChannelTemplateType =
   | "PAYMENT_REFUNDED"
   | "PAYMENT_RECOVERY"
   | "PAYMENT_INSTRUCTIONS"
+  | "ORDER_ITEM_CHANGED"
   | "RESTORED"
   | "REMINDER"
   | "RELEASE"
@@ -90,6 +91,20 @@ export const CHANNEL_TEMPLATE_GROUPS: ChannelTemplateGroup[] = [
           "{{order_id}}",
           ...BANK_TEMPLATE_VARIABLES,
           "{{time_store}}",
+          "{{order_url}}",
+        ],
+        simplifiedOnly: true,
+      },
+      {
+        type: "ORDER_ITEM_CHANGED",
+        key: "whatsapp_global_store_item_changed",
+        label: "Cambio de producto en orden",
+        variables: [
+          "{{customer_name}}",
+          "{{order_id}}",
+          "{{previous_product}}",
+          "{{replacement_product}}",
+          "{{amount}}",
           "{{order_url}}",
         ],
         simplifiedOnly: true,
@@ -552,6 +567,15 @@ No se realiz\u00f3 ning\u00fan cobro.
 ⏳ Puedes reintentar antes de {{expires_at}} en el bot\u00f3n Reintentar pago:
 
 {{recovery_url}}`,
+  ORDER_ITEM_CHANGED: `Hola, {{customer_name}}. Actualizamos tu orden #{{order_id}} a solicitud tuya.
+
+{{previous_product}} fue sustituido por {{replacement_product}}.
+
+El importe pagado no cambia: \${{amount}} MXN.
+
+Consulta los detalles actualizados en el botón Ver orden:
+
+{{order_url}}`,
 };
 
 const SIMPLIFIED_STORE_TEMPLATE_VARIABLES: Partial<
@@ -606,6 +630,14 @@ const SIMPLIFIED_STORE_TEMPLATE_VARIABLES: Partial<
     "{{amount}}",
     "{{expires_at}}",
     "{{recovery_url}}",
+  ],
+  ORDER_ITEM_CHANGED: [
+    "{{customer_name}}",
+    "{{order_id}}",
+    "{{previous_product}}",
+    "{{replacement_product}}",
+    "{{amount}}",
+    "{{order_url}}",
   ],
 };
 
@@ -1170,6 +1202,7 @@ const TEMPLATE_ORDER_BY_GROUP: Record<string, ChannelTemplateType[]> = {
   "store-reservations": [
     "RESERVATION",
     "PAYMENT_INSTRUCTIONS",
+    "ORDER_ITEM_CHANGED",
     "RESTORED",
     "REMINDER",
     "RELEASE",

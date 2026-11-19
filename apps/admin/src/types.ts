@@ -3,6 +3,7 @@ import type { PermissionId } from "@nexus/types";
 
 export interface OrderItem {
   id: string;
+  productId: string;
   name: string;
   type: "BIRD" | "ITEM";
   ringNumber?: string | null;
@@ -39,6 +40,7 @@ export interface ActivityEvent {
 
 export interface Order {
   id: string;
+  whatsappNotificationQueued?: boolean;
   recordType?: "ORDER" | "PAYMENT_HOLD";
   paymentHoldId?: string | null;
   customer: string;
@@ -61,6 +63,7 @@ export interface Order {
     | "delivered"
     | "payment_review"
     | "not_completed";
+  fulfillmentStatus?: "PENDING" | "PAID" | "SHIPPED" | "DELIVERED" | "CANCELLED";
   holdStatus?: string | null;
   expiresAt?: string | null;
   paymentMethod?: "TRANSFER" | "MERCADOPAGO" | string;
@@ -324,6 +327,12 @@ export interface StorefrontCampaign {
   id: string;
   name: string;
   eyebrow?: string | null;
+  cardLabel: string | null;
+  homeCardEnabled: boolean;
+  tickerEnabled: boolean;
+  tickerMessage: string | null;
+  tickerDetail: string | null;
+  tickerShowCouponCode: boolean;
   title: string;
   titleEmphasis?: string | null;
   message?: string | null;

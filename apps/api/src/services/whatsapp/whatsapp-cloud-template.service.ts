@@ -24,6 +24,7 @@ export type CloudTemplateType =
   | "PAYMENT_REFUNDED"
   | "PAYMENT_RECOVERY"
   | "PAYMENT_INSTRUCTIONS"
+  | "ORDER_ITEM_CHANGED"
   | "RESTORED"
   | "REMINDER"
   | "OPENING"
@@ -82,6 +83,11 @@ export const CLOUD_TEMPLATE_SETTING_KEYS: Array<{
     scope: "STORE",
     type: "PAYMENT_CONFIRMED",
     key: "whatsapp_global_store_pay",
+  },
+  {
+    scope: "STORE",
+    type: "ORDER_ITEM_CHANGED",
+    key: "whatsapp_global_store_item_changed",
   },
   {
     scope: "STORE",
@@ -202,6 +208,8 @@ const SIMPLIFIED_STORE_TEMPLATE_DEFAULT_CONTENTS: Partial<
 const SIMPLIFIED_STORE_TEMPLATE_ADDITIONAL_CONTENTS: Partial<
   Record<CloudTemplateType, string>
 > = {
+  ORDER_ITEM_CHANGED:
+    "Hola, {{customer_name}}. Actualizamos tu orden #{{order_id}} a solicitud tuya.\n\n{{previous_product}} fue sustituido por {{replacement_product}}.\n\nEl importe pagado no cambia: ${{amount}} MXN.\n\nConsulta los detalles actualizados en el botón Ver orden:\n\n{{order_url}}",
   RESTORED:
     "¡Hola, {{customer_name}}! 🔄\n\nEl apartado de tu orden #{{order_id}} fue restaurado correctamente. ✅\n\n💰 Total pendiente: ${{amount}} MXN\n🕒 Plazo de pago: {{time_store}}\n\n🔎 Consulta el estado y las instrucciones de pago en el botón Ver orden:\n\n{{order_url}}",
   REMINDER:
@@ -475,6 +483,8 @@ const VARIABLE_EXAMPLES: Record<string, string> = {
   recovery_url: "https://example.com/checkout#recovery=example",
   participation_url: "https://example.com/participations/demo-access-token",
   order_url: "https://example.com/orders/demo-access-token",
+  previous_product: "Giro BF",
+  replacement_product: "Morado Patas Verdes",
   raffle_name: "Rifa Especial de Junio",
   raffle_description: "Tres premios de pollos para show a elegir.",
   raffle_extra: "📌 Cruzas disponibles: Alimonados, Colorados y Giros.",

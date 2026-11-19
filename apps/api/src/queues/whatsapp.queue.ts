@@ -55,6 +55,13 @@ export type WhatsappJobData = (
       orderKind: OrderKind;
     }
   | {
+      kind: "order-item-changed";
+      orderId: string;
+      eventId: number;
+      recipientPhone: string;
+      orderKind: OrderKind;
+    }
+  | {
       kind: "order-refunded";
       orderId: string;
       recipientPhone: string;

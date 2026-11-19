@@ -43,6 +43,9 @@ jobs:
       - name: Test storefront campaign validation
         run: pnpm --filter @nexus/api test:storefront-campaign
 
+      - name: Test paid order item replacement
+        run: pnpm --filter @nexus/api test:order-item-replacement
+
       - name: Test coupon discount allocation
         run: pnpm --filter @nexus/api test:coupon-discount-allocation
 

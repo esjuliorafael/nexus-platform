@@ -25,6 +25,18 @@ export type WhatsappRecoveryResult = {
 async function isJobStillRelevant(data: WhatsappJobData) {
   if (data.kind === "raffle-ticket-image-cleanup") return false;
 
+  if (data.kind === "order-item-changed") {
+    const event = await storePrisma.orderEvent.findFirst({
+      where: {
+        id: data.eventId,
+        orderId: Number(data.orderId),
+        eventType: "ORDER_ITEM_REPLACED",
+      },
+      select: { id: true },
+    });
+    return Boolean(event);
+  }
+
   if (
     data.kind === "order" ||
     data.kind === "order-cancelled" ||

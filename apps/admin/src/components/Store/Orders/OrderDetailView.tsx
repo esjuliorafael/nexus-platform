@@ -2,9 +2,9 @@ import React, { useRef } from 'react';
 import {
   Package, Clock, CheckCircle2, Phone, MapPin, User,
   Calendar, DollarSign, Plane, Truck, CircleX, ChevronLeft, Layers, MessageCircle, Edit2, Save,
-  CreditCard, RotateCcw, History
+  CreditCard, RotateCcw, History, ArrowLeftRight
 } from 'lucide-react';
-import { Order, WhatsAppMessageLog } from '../../../types';
+import { Order, Product, WhatsAppMessageLog } from '../../../types';
 import { NexusAutonomousButton, NexusSectionButton } from '../../ui/NexusButton';
 import { NexusSection } from '../../ui/NexusSection';
 import { NexusModal, NexusModalActions } from '../../ui/NexusModal';
@@ -12,7 +12,7 @@ import { NexusConfirmModal } from '../../ui/NexusConfirmModal';
 import { NexusInput, NexusSelect } from '../../ui/NexusInputs';
 import { NexusPhoneField } from '../../ui/NexusPhoneField';
 import { NexusBadge } from '../../ui/NexusBadge';
-import { ASSET_BASE_URL, apiOrders } from '../../../api';
+import { ASSET_BASE_URL, apiOrders, apiProducts } from '../../../api';
 import { MEXICO_STATES } from '../../../constants';
 import { isCustomerPhoneComplete } from '../../../utils/customer-phone';
 import { getWhatsappDeliveryRouteLabel } from '../../../utils/whatsapp-routing';
@@ -213,6 +213,7 @@ const getWhatsAppStatusLabel = (
 };
 
 const getWhatsAppPurposeLabel = (template: string) => {
+  if (template === 'order-item-changed' || template === 'order_item_changed') return 'Cambio de producto';
   if (template === 'order-paid' || template === 'order_paid') return 'Pago';
   if (template === 'order-refunded' || template === 'order_refunded') return 'Devolución';
   if (template === 'order-reminder' || template === 'order_reminder') return 'Recordatorio';
@@ -254,6 +255,18 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
   const [isSavingCustomer, setIsSavingCustomer] = React.useState(false);
   const [isRefundModalOpen, setIsRefundModalOpen] = React.useState(false);
   const [isRefunding, setIsRefunding] = React.useState(false);
+  const [isReplaceModalOpen, setIsReplaceModalOpen] = React.useState(false);
+  const [isReplaceConfirmOpen, setIsReplaceConfirmOpen] = React.useState(false);
+  const [isLoadingReplacementProducts, setIsLoadingReplacementProducts] = React.useState(false);
+  const [isReplacingItem, setIsReplacingItem] = React.useState(false);
+  const [replacementProducts, setReplacementProducts] = React.useState<Product[]>([]);
+  const [replacementForm, setReplacementForm] = React.useState({
+    sourceProductId: '',
+    replacementProductId: '',
+    reason: '',
+    customerAuthorized: false,
+    deliveryConfirmed: false,
+  });
   const [customerForm, setCustomerForm] = React.useState({
     customerName: order.customer || '',
     customerPhone: order.customerPhone || '',
@@ -296,6 +309,37 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
   const hasItems = itemsList.some(item => item?.type?.toUpperCase() === 'ITEM');
   const isPaymentHold = currentOrder.recordType === 'PAYMENT_HOLD';
   const isMercadoPagoOrder = currentOrder.paymentMethod === 'MERCADOPAGO';
+  const replaceableBirdItems = itemsList.filter((item) =>
+    item?.type?.toUpperCase() === 'BIRD' && item.quantity === 1 && item.productId,
+  );
+  const canReplacePaidBird =
+    canManageOrder &&
+    !isPaymentHold &&
+    currentOrder.status === 'paid' &&
+    currentOrder.fulfillmentStatus === 'PAID' &&
+    currentOrder.paymentStatus === 'APPROVED' &&
+    replaceableBirdItems.length > 0;
+  const selectedSourceItem = replaceableBirdItems.find(
+    (item) => item.productId === replacementForm.sourceProductId,
+  );
+  const selectedSourceProduct = replacementProducts.find(
+    (product) => product.id === replacementForm.sourceProductId,
+  );
+  const replacementOptions = replacementProducts.filter((product) =>
+    product.type === 'BIRD' &&
+    product.status === 'available' &&
+    product.active &&
+    product.published &&
+    product.id !== replacementForm.sourceProductId &&
+    selectedSourceProduct &&
+    Math.round(Number(product.price) * 100) === Math.round(Number(selectedSourceProduct.price) * 100),
+  );
+  const canSubmitReplacement =
+    Boolean(selectedSourceItem) &&
+    replacementOptions.some((product) => product.id === replacementForm.replacementProductId) &&
+    replacementForm.reason.trim().length >= 8 &&
+    replacementForm.customerAuthorized &&
+    replacementForm.deliveryConfirmed;
   const canRefundMercadoPago =
     canRefundOrder &&
     isMercadoPagoOrder &&
@@ -370,6 +414,54 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
       showToast('No se pudo actualizar el cliente', 'error');
     } finally {
       setIsSavingCustomer(false);
+    }
+  };
+
+  const handleOpenReplaceModal = async () => {
+    setReplacementForm({
+      sourceProductId: replaceableBirdItems.length === 1 ? replaceableBirdItems[0].productId : '',
+      replacementProductId: '',
+      reason: '',
+      customerAuthorized: false,
+      deliveryConfirmed: false,
+    });
+    setIsReplaceModalOpen(true);
+    setIsLoadingReplacementProducts(true);
+    try {
+      setReplacementProducts(await apiProducts.getAll());
+    } catch (error: any) {
+      setIsReplaceModalOpen(false);
+      showToast(error?.response?.data?.message || 'No se pudieron cargar las aves disponibles', 'error');
+    } finally {
+      setIsLoadingReplacementProducts(false);
+    }
+  };
+
+  const handleReplacePaidBird = async () => {
+    if (!currentOrder?.id || !canSubmitReplacement || isReplacingItem) return;
+    setIsReplacingItem(true);
+    try {
+      const updatedOrder = await apiOrders.replaceItem(currentOrder.id, {
+        sourceProductId: Number(replacementForm.sourceProductId),
+        replacementProductId: Number(replacementForm.replacementProductId),
+        reason: replacementForm.reason.trim(),
+        customerAuthorized: true,
+        deliveryConfirmed: true,
+      });
+      setCurrentOrder(updatedOrder);
+      setIsReplaceConfirmOpen(false);
+      setIsReplaceModalOpen(false);
+      showToast(
+        updatedOrder.whatsappNotificationQueued === false
+          ? 'Producto sustituido y pago sin cambios. El aviso de WhatsApp no pudo ponerse en cola; revisa los registros.'
+          : 'Producto sustituido, pago sin cambios y aviso de WhatsApp en cola.',
+        updatedOrder.whatsappNotificationQueued === false ? 'error' : 'success',
+      );
+    } catch (error: any) {
+      showToast(error?.response?.data?.message || 'No se pudo sustituir el producto', 'error');
+      await loadOrderDetail().catch(() => undefined);
+    } finally {
+      setIsReplacingItem(false);
     }
   };
 
@@ -454,6 +546,16 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
             subtitle="Detalle del pedido"
             icon={Package}
             iconVariant="muted"
+            actionPlacement="below"
+            action={canReplacePaidBird ? (
+              <NexusSectionButton
+                onClick={handleOpenReplaceModal}
+                icon={ArrowLeftRight}
+                variant="secondary"
+              >
+                Sustituir ave
+              </NexusSectionButton>
+            ) : undefined}
           >
             <div className="flex flex-col divide-y divide-border-main/50">
               {itemsList.map((item) => (
@@ -503,6 +605,160 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
               <span className="text-h1 text-text-main">${(currentOrder.total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
             </div>
           </NexusSection>
+
+          <NexusModal
+            isOpen={isReplaceModalOpen}
+            onClose={() => setIsReplaceModalOpen(false)}
+            title="Sustituir ave de la orden"
+            eyebrow="Ajuste autorizado por el cliente"
+            icon={ArrowLeftRight}
+            iconTone="brand"
+            size="standard"
+            zIndex={265}
+          >
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                setIsReplaceConfirmOpen(true);
+              }}
+              className="flex flex-col"
+              style={{ gap: 'var(--space-lg)' }}
+            >
+              <div
+                className="border border-amber-200 bg-amber-50 text-amber-900"
+                style={{ padding: 'var(--padding-inner)', borderRadius: 'var(--radius-card-inner)' }}
+              >
+                <p className="text-secondary font-semibold">El pago ya está aprobado.</p>
+                <p className="text-label leading-relaxed" style={{ marginTop: 'var(--space-xs)' }}>
+                  Solo se habilitan aves disponibles con el mismo precio de catálogo. El monto cobrado y el total de la orden se conservan. El aviso de WhatsApp se pondrá en cola por separado; la sustitución no depende de que su entrega tenga éxito.
+                </p>
+              </div>
+
+              {isLoadingReplacementProducts ? (
+                <p className="text-secondary text-text-muted">Cargando aves disponibles...</p>
+              ) : (
+                <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
+                  <NexusSelect
+                    label="Ave actual *"
+                    value={replacementForm.sourceProductId}
+                    onChange={(event) => setReplacementForm({
+                      ...replacementForm,
+                      sourceProductId: event.target.value,
+                      replacementProductId: '',
+                    })}
+                    icon={Package}
+                    required
+                  >
+                    <option value="">Selecciona el ave de la orden</option>
+                    {replaceableBirdItems.map((item) => (
+                      <option key={item.id} value={item.productId}>
+                        {item.name}{item.ringNumber ? ` · Anillo ${item.ringNumber}` : ''}
+                      </option>
+                    ))}
+                  </NexusSelect>
+
+                  <NexusSelect
+                    label="Ave de reemplazo *"
+                    value={replacementForm.replacementProductId}
+                    onChange={(event) => setReplacementForm({
+                      ...replacementForm,
+                      replacementProductId: event.target.value,
+                    })}
+                    icon={ArrowLeftRight}
+                    required
+                    disabled={!selectedSourceItem || replacementOptions.length === 0}
+                  >
+                    <option value="">
+                      {!selectedSourceItem
+                        ? 'Selecciona primero el ave actual'
+                        : replacementOptions.length
+                          ? 'Selecciona un ave disponible del mismo precio'
+                          : 'No hay aves disponibles con ese precio'}
+                    </option>
+                    {replacementOptions.map((product) => (
+                      <option key={product.id} value={product.id}>
+                        {product.name}{product.ringNumber ? ` · Anillo ${product.ringNumber}` : ''} · {formatCurrency(product.price)}
+                      </option>
+                    ))}
+                  </NexusSelect>
+
+                  <NexusInput
+                    label="Motivo del cambio *"
+                    value={replacementForm.reason}
+                    onChange={(event) => setReplacementForm({ ...replacementForm, reason: event.target.value })}
+                    placeholder="Ej. El cliente eligió otra ave por error"
+                    minLength={8}
+                    maxLength={500}
+                    required
+                    helperText="Se guardará en el historial de auditoría de la orden."
+                  />
+
+                  <div className="flex flex-col" style={{ gap: 'var(--space-sm)' }}>
+                    <label className="flex items-start text-secondary text-text-main" style={{ gap: 'var(--space-sm)' }}>
+                      <input
+                        type="checkbox"
+                        checked={replacementForm.customerAuthorized}
+                        onChange={(event) => setReplacementForm({ ...replacementForm, customerAuthorized: event.target.checked })}
+                        className="mt-1 accent-brand-600"
+                        required
+                      />
+                      <span>El cliente autorizó expresamente sustituir esta ave por la seleccionada.</span>
+                    </label>
+                    <label className="flex items-start text-secondary text-text-main" style={{ gap: 'var(--space-sm)' }}>
+                      <input
+                        type="checkbox"
+                        checked={replacementForm.deliveryConfirmed}
+                        onChange={(event) => setReplacementForm({ ...replacementForm, deliveryConfirmed: event.target.checked })}
+                        className="mt-1 accent-brand-600"
+                        required
+                      />
+                      <span>Confirmé con el cliente que se conserva la dirección y el método de entrega registrados.</span>
+                    </label>
+                  </div>
+                </div>
+              )}
+
+              <NexusModalActions>
+                <NexusAutonomousButton
+                  type="button"
+                  variant="secondary"
+                  onClick={() => setIsReplaceModalOpen(false)}
+                  className="flex-1"
+                >
+                  Cancelar
+                </NexusAutonomousButton>
+                <NexusAutonomousButton
+                  type="submit"
+                  variant="brand"
+                  icon={ArrowLeftRight}
+                  disabled={!canSubmitReplacement || isLoadingReplacementProducts}
+                  className="flex-[2]"
+                >
+                  Revisar sustitución
+                </NexusAutonomousButton>
+              </NexusModalActions>
+            </form>
+          </NexusModal>
+
+          <NexusConfirmModal
+            isOpen={isReplaceConfirmOpen}
+            onCancel={() => setIsReplaceConfirmOpen(false)}
+            onConfirm={handleReplacePaidBird}
+            title="Confirmar sustitución"
+            message={(
+              <span>
+                Se cambiará <strong>{selectedSourceItem?.name}</strong> por{' '}
+                <strong>{replacementOptions.find((product) => product.id === replacementForm.replacementProductId)?.name}</strong>.
+                {' '}Se liberará el ave anterior y la nueva quedará asignada a esta orden. El historial guardará el motivo y las confirmaciones. El pago de{' '}
+                <strong>{formatCurrency(currentOrder.total)}</strong> no cambiará.
+              </span>
+            )}
+            confirmLabel="Sustituir producto"
+            tone="warning"
+            icon={ArrowLeftRight}
+            zIndex={280}
+            isLoading={isReplacingItem}
+          />
 
           {/* Shipping Logic Section: Dark Variant */}
           <div
