@@ -231,6 +231,7 @@ export const paymentRecoveryService = {
           phone: storeHold.customerPhone,
           email: storeHold.customerEmail,
           receiverName: storeHold.receiverName,
+          receiverPhone: storeHold.receiverPhone,
         },
         delivery: {
           type: storeHold.deliveryType,

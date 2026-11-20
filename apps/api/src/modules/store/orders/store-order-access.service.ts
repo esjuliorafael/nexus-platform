@@ -268,6 +268,7 @@ export async function getStoreOrderAccess(token: string) {
         type: order.deliveryType,
         method: order.deliveryMethod,
         receiverName: order.receiverName,
+        receiverPhone: order.receiverPhone,
         address: order.shippingAddress,
         street: order.shippingStreet,
         neighborhood: order.shippingNeighborhood,

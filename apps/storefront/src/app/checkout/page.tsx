@@ -9,7 +9,6 @@ import {
   ArrowLeft,
   ArrowRight,
   Bus,
-  Check,
   CheckCircle2,
   Clock3,
   CreditCard,
@@ -283,6 +282,7 @@ export default function CheckoutPage() {
     customerEmail: "",
     customerPhone: "",
     receiverName: "",
+    receiverPhone: "",
     shippingAddress: "",
     shippingStreet: "",
     shippingNeighborhood: "",
@@ -462,6 +462,7 @@ export default function CheckoutPage() {
           customerEmail: recovery.customer.email || "",
           customerPhone: recovery.customer.phone,
           receiverName: formatCustomerName(recovery.customer.receiverName || ""),
+          receiverPhone: recovery.customer.receiverPhone || "",
           shippingAddress: recovery.delivery.address || "",
           shippingStreet: recovery.delivery.street || "",
           shippingNeighborhood: recovery.delivery.neighborhood || "",
@@ -520,7 +521,7 @@ export default function CheckoutPage() {
 
     setSelectedZone(null);
     setFormData((current) => ({ ...current, shippingState: "" }));
-    setCheckoutStep((current) => Math.min(current, 2) as CheckoutStep);
+    setCheckoutStep((current) => Math.min(current, 1) as CheckoutStep);
     showToast("La zona de entrega guardada ya no está disponible. Selecciónala nuevamente.", "info");
   }, [formData.shippingState, selectedZone, showToast, zones]);
 
@@ -865,6 +866,7 @@ export default function CheckoutPage() {
       receiverName: someoneElseReceives
         ? normalizeCustomerName(formData.receiverName)
         : "",
+      receiverPhone: someoneElseReceives ? formData.receiverPhone.trim() : undefined,
       shippingState: selectedZone?.name || "",
       shippingAddress,
       shippingCost: shippingCalculation.total,
@@ -884,16 +886,15 @@ export default function CheckoutPage() {
     return orderApi.create(getCheckoutPayload());
   };
   const createStorePaymentHold = () => orderApi.createPaymentHold({ ...getCheckoutPayload(), paymentMethod: "MERCADOPAGO" });
+  const hasActivePaymentHold = Boolean(
+    pendingPaymentAttempt && !isPendingPaymentAttemptExpired(pendingPaymentAttempt),
+  );
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault();
 
     if (!settingsReady) {
       showToast("Estamos cargando las opciones de envío.", "info");
-      return;
-    }
-    if (needsDeliveryChoice && !formData.deliveryMethod) {
-      showToast("Selecciona cómo enviamos tu orden.", "info");
       return;
     }
     if (!formData.customerName.trim() || !isCustomerPhoneComplete(formData.customerPhone)) {
@@ -914,6 +915,14 @@ export default function CheckoutPage() {
     }
     if (someoneElseReceives && !formData.receiverName.trim()) {
       showToast("Escribe el nombre de quien recibe.", "info");
+      return;
+    }
+    if (someoneElseReceives && !isCustomerPhoneComplete(formData.receiverPhone) && !hasActivePaymentHold) {
+      showToast("Escribe un teléfono válido de quien recibe.", "info");
+      return;
+    }
+    if (needsDeliveryChoice && !formData.deliveryMethod) {
+      showToast("Selecciona cómo enviamos tu orden.", "info");
       return;
     }
 
@@ -1017,36 +1026,21 @@ export default function CheckoutPage() {
   };
 
   const checkoutSteps = [
-    { label: "Envío", title: "Método de entrega" },
-    { label: "Cliente", title: "Información del cliente" },
-    { label: "Ubicación", title: requiresFullAddress ? "Dirección y ubicación" : "Ubicación de entrega" },
+    { label: "Comprador", title: "Datos del comprador" },
+    { label: "Ubicación", title: requiresFullAddress ? "Dirección y destinatario" : "Ubicación y destinatario" },
+    { label: "Entrega", title: "Método de entrega" },
     { label: "Pago", title: "Método de pago" },
   ];
 
   const canContinueFromStep = (step: CheckoutStep) => {
     if (step === 0) {
-      if (!settingsReady) {
-        showToast("Estamos cargando las opciones de envío.", "info");
-        return false;
-      }
-      if (needsDeliveryChoice && !formData.deliveryMethod) {
-        showToast("Selecciona cómo enviamos tu orden.", "info");
+      if (!formData.customerName.trim() || !isCustomerPhoneComplete(formData.customerPhone)) {
+        showToast("Completa tus datos de contacto para continuar.", "info");
         return false;
       }
     }
 
     if (step === 1) {
-      if (!formData.customerName.trim() || !isCustomerPhoneComplete(formData.customerPhone)) {
-        showToast("Completa tus datos de contacto para continuar.", "info");
-        return false;
-      }
-      if (someoneElseReceives && !formData.receiverName.trim()) {
-        showToast("Escribe el nombre de quien recibe.", "info");
-        return false;
-      }
-    }
-
-    if (step === 2) {
       if (!selectedZone) {
         showToast("Selecciona tu estado para calcular el envío.", "info");
         return false;
@@ -1059,6 +1053,25 @@ export default function CheckoutPage() {
         showToast("Completa calle, colonia y código postal para enviar los artículos.", "info");
         return false;
       }
+      if (someoneElseReceives && !formData.receiverName.trim()) {
+        showToast("Escribe el nombre completo de quien recibe.", "info");
+        return false;
+      }
+      if (someoneElseReceives && !isCustomerPhoneComplete(formData.receiverPhone) && !hasActivePaymentHold) {
+        showToast("Escribe un teléfono válido de quien recibe.", "info");
+        return false;
+      }
+    }
+
+    if (step === 2) {
+      if (!settingsReady) {
+        showToast("Estamos cargando las opciones de envío.", "info");
+        return false;
+      }
+      if (needsDeliveryChoice && !formData.deliveryMethod) {
+        showToast("Selecciona cómo enviamos tu orden.", "info");
+        return false;
+      }
     }
 
     return true;
@@ -1066,14 +1079,17 @@ export default function CheckoutPage() {
 
   const deliveryStepComplete = settingsReady && (!needsDeliveryChoice || Boolean(formData.deliveryMethod));
   const customerStepComplete = Boolean(formData.customerName.trim())
-    && isCustomerPhoneComplete(formData.customerPhone)
-    && (!someoneElseReceives || Boolean(formData.receiverName.trim()));
+    && isCustomerPhoneComplete(formData.customerPhone);
   const locationStepComplete = Boolean(selectedZone)
     && Boolean(formData.shippingCity.trim())
     && (!requiresFullAddress || Boolean(
       formData.shippingStreet.trim()
       && formData.shippingNeighborhood.trim()
       && formData.shippingPostalCode.trim(),
+    ))
+    && (!someoneElseReceives || Boolean(
+      formData.receiverName.trim()
+      && (isCustomerPhoneComplete(formData.receiverPhone) || hasActivePaymentHold),
     ));
   const paymentConfigurationReady = paymentMethod !== "MERCADOPAGO"
     || (Boolean(paymentOptions) && isMPEnabled && Boolean(mpCheckoutConfig));
@@ -1095,7 +1111,7 @@ export default function CheckoutPage() {
 
   const handleDeliveryMethodSelect = (method: DeliveryMethod) => {
     setFormData({ ...formData, deliveryMethod: method, deliveryType: "SHIPPING" });
-    setCheckoutStep((current) => current === 0 ? 1 : current);
+    setCheckoutStep((current) => current === 2 ? 3 : current);
   };
 
   const handleCheckoutExit = () => {
@@ -1369,14 +1385,176 @@ export default function CheckoutPage() {
               <div className="flex flex-col" style={{ gap: "var(--sf-space-lg)" }}>
                 <div className={checkoutStep === 0 ? "sf-checkout-step-store-active block" : "hidden lg:block"}>
                   <StorefrontCheckoutSection
-                    title="Método de entrega"
-                    icon={Truck}
-                    motionKey={`store-checkout-${checkoutStep}-delivery`}
+                    title="Información del comprador"
+                    icon={User}
+                    motionKey={`store-checkout-${checkoutStep}-customer`}
                     motionReady={checkoutMotionReady}
                     motionDelayMs={STOREFRONT_CHECKOUT_SEQUENCE_MS.stepHeaderDelayMs}
                   >
                     <p className="sf-text-secondary text-stone-500">
-                      Elige cómo recibir tu pedido. Selecciona un método de entrega para continuar.
+                      Estos datos identifican al cliente y se usarán para las confirmaciones de la orden.
+                    </p>
+                    <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "var(--sf-space-md)" }}>
+                      <StorefrontField
+                        required
+                        label="Nombre completo"
+                        placeholder="Ej. Juan Pérez"
+                        value={formData.customerName}
+                        onChange={(event) => setFormData({
+                          ...formData,
+                          customerName: formatCustomerName(event.target.value),
+                        })}
+                      />
+                      <StorefrontPhoneField
+                        required
+                        label="Teléfono (WhatsApp)"
+                        value={formData.customerPhone}
+                        onChange={(customerPhone) => setFormData({ ...formData, customerPhone })}
+                      />
+                    </div>
+                    <StorefrontNote icon={MessageCircle}>
+                      Selecciona el código de país correcto e ingresa únicamente los dígitos de tu WhatsApp. Enviaremos ahí las confirmaciones y actualizaciones del pedido.
+                    </StorefrontNote>
+                  </StorefrontCheckoutSection>
+                </div>
+
+                <div className={checkoutStep === 1 ? "sf-checkout-step-store-active block" : "hidden lg:block"}>
+                  <StorefrontCheckoutSection
+                    title={requiresFullAddress ? "Dirección y destinatario" : "Ubicación y destinatario"}
+                    icon={MapPin}
+                    motionKey={`store-checkout-${checkoutStep}-location`}
+                    motionReady={checkoutMotionReady}
+                    motionDelayMs={
+                      STOREFRONT_CHECKOUT_SEQUENCE_MS.stepHeaderDelayMs
+                      + (checkoutStep === 1 ? 0 : STOREFRONT_CHECKOUT_SEQUENCE_MS.stepItemStaggerMs)
+                    }
+                  >
+                    <p className="sf-text-secondary text-stone-500">
+                      Indica dónde se entregará el pedido y quién lo recibirá.
+                    </p>
+                    <div className="flex flex-col" style={{ gap: "var(--sf-space-md)" }}>
+                      {requiresFullAddress && (
+                        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "var(--sf-space-md)" }}>
+                          <div className="md:col-span-2">
+                            <StorefrontField
+                              required
+                              label="Calle y número interior o exterior"
+                              placeholder="Ej. Av. Hidalgo 123"
+                              value={formData.shippingStreet}
+                              onChange={(event) => setFormData({ ...formData, shippingStreet: event.target.value })}
+                            />
+                          </div>
+                          <StorefrontField
+                            required
+                            label="Colonia"
+                            placeholder="Ej. Centro"
+                            value={formData.shippingNeighborhood}
+                            onChange={(event) => setFormData({ ...formData, shippingNeighborhood: event.target.value })}
+                          />
+                          <StorefrontField
+                            required
+                            label="Código postal"
+                            placeholder="Ej. 78000"
+                            value={formData.shippingPostalCode}
+                            onChange={(event) => setFormData({ ...formData, shippingPostalCode: event.target.value })}
+                          />
+                        </div>
+                      )}
+                      <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "var(--sf-space-md)" }}>
+                        <StorefrontField
+                          required
+                          label="Ciudad"
+                          placeholder="Ej. San Luis Potosí"
+                          value={formData.shippingCity}
+                          onChange={(event) => setFormData({ ...formData, shippingCity: event.target.value })}
+                        />
+                        <ZoneSelect
+                          selectedZone={selectedZone}
+                          setSelectedZone={(zone) => {
+                            setSelectedZone(zone);
+                            setFormData({ ...formData, shippingState: zone.name });
+                          }}
+                          zones={zones}
+                        />
+                      </div>
+
+                      <fieldset className="flex flex-col" style={{ gap: "var(--sf-space-sm)" }}>
+                        <legend className="sf-text-label font-bold text-stone-700" style={{ marginBottom: "var(--sf-space-sm)" }}>
+                          ¿Quién recibirá el pedido?
+                        </legend>
+                        <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--sf-space-sm)" }}>
+                          {[
+                            { value: false, title: "Yo", detail: "Recibo con mis datos de contacto." },
+                            { value: true, title: "Otra persona", detail: "Indicaré su nombre y teléfono." },
+                          ].map((option) => (
+                            <label
+                              key={option.title}
+                              className={`flex cursor-pointer items-start border transition-colors ${someoneElseReceives === option.value ? "border-brand-500 bg-brand-50/60" : "border-stone-200 bg-white hover:border-stone-300"}`}
+                              style={{ borderRadius: "var(--sf-radius-inner)", padding: "var(--sf-padding-inner)", gap: "var(--sf-space-sm)" }}
+                            >
+                              <input
+                                type="radio"
+                                name="store-order-recipient"
+                                value={option.value ? "other" : "buyer"}
+                                checked={someoneElseReceives === option.value}
+                                onChange={() => setSomeoneElseReceives(option.value)}
+                                className="mt-1 accent-brand-600"
+                              />
+                              <span className="flex min-w-0 flex-col" style={{ gap: "var(--sf-space-xs)" }}>
+                                <span className="sf-text-secondary font-bold text-stone-800">{option.title}</span>
+                                <span className="sf-text-label text-stone-500">{option.detail}</span>
+                              </span>
+                            </label>
+                          ))}
+                        </div>
+                      </fieldset>
+
+                      {someoneElseReceives && (
+                        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "var(--sf-space-md)" }}>
+                          <StorefrontField
+                            required
+                            label="Nombre completo de quien recibe"
+                            placeholder="Ej. María Pérez"
+                            value={formData.receiverName}
+                            onChange={(event) => setFormData({
+                              ...formData,
+                              receiverName: formatCustomerName(event.target.value),
+                            })}
+                          />
+                          <StorefrontPhoneField
+                            id="store-checkout-receiver-phone"
+                            required
+                            label="Teléfono (WhatsApp) de quien recibe"
+                            value={formData.receiverPhone}
+                            onChange={(receiverPhone) => setFormData({ ...formData, receiverPhone })}
+                          />
+                        </div>
+                      )}
+                      <StorefrontNote tone={shippingStatusTone}>
+                        {shippingStatusNote}
+                      </StorefrontNote>
+                      {someoneElseReceives && (
+                        <StorefrontNote icon={MessageCircle}>
+                          Usaremos el teléfono de quien recibe para coordinar la entrega. Las confirmaciones de la orden seguirán llegando al WhatsApp del comprador.
+                        </StorefrontNote>
+                      )}
+                    </div>
+                  </StorefrontCheckoutSection>
+                </div>
+
+                <div className={checkoutStep === 2 ? "sf-checkout-step-store-active block" : "hidden lg:block"}>
+                  <StorefrontCheckoutSection
+                    title="Método de entrega"
+                    icon={Truck}
+                    motionKey={`store-checkout-${checkoutStep}-delivery`}
+                    motionReady={checkoutMotionReady}
+                    motionDelayMs={
+                      STOREFRONT_CHECKOUT_SEQUENCE_MS.stepHeaderDelayMs
+                      + (checkoutStep === 2 ? 0 : STOREFRONT_CHECKOUT_SEQUENCE_MS.stepItemStaggerMs * 2)
+                    }
+                  >
+                    <p className="sf-text-secondary text-stone-500">
+                      Elige cómo recibir tu pedido según la ubicación que indicaste.
                     </p>
                     {!settingsReady ? (
                       <div
@@ -1440,158 +1618,6 @@ export default function CheckoutPage() {
                           : "El método de entrega final depende de tu ciudad y estado. Si tu zona requiere una alternativa distinta, lo ajustamos y coordinamos contigo."}
                       </StorefrontNote>
                     )}
-                  </StorefrontCheckoutSection>
-                </div>
-
-                <div className={checkoutStep === 1 ? "sf-checkout-step-store-active block" : "hidden lg:block"}>
-                  <StorefrontCheckoutSection
-                    title="Información del cliente"
-                    icon={User}
-                    motionKey={`store-checkout-${checkoutStep}-customer`}
-                    motionReady={checkoutMotionReady}
-                    motionDelayMs={
-                      STOREFRONT_CHECKOUT_SEQUENCE_MS.stepHeaderDelayMs
-                      + (checkoutStep === 1 ? 0 : STOREFRONT_CHECKOUT_SEQUENCE_MS.stepItemStaggerMs)
-                    }
-                  >
-                    <p className="sf-text-secondary text-stone-500">
-                      Indícanos quién recibe el pedido. Usaremos estos datos para coordinar tu compra.
-                    </p>
-                    <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "var(--sf-space-md)" }}>
-                      <StorefrontField
-                        required
-                        label="Nombre completo"
-                        placeholder="Ej. Juan Pérez"
-                        value={formData.customerName}
-                        onChange={(event) => setFormData({
-                          ...formData,
-                          customerName: formatCustomerName(event.target.value),
-                        })}
-                      />
-                      <StorefrontPhoneField
-                        required
-                        label="Teléfono (WhatsApp)"
-                        value={formData.customerPhone}
-                        onChange={(customerPhone) => setFormData({ ...formData, customerPhone })}
-                      />
-                      <label
-                        className="group md:col-span-2 flex items-center justify-between border border-stone-200 bg-white transition-all duration-300 focus-within:border-brand-500/50 focus-within:ring-4 focus-within:ring-brand-500/10"
-                        style={{
-                          minHeight: "var(--sf-h-input)",
-                          borderRadius: "var(--sf-radius-inner)",
-                          paddingInline: "var(--sf-space-md)",
-                          gap: "var(--sf-space-md)",
-                          transitionTimingFunction: "var(--sf-ease)",
-                        }}
-                      >
-                        <span className="sf-text-secondary font-bold text-stone-700">Alguien más recibe</span>
-                        <input
-                          type="checkbox"
-                          checked={someoneElseReceives}
-                          onChange={(event) => setSomeoneElseReceives(event.target.checked)}
-                          className="peer sr-only"
-                        />
-                        <span
-                          className={`flex shrink-0 items-center justify-center border text-white transition-all duration-300 ${
-                            someoneElseReceives ? "border-brand-500 bg-brand-500" : "border-stone-200 bg-stone-50"
-                          }`}
-                          style={{
-                            width: "var(--sf-size-check-control)",
-                            height: "var(--sf-size-check-control)",
-                            borderRadius: "var(--sf-radius-nested)",
-                            transitionTimingFunction: "var(--sf-ease)",
-                          }}
-                          aria-hidden="true"
-                        >
-                          <Check
-                            className={`transition-opacity duration-200 ${someoneElseReceives ? "opacity-100" : "opacity-0"}`}
-                            style={{ width: "var(--sf-size-check-icon)", height: "var(--sf-size-check-icon)" }}
-                            strokeWidth={2.75}
-                          />
-                        </span>
-                      </label>
-                      {someoneElseReceives && (
-                        <div className="md:col-span-2">
-                          <StorefrontField
-                            required
-                            label="Nombre completo de quien recibe"
-                            placeholder="Nombre de la persona que recibe"
-                            value={formData.receiverName}
-                            onChange={(event) => setFormData({
-                              ...formData,
-                              receiverName: formatCustomerName(event.target.value),
-                            })}
-                          />
-                        </div>
-                      )}
-                    </div>
-                    <StorefrontNote icon={MessageCircle}>
-                      Selecciona el código de país correcto e ingresa únicamente los dígitos de tu número de WhatsApp. Enviaremos ahí las confirmaciones y actualizaciones de tu pedido.
-                    </StorefrontNote>
-                  </StorefrontCheckoutSection>
-                </div>
-
-                <div className={checkoutStep === 2 ? "sf-checkout-step-store-active block" : "hidden lg:block"}>
-                  <StorefrontCheckoutSection
-                    title={requiresFullAddress ? "Dirección y ubicación" : "Ubicación de entrega"}
-                    icon={MapPin}
-                    motionKey={`store-checkout-${checkoutStep}-location`}
-                    motionReady={checkoutMotionReady}
-                    motionDelayMs={
-                      STOREFRONT_CHECKOUT_SEQUENCE_MS.stepHeaderDelayMs
-                      + (checkoutStep === 2 ? 0 : STOREFRONT_CHECKOUT_SEQUENCE_MS.stepItemStaggerMs * 2)
-                    }
-                  >
-                    <p className="sf-text-secondary text-stone-500">
-                      Indica dónde coordinaremos la entrega de los productos de tu pedido.
-                    </p>
-                    <div className="flex flex-col" style={{ gap: "var(--sf-space-md)" }}>
-                      {requiresFullAddress && (
-                        <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "var(--sf-space-md)" }}>
-                          <div className="md:col-span-2">
-                            <StorefrontField
-                              required
-                              label="Calle y número interior o exterior"
-                              placeholder="Ej. Av. Hidalgo 123"
-                              value={formData.shippingStreet}
-                              onChange={(event) => setFormData({ ...formData, shippingStreet: event.target.value })}
-                            />
-                          </div>
-                          <StorefrontField
-                            required
-                            label="Colonia"
-                            placeholder="Ej. Centro"
-                            value={formData.shippingNeighborhood}
-                            onChange={(event) => setFormData({ ...formData, shippingNeighborhood: event.target.value })}
-                          />
-                          <StorefrontField
-                            required
-                            label="Código postal"
-                            placeholder="Ej. 78000"
-                            value={formData.shippingPostalCode}
-                            onChange={(event) => setFormData({ ...formData, shippingPostalCode: event.target.value })}
-                          />
-                        </div>
-                      )}
-                      <div className="grid grid-cols-1 md:grid-cols-2" style={{ gap: "var(--sf-space-md)" }}>
-                        <StorefrontField
-                          required
-                          label="Ciudad"
-                          placeholder="Ej. San Luis Potosí"
-                          value={formData.shippingCity}
-                          onChange={(event) => setFormData({ ...formData, shippingCity: event.target.value })}
-                        />
-                        <ZoneSelect
-                          selectedZone={selectedZone}
-                          setSelectedZone={(zone) => {
-                            setSelectedZone(zone);
-                            setFormData({ ...formData, shippingState: zone.name });
-                          }}
-                          zones={zones}
-                        />
-                      </div>
-                      <StorefrontNote tone={shippingStatusTone}>{shippingStatusNote}</StorefrontNote>
-                    </div>
                   </StorefrontCheckoutSection>
                 </div>
 
@@ -1794,17 +1820,17 @@ export default function CheckoutPage() {
         disabled={completionState
           ? false
           : loading || (checkoutStep === 0
-            ? !deliveryStepComplete
+            ? !customerStepComplete
             : checkoutStep === 1
-              ? !customerStepComplete
+              ? !locationStepComplete
               : checkoutStep === 2
-                ? !locationStepComplete
+                ? !deliveryStepComplete
                 : !checkoutFormComplete)}
         buttonLabel={completionState
           ? "Volver a la tienda"
-          : checkoutStep === 0 && !settingsReady
+          : checkoutStep === 2 && !settingsReady
             ? "Cargando"
-            : checkoutStep === 0 && needsDeliveryChoice && !formData.deliveryMethod
+            : checkoutStep === 2 && needsDeliveryChoice && !formData.deliveryMethod
               ? "Selecciona método"
               : checkoutStep === 3
                 ? summaryActionLabel

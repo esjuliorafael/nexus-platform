@@ -110,6 +110,28 @@ const DetailField = ({
   </div>
 );
 
+const OrderSummaryField = ({
+  label,
+  value,
+  emphasis = false,
+  wide = false,
+}: {
+  label: string;
+  value: React.ReactNode;
+  emphasis?: boolean;
+  wide?: boolean;
+}) => (
+  <div className={`min-w-0 ${wide ? 'sm:col-span-2' : ''}`}>
+    <p className="text-label uppercase tracking-[0.15em] text-text-muted">{label}</p>
+    <div
+      className={`${emphasis ? 'text-h2 font-bold' : 'text-secondary font-bold'} break-words text-text-main`}
+      style={{ marginTop: 'var(--space-xs)' }}
+    >
+      {value}
+    </div>
+  </div>
+);
+
 interface OrderDetailViewProps {
   order: Order;
   onBack: () => void;
@@ -156,6 +178,54 @@ const getPaymentStatusLabel = (status?: string | null) => {
   if (status === 'EXPIRED') return 'Expirado';
   if (status === 'CANCELLED') return 'Cancelado';
   return 'Pendiente';
+};
+
+const getOrderStatusPresentation = (status?: string | null) => {
+  switch (String(status || '').toUpperCase()) {
+    case 'PAID':
+    case 'PAGADO':
+      return { label: 'Pagada', variant: 'success' as const, icon: CheckCircle2 };
+    case 'SHIPPED':
+      return { label: 'Enviada', variant: 'info' as const, icon: Truck };
+    case 'DELIVERED':
+      return { label: 'Entregada', variant: 'success' as const, icon: CheckCircle2 };
+    case 'CANCELLED':
+      return { label: 'Cancelada', variant: 'danger' as const, icon: CircleX };
+    case 'PAYMENT_REVIEW':
+      return { label: 'En revisión', variant: 'warning' as const, icon: Clock };
+    case 'NOT_COMPLETED':
+      return { label: 'No completada', variant: 'muted' as const, icon: CircleX };
+    case 'PENDING':
+    case 'PENDIENTE':
+      return { label: 'Pendiente', variant: 'warning' as const, icon: Clock };
+    default:
+      return { label: 'No disponible', variant: 'muted' as const, icon: Package };
+  }
+};
+
+const getPaymentStatusVariant = (status?: string | null) => {
+  switch (status) {
+    case 'APPROVED':
+      return 'success' as const;
+    case 'PENDING':
+    case 'PARTIALLY_PAID':
+      return 'warning' as const;
+    case 'REFUNDED':
+      return 'info' as const;
+    case 'FAILED':
+    case 'EXPIRED':
+    case 'CANCELLED':
+      return 'danger' as const;
+    default:
+      return 'muted' as const;
+  }
+};
+
+const getPaymentStatusIcon = (status?: string | null) => {
+  if (status === 'APPROVED') return CheckCircle2;
+  if (status === 'FAILED' || status === 'EXPIRED' || status === 'CANCELLED') return CircleX;
+  if (status === 'REFUNDED') return RotateCcw;
+  return Clock;
 };
 
 const formatShortDate = (dateStr: string) => {
@@ -312,10 +382,23 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
   }, [order.id, order.paymentStatus, order.status, showToast]);
 
   const itemsList = currentOrder?.items || [];
+  const itemCount = itemsList.reduce((count, item) => count + (Number(item?.quantity) || 0), 0);
   const hasBirds = itemsList.some(item => item?.type?.toUpperCase() === 'BIRD');
   const hasItems = itemsList.some(item => item?.type?.toUpperCase() === 'ITEM');
   const isPaymentHold = currentOrder.recordType === 'PAYMENT_HOLD';
   const isMercadoPagoOrder = currentOrder.paymentMethod === 'MERCADOPAGO';
+  const orderStatus = getOrderStatusPresentation(currentOrder.fulfillmentStatus || currentOrder.status);
+  const paymentMethodLabel = currentOrder.paymentMethod === 'TRANSFER'
+    ? 'Depósito / transferencia'
+    : currentOrder.paymentMethod === 'MERCADOPAGO'
+      ? 'Mercado Pago'
+      : currentOrder.paymentMethod || 'No disponible';
+  const shippingSummary = currentOrder.deliveryType === 'PICKUP'
+    ? 'No aplica · Recolección'
+    : currentOrder.shippingCost != null
+      ? formatCurrency(currentOrder.shippingCost)
+      : 'No disponible';
+  const paymentExpiry = currentOrder.paymentExpiresAt || currentOrder.expiresAt;
   const replaceableBirdItems = itemsList.filter((item) =>
     item?.type?.toUpperCase() === 'BIRD' && item.quantity === 1 && item.productId,
   );
@@ -556,32 +639,74 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
           {/* General Info Section */}
           <NexusSection
             title={isPaymentHold ? 'Intento de compra' : `Orden #${currentOrder.id}`}
-            subtitle={isPaymentHold ? 'Trazabilidad del pago con tarjeta' : 'Detalle de Orden de Venta'}
+            subtitle={isPaymentHold ? 'Trazabilidad del pago con tarjeta' : 'Resumen de la orden'}
             icon={Layers}
             iconVariant="brand"
           >
-            <div className="grid grid-cols-2 sm:grid-cols-4" style={{ gap: 'var(--space-lg)' }}>
-              <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                <div className="flex items-center text-stone-400" style={{ gap: 'var(--space-xs)' }}>
-                  <Calendar size={14} className="opacity-50" />
-                  <span className="text-label uppercase tracking-[0.15em]">Fecha</span>
+            <div className="flex flex-col" style={{ gap: 'var(--space-lg)' }}>
+              <div className="flex flex-col" style={{ gap: 'var(--space-md)' }}>
+                <h3 className="text-label uppercase tracking-[0.15em] text-text-muted">Estado y registro</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 'var(--space-lg)' }}>
+                  <OrderSummaryField
+                    label="Estado de la orden"
+                    value={<NexusBadge variant={orderStatus.variant} icon={orderStatus.icon}>{orderStatus.label}</NexusBadge>}
+                  />
+                  <OrderSummaryField label="Fecha" value={formatDateTime(currentOrder.date)} />
+                  <OrderSummaryField label="Artículos" value={itemCount} />
                 </div>
-                <p className="text-secondary text-text-main font-bold">{formatDate(currentOrder.date)}</p>
               </div>
-              <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                <div className="flex items-center text-stone-400" style={{ gap: 'var(--space-xs)' }}>
-                  <DollarSign size={14} className="opacity-50" />
-                  <span className="text-label uppercase tracking-[0.15em]">Total</span>
+
+              <div className="flex flex-col border-t border-border-main/70 pt-[var(--space-lg)]" style={{ gap: 'var(--space-md)' }}>
+                <h3 className="text-label uppercase tracking-[0.15em] text-text-muted">Pago</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 'var(--space-lg)' }}>
+                  <OrderSummaryField label="Método de pago" value={paymentMethodLabel} />
+                  <OrderSummaryField
+                    label="Estado del pago"
+                    value={
+                      <NexusBadge
+                        variant={getPaymentStatusVariant(currentOrder.paymentStatus)}
+                        icon={getPaymentStatusIcon(currentOrder.paymentStatus)}
+                      >
+                        {getPaymentStatusLabel(currentOrder.paymentStatus)}
+                      </NexusBadge>
+                    }
+                  />
+                  {['PENDING', 'PARTIALLY_PAID'].includes(currentOrder.paymentStatus || '') && paymentExpiry && (
+                    <OrderSummaryField label="Vencimiento del pago" value={formatDateTime(paymentExpiry)} />
+                  )}
                 </div>
-                <p className="text-secondary text-text-main font-bold">${(currentOrder.total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</p>
               </div>
-              <div className="flex flex-col" style={{ gap: 'var(--space-xs)' }}>
-                <div className="flex items-center text-stone-400" style={{ gap: 'var(--space-xs)' }}>
-                  <Package size={14} className="opacity-50" />
-                  <span className="text-label uppercase tracking-[0.15em]">Artículos</span>
+
+              <div className="flex flex-col border-t border-border-main/70 pt-[var(--space-lg)]" style={{ gap: 'var(--space-md)' }}>
+                <h3 className="text-label uppercase tracking-[0.15em] text-text-muted">Desglose del importe</h3>
+                <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 'var(--space-lg)' }}>
+                  <OrderSummaryField
+                    label="Subtotal"
+                    value={currentOrder.subtotal != null ? formatCurrency(currentOrder.subtotal) : 'No disponible'}
+                  />
+                  <OrderSummaryField
+                    label="Descuento"
+                    value={currentOrder.discountTotal != null
+                      ? formatCurrency(currentOrder.discountTotal > 0 ? -currentOrder.discountTotal : 0)
+                      : 'No disponible'}
+                  />
+                  {currentOrder.couponCode && (
+                    <OrderSummaryField label="Cupón" value={currentOrder.couponCode} />
+                  )}
+                  <OrderSummaryField label="Envío" value={shippingSummary} />
+                  <OrderSummaryField label="Total" value={formatCurrency(currentOrder.total)} emphasis wide />
                 </div>
-                <p className="text-secondary text-text-main font-bold">{itemsList.length}</p>
               </div>
+
+              {currentOrder.paymentStatus === 'PARTIALLY_PAID' && (
+                <div className="flex flex-col border-t border-border-main/70 pt-[var(--space-lg)]" style={{ gap: 'var(--space-md)' }}>
+                  <h3 className="text-label uppercase tracking-[0.15em] text-text-muted">Aplicación del pago</h3>
+                  <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: 'var(--space-lg)' }}>
+                    <OrderSummaryField label="Monto recibido" value={formatCurrency(currentOrder.paidAmount)} />
+                    <OrderSummaryField label="Saldo pendiente" value={formatCurrency(currentOrder.balanceDue)} emphasis />
+                  </div>
+                </div>
+              )}
             </div>
           </NexusSection>
 
@@ -636,25 +761,6 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                 </div>
               ))}
             </div>
-            <div
-              className="bg-bg-muted/50 flex justify-between items-center border-t border-border-main"
-              style={{
-                marginTop: 'var(--space-lg)',
-                padding: 'var(--padding-inner)',
-                borderRadius: 'var(--radius-inner-visual)'
-              }}
-            >
-              <span className="text-label text-text-muted uppercase tracking-[0.15em]">
-                {isPaymentHold ? 'Total del intento' : 'Total de la Orden'}
-              </span>
-              <span className="text-h1 text-text-main">${(currentOrder.total || 0).toLocaleString('es-MX', { minimumFractionDigits: 2 })}</span>
-            </div>
-            {currentOrder.paymentStatus === 'PARTIALLY_PAID' && (
-              <div className="grid grid-cols-2 border-t border-border-main pt-[var(--space-md)] text-secondary" style={{ gap: 'var(--space-md)' }}>
-                <DetailField label="Monto recibido" value={formatCurrency(currentOrder.paidAmount)} />
-                <DetailField label="Saldo pendiente" value={formatCurrency(currentOrder.balanceDue)} />
-              </div>
-            )}
           </NexusSection>
 
           <NexusModal
@@ -1058,6 +1164,25 @@ export const OrderDetailView: React.FC<OrderDetailViewProps> = ({
                     <p className="text-secondary leading-relaxed text-stone-300">
                       {currentOrder.customerAddress || 'No se proporcionó dirección completa.'}
                     </p>
+                  </div>
+                </div>
+              )}
+
+              {(currentOrder.receiverName || currentOrder.receiverPhone) && (
+                <div className="flex flex-col" style={{ gap: 'var(--space-sm)' }}>
+                  <div className="flex items-center text-emerald-400" style={{ gap: 'var(--space-xs)' }}>
+                    <User size={16} strokeWidth={2.5} />
+                    <span className="text-label uppercase tracking-[0.15em]">Persona que recibe</span>
+                  </div>
+                  <div
+                    className="bg-white/5 border border-white/10"
+                    style={{
+                      padding: 'var(--padding-inner)',
+                      borderRadius: 'var(--radius-inner-visual)'
+                    }}
+                  >
+                    {currentOrder.receiverName && <p className="text-secondary font-semibold text-stone-200">{currentOrder.receiverName}</p>}
+                    {currentOrder.receiverPhone && <p className="text-secondary mt-[var(--space-xs)] text-stone-400">WhatsApp: {currentOrder.receiverPhone}</p>}
                   </div>
                 </div>
               )}

@@ -269,6 +269,7 @@ export function OrderAccessClient({
               <h2 className="sf-text-h2 text-stone-900">Entrega</h2>
               <p className="sf-text-secondary mt-[var(--sf-space-xs)] text-stone-500">{deliveryLabel(delivery.type)}</p>
               {delivery.receiverName && <p className="sf-text-secondary mt-[var(--sf-space-sm)] text-stone-700">Recibe: <span className="font-semibold">{delivery.receiverName}</span></p>}
+              {delivery.receiverPhone && <p className="sf-text-secondary mt-[var(--sf-space-xs)] text-stone-700">Teléfono de quien recibe: <span className="font-semibold">{delivery.receiverPhone}</span></p>}
               {delivery.type === "SHIPPING" && shippingLines.length > 0 && (
                 <p className="sf-text-secondary mt-[var(--sf-space-sm)] whitespace-pre-line text-stone-700">{shippingLines.join("\n")}</p>
               )}

@@ -60,6 +60,7 @@ export type PaymentRecoveryResponse =
         phone: string;
         email?: string | null;
         receiverName?: string | null;
+        receiverPhone?: string | null;
       };
       delivery: {
         type: 'SHIPPING' | 'PICKUP';

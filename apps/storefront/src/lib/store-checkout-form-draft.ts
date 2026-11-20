@@ -6,6 +6,7 @@ export interface StoreCheckoutFormData {
   customerEmail: string;
   customerPhone: string;
   receiverName: string;
+  receiverPhone: string;
   shippingAddress: string;
   shippingStreet: string;
   shippingNeighborhood: string;
@@ -25,8 +26,16 @@ export interface StoreCheckoutFormDraft {
 
 const key = 'nexus_store_checkout_form_draft';
 const draftTtlMs = 7 * 24 * 60 * 60 * 1000;
+const currentFlowVersion = 2;
+const legacyStepMap: Record<StoreCheckoutStep, StoreCheckoutStep> = {
+  0: 2,
+  1: 0,
+  2: 1,
+  3: 3,
+};
 
 interface StoredStoreCheckoutFormDraft extends StoreCheckoutFormDraft {
+  flowVersion?: number;
   savedAt?: number;
 }
 
@@ -49,7 +58,11 @@ function readPersistedDraft() {
 
 export function saveStoreCheckoutFormDraft(draft: StoreCheckoutFormDraft) {
   if (typeof window === 'undefined') return;
-  const storedDraft: StoredStoreCheckoutFormDraft = { ...draft, savedAt: Date.now() };
+  const storedDraft: StoredStoreCheckoutFormDraft = {
+    ...draft,
+    flowVersion: currentFlowVersion,
+    savedAt: Date.now(),
+  };
   try {
     window.localStorage.setItem(key, JSON.stringify(storedDraft));
   } catch {
@@ -69,7 +82,16 @@ export function getStoreCheckoutFormDraft(): StoreCheckoutFormDraft | null {
     }
     if (!draft?.formData || !Array.from([0, 1, 2, 3] as const).includes(draft.checkoutStep)) return null;
     if (draft.paymentMethod !== 'TRANSFER' && draft.paymentMethod !== 'MERCADOPAGO') return null;
-    return draft;
+    return {
+      ...draft,
+      formData: {
+        ...draft.formData,
+        receiverPhone: draft.formData.receiverPhone || '',
+      },
+      checkoutStep: draft.flowVersion === currentFlowVersion
+        ? draft.checkoutStep
+        : legacyStepMap[draft.checkoutStep],
+    };
   } catch {
     return null;
   }

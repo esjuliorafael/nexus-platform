@@ -63,9 +63,12 @@ export interface Order {
   customer: string;
   customerPhone?: string;
   receiverName?: string | null;
+  receiverPhone?: string | null;
   customerState: string;
   customerAddress?: string;
   deliveryMethod?: string | null;
+  deliveryType?: "SHIPPING" | "PICKUP" | null;
+  couponCode?: string | null;
   shippingStreet?: string | null;
   shippingNeighborhood?: string | null;
   shippingPostalCode?: string | null;

@@ -439,7 +439,7 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
       <div className="flex flex-col lg:col-span-2" style={{ gap: "var(--space-lg)" }}>
         <NexusSection
           title={isPaymentHold ? "Intento de participación" : "Participación"}
-          subtitle={isPaymentHold ? "Trazabilidad del pago con tarjeta" : "Resumen del apartado"}
+          subtitle={isPaymentHold ? "Trazabilidad del pago con tarjeta" : "Resumen de la participación"}
           icon={isPaymentHold ? AlertTriangle : Ticket}
           iconVariant={detail.status === "PAYMENT_REVIEW" ? "orange" : "brand"}
           actionPlacement="below"
@@ -455,45 +455,66 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
             ) : undefined
           }
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-lg)" }}>
-            <Field label="Estado" value={<NexusBadge variant={statusVariant} icon={statusIcon}>{statusLabel}</NexusBadge>} />
-            <Field label="Método de pago" value={detail.paymentMethod === "MERCADOPAGO" ? "Tarjeta de crédito o débito" : "Depósito / Transferencia"} />
-            {!isPaymentHold && (
-              <Field
-                label="Estado financiero"
-                value={(
-                  <div className="flex flex-col items-start" style={{ gap: "var(--space-xs)" }}>
-                    <NexusBadge variant={financialStatusVariant} icon={financialStatusIcon}>
-                      {financialStatusLabel}
-                    </NexusBadge>
-                    {!financialStatusIsRecognized && detail.financialStatusReason && (
-                      <span className="text-secondary text-text-muted">
-                        {financialReasonLabel(detail.financialStatusReason)}
-                      </span>
-                    )}
-                  </div>
+          <div className="flex flex-col" style={{ gap: "var(--space-lg)" }}>
+            <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+              <h3 className="text-label uppercase tracking-[0.15em] text-text-muted">Contexto de la participación</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-lg)" }}>
+                <Field label="Rifa" value={detail.raffleTitle} />
+                <Field
+                  label="Modalidad"
+                  value={detail.participationMode === "SHARED"
+                    ? <NexusBadge variant="info" icon={UsersRound}>Compartida</NexusBadge>
+                    : <NexusBadge variant="muted" icon={Ticket}>Completa</NexusBadge>}
+                />
+                <Field label="Fecha" value={<span className="flex items-center" style={{ gap: "var(--space-xs)" }}><Calendar style={metadataIconStyle} aria-hidden="true" />{formatDateTime(detail.createdAt)}</span>} />
+                {isPaymentHold && detail.expiresAt && <Field label="Retención hasta" value={formatDateTime(detail.expiresAt)} />}
+              </div>
+            </div>
+
+            <div className="flex flex-col border-t border-border-main/70 pt-[var(--space-lg)]" style={{ gap: "var(--space-md)" }}>
+              <h3 className="text-label uppercase tracking-[0.15em] text-text-muted">Estado y gestión</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-lg)" }}>
+                <Field label="Estado de la participación" value={<NexusBadge variant={statusVariant} icon={statusIcon}>{statusLabel}</NexusBadge>} />
+                <Field label="Método de pago" value={detail.paymentMethod === "MERCADOPAGO" ? "Tarjeta de crédito o débito" : "Depósito / Transferencia"} />
+                {!isPaymentHold && (
+                  <Field
+                    label="Origen"
+                    value={<NexusBadge variant={originVariant} icon={originIcon}>{originLabel}</NexusBadge>}
+                  />
                 )}
-              />
-            )}
-            {!isPaymentHold && (
-              <Field
-                label="Origen"
-                value={<NexusBadge variant={originVariant} icon={originIcon}>{originLabel}</NexusBadge>}
-              />
-            )}
-            <Field
-              label="Modalidad"
-              value={detail.participationMode === "SHARED"
-                ? <NexusBadge variant="info" icon={UsersRound}>Compartida</NexusBadge>
-                : <NexusBadge variant="muted" icon={Ticket}>Completa</NexusBadge>}
-            />
-            <Field label="Rifa" value={detail.raffleTitle} />
-            <Field label="Fecha" value={<span className="flex items-center" style={{ gap: "var(--space-xs)" }}><Calendar style={metadataIconStyle} aria-hidden="true" />{formatDateTime(detail.createdAt)}</span>} />
-            {isPaymentHold && detail.expiresAt && <Field label="Retención hasta" value={formatDateTime(detail.expiresAt)} />}
-            <Field label="Subtotal" value={formatCurrency(detail.subtotal)} />
-            <Field label="Descuento" value={formatCurrency(detail.discountTotal)} />
-            <Field label="Total" value={<span className="text-h1 tabular-nums">{detail.ticketCount > 0 ? formatCurrency(detail.total) : "No disponible"}</span>} />
-            {detail.couponCode && <Field label="Cupón" value={detail.couponCode} />}
+                {!isPaymentHold && (
+                  <Field
+                    label="Estado financiero"
+                    value={(
+                      <div className="flex flex-col items-start" style={{ gap: "var(--space-xs)" }}>
+                        <NexusBadge variant={financialStatusVariant} icon={financialStatusIcon}>
+                          {financialStatusLabel}
+                        </NexusBadge>
+                        {!financialStatusIsRecognized && detail.financialStatusReason && (
+                          <span className="text-secondary text-text-muted">
+                            {financialReasonLabel(detail.financialStatusReason)}
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  />
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col border-t border-border-main/70 pt-[var(--space-lg)]" style={{ gap: "var(--space-md)" }}>
+              <h3 className="text-label uppercase tracking-[0.15em] text-text-muted">Desglose del importe</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-lg)" }}>
+                <Field label="Subtotal" value={formatCurrency(detail.subtotal)} />
+                <Field label="Descuento" value={formatCurrency(detail.discountTotal)} />
+                {detail.couponCode && <Field label="Cupón" value={detail.couponCode} />}
+                <Field
+                  label="Total"
+                  wide
+                  value={<span className="text-h1 tabular-nums">{detail.ticketCount > 0 ? formatCurrency(detail.total) : "No disponible"}</span>}
+                />
+              </div>
+            </div>
           </div>
         </NexusSection>
 
@@ -794,10 +815,45 @@ export const RaffleParticipationDetailView: React.FC<RaffleParticipationDetailVi
             ) : undefined
           }
         >
-          <div className="grid grid-cols-1 sm:grid-cols-2" style={{ gap: "var(--space-lg)" }}>
-            <Field label="Nombre completo" value={detail.customerName} />
-            <Field label="WhatsApp" value={<span className="flex items-center" style={{ gap: "var(--space-xs)" }}><Phone style={metadataIconStyle} aria-hidden="true" />{detail.customerPhone}</span>} />
-            <Field label="Estado" value={<span className="flex items-center" style={{ gap: "var(--space-xs)" }}><MapPin style={metadataIconStyle} aria-hidden="true" />{detail.customerState || "Sin especificar"}</span>} />
+          <div className="flex flex-col" style={{ gap: "var(--space-md)" }}>
+            <div className="flex min-w-0 items-center" style={{ gap: "var(--space-md)" }}>
+              <div
+                className="flex h-12 w-12 shrink-0 items-center justify-center border border-border-main bg-bg-muted text-stone-400"
+                style={{ borderRadius: "var(--radius-inner-visual)" }}
+              >
+                <UserRound size={20} strokeWidth={2} aria-hidden="true" />
+              </div>
+              <div className="flex min-w-0 flex-col" style={{ gap: "var(--space-xs)" }}>
+                <p className="text-label uppercase tracking-[0.15em] text-stone-400">Nombre</p>
+                <p className="break-words text-secondary font-bold text-text-main">{detail.customerName}</p>
+              </div>
+            </div>
+
+            <div className="flex min-w-0 items-center" style={{ gap: "var(--space-md)" }}>
+              <div
+                className="flex h-12 w-12 shrink-0 items-center justify-center border border-border-main bg-bg-muted text-stone-400"
+                style={{ borderRadius: "var(--radius-inner-visual)" }}
+              >
+                <Phone size={20} strokeWidth={2} aria-hidden="true" />
+              </div>
+              <div className="flex min-w-0 flex-col" style={{ gap: "var(--space-xs)" }}>
+                <p className="text-label uppercase tracking-[0.15em] text-stone-400">WhatsApp</p>
+                <p className="break-words text-secondary font-bold text-text-main">{detail.customerPhone}</p>
+              </div>
+            </div>
+
+            <div className="flex min-w-0 items-center" style={{ gap: "var(--space-md)" }}>
+              <div
+                className="flex h-12 w-12 shrink-0 items-center justify-center border border-border-main bg-bg-muted text-stone-400"
+                style={{ borderRadius: "var(--radius-inner-visual)" }}
+              >
+                <MapPin size={20} strokeWidth={2} aria-hidden="true" />
+              </div>
+              <div className="flex min-w-0 flex-col" style={{ gap: "var(--space-xs)" }}>
+                <p className="text-label uppercase tracking-[0.15em] text-stone-400">Estado</p>
+                <p className="break-words text-secondary font-bold text-text-main">{detail.customerState || "Sin especificar"}</p>
+              </div>
+            </div>
           </div>
         </NexusSection>
 

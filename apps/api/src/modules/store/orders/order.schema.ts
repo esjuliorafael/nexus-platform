@@ -9,7 +9,8 @@ export const createOrderSchema = z.object({
   customerName: z.string().min(1),
   customerEmail: z.string().email().optional().or(z.literal("")),
   customerPhone: customerPhoneSchema,
-  receiverName: z.string().optional(),
+  receiverName: z.string().trim().optional(),
+  receiverPhone: customerPhoneSchema.optional(),
   shippingAddress: z.string().optional(),
   shippingStreet: z.string().optional(),
   shippingNeighborhood: z.string().optional(),
@@ -28,6 +29,18 @@ export const createOrderSchema = z.object({
       quantity: z.number().int().positive(),
     })
   ).min(1),
+}).superRefine((data, context) => {
+  const hasReceiverName = Boolean(data.receiverName?.trim());
+  const hasReceiverPhone = Boolean(data.receiverPhone);
+  if (hasReceiverName === hasReceiverPhone) return;
+
+  context.addIssue({
+    code: z.ZodIssueCode.custom,
+    path: [hasReceiverName ? "receiverPhone" : "receiverName"],
+    message: hasReceiverName
+      ? "El teléfono de quien recibe es obligatorio."
+      : "El nombre de quien recibe es obligatorio.",
+  });
 });
 
 export const updateOrderStatusSchema = z.object({

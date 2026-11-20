@@ -4,6 +4,8 @@ export interface StoreOrderResponse {
   id: number | string;
   total?: number | string;
   customerName?: string;
+  receiverName?: string | null;
+  receiverPhone?: string | null;
   deliveryType?: 'SHIPPING' | 'PICKUP';
   status?: string;
   paymentMethod?: 'TRANSFER' | 'MERCADOPAGO';
@@ -33,6 +35,7 @@ export interface StoreOrderAccessResponse {
       type: 'SHIPPING' | 'PICKUP';
       method: string | null;
       receiverName: string | null;
+      receiverPhone: string | null;
       address: string | null;
       street: string | null;
       neighborhood: string | null;
